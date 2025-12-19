@@ -72,3 +72,102 @@ func TestVariableCreate(t *testing.T) {
 	assert.NoError(t, err)
 	assertTrimmed(t, "false", f.Run("var:get", "-p", projectID, "env:TEST", "-l", "p", "-P", "visible_runtime"))
 }
+
+func TestVariableCreateWithAppScope(t *testing.T) {
+	authServer := mockapi.NewAuthServer(t)
+	t.Cleanup(authServer.Close)
+
+	apiHandler := mockapi.NewHandler(t)
+	apiServer := httptest.NewServer(apiHandler)
+	t.Cleanup(apiServer.Close)
+
+	projectID := mockapi.ProjectID()
+
+	apiHandler.SetProjects([]*mockapi.Project{{
+		ID: projectID,
+		Links: mockapi.MakeHALLinks(
+			"self=/projects/"+projectID,
+			"environments=/projects/"+projectID+"/environments",
+		),
+		DefaultBranch: "main",
+	}})
+
+	main := makeEnv(projectID, "main", "production", "active", nil)
+	main.Links["#variables"] = mockapi.HALLink{HREF: "/projects/" + projectID + "/environments/main/variables"}
+	main.Links["#manage-variables"] = mockapi.HALLink{HREF: "/projects/" + projectID + "/environments/main/variables"}
+	main.SetCurrentDeployment(&mockapi.Deployment{
+		WebApps: map[string]mockapi.App{
+			"app1": {Name: "app1", Type: "golang:1.23"},
+			"app2": {Name: "app2", Type: "php:8.3"},
+		},
+		Routes: map[string]any{},
+		Links:  mockapi.MakeHALLinks("self=/projects/" + projectID + "/environments/main/deployment/current"),
+	})
+	apiHandler.SetEnvironments([]*mockapi.Environment{main})
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+
+	_, stdErr, err := f.RunCombinedOutput("var:create", "-p", projectID, "-l", "p",
+		"env:SCOPED", "--value", "val", "--app-scope", "app1")
+	assert.NoError(t, err)
+	assert.Contains(t, stdErr, "Creating variable env:SCOPED")
+
+	out := f.Run("var:get", "-p", projectID, "-l", "p", "env:SCOPED", "-P", "application_scope")
+	assert.Contains(t, out, "app1")
+
+	_, _, err = f.RunCombinedOutput("var:create", "-p", projectID, "-l", "p",
+		"env:MULTI", "--value", "val", "--app-scope", "app1", "--app-scope", "app2")
+	assert.NoError(t, err)
+
+	out = f.Run("var:get", "-p", projectID, "-l", "p", "env:MULTI", "-P", "application_scope")
+	assert.Contains(t, out, "app1")
+	assert.Contains(t, out, "app2")
+
+	_, stdErr, err = f.RunCombinedOutput("var:create", "-p", projectID, "-l", "p",
+		"env:BAD", "--value", "val", "--app-scope", "nonexistent")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, "was not found")
+
+	_, _, err = f.RunCombinedOutput("var:update", "-p", projectID, "-l", "p",
+		"env:SCOPED", "--app-scope", "app2")
+	assert.NoError(t, err)
+
+	out = f.Run("var:get", "-p", projectID, "-l", "p", "env:SCOPED", "-P", "application_scope")
+	assert.Contains(t, out, "app2")
+}
+
+func TestVariableCreateWithAppScopeNoDeployment(t *testing.T) {
+	// Uses an environment without a deployment, so app-scope validation is skipped.
+	authServer := mockapi.NewAuthServer(t)
+	t.Cleanup(authServer.Close)
+
+	apiHandler := mockapi.NewHandler(t)
+	apiServer := httptest.NewServer(apiHandler)
+	t.Cleanup(apiServer.Close)
+
+	projectID := mockapi.ProjectID()
+
+	apiHandler.SetProjects([]*mockapi.Project{{
+		ID: projectID,
+		Links: mockapi.MakeHALLinks(
+			"self=/projects/"+projectID,
+			"environments=/projects/"+projectID+"/environments",
+		),
+		DefaultBranch: "main",
+	}})
+
+	main := makeEnv(projectID, "main", "production", "active", nil)
+	main.Links["#variables"] = mockapi.HALLink{HREF: "/projects/" + projectID + "/environments/main/variables"}
+	main.Links["#manage-variables"] = mockapi.HALLink{HREF: "/projects/" + projectID + "/environments/main/variables"}
+	apiHandler.SetEnvironments([]*mockapi.Environment{main})
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+
+	_, stdErr, err := f.RunCombinedOutput("var:create", "-p", projectID, "-l", "p",
+		"env:ANY_APP", "--value", "val", "--app-scope", "anyapp")
+	assert.NoError(t, err)
+	assert.Contains(t, stdErr, "Creating variable env:ANY_APP")
+
+	out := f.Run("var:get", "-p", projectID, "-l", "p", "env:ANY_APP", "-P", "application_scope")
+	assert.Contains(t, out, "anyapp")
+}
