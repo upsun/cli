@@ -22,7 +22,7 @@ require (
 	github.com/wk8/go-ordered-map/v2 v2.1.8
 	golang.org/x/crypto v0.42.0
 	golang.org/x/oauth2 v0.31.0
-	golang.org/x/sync v0.17.0
+	golang.org/x/sync v0.19.0
 	golang.org/x/term v0.35.0
 	gopkg.in/yaml.v3 v3.0.1
 )
