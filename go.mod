@@ -18,7 +18,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/symfony-cli/terminal v1.0.7
 	github.com/upsun/lib-sun v0.3.16
-	github.com/upsun/whatsun v0.1.0
+	github.com/upsun/whatsun v0.2.0
 	github.com/wk8/go-ordered-map/v2 v2.1.8
 	golang.org/x/crypto v0.42.0
 	golang.org/x/oauth2 v0.31.0
