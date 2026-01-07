@@ -192,6 +192,32 @@ git tag -m 'Release v5.0.0' 'v5.0.0'
 make release
 ```
 
+## Development
+
+Before building or testing, download the PHP binary and build the legacy CLI phar:
+
+```console
+make php internal/legacy/archives/platform.phar
+```
+
+Run tests:
+
+```console
+make test                # Unit tests
+make single              # Build CLI (required for integration tests)
+make integration-test    # Integration tests
+```
+
+Run linters:
+
+```console
+make lint
+```
+
+For AI coding agents (GitHub Copilot, Claude, Cursor, etc.), see [AGENTS.md](AGENTS.md) for detailed guidance on the codebase structure, patterns, and conventions.
+
+For the legacy PHP CLI, see [legacy/CONTRIBUTING.md](legacy/CONTRIBUTING.md).
+
 ## Licenses
 
 This binary redistributes PHP in a binary form, which comes with the [PHP License](https://www.php.net/license/3_01.txt).
