@@ -651,6 +651,28 @@ class Config
     }
 
     /**
+     * Returns the event name for analytics tracking.
+     *
+     * The event name is typically the command name (e.g., "backup:restore")
+     * passed from the Go wrapper via an environment variable.
+     */
+    public function getEventName(): ?string
+    {
+        $value = getenv($this->getStr('application.env_prefix') . 'EVENT_NAME');
+        return $value !== false ? $value : null;
+    }
+
+    /**
+     * Returns whether the CLI is running in interactive mode.
+     *
+     * This is determined by the NO_INTERACTION environment variable.
+     */
+    public function isInteractive(): bool
+    {
+        return getenv($this->getStr('application.env_prefix') . 'NO_INTERACTION') !== '1';
+    }
+
+    /**
      * Returns all the current configuration.
      *
      * @return array<string, mixed>
