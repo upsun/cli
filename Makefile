@@ -9,10 +9,12 @@ ifeq ($(GOARCH), aarch64)
 	GOARCH=arm64
 endif
 
-GORELEASER_ID ?= upsun
+FLAVOR ?= upsun
 
 ifeq ($(GOOS), darwin)
-	GORELEASER_ID := $(GORELEASER_ID)-macos
+	GORELEASER_ID = $(FLAVOR)-macos
+else
+	GORELEASER_ID = $(FLAVOR)
 endif
 
 VERSION := $(shell git describe --always)
