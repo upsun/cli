@@ -148,6 +148,7 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		newHelpCommand(cnf),
 		newInitCommand(cnf, assets),
 		newListCommand(cnf),
+		newProjectListCommand(cnf),
 		validateCmd,
 		versionCommand,
 	)
