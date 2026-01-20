@@ -53,7 +53,7 @@ go test -v -run TestName ./path/to/package
 ### Hybrid CLI System
 
 The CLI operates as a wrapper around a legacy PHP CLI:
-- Go layer: Handles new commands (init, list, version, config:install, project:convert) and core infrastructure
+- Go layer: Handles new commands (init, list, version, config:install, project:convert, project:list) and core infrastructure
 - PHP layer: Legacy commands are proxied through `internal/legacy/CLIWrapper`
 - The PHP CLI (platform.phar) is embedded at build time via go:embed
 
@@ -66,7 +66,7 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 
 **Commands**: `commands/`
 - `root.go`: Root command that sets up the Cobra CLI and delegates to legacy CLI when needed
-- Native Go commands: init, list, version, config:install, project:convert, completion
+- Native Go commands: init, list, version, config:install, project:convert, project:list, completion
 - Unrecognized commands are passed to the legacy PHP CLI
 
 **Configuration**: `internal/config/`
@@ -87,15 +87,28 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 
 **API Client**: `internal/api/`
 - HTTP client for interacting with Platform.sh/Upsun API
-- Handles authentication, organizations, and resource management
+- Handles authentication, organizations, projects, and resource management
+- Uses HAL links from API responses for signed URL requests
 
 **Authentication**: `internal/auth/`
 - JWT handling and OAuth2 flow
 - Custom transport for API authentication
+- `LegacyCLIClient` wraps auth through the legacy CLI's token management
+
+**Table Output**: `internal/tableoutput/`
+- Provides terminal-width-aware table formatting
+- Automatically wraps text to fit terminal width
+- Supports table, plain (TSV), and CSV output formats
 
 **Project Initialization**: `internal/init/`
 - AI-powered project configuration generation
 - Integrates with whatsun library for codebase analysis
+
+## Migrating Commands from PHP to Go
+
+> **Use the specialized agent**: For migrating CLI commands from PHP to Go, use the **PHP to Go Command Migrator Specialist Agent** located at `.github/agents/migrator-php-to-go.agent.md`. This agent has detailed instructions for the migration workflow, API patterns, and testing requirements.
+>
+> In VS Code with GitHub Copilot, you can activate this agent by referencing it in chat or using the agent picker.
 
 ### Build System
 

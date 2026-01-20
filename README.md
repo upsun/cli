@@ -192,6 +192,19 @@ git tag -m 'Release v5.0.0' 'v5.0.0'
 make release
 ```
 
+## Contributing
+
+### Migrating Commands from PHP to Go
+
+This CLI is being incrementally migrated from PHP (Symfony Console) to Go (Cobra). If you want to help migrate commands, use the **PHP to Go Command Migrator Specialist Agent** located at `.github/agents/migrator-php-to-go.agent.md`.
+
+The agent provides detailed instructions for:
+- Analyzing PHP commands in `legacy/src/Command/`
+- Implementing API client methods in `internal/api/`
+- Creating Go commands in `commands/`
+- Writing integration tests
+- Ensuring output matches the legacy PHP CLI exactly
+
 ## Licenses
 
 This binary redistributes PHP in a binary form, which comes with the [PHP License](https://www.php.net/license/3_01.txt).

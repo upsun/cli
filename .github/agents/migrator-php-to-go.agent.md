@@ -205,6 +205,72 @@ The Go command output MUST be character-for-character identical to PHP output fo
 
 Use the `tablewriter` package or similar to match PHP's table output format.
 
+## Implementation Patterns
+
+### API Patterns - Use HAL Links
+
+**CRITICAL**: The API uses signed HAL links. Never construct API URLs manually for reference endpoints.
+
+```go
+// WRONG - will fail with "sig is a required field" error
+refURL := "ref/projects?in=" + strings.Join(ids, ",")
+
+// CORRECT - extract HAL links from API responses
+projectRefURL := extractHALLink(accessResp.Links, "ref:projects")
+```
+
+The API returns `_links` in responses containing pre-signed URLs. Always use these links:
+- `ref:projects:0` - Link to fetch project references
+- `ref:organizations:0` - Link to fetch organization references
+- These links include a `sig` parameter required by the real API
+
+### Authentication Pattern
+
+Use `auth.NewLegacyCLIClient` to get an authenticated HTTP client:
+
+```go
+legacyCLIClient, err := auth.NewLegacyCLIClient(ctx,
+    makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), cmd.ErrOrStderr(), cmd.InOrStdin()))
+if err != nil {
+    return err
+}
+if err := legacyCLIClient.EnsureAuthenticated(ctx); err != nil {
+    return err
+}
+apiClient, err := api.NewClient(cnf.API.BaseURL, legacyCLIClient.HTTPClient)
+```
+
+### Table Output - Terminal Width Handling
+
+**CRITICAL**: The legacy PHP CLI uses `AdaptiveTable` which wraps text to terminal width. The Go implementation must do the same.
+
+Use `internal/tableoutput` which:
+- Detects terminal width using `golang.org/x/term`
+- Shrinks columns proportionally when table is too wide
+- Word-wraps cell content at word boundaries
+- Handles multi-line cells properly
+
+```go
+table := tableoutput.New("ID", "Title", "Region")
+table.AddRow("proj-1", "Project 1", "us-3.platform.sh")
+table.RenderTable(cmd.OutOrStdout()) // Auto-detects terminal width
+```
+
+### Column Configuration
+
+Support dynamic columns like the PHP CLI:
+- Default columns based on config (e.g., org columns when organizations enabled)
+- `--columns` flag for custom column selection
+- `--format` flag for output format (table, plain, csv)
+
+### Common Pitfalls to Avoid
+
+1. **Don't construct ref URLs manually** - Use HAL links from API responses
+2. **Don't ignore terminal width** - Tables must wrap to fit
+3. **Don't forget authentication** - Use LegacyCLIClient for auth
+4. **Don't use `for _, x := range` with large structs** - Use index to avoid copies
+5. **Test with real API** - Mock tests may not catch sig parameter issues
+
 ## Decision Points - Ask the User
 
 If you encounter any of these situations, STOP and ask the user:
