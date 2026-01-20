@@ -51,11 +51,6 @@ jobs:
           cd legacy
           composer install --no-interaction --prefer-dist
 
-      - name: Build legacy CLI (PHAR)
-        run: |
-          cd legacy
-          composer exec box compile
-
       - name: Build CLI binary (for integration tests)
         run: make single
 
