@@ -12,7 +12,7 @@ import (
 	"github.com/upsun/cli/internal/api"
 	"github.com/upsun/cli/internal/auth"
 	"github.com/upsun/cli/internal/config"
-	"github.com/upsun/cli/pkg/tableoutput"
+	"github.com/upsun/cli/internal/tableoutput"
 )
 
 // Column definitions for project list
@@ -189,7 +189,12 @@ func runProjectList(cmd *cobra.Command, cnf *config.Config) error {
 	return renderOutput(cmd, table)
 }
 
-func filterProjects(cmd *cobra.Command, projects []*api.ProjectInfo, cnf *config.Config, apiClient *api.Client) []*api.ProjectInfo {
+func filterProjects(
+	cmd *cobra.Command,
+	projects []*api.ProjectInfo,
+	cnf *config.Config,
+	apiClient *api.Client,
+) []*api.ProjectInfo {
 	ctx := cmd.Context()
 	result := projects
 
