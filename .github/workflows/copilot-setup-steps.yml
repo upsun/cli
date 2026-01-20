@@ -1,0 +1,63 @@
+# Copilot Setup Steps
+# Pre-installs dependencies before Copilot coding agent starts working
+# See: https://docs.github.com/en/copilot/customizing-copilot/customizing-the-development-environment-for-copilot-coding-agent
+
+name: "Copilot Setup Steps"
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: >-
+            curl,
+            filter,
+            json,
+            mbstring,
+            openssl,
+            pcntl,
+            pcre,
+            phar,
+            posix,
+            zlib
+          tools: composer:v2
+          ini-values: phar.readonly=0
+
+      - name: Install Go dependencies
+        run: go mod download
+
+      - name: Install PHP dependencies
+        run: |
+          cd legacy
+          composer install --no-interaction --prefer-dist
+
+      - name: Build legacy CLI (PHAR)
+        run: |
+          cd legacy
+          composer exec box compile
+
+      - name: Build CLI binary (for integration tests)
+        run: make single
+
+      - name: Verify build
+        run: ./dist/*/upsun --version || ./dist/*/platform --version
