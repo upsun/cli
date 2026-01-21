@@ -78,9 +78,9 @@ goreleaser:
 single: goreleaser internal/legacy/archives/platform.phar php ## Build a single target release
 	PHP_VERSION=$(PHP_VERSION) goreleaser build --single-target --id=$(GORELEASER_ID) --snapshot --clean
 
-.PHONY: snapshot ## Build a snapshot release
-snapshot: goreleaser internal/legacy/archives/platform.phar php
-	PHP_VERSION=$(PHP_VERSION) goreleaser build --snapshot --clean
+.PHONY: snapshot
+snapshot: goreleaser internal/legacy/archives/platform.phar php ## Build a snapshot release
+	PHP_VERSION=$(PHP_VERSION) goreleaser release --snapshot --clean --skip=publish,announce
 
 .PHONY: clean-phar
 clean-phar: ## Clean up the legacy CLI phar
