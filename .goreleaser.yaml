@@ -294,11 +294,11 @@ nfpms:
         dst: /usr/local/share/zsh/site-functions/_platform
     apk:
       signature:
-        key_file: "{{ with .Env.NFPM_RSA_SIGNING_KEY_FILE }}{{ . }}{{ end }}"
+        key_file: "{{ with .Env.RSA_SIGNING_KEY_FILE }}{{ . }}{{ end }}"
         key_name: repositories-upsun-com
     rpm:
       signature:
-        key_file: "{{ with .Env.NFPM_GPG_SIGNING_KEY_FILE }}{{ . }}{{ end }}"
+        key_file: "{{ with .Env.GPG_SIGNING_KEY_FILE }}{{ . }}{{ end }}"
 
   - id: upsun
     homepage: https://docs.upsun.com/anchors/cli/
@@ -321,8 +321,8 @@ nfpms:
         dst: /usr/local/share/zsh/site-functions/_upsun
     apk:
       signature:
-        key_file: "{{ with .Env.NFPM_RSA_SIGNING_KEY_FILE }}{{ . }}{{ end }}"
+        key_file: "{{ with .Env.RSA_SIGNING_KEY_FILE }}{{ . }}{{ end }}"
         key_name: repositories-upsun-com
     rpm:
       signature:
-        key_file: "{{ with .Env.NFPM_GPG_SIGNING_KEY_FILE }}{{ . }}{{ end }}"
+        key_file: "{{ with .Env.GPG_SIGNING_KEY_FILE }}{{ . }}{{ end }}"
