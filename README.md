@@ -182,15 +182,22 @@ Build a snapshot for a vendor:
 make vendor-snapshot VENDOR_NAME='Vendor Name' VENDOR_BINARY='vendorcli'
 ```
 
-Create a release:
+## Creating a Release
 
-```console
-# First, create a new tag
-git tag -m 'Release v5.0.0' 'v5.0.0'
+Releases are automated via GitHub Actions. To create a new release:
 
-# Create a release (requires GITHUB_TOKEN)
-make release
-```
+1. Create and push a new tag:
+   ```console
+   git tag -m 'Release v5.0.0' 'v5.0.0'
+   git push origin v5.0.0
+   ```
+
+2. The [Release workflow](.github/workflows/release.yml) will automatically:
+   - Build binaries for all platforms
+   - Sign packages (APK, DEB, RPM)
+   - Create a GitHub release with all artifacts
+   - Publish packages to Cloudsmith
+   - Update package repositories on S3
 
 ## Licenses
 
