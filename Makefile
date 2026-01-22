@@ -19,6 +19,7 @@ VERSION := $(shell git describe --always)
 
 # Tooling versions
 GORELEASER_VERSION=v2.12.0
+REPOGEN_VERSION=v1.0.4
 
 # PHP binaries are downloaded from cli-php-builds releases.
 # See: https://github.com/upsun/cli-php-builds
@@ -73,6 +74,10 @@ php: internal/legacy/archives/php_$(GOOS)_$(GOARCH)
 .PHONY: goreleaser
 goreleaser:
 	command -v goreleaser >/dev/null || go install github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
+
+.PHONY: repogen
+repogen:
+	command -v repogen >/dev/null || go install github.com/ralt/repogen/cmd/repogen@$(REPOGEN_VERSION)
 
 .PHONY: single
 single: goreleaser internal/legacy/archives/platform.phar php ## Build a single target release

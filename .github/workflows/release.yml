@@ -35,7 +35,7 @@ jobs:
 
       - name: Get Composer cache directory
         id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+        run: echo "dir=$(cd legacy && composer config cache-files-dir)" >> $GITHUB_OUTPUT
 
       - name: Cache Composer dependencies
         uses: actions/cache@v4
@@ -50,6 +50,12 @@ jobs:
       - name: Get PHP version from Makefile
         id: php-version
         run: echo "version=$(grep '^PHP_VERSION' Makefile | cut -d= -f2 | tr -d ' ')" >> $GITHUB_OUTPUT
+
+      - name: Get tool versions from Makefile
+        id: tool-versions
+        run: |
+          echo "goreleaser=$(grep '^GORELEASER_VERSION' Makefile | cut -d= -f2 | tr -d ' ')" >> $GITHUB_OUTPUT
+          echo "repogen=$(grep '^REPOGEN_VERSION' Makefile | cut -d= -f2 | tr -d ' ')" >> $GITHUB_OUTPUT
 
       - name: Cache PHP binaries
         uses: actions/cache@v4
@@ -68,6 +74,15 @@ jobs:
           openssl rsa -in /tmp/rsa-signing-key.pem -pubout -out /tmp/rsa-signing-key.pub
           echo "${{ secrets.GPG_SIGNING_KEY }}" | base64 -d > /tmp/gpg-signing-key.asc
 
+      - name: Cache Go binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin
+          key: ${{ runner.os }}-go-bin-goreleaser-${{ steps.tool-versions.outputs.goreleaser }}-repogen-${{ steps.tool-versions.outputs.repogen }}
+
+      - name: Install Go tools
+        run: make goreleaser repogen
+
       - name: Build release (tag)
         if: startsWith(github.ref, 'refs/tags/')
         env:
@@ -83,9 +98,6 @@ jobs:
           RSA_SIGNING_KEY_FILE: /tmp/rsa-signing-key.pem
           GPG_SIGNING_KEY_FILE: /tmp/gpg-signing-key.asc
         run: make snapshot
-
-      - name: Install repogen
-        run: go install github.com/ralt/repogen/cmd/repogen@latest
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
