@@ -84,7 +84,7 @@ single: goreleaser internal/legacy/archives/platform.phar php ## Build a single 
 	PHP_VERSION=$(PHP_VERSION) goreleaser build --single-target --id=$(GORELEASER_ID) --snapshot --clean
 
 .PHONY: snapshot
-snapshot: goreleaser internal/legacy/archives/platform.phar php ## Build a snapshot release
+snapshot: goreleaser internal/legacy/archives/platform.phar php internal/legacy/archives/cacert.pem ## Build a snapshot release
 ifndef RSA_SIGNING_KEY_FILE
 	$(error RSA_SIGNING_KEY_FILE is not set. Set it to the path of your RSA private key for APK signing, or use 'make snapshot-no-nfpm' to skip packaging.)
 endif
@@ -103,7 +103,7 @@ clean-phar: ## Clean up the legacy CLI phar
 	rm -rf legacy/vendor
 
 .PHONY: release
-release: goreleaser clean-phar internal/legacy/archives/platform.phar php ## Create and publish a release
+release: goreleaser clean-phar internal/legacy/archives/platform.phar php internal/legacy/archives/cacert.pem ## Create and publish a release
 ifndef RSA_SIGNING_KEY_FILE
 	$(error RSA_SIGNING_KEY_FILE is not set. Set it to the path of your RSA private key for APK signing, or use 'make snapshot-no-nfpm' to skip packaging.)
 endif
