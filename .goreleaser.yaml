@@ -104,7 +104,7 @@ release:
     ### HomeBrew
 
     ```console
-    brew update && brew upgrade platformsh/tap/upsun-cli
+    brew update && brew upgrade upsun/tap/upsun-cli
     ```
 
     ### Scoop
@@ -126,7 +126,7 @@ release:
     ### HomeBrew
 
     ```console
-    brew update && brew upgrade platformsh/tap/platformsh-cli
+    brew update && brew upgrade upsun/tap/upsun-cli
     ```
 
     ### Scoop

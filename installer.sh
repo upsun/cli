@@ -48,7 +48,7 @@ docs_url="https://docs.upsun.com"
 support_url="https://upsun.com/contact"
 
 if [ "$VENDOR" = "platformsh" ] || [ "$VENDOR" = "platform" ]; then
-    BREW_FORMULA="platformsh/tap/platformsh-cli"
+    BREW_FORMULA="upsun/tap/platformsh-cli"
     binary="platform"
     vendor_name="Platform.sh"
     package="platformsh-cli"
