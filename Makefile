@@ -80,7 +80,17 @@ single: goreleaser internal/legacy/archives/platform.phar php ## Build a single 
 
 .PHONY: snapshot
 snapshot: goreleaser internal/legacy/archives/platform.phar php ## Build a snapshot release
+ifndef RSA_SIGNING_KEY_FILE
+	$(error RSA_SIGNING_KEY_FILE is not set. Set it to the path of your RSA private key for APK signing, or use 'make snapshot-no-nfpm' to skip packaging.)
+endif
+ifndef GPG_SIGNING_KEY_FILE
+	$(error GPG_SIGNING_KEY_FILE is not set. Set it to the path of your GPG private key for RPM signing, or use 'make snapshot-no-nfpm' to skip packaging.)
+endif
 	PHP_VERSION=$(PHP_VERSION) goreleaser release --snapshot --clean --skip=publish,announce
+
+.PHONY: snapshot-no-nfpm
+snapshot-no-nfpm: goreleaser internal/legacy/archives/platform.phar php ## Build a snapshot release without package signing
+	PHP_VERSION=$(PHP_VERSION) goreleaser release --snapshot --clean --skip=publish,announce,nfpm
 
 .PHONY: clean-phar
 clean-phar: ## Clean up the legacy CLI phar
@@ -89,6 +99,12 @@ clean-phar: ## Clean up the legacy CLI phar
 
 .PHONY: release
 release: goreleaser clean-phar internal/legacy/archives/platform.phar php ## Create and publish a release
+ifndef RSA_SIGNING_KEY_FILE
+	$(error RSA_SIGNING_KEY_FILE is not set. Set it to the path of your RSA private key for APK signing, or use 'make snapshot-no-nfpm' to skip packaging.)
+endif
+ifndef GPG_SIGNING_KEY_FILE
+	$(error GPG_SIGNING_KEY_FILE is not set. Set it to the path of your GPG private key for RPM signing, or use 'make snapshot-no-nfpm' to skip packaging.)
+endif
 	PHP_VERSION=$(PHP_VERSION) goreleaser release --clean
 	VERSION=$(VERSION) bash cloudsmith.sh
 
