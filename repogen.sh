@@ -65,7 +65,7 @@ export AWS_DEFAULT_REGION="${AWS_REGION:-eu-west-1}"
 
 # Create temporary directories for repository work
 WORK_DIR=$(mktemp -d)
-trap "rm -rf $WORK_DIR" EXIT
+trap "rm -rf \"$WORK_DIR\"" EXIT
 
 # Handle GPG key - from file or environment variable
 if [ -n "$GPG_PRIVATE_KEY_FILE" ]; then
