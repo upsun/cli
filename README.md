@@ -104,8 +104,8 @@ gpgcheck=1
 gpgkey=https://repositories.upsun.com/gpg.key
 EOF
 
-# Install the CLI
-sudo yum install -y upsun-cli
+# Install the CLI (use yum on older systems)
+sudo dnf install -y upsun-cli
 ```
 
 ### Manual installation
@@ -149,7 +149,7 @@ sudo apt-get update && sudo apt-get upgrade upsun-cli
 ### CentOS/RHEL/Fedora
 
 ```console
-sudo yum upgrade -y upsun-cli
+sudo dnf upgrade -y upsun-cli
 ```
 
 ## Platform.sh compatibility
@@ -158,12 +158,6 @@ For backwards compatibility with Platform.sh, a `platform` binary is also availa
 
 ```console
 brew install upsun/tap/platformsh-cli
-```
-
-Or with the bash installer:
-
-```console
-curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | VENDOR=platformsh bash
 ```
 
 ## Building

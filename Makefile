@@ -105,10 +105,10 @@ clean-phar: ## Clean up the legacy CLI phar
 .PHONY: release
 release: goreleaser clean-phar internal/legacy/archives/platform.phar php internal/legacy/archives/cacert.pem ## Create and publish a release
 ifndef RSA_SIGNING_KEY_FILE
-	$(error RSA_SIGNING_KEY_FILE is not set. Set it to the path of your RSA private key for APK signing, or use 'make snapshot-no-nfpm' to skip packaging.)
+	$(error RSA_SIGNING_KEY_FILE is not set. Set it to the path of your RSA private key for APK signing.)
 endif
 ifndef GPG_SIGNING_KEY_FILE
-	$(error GPG_SIGNING_KEY_FILE is not set. Set it to the path of your GPG private key for RPM signing, or use 'make snapshot-no-nfpm' to skip packaging.)
+	$(error GPG_SIGNING_KEY_FILE is not set. Set it to the path of your GPG private key for RPM signing.)
 endif
 	PHP_VERSION=$(PHP_VERSION) goreleaser release --clean
 	VERSION=$(VERSION) bash cloudsmith.sh

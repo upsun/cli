@@ -584,10 +584,10 @@ install_apk() {
 
 github_curl() {
     if [ -z "${GITHUB_TOKEN}" ]; then
-        curl -fsSL -H "Accept: application/vnd.github+json" $1
+        curl -fsSL -H "Accept: application/vnd.github+json" "$1"
         return $?
     else
-        curl -fsSL -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" $1
+        curl -fsSL -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "$1"
         return $?
     fi
 }
@@ -612,18 +612,18 @@ install_raw() {
     output "  Downloading ${url}";
     tmp_dir=$(mktemp -d)
     tmp_name="$binary-"$(date +"%s")
-    if ! github_curl $url > "${tmp_dir}/${tmp_name}.tgz"; then
+    if ! github_curl "$url" > "${tmp_dir}/${tmp_name}.tgz"; then
         output "  the download failed" "error"
         exit_with_error
     fi
 
     output "  Uncompressing archive"
-    tar -C ${tmp_dir} -xzf "${tmp_dir}/${tmp_name}.tgz"
+    tar -C "${tmp_dir}" -xzf "${tmp_dir}/${tmp_name}.tgz"
 
     output "  Making the binary executable"
     chmod 0755 "${tmp_dir}/$binary"
 
-    if [ ! -d $dir_bin ]; then
+    if [ ! -d "$dir_bin" ]; then
         output "  Creating ${dir_bin} directory"
         call_try_user "mkdir -p ${dir_bin}" "Failed to create the ${dir_bin} directory"
     fi

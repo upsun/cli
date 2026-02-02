@@ -126,19 +126,13 @@ release:
     ### HomeBrew
 
     ```console
-    brew update && brew upgrade upsun/tap/upsun-cli
+    brew update && brew upgrade upsun/tap/platformsh-cli
     ```
 
     ### Scoop
 
     ```console
     scoop update platform
-    ```
-
-    ### Bash installer
-
-    ```console
-    curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | VENDOR=platformsh bash
     ```
 
     </details>
@@ -171,7 +165,7 @@ archives:
 brews:
   - name: platformsh-cli
     repository:
-      owner: platformsh
+      owner: upsun
       name: homebrew-tap
       token: "{{ .Env.GITHUB_TOKEN }}"
     ids:
@@ -201,7 +195,7 @@ brews:
 
   - name: upsun-cli
     repository:
-      owner: platformsh
+      owner: upsun
       name: homebrew-tap
       token: "{{ .Env.GITHUB_TOKEN }}"
     ids:
@@ -232,7 +226,7 @@ brews:
 scoops:
   - name: platform
     repository:
-      owner: platformsh
+      owner: upsun
       name: homebrew-tap
       token: "{{ .Env.GITHUB_TOKEN }}"
     ids:
@@ -253,7 +247,7 @@ scoops:
 
   - name: upsun
     repository:
-      owner: platformsh
+      owner: upsun
       name: homebrew-tap
       token: "{{ .Env.GITHUB_TOKEN }}"
     ids:

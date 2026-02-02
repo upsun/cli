@@ -24,10 +24,21 @@ echo "Package manager filter: $PACKAGE_MANAGER"
 
 # Auto-detect VERSION from dist/ if not set
 if [ -z "$VERSION" ]; then
-    VERSION=$(ls dist/*.deb 2>/dev/null | head -1 | sed -E 's/.*cli_(.+)_linux_.*/\1/')
+    # Use glob instead of ls to avoid parsing ls output
+    for deb_file in dist/*-cli_*_linux_*.deb; do
+        if [ -f "$deb_file" ]; then
+            VERSION=$(basename "$deb_file" | sed -E 's/.*-cli_(.+)_linux_.*/\1/')
+            break
+        fi
+    done
     if [ -n "$VERSION" ]; then
         echo "Auto-detected VERSION: $VERSION"
     fi
+fi
+
+# Validate VERSION format (should be semver-like)
+if [ -n "$VERSION" ] && ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+    echo "Warning: VERSION '$VERSION' does not look like a valid semver format"
 fi
 
 # Check required environment variables
@@ -65,7 +76,10 @@ export AWS_DEFAULT_REGION="${AWS_REGION:-eu-west-1}"
 
 # Create temporary directories for repository work
 WORK_DIR=$(mktemp -d)
-trap "rm -rf \"$WORK_DIR\"" EXIT
+
+# Use a temporary GNUPGHOME to avoid polluting the user's keyring
+export GNUPGHOME=$(mktemp -d)
+trap "rm -rf \"$WORK_DIR\" \"$GNUPGHOME\"" EXIT
 
 # Handle GPG key - from file or environment variable
 if [ -n "$GPG_PRIVATE_KEY_FILE" ]; then
@@ -132,6 +146,14 @@ cp dist/upsun-cli_${VERSION}_linux_arm64.rpm "$PACKAGES_RPM_DIR/" || true
 echo "Packages staged:"
 ls -la "$PACKAGES_DEB_DIR" "$PACKAGES_RPM_DIR" "$PACKAGES_APK_DIR" 2>/dev/null || true
 
+# Check that at least some packages were found
+pkg_count=$(find "$PACKAGES_DEB_DIR" "$PACKAGES_RPM_DIR" "$PACKAGES_APK_DIR" -type f 2>/dev/null | wc -l)
+if [ "$pkg_count" -eq 0 ]; then
+    echo "Error: No packages found in staging directories. Check that goreleaser produced the expected packages."
+    exit 1
+fi
+echo "Found $pkg_count package(s) to process."
+
 # --- Debian Repository ---
 if [[ "$PACKAGE_MANAGER" == "all" || "$PACKAGE_MANAGER" == "debian" ]]; then
     echo "=== Processing Debian packages ==="
@@ -162,8 +184,8 @@ fi
 if [[ "$PACKAGE_MANAGER" == "all" || "$PACKAGE_MANAGER" == "rpm" ]]; then
     echo "=== Processing RPM packages ==="
 
-    # Fedora versions to support
-    FEDORA_VERSIONS="40 41 42 43"
+    # Fedora versions to support (configurable via environment variable)
+    FEDORA_VERSIONS="${FEDORA_VERSIONS:-40 41 42 43}"
 
     for FEDORA_VER in $FEDORA_VERSIONS; do
         echo "--- Processing Fedora $FEDORA_VER ---"
