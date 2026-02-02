@@ -24,9 +24,6 @@ set -eu
 # GitHub token check
 : "${GITHUB_TOKEN:=}"
 
-# The vendor to install
-: "${VENDOR:=upsun}"
-
 # CI specifics
 : "${CI:=}"
 : "${BUILD_NUMBER:=}"
@@ -46,14 +43,6 @@ version=""
 package="upsun-cli"
 docs_url="https://docs.upsun.com"
 support_url="https://upsun.com/contact"
-
-if [ "$VENDOR" = "platformsh" ] || [ "$VENDOR" = "platform" ]; then
-    BREW_FORMULA="upsun/tap/platformsh-cli"
-    binary="platform"
-    vendor_name="Platform.sh"
-    package="platformsh-cli"
-    docs_url="https://docs.upsun.com"
-fi
 
 # create a log file where every output will be pipe to
 pipe=/tmp/$binary-install-$$.tmp
