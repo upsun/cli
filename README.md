@@ -152,14 +152,6 @@ sudo apt-get update && sudo apt-get upgrade upsun-cli
 sudo dnf upgrade -y upsun-cli
 ```
 
-## Platform.sh compatibility
-
-For backwards compatibility with Platform.sh, a `platform` binary is also available:
-
-```console
-brew install upsun/tap/platformsh-cli
-```
-
 ## Building
 
 Build a single binary:

@@ -119,24 +119,6 @@ release:
     curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | bash
     ```
 
-    <details>
-
-    <summary>Platform.sh compatibility</summary>
-
-    ### HomeBrew
-
-    ```console
-    brew update && brew upgrade upsun/tap/platformsh-cli
-    ```
-
-    ### Scoop
-
-    ```console
-    scoop update platform
-    ```
-
-    </details>
-
 archives:
   - id: platform
     name_template: "platform_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
