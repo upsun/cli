@@ -128,23 +128,23 @@ mkdir -p "$PACKAGES_DEB_DIR" "$PACKAGES_RPM_DIR" "$PACKAGES_APK_DIR" "$REPO_DIR"
 echo "=== Copying packages to staging directories ==="
 
 # Copy Platform.sh packages
-cp dist/platformsh-cli_${VERSION}_linux_amd64.deb "$PACKAGES_DEB_DIR/" || true
-cp dist/platformsh-cli_${VERSION}_linux_arm64.deb "$PACKAGES_DEB_DIR/" || true
-cp dist/platformsh-cli_${VERSION}_linux_amd64.apk "$PACKAGES_APK_DIR/" || true
-cp dist/platformsh-cli_${VERSION}_linux_arm64.apk "$PACKAGES_APK_DIR/" || true
-cp dist/platformsh-cli_${VERSION}_linux_amd64.rpm "$PACKAGES_RPM_DIR/" || true
-cp dist/platformsh-cli_${VERSION}_linux_arm64.rpm "$PACKAGES_RPM_DIR/" || true
+cp dist/platformsh-cli_${VERSION}_linux_amd64.deb "$PACKAGES_DEB_DIR/"
+cp dist/platformsh-cli_${VERSION}_linux_arm64.deb "$PACKAGES_DEB_DIR/"
+cp dist/platformsh-cli_${VERSION}_linux_amd64.apk "$PACKAGES_APK_DIR/"
+cp dist/platformsh-cli_${VERSION}_linux_arm64.apk "$PACKAGES_APK_DIR/"
+cp dist/platformsh-cli_${VERSION}_linux_amd64.rpm "$PACKAGES_RPM_DIR/"
+cp dist/platformsh-cli_${VERSION}_linux_arm64.rpm "$PACKAGES_RPM_DIR/"
 
 # Copy Upsun packages
-cp dist/upsun-cli_${VERSION}_linux_amd64.deb "$PACKAGES_DEB_DIR/" || true
-cp dist/upsun-cli_${VERSION}_linux_arm64.deb "$PACKAGES_DEB_DIR/" || true
-cp dist/upsun-cli_${VERSION}_linux_amd64.apk "$PACKAGES_APK_DIR/" || true
-cp dist/upsun-cli_${VERSION}_linux_arm64.apk "$PACKAGES_APK_DIR/" || true
-cp dist/upsun-cli_${VERSION}_linux_amd64.rpm "$PACKAGES_RPM_DIR/" || true
-cp dist/upsun-cli_${VERSION}_linux_arm64.rpm "$PACKAGES_RPM_DIR/" || true
+cp dist/upsun-cli_${VERSION}_linux_amd64.deb "$PACKAGES_DEB_DIR/"
+cp dist/upsun-cli_${VERSION}_linux_arm64.deb "$PACKAGES_DEB_DIR/"
+cp dist/upsun-cli_${VERSION}_linux_amd64.apk "$PACKAGES_APK_DIR/"
+cp dist/upsun-cli_${VERSION}_linux_arm64.apk "$PACKAGES_APK_DIR/"
+cp dist/upsun-cli_${VERSION}_linux_amd64.rpm "$PACKAGES_RPM_DIR/"
+cp dist/upsun-cli_${VERSION}_linux_arm64.rpm "$PACKAGES_RPM_DIR/"
 
 echo "Packages staged:"
-ls -la "$PACKAGES_DEB_DIR" "$PACKAGES_RPM_DIR" "$PACKAGES_APK_DIR" 2>/dev/null || true
+ls -la "$PACKAGES_DEB_DIR" "$PACKAGES_RPM_DIR" "$PACKAGES_APK_DIR" 2>/dev/null
 
 # Check that at least some packages were found
 pkg_count=$(find "$PACKAGES_DEB_DIR" "$PACKAGES_RPM_DIR" "$PACKAGES_APK_DIR" -type f 2>/dev/null | wc -l)
