@@ -2,7 +2,7 @@ FROM ubuntu:24.04
 
 # Install dependencies
 RUN apt-get update && \
-    apt-get install -y curl bash git ssh-client && \
+    apt-get install -y --no-install-recommends curl bash git ssh-client && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Upsun CLI
