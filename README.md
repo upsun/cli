@@ -112,6 +112,20 @@ sudo dnf install -y upsun-cli
 
 For manual installation, you can also [download the latest binaries](https://github.com/upsun/cli/releases/latest).
 
+### Docker
+
+The CLI is also available as a Docker image:
+
+```console
+docker run --rm -it ghcr.io/upsun/cli
+```
+
+To use a specific version:
+
+```console
+docker run --rm -it ghcr.io/upsun/cli:6.0.0
+```
+
 ## Upgrade
 
 Upgrade using the same tool:
@@ -188,6 +202,7 @@ Releases are automated via GitHub Actions. To create a new release:
    - Sign packages (APK, DEB, RPM)
    - Create a GitHub release with all artifacts
    - Update package repositories at repositories.upsun.com
+   - Build and push Docker image to ghcr.io/upsun/cli
 
 ## Licenses
 
