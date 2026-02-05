@@ -123,7 +123,7 @@ docker run --rm -it ghcr.io/upsun/cli
 To use a specific version:
 
 ```console
-docker run --rm -it ghcr.io/upsun/cli:6.0.0
+docker run --rm -it ghcr.io/upsun/cli:v6.0.0
 ```
 
 ## Upgrade
