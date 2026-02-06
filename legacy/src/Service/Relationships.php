@@ -239,7 +239,7 @@ class Relationships implements InputConfiguringInterface
      */
     public function isOracleDB(array $database): bool
     {
-        return isset($database['type']) && \strpos($database['type'], 'oracle-mysql:') === 0;
+        return isset($database['type']) && str_starts_with((string) $database['type'], 'oracle-mysql:');
     }
 
     /**
