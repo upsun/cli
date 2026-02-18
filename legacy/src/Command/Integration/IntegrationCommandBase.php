@@ -650,6 +650,21 @@ abstract class IntegrationCommandBase extends CommandBase
                     return true;
                 },
             ]),
+            'excluded_services' => new ArrayField('Excluded services', [
+                'optionName' => 'excluded-services',
+                'conditions' => ['type' => [
+                    'httplog',
+                    'newrelic',
+                    'splunk',
+                    'sumologic',
+                    'syslog',
+                    'otlplog',
+                ]],
+                'default' => [],
+                'description' => 'A list of services to exclude from the log forwarding.',
+                'required' => false,
+                'avoidQuestion' => true,
+            ]),
         ];
     }
 
