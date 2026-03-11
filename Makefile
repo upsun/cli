@@ -111,7 +111,11 @@ ifndef GPG_SIGNING_KEY_FILE
 	$(error GPG_SIGNING_KEY_FILE is not set. Set it to the path of your GPG private key for RPM signing.)
 endif
 	PHP_VERSION=$(PHP_VERSION) goreleaser release --clean
-	VERSION=$(VERSION) bash cloudsmith.sh
+	@if echo "$(VERSION)" | grep -qv -- '-'; then \
+		VERSION=$(VERSION) bash cloudsmith.sh; \
+	else \
+		echo "Skipping Cloudsmith upload for pre-release version $(VERSION)"; \
+	fi
 
 .PHONY: test
 # "We encourage users of encoding/json to test their programs with GOEXPERIMENT=jsonv2 enabled" (https://tip.golang.org/doc/go1.25)

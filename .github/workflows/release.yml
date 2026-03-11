@@ -3,7 +3,20 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v5.10.0-rc1)"
+        required: true
+      upload_homebrew:
+        description: "Upload to Homebrew tap (normally skipped for pre-releases)"
+        type: boolean
+        default: false
+      upload_packages:
+        description: "Upload to package repositories (normally skipped for pre-releases)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -14,9 +27,25 @@ jobs:
     environment: production
 
     steps:
+      - name: Resolve tag
+        id: tag
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          if ! echo "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "::error::Tag '$TAG' does not match semver format (vMAJOR.MINOR.PATCH)"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if [[ "$TAG" == *-* ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check out repository code
         uses: actions/checkout@v4
         with:
+          ref: ${{ steps.tag.outputs.tag }}
           fetch-depth: 0
 
       - name: Setup Go
@@ -86,8 +115,12 @@ jobs:
       - name: Install Go tools
         run: make goreleaser repogen
 
+      - name: Override Homebrew skip_upload
+        if: inputs.upload_homebrew == true
+        run: grep -v 'skip_upload' .goreleaser.yaml > .goreleaser.yaml.tmp && mv .goreleaser.yaml.tmp .goreleaser.yaml
+
       - name: Build release (tag)
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || inputs.tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RSA_SIGNING_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/rsa-signing-key.pem
@@ -96,13 +129,14 @@ jobs:
         run: make release
 
       - name: Build snapshot (branch)
-        if: "!startsWith(github.ref, 'refs/tags/')"
+        if: "!startsWith(github.ref, 'refs/tags/') && !inputs.tag"
         env:
           RSA_SIGNING_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/rsa-signing-key.pem
           GPG_SIGNING_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/gpg-signing-key.asc
         run: make snapshot
 
       - name: Configure AWS credentials
+        if: steps.tag.outputs.is_prerelease == 'false' || inputs.upload_packages == true
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -110,6 +144,7 @@ jobs:
           aws-region: eu-west-1
 
       - name: Upload packages to repository
+        if: steps.tag.outputs.is_prerelease == 'false' || inputs.upload_packages == true
         env:
           GPG_PRIVATE_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/gpg-signing-key.asc
           RSA_PRIVATE_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/rsa-signing-key.pem

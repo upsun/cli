@@ -96,6 +96,7 @@ release:
   github:
     owner: upsun
     name: cli
+  prerelease: auto
   footer: |
     ## Upgrade
 
@@ -146,6 +147,7 @@ archives:
 
 brews:
   - name: platformsh-cli
+    skip_upload: auto
     repository:
       owner: upsun
       name: homebrew-tap
@@ -176,6 +178,7 @@ brews:
       system "#{bin}/platform --version"
 
   - name: upsun-cli
+    skip_upload: auto
     repository:
       owner: upsun
       name: homebrew-tap
@@ -207,6 +210,7 @@ brews:
 
 scoops:
   - name: platform
+    skip_upload: auto
     repository:
       owner: upsun
       name: homebrew-tap
@@ -228,6 +232,7 @@ scoops:
       - extras/vcredist2022
 
   - name: upsun
+    skip_upload: auto
     repository:
       owner: upsun
       name: homebrew-tap
