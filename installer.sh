@@ -284,7 +284,7 @@ check_version() {
     esac
 
     # The version without the v prefix (for asset filenames).
-    version=$(echo "$tag" | sed 's/^v//')
+    version=${tag#v}
 
     if [ -z "$version" ]; then
         output "  [ ] ERROR: Could not determine CLI version" "error"
