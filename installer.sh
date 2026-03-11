@@ -286,6 +286,11 @@ check_version() {
     # The version without the v prefix (for asset filenames).
     version=$(echo "$tag" | sed 's/^v//')
 
+    if [ -z "$version" ]; then
+        output "  [ ] ERROR: Could not determine CLI version" "error"
+        exit_with_error
+    fi
+
     if [ -z "${VERSION}" ]; then
         output "  [*] No version specified, using latest ($version)" "success"
     else
