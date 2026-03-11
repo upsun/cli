@@ -25,6 +25,7 @@ builds:
       - platformsh
     ldflags:
       - -s -w
+      - -X "github.com/upsun/cli/internal/config.Version={{.Version}}"
       - -X "github.com/upsun/cli/internal/legacy.PHPVersion={{.Env.PHP_VERSION}}"
     main: ./cmd/platform
   - binary: platform
@@ -40,6 +41,7 @@ builds:
       - platformsh
     ldflags:
       - -s -w
+      - -X "github.com/upsun/cli/internal/config.Version={{.Version}}"
       - -X "github.com/upsun/cli/internal/legacy.PHPVersion={{.Env.PHP_VERSION}}"
     main: ./cmd/platform
 
@@ -58,6 +60,7 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
+      - -X "github.com/upsun/cli/internal/config.Version={{.Version}}"
       - -X "github.com/upsun/cli/internal/legacy.PHPVersion={{.Env.PHP_VERSION}}"
     main: ./cmd/platform
   - binary: upsun
@@ -71,6 +74,7 @@ builds:
       - arm64
     ldflags:
       - -s -w
+      - -X "github.com/upsun/cli/internal/config.Version={{.Version}}"
       - -X "github.com/upsun/cli/internal/legacy.PHPVersion={{.Env.PHP_VERSION}}"
     main: ./cmd/platform
 
