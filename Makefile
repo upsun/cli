@@ -1,11 +1,5 @@
 PHP_VERSION = 8.4.16
 
-GORELEASER_ID ?= upsun
-
-ifeq ($(GOOS), darwin)
-	GORELEASER_ID=$(GORELEASER_ID)-macos
-endif
-
 GOOS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 GOARCH := $(shell uname -m)
 ifeq ($(GOARCH), x86_64)
@@ -13,6 +7,14 @@ ifeq ($(GOARCH), x86_64)
 endif
 ifeq ($(GOARCH), aarch64)
 	GOARCH=arm64
+endif
+
+FLAVOR ?= upsun
+
+ifeq ($(GOOS), darwin)
+	GORELEASER_ID = $(FLAVOR)-macos
+else
+	GORELEASER_ID = $(FLAVOR)
 endif
 
 VERSION := $(shell git describe --always)
