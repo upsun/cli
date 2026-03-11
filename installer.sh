@@ -39,6 +39,7 @@ footer_notes=""
 has_sudo=""
 kernel=""
 machine=""
+tag=""
 version=""
 package="upsun-cli"
 docs_url="https://docs.upsun.com"
@@ -271,11 +272,24 @@ check_ca_certificates() {
 
 check_version() {
     if [ -z "${VERSION}" ]; then
-        version=$(curl -I https://github.com/upsun/cli/releases/latest 2>/dev/null | awk -F/ -v RS='\r\n' '/upsun.cli.releases.tag/ {printf "%s", $NF}')
+        tag=$(curl -I https://github.com/upsun/cli/releases/latest 2>/dev/null | awk -F/ -v RS='\r\n' '/upsun.cli.releases.tag/ {printf "%s", $NF}')
+    else
+        tag=${VERSION}
+    fi
+
+    # Ensure the tag has the v prefix (for GitHub release URLs).
+    case "$tag" in
+        v*) ;;
+        *) tag="v${tag}" ;;
+    esac
+
+    # The version without the v prefix (for asset filenames).
+    version=$(echo "$tag" | sed 's/^v//')
+
+    if [ -z "${VERSION}" ]; then
         output "  [*] No version specified, using latest ($version)" "success"
     else
-        output "  [*] Version ${VERSION} specified" "success"
-        version=${VERSION}
+        output "  [*] Version ${version} specified" "success"
     fi
 }
 
@@ -608,7 +622,7 @@ install_raw() {
     # Start downloading the right version
     output "\nDownloading the $vendor_name CLI" "heading"
 
-    url="${URL}/${version}/${binary}_${version}_${kernel}_${machine}.tar.gz"
+    url="${URL}/${tag}/${binary}_${version}_${kernel}_${machine}.tar.gz"
     output "  Downloading ${url}";
     tmp_dir=$(mktemp -d)
     tmp_name="$binary-"$(date +"%s")
