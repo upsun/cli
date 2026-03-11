@@ -1,3 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
 # Upload Platform.sh packages
 cloudsmith push deb platformsh/cli/any-distro/any-version dist/platformsh-cli_${VERSION}_linux_arm64.deb
 cloudsmith push deb platformsh/cli/any-distro/any-version dist/platformsh-cli_${VERSION}_linux_amd64.deb
