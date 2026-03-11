@@ -272,7 +272,7 @@ check_ca_certificates() {
 
 check_version() {
     if [ -z "${VERSION}" ]; then
-        tag=$(curl -I https://github.com/upsun/cli/releases/latest 2>/dev/null | awk -F/ -v RS='\r\n' '/upsun.cli.releases.tag/ {printf "%s", $NF}')
+        tag=$(github_curl https://api.github.com/repos/upsun/cli/releases/latest 2>/dev/null | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
     else
         tag=${VERSION}
     fi
