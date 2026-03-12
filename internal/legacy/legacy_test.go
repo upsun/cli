@@ -53,7 +53,6 @@ func TestLegacyCLI(t *testing.T) {
 		wrapper.DebugLogFunc = t.Logf
 	}
 	PHPVersion = "6.5.4"
-	LegacyCLIVersion = "3.2.1"
 
 	err := wrapper.Exec(context.Background(), "help")
 	assert.NoError(t, err)
