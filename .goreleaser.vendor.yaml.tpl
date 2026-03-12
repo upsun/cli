@@ -25,6 +25,7 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
+      - -X "github.com/upsun/cli/internal/config.BuiltBy=goreleaser"
       - -X "github.com/upsun/cli/internal/legacy.PHPVersion={{.Env.PHP_VERSION}}"
     main: ./cmd/platform
   - binary: ${VENDOR_BINARY}
@@ -40,6 +41,7 @@ builds:
       - arm64
     ldflags:
       - -s -w
+      - -X "github.com/upsun/cli/internal/config.BuiltBy=goreleaser"
       - -X "github.com/upsun/cli/internal/legacy.PHPVersion={{.Env.PHP_VERSION}}"
     main: ./cmd/platform
 
