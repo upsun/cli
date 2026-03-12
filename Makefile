@@ -18,7 +18,9 @@ else
 endif
 
 # Use GORELEASER_CURRENT_TAG if set (from GitHub Actions), otherwise derive from git
-VERSION ?= $(or $(GORELEASER_CURRENT_TAG),$(shell git describe --tags --always 2>/dev/null || echo "0.0.0-dev"))
+ifeq ($(origin VERSION), undefined)
+VERSION := $(or $(GORELEASER_CURRENT_TAG),$(shell git describe --tags --always 2>/dev/null || echo "0.0.0-dev"))
+endif
 
 # Tooling versions
 GORELEASER_VERSION=v2.12.0
