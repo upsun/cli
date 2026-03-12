@@ -1,3 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -z "${VERSION:-}" ]]; then
+  echo "Error: VERSION environment variable is not set. Please set VERSION (e.g., '1.2.3') before running cloudsmith.sh." >&2
+  exit 1
+fi
 # Upload Platform.sh packages
 cloudsmith push deb platformsh/cli/any-distro/any-version dist/platformsh-cli_${VERSION}_linux_arm64.deb
 cloudsmith push deb platformsh/cli/any-distro/any-version dist/platformsh-cli_${VERSION}_linux_amd64.deb
