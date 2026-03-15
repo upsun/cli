@@ -7,6 +7,8 @@ set -eu
 
 cd "$(dirname "$0")/../.."
 
+: "${VERSION:=}"
+
 pass=0
 fail=0
 errors=""
@@ -20,9 +22,15 @@ run_test() {
     echo ""
     echo "=== ${label} ==="
 
+    version_flag=""
+    if [ -n "$VERSION" ]; then
+        version_flag="-e VERSION=$VERSION"
+    fi
+
     if docker run --rm \
         -v "$(pwd)/installer.sh:/installer.sh:ro" \
         -e INSTALL_METHOD="$method" \
+        $version_flag \
         "$image" \
         sh -c "${prereqs}sh /installer.sh && upsun --version"; then
         echo "--- PASS: ${label} ---"
