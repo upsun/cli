@@ -1,0 +1,88 @@
+name: Test installer.sh
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - installer.sh
+  pull_request:
+    paths:
+      - installer.sh
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: debian:bookworm
+            method: apt
+          - image: ubuntu:24.04
+            method: apt
+          - image: fedora:41
+            method: yum
+          - image: alpine:3.21
+            method: apk
+          - image: debian:bookworm
+            method: raw
+
+    steps:
+      - name: Install prerequisites
+        run: |
+          case "${{ matrix.method }}" in
+            apt)
+              apt-get update && apt-get install -y curl ca-certificates
+              ;;
+            yum)
+              yum install -y curl
+              ;;
+            apk)
+              apk add --no-cache curl ca-certificates
+              ;;
+            raw)
+              apt-get update && apt-get install -y curl ca-certificates gzip
+              ;;
+          esac
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run installer
+        env:
+          INSTALL_METHOD: ${{ matrix.method }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: sh installer.sh
+
+      - name: Verify installation
+        run: upsun --version
+
+  macos:
+    runs-on: macos-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        method:
+          - homebrew
+          - raw
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run installer
+        env:
+          INSTALL_METHOD: ${{ matrix.method }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: sh installer.sh
+
+      - name: Verify installation
+        run: upsun --version
