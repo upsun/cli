@@ -1,6 +1,7 @@
 #!/bin/sh
 # Test installer.sh across Linux distros using Docker.
 # Requires Docker to be installed and running.
+# macOS methods (homebrew, raw) are only tested in CI (GitHub Actions).
 
 set -eu
 
@@ -16,18 +17,18 @@ run_test() {
     prereqs="$3"
 
     label="${image} (${method})"
-    printf "Testing %-35s " "$label"
+    echo ""
+    echo "=== ${label} ==="
 
     if docker run --rm \
         -v "$(pwd)/installer.sh:/installer.sh:ro" \
         -e INSTALL_METHOD="$method" \
         "$image" \
-        sh -c "${prereqs} sh /installer.sh && upsun --version" \
-        >/dev/null 2>&1; then
-        printf "PASS\n"
+        sh -c "${prereqs}sh /installer.sh && upsun --version"; then
+        echo "--- PASS: ${label} ---"
         pass=$((pass + 1))
     else
-        printf "FAIL\n"
+        echo "--- FAIL: ${label} ---"
         fail=$((fail + 1))
         errors="${errors}  ${label}\n"
     fi
@@ -35,24 +36,24 @@ run_test() {
 
 echo "installer.sh test suite"
 echo "======================="
-echo ""
 
 run_test "debian:bookworm" "apt" \
-    "apt-get update && apt-get install -y curl ca-certificates && "
+    "apt-get update -qq && apt-get install -y -qq curl ca-certificates && "
 
 run_test "ubuntu:24.04" "apt" \
-    "apt-get update && apt-get install -y curl ca-certificates && "
+    "apt-get update -qq && apt-get install -y -qq curl ca-certificates && "
 
 run_test "fedora:41" "yum" \
-    "yum install -y curl && "
+    "yum install -y -q curl && "
 
 run_test "alpine:3.21" "apk" \
-    "apk add --no-cache curl ca-certificates && "
+    "apk add -q --no-cache curl ca-certificates && "
 
 run_test "debian:bookworm" "raw" \
-    "apt-get update && apt-get install -y curl ca-certificates gzip && "
+    "apt-get update -qq && apt-get install -y -qq curl ca-certificates gzip && "
 
 echo ""
+echo "======================="
 echo "Results: ${pass} passed, ${fail} failed"
 
 if [ "$fail" -gt 0 ]; then
