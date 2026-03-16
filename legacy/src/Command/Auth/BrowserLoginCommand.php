@@ -124,8 +124,10 @@ class BrowserLoginCommand extends CommandBase
             }
             throw $e;
         }
-        $localAddress = '127.0.0.1:' . $port;
-        $localUrl = 'http://' . $localAddress;
+        // Bind to 0.0.0.0 to allow access from outside the container/localhost
+        $localAddress = '0.0.0.0:' . $port;
+        // Use 127.0.0.1 for the URL shown to users
+        $localUrl = 'http://127.0.0.1:' . $port;
 
         // Then create the document root for the local server. This needs to be
         // outside the CLI itself (since the CLI may be run as a Phar).
@@ -183,6 +185,7 @@ class BrowserLoginCommand extends CommandBase
         } else {
             $this->stdErr->writeln('Please open the following URL in a browser and log in:');
             $this->stdErr->writeln('<info>' . $localUrl . '</info>');
+            $this->stdErr->writeln('<info>' . $localAddress . '</info>');
         }
 
         // Show some help.
