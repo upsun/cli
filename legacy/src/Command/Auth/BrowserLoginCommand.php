@@ -185,7 +185,6 @@ class BrowserLoginCommand extends CommandBase
         } else {
             $this->stdErr->writeln('Please open the following URL in a browser and log in:');
             $this->stdErr->writeln('<info>' . $localUrl . '</info>');
-            $this->stdErr->writeln('<info>' . $localAddress . '</info>');
         }
 
         // Show some help.
