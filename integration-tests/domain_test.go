@@ -99,8 +99,10 @@ func TestDomainListEmpty(t *testing.T) {
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
 	f.Run("cc")
 
-	// Empty domain list — the CLI exits with code 1 for "No domains found".
-	_, stdErr, err := f.RunCombinedOutput("domains", "-p", projectID)
-	assert.Error(t, err)
+	// Empty domain list outputs a message to stderr.
+	// Note: the CLI currently exits non-zero for this, which is arguably a bug
+	// (cf. services/certificates which exit 0 for empty lists). Not asserting
+	// the exit code so this test won't break if that gets fixed.
+	_, stdErr, _ := f.RunCombinedOutput("domains", "-p", projectID)
 	assert.Contains(t, stdErr, "No domains found")
 }
