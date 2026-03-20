@@ -66,6 +66,12 @@ func NewHandler(t *testing.T) *Handler {
 		_ = json.NewEncoder(w).Encode(map[string]any{"total": "$1,000 USD"})
 	})
 
+	h.Get("/projects/{project_id}/settings", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{})
+	})
+	h.Get("/projects/{project_id}/capabilities", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{})
+	})
 	h.Get("/projects/{project_id}", h.handleGetProject)
 	h.Patch("/projects/{project_id}", h.handlePatchProject)
 	h.Get("/projects/{project_id}/environments", h.handleListEnvironments)
@@ -74,6 +80,10 @@ func NewHandler(t *testing.T) *Handler {
 	h.Get("/projects/{project_id}/environments/{environment_id}/settings", h.handleGetEnvironmentSettings)
 	h.Patch("/projects/{project_id}/environments/{environment_id}/settings", h.handleSetEnvironmentSettings)
 	h.Post("/projects/{project_id}/environments/{environment_id}/deploy", h.handleDeployEnvironment)
+	h.Post("/projects/{project_id}/environments/{environment_id}/activate", h.handleActivateEnvironment)
+	h.Post("/projects/{project_id}/environments/{environment_id}/pause", h.handlePauseEnvironment)
+	h.Post("/projects/{project_id}/environments/{environment_id}/resume", h.handleResumeEnvironment)
+	h.Post("/projects/{project_id}/environments/{environment_id}/redeploy", h.handleRedeployEnvironment)
 	h.Get("/projects/{project_id}/environments/{environment_id}/backups", h.handleListBackups)
 	h.Post("/projects/{project_id}/environments/{environment_id}/backups", h.handleCreateBackup)
 	h.Get("/projects/{project_id}/environments/{environment_id}/deployments/current", h.handleGetCurrentDeployment)
@@ -91,10 +101,12 @@ func NewHandler(t *testing.T) *Handler {
 	h.Post("/projects/{project_id}/variables", h.handleCreateProjectVariable)
 	h.Get("/projects/{project_id}/variables/{name}", h.handleGetProjectVariable)
 	h.Patch("/projects/{project_id}/variables/{name}", h.handlePatchProjectVariable)
+	h.Delete("/projects/{project_id}/variables/{name}", h.handleDeleteProjectVariable)
 	h.Get("/projects/{project_id}/environments/{environment_id}/variables", h.handleListEnvLevelVariables)
 	h.Post("/projects/{project_id}/environments/{environment_id}/variables", h.handleCreateEnvLevelVariable)
 	h.Get("/projects/{project_id}/environments/{environment_id}/variables/{name}", h.handleGetEnvLevelVariable)
 	h.Patch("/projects/{project_id}/environments/{environment_id}/variables/{name}", h.handlePatchEnvLevelVariable)
+	h.Delete("/projects/{project_id}/environments/{environment_id}/variables/{name}", h.handleDeleteEnvLevelVariable)
 
 	return h
 }
