@@ -293,14 +293,14 @@ type Activity struct {
 }
 
 type Domain struct {
-	ID               string    `json:"id"`
-	Name             string    `json:"name"`
-	RegisteredName   string    `json:"registered_name,omitempty"`
-	Type             string    `json:"type"`
-	IsDefault        bool      `json:"is_default"`
-	ReplacementFor   string    `json:"replacement_for,omitempty"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID             string    `json:"id"`
+	Name           string    `json:"name"`
+	RegisteredName string    `json:"registered_name,omitempty"`
+	Type           string    `json:"type"`
+	IsDefault      bool      `json:"is_default"`
+	ReplacementFor string    `json:"replacement_for,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 
 	SSL *DomainSSL `json:"ssl"`
 
@@ -329,11 +329,11 @@ type Integration struct {
 }
 
 type Certificate struct {
-	ID        string   `json:"id"`
-	Domains   []string `json:"domains"`
-	Key       string   `json:"key,omitempty"`
-	Issuer    string   `json:"issuer"`
-	IsProvisioned bool `json:"is_provisioned"`
+	ID            string   `json:"id"`
+	Domains       []string `json:"domains"`
+	Key           string   `json:"key,omitempty"`
+	Issuer        string   `json:"issuer"`
+	IsProvisioned bool     `json:"is_provisioned"`
 
 	ExpiresAt time.Time `json:"expires_at"`
 	CreatedAt time.Time `json:"created_at"`

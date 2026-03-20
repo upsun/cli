@@ -43,7 +43,7 @@ func TestCertificateList(t *testing.T) {
 			CreatedAt:     created,
 			UpdatedAt:     created,
 			Links: mockapi.MakeHALLinks(
-				"self=/projects/"+projectID+"/certificates/cert1",
+				"self=/projects/" + projectID + "/certificates/cert1",
 			),
 		},
 	})
