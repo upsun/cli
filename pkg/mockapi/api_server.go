@@ -87,6 +87,12 @@ func NewHandler(t *testing.T) *Handler {
 	h.Get("/projects/{project_id}/environments/{environment_id}/backups", h.handleListBackups)
 	h.Post("/projects/{project_id}/environments/{environment_id}/backups", h.handleCreateBackup)
 	h.Get("/projects/{project_id}/environments/{environment_id}/deployments/current", h.handleGetCurrentDeployment)
+	h.Get("/projects/{project_id}/domains", h.handleListProjectDomains)
+	h.Get("/projects/{project_id}/domains/{name}", h.handleGetProjectDomain)
+	h.Get("/projects/{project_id}/integrations", h.handleListProjectIntegrations)
+	h.Get("/projects/{project_id}/integrations/{integration_id}", h.handleGetProjectIntegration)
+	h.Get("/projects/{project_id}/certificates", h.handleListProjectCertificates)
+	h.Get("/projects/{project_id}/certificates/{certificate_id}", h.handleGetProjectCertificate)
 	h.Get("/projects/{project_id}/user-access", h.handleProjectUserAccess)
 	h.Get("/ref/projects", h.handleProjectRefs)
 
