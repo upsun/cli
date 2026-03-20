@@ -190,7 +190,9 @@ class TunnelManager
         foreach ($data as $item) {
             $metadata = $item;
             unset($metadata['id'], $metadata['localPort'], $metadata['remoteHost'], $metadata['remotePort'], $metadata['pid']);
-            $tunnels[] = new Tunnel($item['id'], $item['localPort'], $item['remoteHost'], $item['remotePort'], $metadata, $item['pid']);
+            // Handle old-format tunnel data that lacks an 'id' field.
+            $id = $item['id'] ?? $this->getId($metadata);
+            $tunnels[] = new Tunnel($id, $item['localPort'], $item['remoteHost'], $item['remotePort'], $metadata, $item['pid']);
         }
         return $tunnels;
     }
