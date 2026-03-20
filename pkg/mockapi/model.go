@@ -292,6 +292,56 @@ type Activity struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type Domain struct {
+	ID             string    `json:"id"`
+	Name           string    `json:"name"`
+	RegisteredName string    `json:"registered_name,omitempty"`
+	Type           string    `json:"type"`
+	IsDefault      bool      `json:"is_default"`
+	ReplacementFor string    `json:"replacement_for,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+
+	SSL *DomainSSL `json:"ssl"`
+
+	Links HalLinks `json:"_links"`
+}
+
+type DomainSSL struct {
+	HasCertificate bool `json:"has_certificate"`
+}
+
+type Integration struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
+
+	BaseURL    string `json:"base_url,omitempty"`
+	Token      string `json:"token,omitempty"`
+	Repository string `json:"repository,omitempty"`
+
+	URL    string   `json:"url,omitempty"`
+	Events []string `json:"events,omitempty"`
+
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+
+	Links HalLinks `json:"_links"`
+}
+
+type Certificate struct {
+	ID            string   `json:"id"`
+	Domains       []string `json:"domains"`
+	Key           string   `json:"key,omitempty"`
+	Issuer        string   `json:"issuer"`
+	IsProvisioned bool     `json:"is_provisioned"`
+
+	ExpiresAt time.Time `json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+
+	Links HalLinks `json:"_links"`
+}
+
 type Variable struct {
 	Name           string `json:"name"`
 	Value          string `json:"value,omitempty"`
