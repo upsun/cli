@@ -100,6 +100,7 @@ func TestDomainListEmpty(t *testing.T) {
 	f.Run("cc")
 
 	// Empty domain list — the CLI exits with code 1 for "No domains found".
-	_, stdErr, _ := f.RunCombinedOutput("domains", "-p", projectID)
+	_, stdErr, err := f.RunCombinedOutput("domains", "-p", projectID)
+	assert.Error(t, err)
 	assert.Contains(t, stdErr, "No domains found")
 }
