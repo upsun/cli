@@ -8,6 +8,7 @@ require (
 	github.com/alecthomas/chroma/v2 v2.20.0
 	github.com/briandowns/spinner v1.23.2
 	github.com/fatih/color v1.18.0
+	github.com/getkin/kin-openapi v0.134.0
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/gofrs/flock v0.12.1
@@ -56,7 +57,6 @@ require (
 	github.com/fatih/semgroup v1.2.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.10 // indirect
-	github.com/getkin/kin-openapi v0.134.0 // indirect
 	github.com/getsentry/sentry-go v0.28.1 // indirect
 	github.com/gitleaks/go-gitdiff v0.9.1 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
