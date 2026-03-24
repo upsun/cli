@@ -86,7 +86,8 @@ func newMockTelemetryServer(t *testing.T) *mockTelemetryServer {
 
 		// Return success
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"success":true}`))
+		_, err = w.Write([]byte(`{"success":true}`))
+		require.NoError(t, err)
 	}))
 
 	return m
@@ -382,9 +383,10 @@ func TestTelemetry_ServerError(t *testing.T) {
 	defer apiServer.Close()
 
 	// Create a server that returns errors
-	errorServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	errorServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error":"server error"}`))
+		_, err := w.Write([]byte(`{"error":"server error"}`))
+		require.NoError(t, err)
 	}))
 	defer errorServer.Close()
 
@@ -395,4 +397,3 @@ func TestTelemetry_ServerError(t *testing.T) {
 	output := f.Run("project:list")
 	assert.NotEmpty(t, output, "command should succeed even if telemetry fails")
 }
-

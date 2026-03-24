@@ -83,7 +83,7 @@ func SendTelemetryEvent(ctx context.Context, cnf *config.Config, command string)
 		}
 
 		// Send the event
-		if err := sendEvent(ctx, cnf, endpoint, event, authToken); err != nil {
+		if err := sendEvent(ctx, endpoint, event, authToken); err != nil {
 			// Fail silently - telemetry should never interfere with user experience
 			return
 		}
@@ -93,7 +93,7 @@ func SendTelemetryEvent(ctx context.Context, cnf *config.Config, command string)
 }
 
 // sendEvent sends the event to the configured telemetry endpoint.
-func sendEvent(ctx context.Context, cnf *config.Config, endpoint string, event *Event, authToken string) error {
+func sendEvent(ctx context.Context, endpoint string, event *Event, authToken string) error {
 	// Marshal the event
 	payload, err := json.Marshal(event)
 	if err != nil {

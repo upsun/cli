@@ -7,10 +7,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	"github.com/upsun/cli/internal/config"
 )
 
-func TestSendTelemetryEvent_RespectsDoNotTrack(t *testing.T) {
+func TestSendTelemetryEvent_RespectsDoNotTrack() {
 	originalValue := os.Getenv("DO_NOT_TRACK")
 	os.Setenv("DO_NOT_TRACK", "1")
 	defer func() {
@@ -29,7 +30,7 @@ func TestSendTelemetryEvent_RespectsDoNotTrack(t *testing.T) {
 	<-done // Should complete immediately without sending
 }
 
-func TestSendTelemetryEvent_RespectsDisabledConfig(t *testing.T) {
+func TestSendTelemetryEvent_RespectsDisabledConfig() {
 	originalValue := os.Getenv("DO_NOT_TRACK")
 	os.Unsetenv("DO_NOT_TRACK")
 	defer func() {
@@ -46,7 +47,7 @@ func TestSendTelemetryEvent_RespectsDisabledConfig(t *testing.T) {
 	<-done // Should complete immediately without sending
 }
 
-func TestSendTelemetryEvent_RequiresEndpoint(t *testing.T) {
+func TestSendTelemetryEvent_RequiresEndpoint() {
 	cnf := &config.Config{}
 	cnf.Telemetry.Enabled = true
 	cnf.Telemetry.Endpoint = "" // Empty = disabled
@@ -130,7 +131,7 @@ func TestBuildEvent(t *testing.T) {
 	assert.NotEmpty(t, payload)
 
 	// Verify JSON structure
-	var decoded map[string]interface{}
+	var decoded map[string]any
 	err = json.Unmarshal(payload, &decoded)
 	assert.NoError(t, err)
 	assert.Equal(t, "user-123", decoded["user"])

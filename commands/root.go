@@ -306,4 +306,3 @@ func waitForTelemetry(ctx context.Context, cnf *config.Config, args []string) {
 		// Timeout - proceed anyway to avoid blocking user
 	}
 }
-

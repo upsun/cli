@@ -31,4 +31,3 @@ func ExtractCommand(args []string) string {
 	// Return first arg (command name, no flags)
 	return args[0]
 }
-
