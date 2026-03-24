@@ -50,7 +50,7 @@ func TestSendTelemetryEvent_RespectsDisabledConfig() {
 func TestSendTelemetryEvent_RequiresEndpoint() {
 	cnf := &config.Config{}
 	cnf.Telemetry.Enabled = true
-	cnf.Telemetry.Endpoint = "" // Empty = disabled
+	cnf.Telemetry.Endpoint = ""
 
 	done := SendTelemetryEvent(context.Background(), cnf, "init")
 	<-done // Should skip telemetry
@@ -155,3 +155,4 @@ func TestGetEndpoint(t *testing.T) {
 	defer os.Unsetenv("TEST_CLI_TELEMETRY_ENDPOINT")
 	assert.Equal(t, "http://env-endpoint.com", getEndpoint(cnf))
 }
+
