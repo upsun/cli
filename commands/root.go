@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/platformsh/platformify/commands"
@@ -22,6 +23,7 @@ import (
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/config/alt"
 	"github.com/upsun/cli/internal/legacy"
+	"github.com/upsun/cli/internal/telemetry"
 )
 
 // Execute is the main entrypoint to run the CLI.
@@ -88,11 +90,23 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		},
 		Run: func(cmd *cobra.Command, _ []string) {
 			c := makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), cmd.ErrOrStderr(), cmd.InOrStdin())
-			if err := c.Exec(cmd.Context(), os.Args[1:]...); err != nil {
+			err := c.Exec(cmd.Context(), os.Args[1:]...)
+
+			if err != nil {
 				exitWithError(err)
 			}
+
+			waitForTelemetry(cmd.Context(), cnf, os.Args[1:])
 		},
 		PersistentPostRun: func(cmd *cobra.Command, _ []string) {
+			// Send telemetry for Go-native subcommands only
+			// Legacy commands send telemetry in Run before exitWithError
+			// cmd.Parent() != nil means this is a subcommand, not the root
+			if cmd.Parent() != nil {
+				telemetry.SendTelemetryEvent(cmd.Context(), cnf, cmd.Use)
+				// Fire and forget for native commands
+			}
+
 			checkShellConfigLeftovers(cmd.ErrOrStderr(), cnf)
 			select {
 			case rel := <-updateMessageChan:
@@ -118,9 +132,13 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		}
 
 		c := makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), cmd.ErrOrStderr(), cmd.InOrStdin())
-		if err := c.Exec(cmd.Context(), args...); err != nil {
+		err := c.Exec(cmd.Context(), args...)
+
+		if err != nil {
 			exitWithError(err)
 		}
+
+		// Don't send telemetry for help commands
 	})
 
 	cmd.PersistentFlags().BoolP("version", "V", false, fmt.Sprintf("Displays the %s version", cnf.Application.Name))
@@ -276,3 +294,16 @@ func makeLegacyCLIWrapper(cnf *config.Config, stdout, stderr io.Writer, stdin io
 		Stdin:              stdin,
 	}
 }
+
+func waitForTelemetry(ctx context.Context, cnf *config.Config, args []string) {
+	command := telemetry.ExtractCommand(args)
+	done := telemetry.SendTelemetryEvent(ctx, cnf, command)
+
+	select {
+	case <-done:
+		// Telemetry completed
+	case <-time.After(2 * time.Second):
+		// Timeout - proceed anyway to avoid blocking user
+	}
+}
+

@@ -39,6 +39,10 @@ type Config struct {
 		Check         bool `validate:"omitempty"`                                 // defaults to true
 		CheckInterval int  `validate:"omitempty" yaml:"check_interval,omitempty"` // seconds, defaults to 3600
 	} `validate:"omitempty"`
+	Telemetry struct {
+		Enabled  bool   `validate:"omitempty"`                     // defaults to true
+		Endpoint string `validate:"omitempty,url" yaml:"endpoint"` // telemetry endpoint
+	} `validate:"omitempty"`
 
 	// Fields only needed by the PHP (legacy) CLI, at least for now.
 	API struct {
@@ -94,6 +98,7 @@ func (c *Config) applyDefaults() {
 	c.Application.UserStateFile = "state.json"
 	c.Updates.Check = true
 	c.Updates.CheckInterval = 3600
+	c.Telemetry.Enabled = true
 	c.Service.ProjectConfigFlavor = "platform"
 }
 
