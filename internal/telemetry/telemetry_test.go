@@ -30,7 +30,7 @@ func TestSendTelemetryEvent_RespectsDoNotTrack(_ *testing.T) {
 	<-done // Should complete immediately without sending
 }
 
-func TestSendTelemetryEvent_RespectsDisabledConfig() {
+func TestSendTelemetryEvent_RespectsDisabledConfig(_ *testing.T) {
 	originalValue := os.Getenv("DO_NOT_TRACK")
 	os.Unsetenv("DO_NOT_TRACK")
 	defer func() {
@@ -47,7 +47,7 @@ func TestSendTelemetryEvent_RespectsDisabledConfig() {
 	<-done // Should complete immediately without sending
 }
 
-func TestSendTelemetryEvent_RequiresEndpoint() {
+func TestSendTelemetryEvent_RequiresEndpoint(_ *testing.T) {
 	cnf := &config.Config{}
 	cnf.Telemetry.Enabled = true
 	cnf.Telemetry.Endpoint = ""
@@ -155,3 +155,4 @@ func TestGetEndpoint(t *testing.T) {
 	defer os.Unsetenv("TEST_CLI_TELEMETRY_ENDPOINT")
 	assert.Equal(t, "http://env-endpoint.com", getEndpoint(cnf))
 }
+
