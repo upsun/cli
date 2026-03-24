@@ -28,6 +28,17 @@ func NewHandler(t *testing.T) *Handler {
 		h.Use(middleware.DefaultLogger)
 	}
 
+	// Set Content-Type header for all JSON responses
+	h.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			next.ServeHTTP(w, req)
+		})
+	})
+
+	// Add OpenAPI validation middleware (enabled with VALIDATE_OPENAPI=1)
+	h.Use(OpenAPIValidationMiddleware(t))
+
 	h.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			authHeader := req.Header.Get("Authorization")

@@ -165,3 +165,17 @@ vendor-snapshot: check-vendor .goreleaser.vendor.yaml goreleaser internal/legacy
 .PHONY: goreleaser-check
 goreleaser-check:  goreleaser ## Check the goreleaser configs
 	PHP_VERSION=$(PHP_VERSION) goreleaser check --config=.goreleaser.yaml
+
+# OpenAPI Specification
+OPENAPI_URL ?= https://developer.upsun.com/openapi.json
+OPENAPI_FILE = pkg/mockapi/testdata/upsun-openapi.json
+
+.PHONY: download-openapi
+download-openapi: ## Download the Upsun OpenAPI specification
+	@mkdir -p pkg/mockapi/testdata
+	@echo "Downloading OpenAPI spec from $(OPENAPI_URL)..."
+	@curl -fSL "$(OPENAPI_URL)" -o $(OPENAPI_FILE)
+	@echo "OpenAPI spec downloaded to $(OPENAPI_FILE)"
+
+.PHONY: update-openapi
+update-openapi: download-openapi ## Alias for download-openapi (forces refresh)

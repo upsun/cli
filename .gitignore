@@ -20,3 +20,6 @@ completion
 # vendor/
 /.goreleaser.vendor.yaml
 legacy/box.phar
+
+# OpenAPI specification (auto-downloaded)
+pkg/mockapi/testdata/upsun-openapi.json
