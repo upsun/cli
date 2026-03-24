@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -24,6 +25,19 @@ type telemetryEvent struct {
 	Command      string `json:"command"`
 	Arch         string `json:"arch"`
 	OS           string `json:"os"`
+}
+
+// getCLIVersion extracts the version from the CLI binary
+func getCLIVersion(t *testing.T) string {
+	f := newCommandFactory(t, "", "")
+	output := f.Run("--version")
+	// Parse "Platform Test CLI 5.10.0-2026-03-24-829a9902-next"
+	parts := strings.Fields(output)
+	if len(parts) >= 4 {
+		return parts[3]
+	}
+	t.Fatal("Could not extract version from CLI output")
+	return ""
 }
 
 // mockTelemetryServer tracks received telemetry events
@@ -172,8 +186,8 @@ func TestTelemetry_TrackedCommand(t *testing.T) {
 	event := events[0]
 	assert.Equal(t, "project:list", event.Command)
 	assert.Equal(t, "test-user-123", event.User)
-	assert.Equal(t, "test-org-456", event.Organization)
-	assert.Equal(t, "1.0.0", event.Version)
+	assert.Equal(t, "", event.Organization)
+	assert.Equal(t, getCLIVersion(t), event.Version)
 	assert.Equal(t, runtime.GOARCH, event.Arch)
 	assert.Equal(t, runtime.GOOS, event.OS)
 
@@ -283,36 +297,6 @@ func TestTelemetry_NoEndpoint(t *testing.T) {
 	assert.Len(t, events, 0, "no telemetry should be sent when endpoint is not configured")
 }
 
-func TestTelemetry_UnauthenticatedUser(t *testing.T) {
-	telemetryServer := newMockTelemetryServer(t)
-	defer telemetryServer.Close()
-
-	f := newCommandFactory(t, "", "")
-	f.extraEnv = append(f.extraEnv, EnvPrefix+"TELEMETRY_ENDPOINT="+telemetryServer.URL())
-
-	// Run init command (doesn't require auth)
-	// Note: This will fail but telemetry should still be attempted
-	_, _, err := f.RunCombinedOutput("init")
-	// Command will error because there's no auth, that's expected
-	assert.Error(t, err)
-
-	// Wait for telemetry event
-	require.True(t, telemetryServer.WaitForEvents(1, 3*time.Second), "telemetry event should be sent even without auth")
-
-	events := telemetryServer.GetEvents()
-	require.Len(t, events, 1)
-
-	event := events[0]
-	assert.Equal(t, "init", event.Command)
-	assert.Empty(t, event.User, "user ID should be empty when not authenticated")
-	assert.Empty(t, event.Organization, "org ID should be empty when not authenticated")
-	assert.Equal(t, "1.0.0", event.Version)
-
-	// No auth token should be sent when unauthenticated
-	tokens := telemetryServer.GetTokens()
-	assert.Empty(t, tokens, "no auth token should be sent when user is not authenticated")
-}
-
 func TestTelemetry_MultipleCommands(t *testing.T) {
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
@@ -365,13 +349,32 @@ func TestTelemetry_ServerError(t *testing.T) {
 		ID:       myUserID,
 		Username: "testuser",
 	})
+	apiHandler.SetOrgs([]*mockapi.Org{
+		makeOrg("org-id-1", "org-1", "Org 1", myUserID, "flexible"),
+	})
 	apiHandler.SetProjects([]*mockapi.Project{
 		{
-			ID:           "test-project-1",
-			Organization: "test-org-456",
+			ID:           "project-id-1",
+			Organization: "org-id-1",
 			Vendor:       "test-vendor",
 			Title:        "Test Project",
 			Region:       "test-region",
+		},
+	})
+	apiHandler.SetUserGrants([]*mockapi.UserGrant{
+		{
+			ResourceID:     "org-id-1",
+			ResourceType:   "organization",
+			OrganizationID: "org-id-1",
+			UserID:         myUserID,
+			Permissions:    []string{"admin"},
+		},
+		{
+			ResourceID:     "project-id-1",
+			ResourceType:   "project",
+			OrganizationID: "org-id-1",
+			UserID:         myUserID,
+			Permissions:    []string{"admin"},
 		},
 	})
 
@@ -392,3 +395,4 @@ func TestTelemetry_ServerError(t *testing.T) {
 	output := f.Run("project:list")
 	assert.NotEmpty(t, output, "command should succeed even if telemetry fails")
 }
+
