@@ -155,4 +155,3 @@ func TestGetEndpoint(t *testing.T) {
 	defer os.Unsetenv("TEST_CLI_TELEMETRY_ENDPOINT")
 	assert.Equal(t, "http://env-endpoint.com", getEndpoint(cnf))
 }
-
