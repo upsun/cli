@@ -11,7 +11,7 @@ import (
 	"github.com/upsun/cli/internal/config"
 )
 
-func TestSendTelemetryEvent_RespectsDoNotTrack() {
+func TestSendTelemetryEvent_RespectsDoNotTrack(_ *testing.T) {
 	originalValue := os.Getenv("DO_NOT_TRACK")
 	os.Setenv("DO_NOT_TRACK", "1")
 	defer func() {
