@@ -28,11 +28,8 @@ func loadOpenAPISpec() error {
 		loader := openapi3.NewLoader()
 		loader.IsExternalRefsAllowed = true
 
-		// Ensure the OpenAPI spec exists (download if necessary)
-		specPath, loadErr := ensureOpenAPISpec()
-		if loadErr != nil {
-			return
-		}
+		// Load OpenAPI spec from fixed path
+		specPath := "pkg/mockapi/testdata/upsun-openapi.json"
 
 		openAPIDoc, loadErr = loader.LoadFromFile(specPath)
 		if loadErr != nil {
