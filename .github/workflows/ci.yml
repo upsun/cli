@@ -137,5 +137,8 @@ jobs:
       - name: Build CLI
         run: make single
 
+      - name: Download OpenAPI spec
+        run: make pkg/mockapi/testdata/upsun-openapi.json
+
       - name: Run integration tests
         run: make integration-test
