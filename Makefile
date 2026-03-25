@@ -128,7 +128,7 @@ test: ## Run unit tests (excludes integration tests)
 	GOEXPERIMENT=jsonv2 go test -v -race -cover -count=1 $$(go list ./... | grep -v /integration-tests)
 
 .PHONY: integration-test
-integration-test: single ## Run integration tests (requires built CLI)
+integration-test: single pkg/mockapi/testdata/upsun-openapi.json ## Run integration tests (requires built CLI and OpenAPI spec)
 	cd integration-tests && GOEXPERIMENT=jsonv2 go test -v -count=1 ./...
 
 .PHONY: lint
@@ -168,14 +168,10 @@ goreleaser-check:  goreleaser ## Check the goreleaser configs
 
 # OpenAPI Specification
 OPENAPI_URL ?= https://developer.upsun.com/openapi.json
-OPENAPI_FILE = pkg/mockapi/testdata/upsun-openapi.json
 
-.PHONY: download-openapi
-download-openapi: ## Download the Upsun OpenAPI specification
+# Download OpenAPI spec (only if missing, use 'rm' to force refresh)
+pkg/mockapi/testdata/upsun-openapi.json:
 	@mkdir -p pkg/mockapi/testdata
 	@echo "Downloading OpenAPI spec from $(OPENAPI_URL)..."
-	@curl -fSL "$(OPENAPI_URL)" -o $(OPENAPI_FILE)
-	@echo "OpenAPI spec downloaded to $(OPENAPI_FILE)"
-
-.PHONY: update-openapi
-update-openapi: download-openapi ## Alias for download-openapi (forces refresh)
+	@curl -fSL "$(OPENAPI_URL)" -o $@
+	@echo "OpenAPI spec downloaded to $@"

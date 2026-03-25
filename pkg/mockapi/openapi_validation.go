@@ -3,9 +3,11 @@ package mockapi
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 
@@ -22,14 +24,40 @@ var (
 	loadErr    error
 )
 
+// findModuleRoot walks up the directory tree to find go.mod
+func findModuleRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("go.mod not found")
+		}
+		dir = parent
+	}
+}
+
 // loadOpenAPISpec loads and validates the OpenAPI spec (once per test run)
 func loadOpenAPISpec() error {
 	loadOnce.Do(func() {
 		loader := openapi3.NewLoader()
 		loader.IsExternalRefsAllowed = true
 
-		// Load OpenAPI spec from fixed path
-		specPath := "pkg/mockapi/testdata/upsun-openapi.json"
+		// Find module root and construct path to spec
+		moduleRoot, err := findModuleRoot()
+		if err != nil {
+			loadErr = fmt.Errorf("failed to find module root: %w", err)
+			return
+		}
+
+		specPath := filepath.Join(moduleRoot, "pkg/mockapi/testdata/upsun-openapi.json")
 
 		openAPIDoc, loadErr = loader.LoadFromFile(specPath)
 		if loadErr != nil {
@@ -124,3 +152,4 @@ func (r *responseCapture) WriteHeader(statusCode int) {
 	r.statusCode = statusCode
 	r.ResponseWriter.WriteHeader(statusCode)
 }
+
