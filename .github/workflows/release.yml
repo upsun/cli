@@ -115,10 +115,6 @@ jobs:
       - name: Install Go tools
         run: make goreleaser repogen
 
-      - name: Override tap skip_upload
-        if: inputs.upload_taps == true
-        run: "sed -i 's/skip_upload: auto/skip_upload: false/' .goreleaser.yaml"
-
       - name: Build release (tag)
         if: startsWith(github.ref, 'refs/tags/') || inputs.tag
         env:
@@ -127,6 +123,7 @@ jobs:
           RSA_SIGNING_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/rsa-signing-key.pem
           GPG_SIGNING_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/gpg-signing-key.asc
           CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
+          SKIP_UPLOAD_TAPS: ${{ inputs.upload_taps == true && 'false' || 'auto' }}
         run: make release
 
       - name: Build snapshot (branch)

@@ -155,7 +155,7 @@ archives:
 
 brews:
   - name: platformsh-cli
-    skip_upload: auto
+    skip_upload: '{{ envOrDefault "SKIP_UPLOAD_TAPS" "auto" }}'
     repository:
       owner: upsun
       name: homebrew-tap
@@ -186,7 +186,7 @@ brews:
       system "#{bin}/platform --version"
 
   - name: upsun-cli
-    skip_upload: auto
+    skip_upload: '{{ envOrDefault "SKIP_UPLOAD_TAPS" "auto" }}'
     repository:
       owner: upsun
       name: homebrew-tap
@@ -218,7 +218,7 @@ brews:
 
 scoops:
   - name: platform
-    skip_upload: auto
+    skip_upload: '{{ envOrDefault "SKIP_UPLOAD_TAPS" "auto" }}'
     repository:
       owner: upsun
       name: homebrew-tap
@@ -240,7 +240,7 @@ scoops:
       - extras/vcredist2022
 
   - name: upsun
-    skip_upload: auto
+    skip_upload: '{{ envOrDefault "SKIP_UPLOAD_TAPS" "auto" }}'
     repository:
       owner: upsun
       name: homebrew-tap
