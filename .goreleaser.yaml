@@ -101,7 +101,7 @@ universal_binaries:
     replace: true
 
 release:
-  replace_existing_artifacts: {{ envOrDefault "REPLACE_EXISTING_ARTIFACTS" "false" }}
+  replace_existing_artifacts: true
   github:
     owner: upsun
     name: cli
