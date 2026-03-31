@@ -101,7 +101,7 @@ universal_binaries:
     replace: true
 
 release:
-  mode: '{{ envOrDefault "RELEASE_MODE" "append" }}'
+  replace_existing_artifacts: {{ if eq .Env.REPLACE_EXISTING_ARTIFACTS "true" }}true{{ else }}false{{ end }}
   github:
     owner: upsun
     name: cli
