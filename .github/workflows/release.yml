@@ -124,6 +124,7 @@ jobs:
           GPG_SIGNING_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/gpg-signing-key.asc
           CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
           SKIP_UPLOAD_TAPS: ${{ inputs.upload_taps == true && 'false' || 'auto' }}
+          RELEASE_MODE: ${{ github.event_name == 'workflow_dispatch' && 'replace' || 'append' }}
         run: make release
 
       - name: Build snapshot (branch)
