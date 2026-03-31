@@ -167,6 +167,46 @@ func (h *Handler) handleRedeployEnvironment(w http.ResponseWriter, req *http.Req
 	})
 }
 
+func (h *Handler) handleBranchEnvironment(w http.ResponseWriter, req *http.Request) {
+	env := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
+	if env == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(activityResponse())
+}
+
+func (h *Handler) handleMergeEnvironment(w http.ResponseWriter, req *http.Request) {
+	env := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
+	if env == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(activityResponse())
+}
+
+func (h *Handler) handleDeactivateEnvironment(w http.ResponseWriter, req *http.Request) {
+	env := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
+	if env == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(activityResponse())
+}
+
+func (h *Handler) handleDeleteEnvironment(w http.ResponseWriter, req *http.Request) {
+	h.Lock()
+	defer h.Unlock()
+	projectID := chi.URLParam(req, "project_id")
+	environmentID := chi.URLParam(req, "environment_id")
+	if env, ok := h.environments[environmentID]; ok && env.Project == projectID {
+		delete(h.environments, environmentID)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	w.WriteHeader(http.StatusNotFound)
+}
+
 func (h *Handler) handleGetCurrentDeployment(w http.ResponseWriter, req *http.Request) {
 	h.RLock()
 	defer h.RUnlock()
