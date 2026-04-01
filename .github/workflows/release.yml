@@ -115,11 +115,20 @@ jobs:
       - name: Install Go tools
         run: make goreleaser repogen
 
+      - name: Generate GitHub App token for homebrew-tap
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          repositories: homebrew-tap
+
       - name: Build release (tag)
         if: startsWith(github.ref, 'refs/tags/') || inputs.tag
         env:
           GORELEASER_CURRENT_TAG: ${{ steps.tag.outputs.tag }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAP_GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           RSA_SIGNING_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/rsa-signing-key.pem
           GPG_SIGNING_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/gpg-signing-key.asc
           CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
