@@ -21,6 +21,7 @@ type Store interface {
 	Save(path string, s *Session) error
 	Delete(dir string) error
 	List(baseDir string) ([]string, error)
+	MkdirAll(path string) error
 }
 
 // FileStore is the production Store backed by the filesystem.
@@ -55,6 +56,11 @@ func (fs *FileStore) Save(path string, s *Session) error {
 // Delete removes the directory containing the session file.
 func (fs *FileStore) Delete(dir string) error {
 	return os.RemoveAll(dir)
+}
+
+// MkdirAll creates the directory with permissions 0700.
+func (fs *FileStore) MkdirAll(path string) error {
+	return os.MkdirAll(path, 0700)
 }
 
 // List scans baseDir for sess-cli-* directories and returns the session IDs.
@@ -130,4 +136,10 @@ func (m *MemStore) List(baseDir string) ([]string, error) {
 		}
 	}
 	return ids, nil
+}
+
+// MkdirAll records the path in the dirs map.
+func (m *MemStore) MkdirAll(path string) error {
+	m.dirs[path] = true
+	return nil
 }

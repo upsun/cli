@@ -27,7 +27,7 @@ func New(cfg *config.Config) (*Manager, error) {
 
 // NewWithStore creates a Manager with an injected Store (for testing).
 func NewWithStore(cfg *config.Config, store Store) *Manager {
-	id, _ := ResolveSessionID(cfg)
+	id, _ := ResolveSessionID(cfg) // error only if WritableUserDir is misconfigured; fall back to "default"
 	if id == "" {
 		id = "default"
 	}
@@ -104,14 +104,7 @@ func (m *Manager) Save(s *Session) error {
 	if err != nil {
 		return err
 	}
-	if _, ok := m.store.(*FileStore); ok {
-		return os.MkdirAll(dir, 0700)
-	}
-	// For MemStore: record the cli dir so List() works
-	if mem, ok := m.store.(*MemStore); ok {
-		mem.dirs[dir] = true
-	}
-	return nil
+	return m.store.MkdirAll(dir)
 }
 
 // Delete removes the current session (both OAuth file and CLI artifact dir).
@@ -153,7 +146,9 @@ func (m *Manager) DeleteAll() error {
 	}
 	for _, e := range entries {
 		if e.IsDir() && strings.HasPrefix(e.Name(), "sess-") && !strings.HasPrefix(e.Name(), "sess-cli-") {
-			_ = os.RemoveAll(filepath.Join(base, e.Name()))
+			if err := os.RemoveAll(filepath.Join(base, e.Name())); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
