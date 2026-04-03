@@ -2,36 +2,30 @@ package auth
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"golang.org/x/oauth2"
 
-	"github.com/upsun/cli/internal/legacy"
+	"github.com/upsun/cli/internal/config"
+	"github.com/upsun/cli/internal/session"
 )
 
-type LegacyCLIClient struct {
+// Client is an authenticated HTTP client for the Upsun API.
+type Client struct {
 	HTTPClient  *http.Client
-	tokenSource oauth2.TokenSource
+	tokenSource *sessionTokenSource
 }
 
-func (c *LegacyCLIClient) EnsureAuthenticated(_ context.Context) error {
+// EnsureAuthenticated checks that a valid token is available.
+func (c *Client) EnsureAuthenticated(_ context.Context) error {
 	_, err := c.tokenSource.Token()
 	return err
 }
 
-// NewLegacyCLIClient creates an HTTP client authenticated through the legacy CLI.
-// The wrapper argument must be a dedicated wrapper, not used by other callers.
-func NewLegacyCLIClient(ctx context.Context, wrapper *legacy.CLIWrapper) (*LegacyCLIClient, error) {
-	ts, err := NewLegacyCLITokenSource(ctx, wrapper)
-	if err != nil {
-		return nil, fmt.Errorf("oauth2: create token source: %w", err)
-	}
+// NewClient creates an HTTP client authenticated via the session Manager.
+func NewClient(ctx context.Context, mgr *session.Manager, cfg *config.Config) (*Client, error) {
+	ts := NewSessionTokenSource(mgr, cfg)
 
-	refresher, ok := ts.(refresher)
-	if !ok {
-		return nil, fmt.Errorf("token source does not implement refresher")
-	}
 	baseRT := http.DefaultTransport
 	if rt, ok := TransportFromContext(ctx); ok && rt != nil {
 		baseRT = rt
@@ -39,7 +33,7 @@ func NewLegacyCLIClient(ctx context.Context, wrapper *legacy.CLIWrapper) (*Legac
 
 	httpClient := &http.Client{
 		Transport: &Transport{
-			refresher: refresher,
+			refresher: ts,
 			base: &oauth2.Transport{
 				Source: ts,
 				Base:   baseRT,
@@ -47,7 +41,7 @@ func NewLegacyCLIClient(ctx context.Context, wrapper *legacy.CLIWrapper) (*Legac
 		},
 	}
 
-	return &LegacyCLIClient{
+	return &Client{
 		HTTPClient:  httpClient,
 		tokenSource: ts,
 	}, nil

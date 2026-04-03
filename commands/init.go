@@ -27,6 +27,7 @@ import (
 	"github.com/upsun/cli/internal/auth"
 	"github.com/upsun/cli/internal/config"
 	_init "github.com/upsun/cli/internal/init"
+	"github.com/upsun/cli/internal/session"
 )
 
 func newInitCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cobra.Command {
@@ -108,8 +109,12 @@ func runInitCommand(
 
 	cnf := config.FromContext(cmd.Context())
 
-	legacyCLIClient, err := auth.NewLegacyCLIClient(cmd.Context(),
-		makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), cmd.ErrOrStderr(), cmd.InOrStdin()))
+	mgr, err := session.New(cnf)
+	if err != nil {
+		return err
+	}
+
+	legacyCLIClient, err := auth.NewClient(cmd.Context(), mgr, cnf)
 	if err != nil {
 		return err
 	}
@@ -192,7 +197,7 @@ func runInitCommand(
 // handleOrganizations manages organization selection and validation.
 // It modifies initOptions.OrganizationID and initOptions.ProjectID.
 func handleOrganizations(
-	ctx context.Context, cnf *config.Config, legacyCLIClient *auth.LegacyCLIClient, initOptions *_init.Options,
+	ctx context.Context, cnf *config.Config, legacyCLIClient *auth.Client, initOptions *_init.Options,
 ) (*api.Organization, error) {
 	if !cnf.API.EnableOrganizations {
 		return nil, nil
@@ -312,3 +317,4 @@ func choose(stderr io.Writer, message string, options []string) (result string, 
 	err = survey.AskOne(prompt, &result, survey.WithValidator(survey.Required))
 	return
 }
+
