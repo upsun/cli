@@ -149,6 +149,7 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		authcmds.NewInfoCommand(cnf),
 		authcmds.NewLogoutCommand(cnf),
 		authcmds.NewTokenCommand(cnf),
+		authcmds.NewVerifyPhoneNumberCommand(cnf),
 		newConfigInstallCommand(),
 		newCompletionCommand(cnf),
 		newHelpCommand(cnf),
