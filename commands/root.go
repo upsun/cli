@@ -145,6 +145,7 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 	// Add subcommands.
 	cmd.AddCommand(
 		authcmds.NewAPITokenLoginCommand(cnf),
+		authcmds.NewBrowserLoginCommand(cnf),
 		authcmds.NewInfoCommand(cnf),
 		authcmds.NewLogoutCommand(cnf),
 		authcmds.NewTokenCommand(cnf),
