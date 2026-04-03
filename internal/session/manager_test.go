@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/session"
 )
 
@@ -56,4 +57,42 @@ func TestFileStore_List(t *testing.T) {
 	ids, err := fs.List(dir)
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"default", "work"}, ids)
+}
+
+func TestResolveSessionID_EnvVar(t *testing.T) {
+	cfg := testConfig(t)
+	t.Setenv("TEST_CLI_SESSION_ID", "my-env-session")
+	id, err := session.ResolveSessionID(cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "my-env-session", id)
+}
+
+func TestResolveSessionID_File(t *testing.T) {
+	cfg := testConfig(t)
+	dir := t.TempDir()
+	t.Setenv("TEST_CLI_HOME", dir)
+	idFile := filepath.Join(dir, ".platform-test-cli", "session-id")
+	require.NoError(t, os.MkdirAll(filepath.Dir(idFile), 0700))
+	require.NoError(t, os.WriteFile(idFile, []byte("file-session\n"), 0600))
+	id, err := session.ResolveSessionID(cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "file-session", id)
+}
+
+func TestResolveSessionID_Default(t *testing.T) {
+	cfg := testConfig(t)
+	t.Setenv("TEST_CLI_HOME", t.TempDir())
+	id, err := session.ResolveSessionID(cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "default", id)
+}
+
+// testConfig returns a minimal *config.Config for tests using the integration test config.yaml.
+func testConfig(t *testing.T) *config.Config {
+	t.Helper()
+	data, err := os.ReadFile("../../integration-tests/config.yaml")
+	require.NoError(t, err)
+	cfg, err := config.FromYAML(data)
+	require.NoError(t, err)
+	return cfg
 }
