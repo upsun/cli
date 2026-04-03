@@ -33,15 +33,18 @@ func ResolveSessionID(cfg *config.Config) (string, error) {
 	return "default", nil
 }
 
-// sanitiseID replaces characters not in [a-zA-Z0-9_-] with hyphens,
+// sanitiseID replaces runs of characters not in [a-zA-Z0-9_-] with a single hyphen,
 // matching PHP's preg_replace('/[^\w\-]+/', '-', $id).
 func sanitiseID(id string) string {
 	var b strings.Builder
+	prevHyphen := false
 	for _, r := range id {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
 			b.WriteRune(r)
-		} else {
+			prevHyphen = false
+		} else if !prevHyphen {
 			b.WriteRune('-')
+			prevHyphen = true
 		}
 	}
 	return b.String()

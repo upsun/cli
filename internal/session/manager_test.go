@@ -87,6 +87,15 @@ func TestResolveSessionID_Default(t *testing.T) {
 	assert.Equal(t, "default", id)
 }
 
+func TestResolveSessionID_ConfigField(t *testing.T) {
+	cfg := testConfig(t)
+	t.Setenv("TEST_CLI_HOME", t.TempDir())
+	cfg.API.SessionID = "config-session"
+	id, err := session.ResolveSessionID(cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "config-session", id)
+}
+
 // testConfig returns a minimal *config.Config for tests using the integration test config.yaml.
 func testConfig(t *testing.T) *config.Config {
 	t.Helper()
