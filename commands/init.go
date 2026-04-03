@@ -114,7 +114,7 @@ func runInitCommand(
 		return err
 	}
 
-	legacyCLIClient, err := auth.NewClient(cmd.Context(), mgr, cnf)
+	authClient, err := auth.NewClient(cmd.Context(), mgr, cnf)
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func runInitCommand(
 	var isInteractive = !viper.GetBool("no-interaction")
 
 	debugLogf("Checking selected organization")
-	org, err := handleOrganizations(cmd.Context(), cnf, legacyCLIClient, initOptions)
+	org, err := handleOrganizations(cmd.Context(), cnf, authClient, initOptions)
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func runInitCommand(
 			"Note: AI configuration is only compatible with `%s` organizations\n", api.OrgTypeFlexible))
 	}
 
-	if err := legacyCLIClient.EnsureAuthenticated(cmd.Context()); err != nil {
+	if err := authClient.EnsureAuthenticated(cmd.Context()); err != nil {
 		return err
 	}
 
@@ -183,7 +183,7 @@ func runInitCommand(
 		return err
 	}
 
-	initOptions.HTTPClient = legacyCLIClient.HTTPClient
+	initOptions.HTTPClient = authClient.HTTPClient
 	initOptions.APIURL = cnf.API.BaseURL
 	initOptions.UserAgent = cnf.UserAgent()
 	initOptions.IsInteractive = isInteractive
@@ -197,13 +197,13 @@ func runInitCommand(
 // handleOrganizations manages organization selection and validation.
 // It modifies initOptions.OrganizationID and initOptions.ProjectID.
 func handleOrganizations(
-	ctx context.Context, cnf *config.Config, legacyCLIClient *auth.Client, initOptions *_init.Options,
+	ctx context.Context, cnf *config.Config, authClient *auth.Client, initOptions *_init.Options,
 ) (*api.Organization, error) {
 	if !cnf.API.EnableOrganizations {
 		return nil, nil
 	}
 
-	apiClient, err := api.NewClient(cnf.API.BaseURL, legacyCLIClient.HTTPClient)
+	apiClient, err := api.NewClient(cnf.API.BaseURL, authClient.HTTPClient)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func handleOrganizations(
 		return nil, nil
 	}
 
-	if err := legacyCLIClient.EnsureAuthenticated(ctx); err != nil {
+	if err := authClient.EnsureAuthenticated(ctx); err != nil {
 		return nil, err
 	}
 
