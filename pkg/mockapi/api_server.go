@@ -81,6 +81,36 @@ func NewHandler(t *testing.T) *Handler {
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "verified"})
 	})
 
+	// PHP CLI-compatible phone verification endpoints.
+	// The legacy PHP CLI calls /users/{id}/phonenumber to initiate and /users/{id}/phonenumber/{sid} to verify.
+	const phoneSID = "test-sid-1"
+	h.Post("/users/{user_id}/phonenumber", func(w http.ResponseWriter, req *http.Request) {
+		phoneVerifyMu.Lock()
+		phoneVerifyPending = true
+		phoneVerifyMu.Unlock()
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"sid": phoneSID})
+	})
+	h.Post("/users/{user_id}/phonenumber/{sid}", func(w http.ResponseWriter, req *http.Request) {
+		var body struct {
+			Code string `json:"code"`
+		}
+		_ = json.NewDecoder(req.Body).Decode(&body)
+		phoneVerifyMu.Lock()
+		pending := phoneVerifyPending
+		phoneVerifyMu.Unlock()
+		if !pending || body.Code != pendingPhoneCode {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid code"})
+			return
+		}
+		phoneVerifyMu.Lock()
+		phoneVerifyPending = false
+		phoneVerifyMu.Unlock()
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "verified"})
+	})
+
 	h.Get("/organizations", h.handleListOrgs)
 	h.Post("/organizations", h.handleCreateOrg)
 	h.Get("/organizations/{organization_id}", h.handleGetOrg)
