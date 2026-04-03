@@ -20,6 +20,7 @@ import (
 
 	"github.com/upsun/cli/internal"
 	authcmds "github.com/upsun/cli/commands/auth"
+	sessioncmds "github.com/upsun/cli/commands/session"
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/config/alt"
 	"github.com/upsun/cli/internal/legacy"
@@ -150,6 +151,7 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		authcmds.NewLogoutCommand(cnf),
 		authcmds.NewTokenCommand(cnf),
 		authcmds.NewVerifyPhoneNumberCommand(cnf),
+		sessioncmds.NewSwitchCommand(cnf),
 		newConfigInstallCommand(),
 		newCompletionCommand(cnf),
 		newHelpCommand(cnf),
