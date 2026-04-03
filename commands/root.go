@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/upsun/cli/internal"
+	authcmds "github.com/upsun/cli/commands/auth"
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/config/alt"
 	"github.com/upsun/cli/internal/legacy"
@@ -143,6 +144,7 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 
 	// Add subcommands.
 	cmd.AddCommand(
+		authcmds.NewInfoCommand(cnf),
 		newConfigInstallCommand(),
 		newCompletionCommand(cnf),
 		newHelpCommand(cnf),
