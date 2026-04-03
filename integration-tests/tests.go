@@ -47,7 +47,7 @@ func getCommandName(t *testing.T) string {
 		candidate = c
 	}
 	versionCmd := exec.Command(candidate, "--version")
-	versionCmd.Env = testEnv()
+	versionCmd.Env = testEnv(os.TempDir())
 	output, err := versionCmd.Output()
 	require.NoError(t, err, "running '--version' must succeed under the CLI at: %s", candidate)
 	require.Contains(t, string(output), "Platform Test CLI ")
@@ -60,11 +60,12 @@ type cmdFactory struct {
 	t        *testing.T
 	apiURL   string
 	authURL  string
+	homeDir  string
 	extraEnv []string
 }
 
 func newCommandFactory(t *testing.T, apiURL, authURL string) *cmdFactory {
-	return &cmdFactory{t: t, apiURL: apiURL, authURL: authURL}
+	return &cmdFactory{t: t, apiURL: apiURL, authURL: authURL, homeDir: t.TempDir()}
 }
 
 // Run runs a command, asserts that it did not error, and returns its normal (stdout) output.
@@ -93,8 +94,12 @@ func (f *cmdFactory) RunCombinedOutput(args ...string) (stdOut, stdErr string, e
 
 func (f *cmdFactory) buildCommand(args ...string) *exec.Cmd {
 	cmd := exec.Command(getCommandName(f.t), args...) //nolint:gosec
-	cmd.Env = testEnv()
-	cmd.Dir = os.TempDir()
+	homeDir := f.homeDir
+	if homeDir == "" {
+		homeDir = os.TempDir()
+	}
+	cmd.Env = testEnv(homeDir)
+	cmd.Dir = homeDir
 	if testing.Verbose() {
 		cmd.Stderr = os.Stderr
 	}
@@ -114,7 +119,7 @@ func assertTrimmed(t *testing.T, expected, actual string) {
 
 const EnvPrefix = "TEST_CLI_"
 
-func testEnv() []string {
+func testEnv(homeDir string) []string {
 	configPath, err := filepath.Abs("config.yaml")
 	if err != nil {
 		panic(err)
@@ -125,7 +130,7 @@ func testEnv() []string {
 		"CLI_CONFIG_FILE="+configPath,
 		EnvPrefix+"NO_INTERACTION=1",
 		EnvPrefix+"VERSION=1.0.0",
-		EnvPrefix+"HOME="+os.TempDir(),
+		EnvPrefix+"HOME="+homeDir,
 		"TZ=UTC",
 	)
 }
