@@ -62,6 +62,7 @@ type cmdFactory struct {
 	authURL  string
 	homeDir  string
 	extraEnv []string
+	stdin    io.Reader
 }
 
 func newCommandFactory(t *testing.T, apiURL, authURL string) *cmdFactory {
@@ -106,6 +107,9 @@ func (f *cmdFactory) buildCommand(args ...string) *exec.Cmd {
 		cmd.Env = append(cmd.Env, EnvPrefix+"API_AUTH_URL="+f.authURL, EnvPrefix+"TOKEN="+mockapi.ValidAPITokens[0])
 	}
 	cmd.Env = append(cmd.Env, f.extraEnv...)
+	if f.stdin != nil {
+		cmd.Stdin = f.stdin
+	}
 	return cmd
 }
 
