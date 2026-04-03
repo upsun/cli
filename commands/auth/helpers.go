@@ -17,7 +17,7 @@ import (
 
 // resolveBaseURL returns the API base URL, preferring the env var override.
 func resolveBaseURL(cfg *config.Config) string {
-	if v := os.Getenv(cfg.Application.EnvPrefix + "API_BASE_URL"); v != "" {
+	if v := os.Getenv(cfg.Application.EnvPrefix + "API_URL"); v != "" {
 		return v
 	}
 	return cfg.API.BaseURL
@@ -25,7 +25,7 @@ func resolveBaseURL(cfg *config.Config) string {
 
 // resolveRevokeURL returns the OAuth2 revocation URL, preferring the env var override.
 func resolveRevokeURL(cfg *config.Config) string {
-	authURL := os.Getenv(cfg.Application.EnvPrefix + "API_AUTH_URL")
+	authURL := os.Getenv(cfg.Application.EnvPrefix + "AUTH_URL")
 	if authURL == "" {
 		authURL = cfg.API.AuthURL
 	}

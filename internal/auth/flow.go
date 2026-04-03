@@ -135,9 +135,9 @@ type callbackResult struct {
 }
 
 // oauth2AuthorizeURL resolves the OAuth2 authorize endpoint URL.
-// Priority: {EnvPrefix}API_AUTH_URL env → cfg.API.AuthURL → cfg.API.OAuth2AuthorizeURL
+// Priority: {EnvPrefix}AUTH_URL env → cfg.API.AuthURL → cfg.API.OAuth2AuthorizeURL
 func (f *BrowserFlow) oauth2AuthorizeURL() string {
-	authURL := os.Getenv(f.cfg.Application.EnvPrefix + "API_AUTH_URL")
+	authURL := os.Getenv(f.cfg.Application.EnvPrefix + "AUTH_URL")
 	if authURL == "" {
 		authURL = f.cfg.API.AuthURL
 	}
@@ -149,7 +149,7 @@ func (f *BrowserFlow) oauth2AuthorizeURL() string {
 
 // oauth2TokenURLFlow resolves the OAuth2 token endpoint URL for this flow.
 func (f *BrowserFlow) oauth2TokenURLFlow() string {
-	authURL := os.Getenv(f.cfg.Application.EnvPrefix + "API_AUTH_URL")
+	authURL := os.Getenv(f.cfg.Application.EnvPrefix + "AUTH_URL")
 	if authURL == "" {
 		authURL = f.cfg.API.AuthURL
 	}
