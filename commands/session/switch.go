@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	cobrahelp "github.com/upsun/cli/commands/cobrahelp"
 	"github.com/upsun/cli/internal/config"
 	internalsession "github.com/upsun/cli/internal/session"
 )
@@ -80,5 +81,6 @@ func NewSwitchCommand(cfg *config.Config) *cobra.Command {
 			return nil
 		},
 	}
+	cobrahelp.SetPhpStyle(cmd)
 	return cmd
 }

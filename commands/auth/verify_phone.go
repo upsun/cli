@@ -8,6 +8,7 @@ import (
 	"github.com/nyaruka/phonenumbers"
 	"github.com/spf13/cobra"
 
+	cobrahelp "github.com/upsun/cli/commands/cobrahelp"
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/session"
 )
@@ -106,5 +107,6 @@ func NewVerifyPhoneNumberCommand(cfg *config.Config) *cobra.Command {
 			return nil
 		},
 	}
+	cobrahelp.SetPhpStyle(cmd)
 	return cmd
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	cobrahelp "github.com/upsun/cli/commands/cobrahelp"
 	internalauth "github.com/upsun/cli/internal/auth"
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/session"
@@ -82,5 +83,6 @@ func NewBrowserLoginCommand(cfg *config.Config) *cobra.Command {
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Log in again, even if already logged in")
 	cmd.Flags().StringArrayVar(&methods, "method", nil, "Require specific authentication method(s)")
 	cmd.Flags().IntVar(&maxAge, "max-age", 0, "Maximum age (seconds) of the web authentication session")
+	cobrahelp.SetPhpStyle(cmd)
 	return cmd
 }

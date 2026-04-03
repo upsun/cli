@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	cobrahelp "github.com/upsun/cli/commands/cobrahelp"
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/session"
 )
@@ -114,5 +115,6 @@ func NewLogoutCommand(cfg *config.Config) *cobra.Command {
 	}
 	cmd.Flags().BoolVarP(&all, "all", "a", false, "Log out from all local sessions")
 	cmd.Flags().BoolVar(&other, "other", false, "Log out from other local sessions")
+	cobrahelp.SetPhpStyle(cmd)
 	return cmd
 }

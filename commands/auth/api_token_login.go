@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	cobrahelp "github.com/upsun/cli/commands/cobrahelp"
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/session"
 )
@@ -52,6 +53,7 @@ func NewAPITokenLoginCommand(cfg *config.Config) *cobra.Command {
 			return printUserInfo(cmd.Context(), mgr, cfg, cmd.ErrOrStderr())
 		},
 	}
+	cobrahelp.SetPhpStyle(cmd)
 	return cmd
 }
 

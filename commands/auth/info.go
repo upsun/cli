@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	cobrahelp "github.com/upsun/cli/commands/cobrahelp"
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/session"
 )
@@ -85,5 +86,6 @@ func NewInfoCommand(cfg *config.Config) *cobra.Command {
 	cmd.Flags().BoolVar(&noAutoLogin, "no-auto-login", false, "Skip auto login; exit 0 if not logged in")
 	cmd.Flags().StringVarP(&property, "property", "P", "", "The account property to view")
 	cmd.Flags().BoolVar(&refresh, "refresh", false, "Refresh the cache")
+	cobrahelp.SetPhpStyle(cmd)
 	return cmd
 }

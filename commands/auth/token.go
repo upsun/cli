@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	cobrahelp "github.com/upsun/cli/commands/cobrahelp"
 	internalauth "github.com/upsun/cli/internal/auth"
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/session"
@@ -75,6 +76,7 @@ func NewTokenCommand(cfg *config.Config) *cobra.Command {
 	}
 	cmd.Flags().BoolVarP(&header, "header", "H", false, `Output the token as an HTTP "Authorization: Bearer" header`)
 	cmd.Flags().BoolVarP(&noWarn, "no-warn", "W", false, "Suppress the warning message")
+	cobrahelp.SetPhpStyle(cmd)
 	return cmd
 }
 
