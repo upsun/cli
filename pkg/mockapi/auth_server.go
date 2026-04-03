@@ -4,10 +4,13 @@ import (
 	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,32 +23,124 @@ import (
 var ValidAPITokens = []string{"api-token-1"}
 var accessTokens = []string{"access-token-1"}
 
+// AuthServer is a mock authentication server for testing.
+type AuthServer struct {
+	*httptest.Server
+	revokedMu     sync.Mutex
+	revokedTokens []string
+}
+
+// RevokedTokens returns a copy of all tokens that have been revoked.
+func (s *AuthServer) RevokedTokens() []string {
+	s.revokedMu.Lock()
+	defer s.revokedMu.Unlock()
+	out := make([]string, len(s.revokedTokens))
+	copy(out, s.revokedTokens)
+	return out
+}
+
 // NewAuthServer creates a new mock authentication server.
 // The caller must call Close() on the server when finished.
-func NewAuthServer(t *testing.T) *httptest.Server {
+func NewAuthServer(t *testing.T) *AuthServer {
 	mux := chi.NewRouter()
 	if testing.Verbose() {
 		mux.Use(middleware.DefaultLogger)
 	}
 
+	type pendingAuth struct {
+		codeChallenge string
+		state         string
+	}
+	var (
+		pendingMu    sync.Mutex
+		pendingAuths = map[string]pendingAuth{} // code → pendingAuth
+	)
+
+	srv := &AuthServer{}
+
+	mux.Get("/oauth2/authorize", func(w http.ResponseWriter, req *http.Request) {
+		q := req.URL.Query()
+		code := "test-auth-code-" + q.Get("state")
+		pendingMu.Lock()
+		pendingAuths[code] = pendingAuth{
+			codeChallenge: q.Get("code_challenge"),
+			state:         q.Get("state"),
+		}
+		pendingMu.Unlock()
+		redirectURI := q.Get("redirect_uri")
+		http.Redirect(w, req, redirectURI+"?code="+code+"&state="+q.Get("state"), http.StatusFound)
+	})
+
 	mux.Post("/oauth2/token", func(w http.ResponseWriter, req *http.Request) {
 		require.NoError(t, req.ParseForm())
-		if gt := req.Form.Get("grant_type"); gt != "api_token" {
+		switch req.Form.Get("grant_type") {
+		case "api_token":
+			apiToken := req.Form.Get("api_token")
+			if slices.Contains(ValidAPITokens, apiToken) {
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"access_token":  accessTokens[0],
+					"expires_in":    3600,
+					"token_type":    "bearer",
+					"refresh_token": "test-refresh-token",
+				})
+				return
+			}
 			w.WriteHeader(http.StatusBadRequest)
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid grant type: " + gt})
-			return
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid API token"})
+
+		case "authorization_code":
+			code := req.Form.Get("code")
+			verifier := req.Form.Get("code_verifier")
+			pendingMu.Lock()
+			pending, ok := pendingAuths[code]
+			delete(pendingAuths, code)
+			pendingMu.Unlock()
+			if !ok {
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid code"})
+				return
+			}
+			// Verify PKCE S256 challenge.
+			h := sha256.Sum256([]byte(verifier))
+			expected := base64.RawURLEncoding.EncodeToString(h[:])
+			if expected != pending.codeChallenge {
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid code_verifier"})
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"access_token":  accessTokens[0],
+				"expires_in":    3600,
+				"token_type":    "bearer",
+				"refresh_token": "test-refresh-token",
+			})
+
+		case "refresh_token":
+			if req.Form.Get("refresh_token") == "test-refresh-token" {
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"access_token":  accessTokens[0],
+					"expires_in":    3600,
+					"token_type":    "bearer",
+					"refresh_token": "test-refresh-token",
+				})
+				return
+			}
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid refresh token"})
+
+		default:
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid grant type: " + req.Form.Get("grant_type")})
 		}
-		apiToken := req.Form.Get("api_token")
-		if slices.Contains(ValidAPITokens, apiToken) {
-			_ = json.NewEncoder(w).Encode(struct {
-				AccessToken string `json:"access_token"`
-				ExpiresIn   int    `json:"expires_in"`
-				Type        string `json:"token_type"`
-			}{AccessToken: accessTokens[0], ExpiresIn: 60, Type: "bearer"})
-			return
-		}
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid API token"})
+	})
+
+	mux.Post("/oauth2/revoke", func(w http.ResponseWriter, req *http.Request) {
+		require.NoError(t, req.ParseForm())
+		token := req.Form.Get("token")
+		srv.revokedMu.Lock()
+		srv.revokedTokens = append(srv.revokedTokens, token)
+		srv.revokedMu.Unlock()
+		w.WriteHeader(http.StatusOK)
 	})
 
 	mux.Get("/ssh/authority", func(w http.ResponseWriter, _ *http.Request) {
@@ -98,7 +193,8 @@ func NewAuthServer(t *testing.T) *httptest.Server {
 		}{string(ssh.MarshalAuthorizedKey(cert))})
 	})
 
-	return httptest.NewServer(mux)
+	srv.Server = httptest.NewServer(mux)
+	return srv
 }
 
 // publicKeys returns the server's public keys, e.g. for SSH certificate generation.
