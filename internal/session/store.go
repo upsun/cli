@@ -54,11 +54,7 @@ func (fs *FileStore) Save(path string, s *Session) error {
 
 // Delete removes the directory containing the session file.
 func (fs *FileStore) Delete(dir string) error {
-	err := os.RemoveAll(dir)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	return err
+	return os.RemoveAll(dir)
 }
 
 // List scans baseDir for sess-cli-* directories and returns the session IDs.
@@ -81,7 +77,7 @@ func (fs *FileStore) List(baseDir string) ([]string, error) {
 	return ids, nil
 }
 
-// MemStore is an in-memory Store for tests.
+// MemStore is an in-memory Store for tests. It is not safe for concurrent use.
 type MemStore struct {
 	sessions map[string]*Session
 	tokens   map[string]string
