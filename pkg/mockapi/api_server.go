@@ -53,7 +53,7 @@ func NewHandler(t *testing.T) *Handler {
 		phoneVerifyPending bool
 	)
 
-	h.Post("/v1/users/me/phone-verification", func(w http.ResponseWriter, req *http.Request) {
+	h.Post("/users/me/phone-verification", func(w http.ResponseWriter, req *http.Request) {
 		phoneVerifyMu.Lock()
 		phoneVerifyPending = true
 		phoneVerifyMu.Unlock()
@@ -61,7 +61,7 @@ func NewHandler(t *testing.T) *Handler {
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "pending"})
 	})
 
-	h.Post("/v1/users/me/phone-verification/verify", func(w http.ResponseWriter, req *http.Request) {
+	h.Post("/users/me/phone-verification/verify", func(w http.ResponseWriter, req *http.Request) {
 		var body struct {
 			Code string `json:"code"`
 		}
