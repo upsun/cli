@@ -77,7 +77,10 @@ func (ts *sessionTokenSource) unsafeRefreshToken() error {
 	ts.cached = nil
 
 	s, err := ts.mgr.Load()
-	if err != nil || s == nil {
+	if err != nil {
+		return fmt.Errorf("load session for refresh: %w", err)
+	}
+	if s == nil {
 		return fmt.Errorf("session not found for refresh")
 	}
 
