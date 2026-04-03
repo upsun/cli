@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
+
+	"golang.org/x/oauth2"
 
 	internalauth "github.com/upsun/cli/internal/auth"
 	"github.com/upsun/cli/internal/api"
@@ -12,16 +15,52 @@ import (
 	"github.com/upsun/cli/internal/session"
 )
 
-// newAPIClient creates an authenticated API client for commands.
-func newAPIClient(ctx context.Context, mgr *session.Manager, cfg *config.Config) (*api.Client, error) {
-	authClient, err := internalauth.NewClient(ctx, mgr, cfg)
-	if err != nil {
-		return nil, err
+// resolveBaseURL returns the API base URL, preferring the env var override.
+func resolveBaseURL(cfg *config.Config) string {
+	if v := os.Getenv(cfg.Application.EnvPrefix + "API_BASE_URL"); v != "" {
+		return v
 	}
-	return api.NewClient(cfg.API.BaseURL, authClient.HTTPClient)
+	return cfg.API.BaseURL
 }
 
-// printUserInfo fetches and prints the current user's info to stderr (used post-login).
+// newAPIClient creates an authenticated API client for commands.
+//
+// Auth priority:
+//  1. API token from env var ({EnvPrefix}TOKEN) or session storage — exchanged for OAuth access token.
+//  2. Session OAuth token — used directly.
+func newAPIClient(ctx context.Context, mgr *session.Manager, cfg *config.Config) (*api.Client, error) {
+	// Check for API token in env or session storage.
+	apiToken := os.Getenv(cfg.Application.EnvPrefix + "TOKEN")
+	if apiToken == "" {
+		var err error
+		apiToken, err = mgr.GetAPIToken()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var httpClient *oauth2.Transport
+	if apiToken != "" {
+		// Exchange the API token for an OAuth2 access token.
+		accessToken, err := exchangeAPIToken(ctx, cfg, apiToken)
+		if err != nil {
+			return nil, err
+		}
+		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: accessToken})
+		httpClient = &oauth2.Transport{Source: ts}
+	} else {
+		// Fall back to session-based OAuth token source.
+		authClient, err := internalauth.NewClient(ctx, mgr, cfg)
+		if err != nil {
+			return nil, err
+		}
+		return api.NewClient(resolveBaseURL(cfg), authClient.HTTPClient)
+	}
+
+	return api.NewClient(resolveBaseURL(cfg), oauth2.NewClient(ctx, httpClient.Source))
+}
+
+// printUserInfo fetches and prints the current user's info to w (used post-login).
 func printUserInfo(ctx context.Context, mgr *session.Manager, cfg *config.Config, w io.Writer) error {
 	apiClient, err := newAPIClient(ctx, mgr, cfg)
 	if err != nil {
@@ -39,7 +78,6 @@ func printUserInfo(ctx context.Context, mgr *session.Manager, cfg *config.Config
 
 // printTable writes a two-column property/value table to w.
 func printTable(w io.Writer, properties []string, data map[string]interface{}) {
-	// Calculate column widths.
 	col1 := len("Property")
 	col2 := len("Value")
 	for _, p := range properties {
