@@ -4,6 +4,7 @@ package session_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -94,6 +95,86 @@ func TestResolveSessionID_ConfigField(t *testing.T) {
 	id, err := session.ResolveSessionID(cfg)
 	require.NoError(t, err)
 	assert.Equal(t, "config-session", id)
+}
+
+func TestManager_SaveAndLoad(t *testing.T) {
+	cfg := testConfig(t)
+	t.Setenv("TEST_CLI_HOME", t.TempDir())
+	store := session.NewMemStore()
+	mgr := session.NewWithStore(cfg, store)
+
+	s := &session.Session{AccessToken: "tok", TokenType: "bearer", Expires: 9999999999, RefreshToken: "ref"}
+	require.NoError(t, mgr.Save(s))
+
+	loaded, err := mgr.Load()
+	require.NoError(t, err)
+	require.NotNil(t, loaded)
+	assert.Equal(t, "tok", loaded.AccessToken)
+}
+
+func TestManager_Delete(t *testing.T) {
+	cfg := testConfig(t)
+	t.Setenv("TEST_CLI_HOME", t.TempDir())
+	store := session.NewMemStore()
+	mgr := session.NewWithStore(cfg, store)
+
+	require.NoError(t, mgr.Save(&session.Session{AccessToken: "tok"}))
+	require.NoError(t, mgr.Delete())
+
+	loaded, err := mgr.Load()
+	require.NoError(t, err)
+	assert.Nil(t, loaded)
+}
+
+func TestManager_APIToken(t *testing.T) {
+	cfg := testConfig(t)
+	t.Setenv("TEST_CLI_HOME", t.TempDir())
+	store := session.NewMemStore()
+	mgr := session.NewWithStore(cfg, store)
+
+	require.NoError(t, mgr.SetAPIToken("my-api-token"))
+	tok, err := mgr.GetAPIToken()
+	require.NoError(t, err)
+	assert.Equal(t, "my-api-token", tok)
+
+	require.NoError(t, mgr.DeleteAPIToken())
+	tok, err = mgr.GetAPIToken()
+	require.NoError(t, err)
+	assert.Equal(t, "", tok)
+}
+
+func TestManager_List(t *testing.T) {
+	cfg := testConfig(t)
+	t.Setenv("TEST_CLI_HOME", t.TempDir())
+	store := session.NewMemStore()
+
+	mgr1 := session.NewWithStore(cfg, store)
+	require.NoError(t, mgr1.Save(&session.Session{AccessToken: "tok1"}))
+
+	// Second session
+	cfg2 := testConfig(t)
+	cfg2.API.SessionID = "work"
+	mgr2 := session.NewWithStore(cfg2, store)
+	require.NoError(t, mgr2.Save(&session.Session{AccessToken: "tok2"}))
+
+	ids, err := mgr1.List()
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"default", "work"}, ids)
+}
+
+func TestManager_SetActiveSessionID(t *testing.T) {
+	cfg := testConfig(t)
+	dir := t.TempDir()
+	t.Setenv("TEST_CLI_HOME", dir)
+	store := session.NewMemStore()
+	mgr := session.NewWithStore(cfg, store)
+
+	require.NoError(t, mgr.SetActiveSessionID("work"))
+
+	idFile := filepath.Join(dir, ".platform-test-cli", "session-id")
+	data, err := os.ReadFile(idFile)
+	require.NoError(t, err)
+	assert.Equal(t, "work", strings.TrimSpace(string(data)))
 }
 
 // testConfig returns a minimal *config.Config for tests using the integration test config.yaml.
