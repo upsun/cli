@@ -55,7 +55,8 @@ func TestAuthInfo(t *testing.T) {
 func TestAuthInfo_NoAutoLogin_NotLoggedIn(t *testing.T) {
 	f := newCommandFactory(t, "", "")
 	// No auth configured — with --no-auto-login should exit 0 and produce no stdout.
-	out, _, err := f.RunCombinedOutput("auth:info", "--no-auto-login", "-P", "id")
+	out, stderr, err := f.RunCombinedOutput("auth:info", "--no-auto-login", "-P", "id")
+	t.Log("stderr:", stderr)
 	require.NoError(t, err)
 	assert.Empty(t, strings.TrimSpace(out))
 }

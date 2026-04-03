@@ -94,12 +94,8 @@ func (f *cmdFactory) RunCombinedOutput(args ...string) (stdOut, stdErr string, e
 
 func (f *cmdFactory) buildCommand(args ...string) *exec.Cmd {
 	cmd := exec.Command(getCommandName(f.t), args...) //nolint:gosec
-	homeDir := f.homeDir
-	if homeDir == "" {
-		homeDir = os.TempDir()
-	}
-	cmd.Env = testEnv(homeDir)
-	cmd.Dir = homeDir
+	cmd.Env = testEnv(f.homeDir)
+	cmd.Dir = f.homeDir
 	if testing.Verbose() {
 		cmd.Stderr = os.Stderr
 	}
