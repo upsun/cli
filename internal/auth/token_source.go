@@ -68,23 +68,15 @@ func (ts *sessionTokenSource) TokenContext(ctx context.Context) (*oauth2.Token, 
 		return tok, nil
 	}
 
-	// Token expired — refresh.
-	if err := ts.unsafeRefreshToken(ctx); err != nil {
+	// Token expired — refresh using the already-loaded session (avoids a second Load).
+	if err := ts.unsafeRefreshToken(ctx, s); err != nil {
 		return nil, err
 	}
 	return ts.cached, nil
 }
 
-func (ts *sessionTokenSource) unsafeRefreshToken(ctx context.Context) error {
+func (ts *sessionTokenSource) unsafeRefreshToken(ctx context.Context, s *session.Session) error {
 	ts.cached = nil
-
-	s, err := ts.mgr.Load()
-	if err != nil {
-		return fmt.Errorf("load session for refresh: %w", err)
-	}
-	if s == nil {
-		return fmt.Errorf("session not found for refresh")
-	}
 
 	data := url.Values{
 		"grant_type":    {"refresh_token"},

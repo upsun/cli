@@ -13,8 +13,30 @@ import (
 	internalauth "github.com/upsun/cli/internal/auth"
 	"github.com/upsun/cli/internal/api"
 	"github.com/upsun/cli/internal/config"
+	"github.com/upsun/cli/internal/legacy"
 	"github.com/upsun/cli/internal/session"
 )
+
+// InjectSessionCredentials injects stored credentials into a legacy PHP CLI wrapper so PHP
+// can authenticate without relying on the OS credential helper (e.g. macOS Keychain).
+// Respects an already-set TOKEN env var and is a no-op if session loading fails.
+func InjectSessionCredentials(cfg *config.Config, wrapper *legacy.CLIWrapper) {
+	envPrefix := cfg.Application.EnvPrefix
+	if os.Getenv(envPrefix+"TOKEN") != "" {
+		return
+	}
+	mgr, err := session.New(cfg)
+	if err != nil {
+		return
+	}
+	if apiToken, err := mgr.GetAPIToken(); err == nil && apiToken != "" {
+		wrapper.ExtraEnv = append(wrapper.ExtraEnv, envPrefix+"TOKEN="+apiToken)
+		return
+	}
+	if s, err := mgr.Load(); err == nil && s != nil && s.AccessToken != "" {
+		wrapper.ExtraEnv = append(wrapper.ExtraEnv, envPrefix+"API_TOKEN="+s.AccessToken)
+	}
+}
 
 // httpClient is used for all outbound HTTP requests in this package.
 // Can be replaced in tests to inject a custom transport.
@@ -44,7 +66,6 @@ func newAPIClient(ctx context.Context, mgr *session.Manager, cfg *config.Config)
 		}
 	}
 
-	var httpClient *oauth2.Transport
 	if apiToken != "" {
 		// Exchange the API token for an OAuth2 access token.
 		s, err := exchangeAPIToken(ctx, cfg, apiToken)
@@ -52,17 +73,30 @@ func newAPIClient(ctx context.Context, mgr *session.Manager, cfg *config.Config)
 			return nil, err
 		}
 		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: s.AccessToken})
-		httpClient = &oauth2.Transport{Source: ts}
-	} else {
-		// Fall back to session-based OAuth token source.
-		authClient, err := internalauth.NewClient(ctx, mgr, cfg)
-		if err != nil {
-			return nil, err
-		}
-		return api.NewClient(resolveBaseURL(cfg), authClient.HTTPClient)
+		return api.NewClient(resolveBaseURL(cfg), oauth2.NewClient(ctx, ts))
 	}
 
-	return api.NewClient(resolveBaseURL(cfg), oauth2.NewClient(ctx, httpClient.Source))
+	// Fall back to session-based OAuth token source.
+	authClient, err := internalauth.NewClient(ctx, mgr, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return api.NewClient(resolveBaseURL(cfg), authClient.HTTPClient)
+}
+
+// printSessionID prints the current session ID hint when the session is non-default or
+// multiple sessions exist, followed by a blank line. No-ops otherwise.
+func printSessionID(w io.Writer, cfg *config.Config, mgr *session.Manager) {
+	sessionID := mgr.SessionID()
+	ids, _ := mgr.List()
+	if sessionID == "default" && len(ids) <= 1 {
+		return
+	}
+	fmt.Fprintf(w, "The current session ID is: %s\n", sessionID)
+	if os.Getenv(cfg.Application.EnvPrefix+"SESSION_ID") == "" {
+		fmt.Fprintf(w, "Change this using: %s session:switch\n", cfg.Application.Executable)
+	}
+	fmt.Fprintln(w)
 }
 
 // printUserInfo fetches and prints the current user's info to w (used post-login).

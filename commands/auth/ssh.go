@@ -9,7 +9,6 @@ import (
 
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/legacy"
-	"github.com/upsun/cli/internal/session"
 )
 
 // delegateSSHFinalization calls the legacy PHP CLI to run post-login SSH setup.
@@ -23,13 +22,6 @@ func delegateSSHFinalization(ctx context.Context, cfg *config.Config, cmd *cobra
 		Stderr:             cmd.ErrOrStderr(),
 		Stdin:              cmd.InOrStdin(),
 	}
-	// Inject auth so PHP can authenticate without credential helper.
-	if mgr, err := session.New(cfg); err == nil {
-		if apiToken, err := mgr.GetAPIToken(); err == nil && apiToken != "" {
-			wrapper.ExtraEnv = append(wrapper.ExtraEnv, cfg.Application.EnvPrefix+"TOKEN="+apiToken)
-		} else if s, err := mgr.Load(); err == nil && s != nil && s.AccessToken != "" {
-			wrapper.ExtraEnv = append(wrapper.ExtraEnv, cfg.Application.EnvPrefix+"API_TOKEN="+s.AccessToken)
-		}
-	}
+	InjectSessionCredentials(cfg, wrapper)
 	_ = wrapper.Exec(ctx, "ssh-cert:load", "--no-interaction")
 }

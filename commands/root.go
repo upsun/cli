@@ -24,7 +24,6 @@ import (
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/config/alt"
 	"github.com/upsun/cli/internal/legacy"
-	"github.com/upsun/cli/internal/session"
 )
 
 // Execute is the main entrypoint to run the CLI.
@@ -91,7 +90,7 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		},
 		Run: func(cmd *cobra.Command, _ []string) {
 			c := makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), cmd.ErrOrStderr(), cmd.InOrStdin())
-			injectSessionAuth(cnf, c)
+			authcmds.InjectSessionCredentials(cnf, c)
 			if err := c.Exec(cmd.Context(), os.Args[1:]...); err != nil {
 				exitWithError(err)
 			}
@@ -274,27 +273,6 @@ func exitWithError(err error) {
 		fmt.Fprintln(color.Error, color.RedString(err.Error()))
 	}
 	os.Exit(1)
-}
-
-// injectSessionAuth injects stored credentials into the legacy PHP CLI wrapper so PHP
-// can authenticate without relying on the OS credential helper (e.g. macOS Keychain).
-func injectSessionAuth(cfg *config.Config, wrapper *legacy.CLIWrapper) {
-	envPrefix := cfg.Application.EnvPrefix
-	// Respect an already-set token in the environment.
-	if os.Getenv(envPrefix+"TOKEN") != "" {
-		return
-	}
-	mgr, err := session.New(cfg)
-	if err != nil {
-		return
-	}
-	if apiToken, err := mgr.GetAPIToken(); err == nil && apiToken != "" {
-		wrapper.ExtraEnv = append(wrapper.ExtraEnv, envPrefix+"TOKEN="+apiToken)
-		return
-	}
-	if s, err := mgr.Load(); err == nil && s != nil && s.AccessToken != "" {
-		wrapper.ExtraEnv = append(wrapper.ExtraEnv, envPrefix+"API_TOKEN="+s.AccessToken)
-	}
 }
 
 func makeLegacyCLIWrapper(cnf *config.Config, stdout, stderr io.Writer, stdin io.Reader) *legacy.CLIWrapper {

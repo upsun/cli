@@ -32,13 +32,14 @@ func NewTokenCommand(cfg *config.Config) *cobra.Command {
 				fmt.Fprintln(cmd.ErrOrStderr(), "Warning: keep access tokens secret.")
 			}
 
+			mgr, err := session.New(cfg)
+			if err != nil {
+				return err
+			}
+
 			// Check for an API token in the environment or session.
 			apiToken := os.Getenv(cfg.Application.EnvPrefix + "TOKEN")
 			if apiToken == "" {
-				mgr, err := session.New(cfg)
-				if err != nil {
-					return err
-				}
 				apiToken, err = mgr.GetAPIToken()
 				if err != nil {
 					return err
@@ -47,18 +48,12 @@ func NewTokenCommand(cfg *config.Config) *cobra.Command {
 
 			var accessToken string
 			if apiToken != "" {
-				// Exchange the API token for an OAuth2 access token.
 				s, err := exchangeAPIToken(cmd.Context(), cfg, apiToken)
 				if err != nil {
 					return err
 				}
 				accessToken = s.AccessToken
 			} else {
-				// Fall back to the session token source (browser login).
-				mgr, err := session.New(cfg)
-				if err != nil {
-					return err
-				}
 				ts := internalauth.NewSessionTokenSource(mgr, cfg)
 				tok, err := ts.TokenContext(cmd.Context())
 				if err != nil {

@@ -48,16 +48,7 @@ func NewBrowserLoginCommand(cfg *config.Config) *cobra.Command {
 				return fmt.Errorf("non-interactive use of this command is not supported")
 			}
 
-			// Show session ID info when non-default or multiple sessions exist.
-			sessionID := mgr.SessionID()
-			ids, _ := mgr.List()
-			if sessionID != "default" || len(ids) > 1 {
-				fmt.Fprintf(cmd.ErrOrStderr(), "The current session ID is: %s\n", sessionID)
-				if os.Getenv(cfg.Application.EnvPrefix+"SESSION_ID") == "" {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Change this using: %s session:switch\n", cfg.Application.Executable)
-				}
-				fmt.Fprintln(cmd.ErrOrStderr())
-			}
+			printSessionID(cmd.ErrOrStderr(), cfg, mgr)
 
 			hasMaxAge := cmd.Flags().Changed("max-age")
 

@@ -35,29 +35,22 @@ func NewInfoCommand(cfg *config.Config) *cobra.Command {
 				return err
 			}
 
-			if noAutoLogin {
-				// Consider logged in if TOKEN env var, stored API token, or OAuth session exists.
-				if os.Getenv(cfg.Application.EnvPrefix+"TOKEN") != "" {
-					// Logged in via env var, proceed.
-				} else {
-					apiToken, _ := mgr.GetAPIToken()
-					if apiToken == "" {
-						s, _ := mgr.Load()
-						if s == nil || s.AccessToken == "" {
-							return nil
-						}
-					}
+			// Determine login state once, used by both the noAutoLogin guard and the error check.
+			envToken := os.Getenv(cfg.Application.EnvPrefix + "TOKEN")
+			loggedIn := envToken != ""
+			if !loggedIn {
+				if apiToken, _ := mgr.GetAPIToken(); apiToken != "" {
+					loggedIn = true
+				} else if s, _ := mgr.Load(); s != nil && s.AccessToken != "" {
+					loggedIn = true
 				}
 			}
 
-			// Check login state before making API calls.
-			if os.Getenv(cfg.Application.EnvPrefix+"TOKEN") == "" {
-				apiToken, _ := mgr.GetAPIToken()
-				if apiToken == "" {
-					if s, err := mgr.Load(); err == nil && (s == nil || s.AccessToken == "") {
-						return fmt.Errorf("not logged in. Run '%s login' to authenticate", cfg.Application.Executable)
-					}
-				}
+			if noAutoLogin && !loggedIn {
+				return nil
+			}
+			if !loggedIn {
+				return fmt.Errorf("not logged in. Run '%s login' to authenticate", cfg.Application.Executable)
 			}
 
 			apiClient, err := newAPIClient(ctx, mgr, cfg)
@@ -100,16 +93,7 @@ func NewInfoCommand(cfg *config.Config) *cobra.Command {
 			properties := []string{"id", "first_name", "last_name", "username", "email", "phone_number_verified"}
 			printTable(cmd.OutOrStdout(), properties, info)
 
-			// Show session info when applicable.
-			sessionID := mgr.SessionID()
-			ids, _ := mgr.List()
-			if sessionID != "default" || len(ids) > 1 {
-				fmt.Fprintln(cmd.ErrOrStderr())
-				fmt.Fprintf(cmd.ErrOrStderr(), "The current session ID is: %s\n", sessionID)
-				if os.Getenv(cfg.Application.EnvPrefix+"SESSION_ID") == "" {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Change this using: %s session:switch\n", cfg.Application.Executable)
-				}
-			}
+			printSessionID(cmd.ErrOrStderr(), cfg, mgr)
 			return nil
 		},
 	}
