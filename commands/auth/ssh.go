@@ -13,8 +13,8 @@ import (
 )
 
 // delegateSSHFinalization calls the legacy PHP CLI to run post-login SSH setup.
-// This is best-effort — errors are ignored.
-func delegateSSHFinalization(ctx context.Context, cfg *config.Config, cmd *cobra.Command) error {
+// This is best-effort — errors are intentionally ignored.
+func delegateSSHFinalization(ctx context.Context, cfg *config.Config, cmd *cobra.Command) {
 	wrapper := &legacy.CLIWrapper{
 		Config:             cfg,
 		Version:            config.Version,
@@ -32,5 +32,4 @@ func delegateSSHFinalization(ctx context.Context, cfg *config.Config, cmd *cobra
 		}
 	}
 	_ = wrapper.Exec(ctx, "ssh-cert:load", "--no-interaction")
-	return nil
 }

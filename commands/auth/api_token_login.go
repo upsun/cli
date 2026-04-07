@@ -61,7 +61,8 @@ func NewAPITokenLoginCommand(cfg *config.Config) *cobra.Command {
 			if err := printUserInfo(cmd.Context(), mgr, cfg, cmd.ErrOrStderr()); err != nil {
 				return err
 			}
-			return delegateSSHFinalization(cmd.Context(), cfg, cmd)
+			delegateSSHFinalization(cmd.Context(), cfg, cmd)
+			return nil
 		},
 	}
 	cobrahelp.SetPhpStyle(cmd)

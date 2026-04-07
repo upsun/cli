@@ -115,7 +115,8 @@ func NewBrowserLoginCommand(cfg *config.Config) *cobra.Command {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not retrieve user info: %v\n", err)
 			}
 
-			return delegateSSHFinalization(cmd.Context(), cfg, cmd)
+			delegateSSHFinalization(cmd.Context(), cfg, cmd)
+			return nil
 		},
 	}
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Log in again, even if already logged in")
