@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/nyaruka/phonenumbers"
 	"github.com/spf13/cobra"
@@ -111,7 +112,7 @@ func NewVerifyPhoneNumberCommand(cfg *config.Config) *cobra.Command {
 			}
 
 			for _, c := range code {
-				if c < '0' || c > '9' {
+				if !unicode.IsDigit(c) {
 					return fmt.Errorf("invalid verification code: must be numeric")
 				}
 			}
