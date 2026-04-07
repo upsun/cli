@@ -60,7 +60,7 @@ func NewTokenCommand(cfg *config.Config) *cobra.Command {
 					return err
 				}
 				ts := internalauth.NewSessionTokenSource(mgr, cfg)
-				tok, err := ts.Token()
+				tok, err := ts.TokenContext(cmd.Context())
 				if err != nil {
 					return err
 				}

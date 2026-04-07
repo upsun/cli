@@ -31,7 +31,14 @@ func NewSessionTokenSource(mgr *session.Manager, cfg *config.Config) *sessionTok
 }
 
 // Token returns a valid access token, refreshing if necessary.
+// Implements oauth2.TokenSource. Uses context.Background() for the refresh request;
+// use TokenContext for cancellable refresh.
 func (ts *sessionTokenSource) Token() (*oauth2.Token, error) {
+	return ts.TokenContext(context.Background())
+}
+
+// TokenContext is like Token but uses the provided context for any refresh request.
+func (ts *sessionTokenSource) TokenContext(ctx context.Context) (*oauth2.Token, error) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 
@@ -61,19 +68,13 @@ func (ts *sessionTokenSource) Token() (*oauth2.Token, error) {
 	}
 
 	// Token expired — refresh.
-	if err := ts.unsafeRefreshToken(); err != nil {
+	if err := ts.unsafeRefreshToken(ctx); err != nil {
 		return nil, err
 	}
 	return ts.cached, nil
 }
 
-func (ts *sessionTokenSource) refreshToken() error {
-	ts.mu.Lock()
-	defer ts.mu.Unlock()
-	return ts.unsafeRefreshToken()
-}
-
-func (ts *sessionTokenSource) unsafeRefreshToken() error {
+func (ts *sessionTokenSource) unsafeRefreshToken(ctx context.Context) error {
 	ts.cached = nil
 
 	s, err := ts.mgr.Load()
@@ -89,7 +90,7 @@ func (ts *sessionTokenSource) unsafeRefreshToken() error {
 		"refresh_token": {s.RefreshToken},
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, OAuth2TokenURL(ts.cfg), strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, OAuth2TokenURL(ts.cfg), strings.NewReader(data.Encode()))
 	if err != nil {
 		return fmt.Errorf("refresh token: %w", err)
 	}

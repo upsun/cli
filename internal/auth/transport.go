@@ -9,7 +9,6 @@ import (
 )
 
 type refresher interface {
-	refreshToken() error
 	invalidateToken() error
 }
 
