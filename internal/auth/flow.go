@@ -140,31 +140,6 @@ type callbackResult struct {
 	err         error
 }
 
-// oauth2AuthorizeURL resolves the OAuth2 authorize endpoint URL.
-// Priority: {EnvPrefix}AUTH_URL env → cfg.API.AuthURL → cfg.API.OAuth2AuthorizeURL
-func (f *BrowserFlow) oauth2AuthorizeURL() string {
-	authURL := os.Getenv(f.cfg.Application.EnvPrefix + "AUTH_URL")
-	if authURL == "" {
-		authURL = f.cfg.API.AuthURL
-	}
-	if authURL != "" {
-		return strings.TrimRight(authURL, "/") + "/oauth2/authorize"
-	}
-	return f.cfg.API.OAuth2AuthorizeURL
-}
-
-// oauth2TokenURLFlow resolves the OAuth2 token endpoint URL for this flow.
-func (f *BrowserFlow) oauth2TokenURLFlow() string {
-	authURL := os.Getenv(f.cfg.Application.EnvPrefix + "AUTH_URL")
-	if authURL == "" {
-		authURL = f.cfg.API.AuthURL
-	}
-	if authURL != "" {
-		return strings.TrimRight(authURL, "/") + "/oauth2/token"
-	}
-	return f.cfg.API.OAuth2TokenURL
-}
-
 func (f *BrowserFlow) buildAuthURL(localURL, challenge, state string, opts BrowserFlowOptions) string {
 	params := url.Values{
 		"response_type":         {"code"},
@@ -186,11 +161,11 @@ func (f *BrowserFlow) buildAuthURL(localURL, challenge, state string, opts Brows
 	if opts.MaxAge != nil {
 		params.Set("max_age", fmt.Sprintf("%d", *opts.MaxAge))
 	}
-	return f.oauth2AuthorizeURL() + "?" + params.Encode()
+	return OAuth2AuthorizeURL(f.cfg) + "?" + params.Encode()
 }
 
 func (f *BrowserFlow) exchangeCode(ctx context.Context, code, verifier, redirectURI string) (*session.Session, error) {
-	tokenURL := f.oauth2TokenURLFlow()
+	tokenURL := OAuth2TokenURL(f.cfg)
 	data := url.Values{
 		"grant_type":    {"authorization_code"},
 		"code":          {code},

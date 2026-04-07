@@ -51,6 +51,7 @@ func TestSessionTokenSource_RefreshExpired(t *testing.T) {
 	defer server.Close()
 
 	cfg := loadTestConfig(t)
+	cfg.API.AuthURL = ""
 	cfg.API.OAuth2TokenURL = server.URL + "/token"
 	store := session.NewMemStore()
 	mgr := session.NewWithStore(cfg, store)

@@ -23,18 +23,6 @@ func resolveBaseURL(cfg *config.Config) string {
 	return cfg.API.BaseURL
 }
 
-// resolveRevokeURL returns the OAuth2 revocation URL, preferring the env var override.
-func resolveRevokeURL(cfg *config.Config) string {
-	authURL := os.Getenv(cfg.Application.EnvPrefix + "AUTH_URL")
-	if authURL == "" {
-		authURL = cfg.API.AuthURL
-	}
-	if authURL != "" {
-		return strings.TrimRight(authURL, "/") + "/oauth2/revoke"
-	}
-	return cfg.API.OAuth2RevokeURL
-}
-
 // newAPIClient creates an authenticated API client for commands.
 //
 // Auth priority:

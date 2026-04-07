@@ -89,7 +89,7 @@ func (ts *sessionTokenSource) unsafeRefreshToken() error {
 		"refresh_token": {s.RefreshToken},
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, ts.cfg.API.OAuth2TokenURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, OAuth2TokenURL(ts.cfg), strings.NewReader(data.Encode()))
 	if err != nil {
 		return fmt.Errorf("refresh token: %w", err)
 	}

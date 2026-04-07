@@ -80,23 +80,9 @@ func NewTokenCommand(cfg *config.Config) *cobra.Command {
 	return cmd
 }
 
-// oauth2TokenURL returns the OAuth2 token endpoint URL.
-// It checks the environment variable {ENV_PREFIX}AUTH_URL first,
-// then falls back to the config's OAuth2TokenURL or AuthURL.
-func oauth2TokenURL(cfg *config.Config) string {
-	authURL := os.Getenv(cfg.Application.EnvPrefix + "AUTH_URL")
-	if authURL == "" {
-		authURL = cfg.API.AuthURL
-	}
-	if authURL != "" {
-		return strings.TrimRight(authURL, "/") + "/oauth2/token"
-	}
-	return cfg.API.OAuth2TokenURL
-}
-
 // exchangeAPIToken exchanges an API token for an OAuth2 access token.
 func exchangeAPIToken(ctx context.Context, cfg *config.Config, apiToken string) (string, error) {
-	tokenURL := oauth2TokenURL(cfg)
+	tokenURL := internalauth.OAuth2TokenURL(cfg)
 	if tokenURL == "" {
 		return "", fmt.Errorf("no OAuth2 token URL configured")
 	}

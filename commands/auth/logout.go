@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	cobrahelp "github.com/upsun/cli/commands/cobrahelp"
+	internalauth "github.com/upsun/cli/internal/auth"
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/session"
 )
@@ -22,7 +23,7 @@ func revokeSession(ctx context.Context, mgr *session.Manager, cfg *config.Config
 	if err != nil || s == nil || s.AccessToken == "" {
 		return
 	}
-	revokeURL := resolveRevokeURL(cfg)
+	revokeURL := internalauth.OAuth2RevokeURL(cfg)
 	if revokeURL == "" {
 		return
 	}

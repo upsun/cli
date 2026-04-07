@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	cobrahelp "github.com/upsun/cli/commands/cobrahelp"
+	internalauth "github.com/upsun/cli/internal/auth"
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/session"
 )
@@ -75,7 +76,7 @@ func NewAPITokenLoginCommand(cfg *config.Config) *cobra.Command {
 
 // apiTokenToSession exchanges an API token for OAuth2 tokens and returns a session.
 func apiTokenToSession(ctx context.Context, cfg *config.Config, apiToken string) (*session.Session, error) {
-	tokenURL := oauth2TokenURL(cfg)
+	tokenURL := internalauth.OAuth2TokenURL(cfg)
 	if tokenURL == "" {
 		return nil, fmt.Errorf("no OAuth2 token URL configured")
 	}
