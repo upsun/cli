@@ -39,6 +39,8 @@ func NewSwitchCommand(cfg *config.Config) *cobra.Command {
 			var newID string
 			if len(args) > 0 {
 				newID = args[0]
+			} else if os.Getenv(cfg.Application.EnvPrefix+"NO_INTERACTION") != "" {
+				return fmt.Errorf("the new session ID is required")
 			} else {
 				// Interactive prompt.
 				ids, err := mgr.List()

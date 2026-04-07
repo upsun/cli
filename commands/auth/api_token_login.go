@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -22,6 +23,17 @@ func NewAPITokenLoginCommand(cfg *config.Config) *cobra.Command {
 		Short: "Log in using an API token",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Block if TOKEN env var is already set via config.
+			if os.Getenv(cfg.Application.EnvPrefix+"TOKEN") != "" {
+				fmt.Fprintln(cmd.ErrOrStderr(), "An API token is already set via config")
+				return fmt.Errorf("an API token is already set via config")
+			}
+			// Non-interactive guard only when no arg (stdin would be needed).
+			if len(args) == 0 && os.Getenv(cfg.Application.EnvPrefix+"NO_INTERACTION") != "" {
+				fmt.Fprintln(cmd.ErrOrStderr(), "Non-interactive use of this command is not supported.")
+				return fmt.Errorf("non-interactive use of this command is not supported")
+			}
+
 			var apiToken string
 			if len(args) > 0 {
 				apiToken = args[0]
@@ -37,6 +49,7 @@ func NewAPITokenLoginCommand(cfg *config.Config) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("login failed: %w", err)
 			}
+			fmt.Fprintln(cmd.ErrOrStderr(), "The API token is valid.")
 
 			mgr, err := session.New(cfg)
 			if err != nil {

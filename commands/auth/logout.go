@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -58,10 +59,15 @@ func NewLogoutCommand(cfg *config.Config) *cobra.Command {
 				return err
 			}
 
+			if os.Getenv(cfg.Application.EnvPrefix+"TOKEN") != "" {
+				fmt.Fprintln(cmd.ErrOrStderr(), "Warning: an API token is set via config")
+			}
+
 			warn := func(msg string) { fmt.Fprintln(cmd.ErrOrStderr(), msg) }
 
 			if other && !all {
 				currentID := mgr.SessionID()
+				fmt.Fprintf(cmd.ErrOrStderr(), "The current session ID is: %s\n", currentID)
 				ids, err := mgr.List()
 				if err != nil {
 					return err
@@ -76,15 +82,17 @@ func NewLogoutCommand(cfg *config.Config) *cobra.Command {
 					fmt.Fprintln(cmd.ErrOrStderr(), "No other sessions exist.")
 					return nil
 				}
+				fmt.Fprintln(cmd.ErrOrStderr())
 				for _, id := range others {
 					sub := session.NewWithID(cfg, id)
 					revokeSession(cmd.Context(), sub, cfg, warn)
 					if err := sub.Delete(); err != nil {
 						return fmt.Errorf("delete session %q: %w", id, err)
 					}
+					fmt.Fprintf(cmd.ErrOrStderr(), "Logged out from session: %s\n", id)
 				}
-				fmt.Fprintln(cmd.ErrOrStderr(), "You are now logged out.")
-				fmt.Fprintln(cmd.ErrOrStderr(), "\nAll other sessions have been deleted.")
+				fmt.Fprintln(cmd.ErrOrStderr())
+				fmt.Fprintln(cmd.ErrOrStderr(), "All other sessions have been deleted.")
 				return nil
 			}
 

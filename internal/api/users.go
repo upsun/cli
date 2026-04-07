@@ -54,6 +54,37 @@ func (c *Client) SendPhoneVerification(ctx context.Context, userID, phoneNumber,
 	return result.SID, nil
 }
 
+// CheckVerificationStatus posts to /me/verification?force_refresh=1 and returns an error
+// if the user's verification type is still "phone" (i.e., phone verification did not complete).
+func (c *Client) CheckVerificationStatus(ctx context.Context) error {
+	u, err := c.resolveURL("me/verification")
+	if err != nil {
+		return err
+	}
+	q := u.Query()
+	q.Set("force_refresh", "1")
+	u.RawQuery = q.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	var result struct {
+		Type string `json:"type"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return err
+	}
+	if result.Type == "phone" {
+		return fmt.Errorf("phone verification status is still pending")
+	}
+	return nil
+}
+
 // VerifyPhone confirms the verification code for the given user and session ID.
 func (c *Client) VerifyPhone(ctx context.Context, userID, sid, code string) error {
 	u, err := c.baseURLWithSegments("users", userID, "phonenumber", sid)

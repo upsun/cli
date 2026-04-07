@@ -25,6 +25,9 @@ type BrowserFlowOptions struct {
 	// Stderr is the writer used for user-facing messages (local URL, instructions).
 	// Defaults to os.Stderr if nil.
 	Stderr io.Writer
+	// OnCodeReceived is called just before the authorization code is exchanged.
+	// May be nil.
+	OnCodeReceived func()
 }
 
 // BrowserFlow orchestrates the OAuth2 PKCE browser login flow.
@@ -119,6 +122,9 @@ func (f *BrowserFlow) Run(ctx context.Context, opts BrowserFlowOptions) (*sessio
 	case result := <-codeCh:
 		if result.err != nil {
 			return nil, result.err
+		}
+		if opts.OnCodeReceived != nil {
+			opts.OnCodeReceived()
 		}
 		return f.exchangeCode(ctx, result.code, verifier, result.redirectURI)
 	case <-time.After(30 * time.Minute):

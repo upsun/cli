@@ -36,9 +36,17 @@ func NewInfoCommand(cfg *config.Config) *cobra.Command {
 			}
 
 			if noAutoLogin {
-				s, err := mgr.Load()
-				if err != nil || s == nil || s.AccessToken == "" {
-					return nil
+				// Consider logged in if TOKEN env var, stored API token, or OAuth session exists.
+				if os.Getenv(cfg.Application.EnvPrefix+"TOKEN") != "" {
+					// Logged in via env var, proceed.
+				} else {
+					apiToken, _ := mgr.GetAPIToken()
+					if apiToken == "" {
+						s, _ := mgr.Load()
+						if s == nil || s.AccessToken == "" {
+							return nil
+						}
+					}
 				}
 			}
 
@@ -91,6 +99,17 @@ func NewInfoCommand(cfg *config.Config) *cobra.Command {
 			// Table output.
 			properties := []string{"id", "first_name", "last_name", "username", "email", "phone_number_verified"}
 			printTable(cmd.OutOrStdout(), properties, info)
+
+			// Show session info when applicable.
+			sessionID := mgr.SessionID()
+			ids, _ := mgr.List()
+			if sessionID != "default" || len(ids) > 1 {
+				fmt.Fprintln(cmd.ErrOrStderr())
+				fmt.Fprintf(cmd.ErrOrStderr(), "The current session ID is: %s\n", sessionID)
+				if os.Getenv(cfg.Application.EnvPrefix+"SESSION_ID") == "" {
+					fmt.Fprintf(cmd.ErrOrStderr(), "Change this using: %s session:switch\n", cfg.Application.Executable)
+				}
+			}
 			return nil
 		},
 	}

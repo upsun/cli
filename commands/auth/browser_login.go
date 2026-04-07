@@ -2,8 +2,10 @@
 package auth
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -39,14 +41,38 @@ func NewBrowserLoginCommand(cfg *config.Config) *cobra.Command {
 				return fmt.Errorf("Cannot log in via the browser while an API token is configured")
 			}
 
+			// Non-interactive guard.
+			if os.Getenv(cfg.Application.EnvPrefix+"NO_INTERACTION") != "" {
+				fmt.Fprintln(cmd.ErrOrStderr(), "Non-interactive use of this command is not supported.")
+				return fmt.Errorf("non-interactive use of this command is not supported")
+			}
+
+			// Show session ID info when non-default or multiple sessions exist.
+			sessionID := mgr.SessionID()
+			ids, _ := mgr.List()
+			if sessionID != "default" || len(ids) > 1 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "The current session ID is: %s\n", sessionID)
+				if os.Getenv(cfg.Application.EnvPrefix+"SESSION_ID") == "" {
+					fmt.Fprintf(cmd.ErrOrStderr(), "Change this using: %s session:switch\n", cfg.Application.Executable)
+				}
+				fmt.Fprintln(cmd.ErrOrStderr())
+			}
+
 			hasMaxAge := cmd.Flags().Changed("max-age")
 
 			// Check if already logged in (unless --force).
 			if !force && len(methods) == 0 && !hasMaxAge {
 				s, err := mgr.Load()
 				if err == nil && s != nil && s.AccessToken != "" {
-					fmt.Fprintln(cmd.ErrOrStderr(), "You are already logged in.")
-					return nil
+					fmt.Fprintf(cmd.ErrOrStderr(), "You are already logged in as a user.\n")
+					fmt.Fprint(cmd.ErrOrStderr(), "Log in anyway? [y/N] ")
+					scanner := bufio.NewScanner(cmd.InOrStdin())
+					scanner.Scan()
+					answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
+					if answer != "y" && answer != "yes" {
+						return nil
+					}
+					force = true
 				}
 			}
 
@@ -55,6 +81,9 @@ func NewBrowserLoginCommand(cfg *config.Config) *cobra.Command {
 				Force:   force,
 				Methods: methods,
 				Stderr:  cmd.ErrOrStderr(),
+				OnCodeReceived: func() {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Login information received. Verifying...")
+				},
 			}
 			if hasMaxAge {
 				opts.MaxAge = &maxAge
@@ -69,6 +98,15 @@ func NewBrowserLoginCommand(cfg *config.Config) *cobra.Command {
 
 			if err := mgr.Save(s); err != nil {
 				return err
+			}
+
+			if s.RefreshToken == "" {
+				clientID := cfg.API.OAuth2ClientID
+				fmt.Fprintln(cmd.ErrOrStderr(), "")
+				fmt.Fprintln(cmd.ErrOrStderr(), "Warning:")
+				fmt.Fprintln(cmd.ErrOrStderr(), "No refresh token is available. This will cause frequent login errors.")
+				fmt.Fprintln(cmd.ErrOrStderr(), "Please contact support.")
+				fmt.Fprintf(cmd.ErrOrStderr(), "For internal use: the OAuth 2 client is probably misconfigured (client ID: %s).\n", clientID)
 			}
 
 			fmt.Fprintln(cmd.ErrOrStderr(), "You are logged in.")

@@ -41,6 +41,7 @@ func NewVerifyPhoneNumberCommand(cfg *config.Config) *cobra.Command {
 			if userID == "" {
 				return fmt.Errorf("could not determine user ID")
 			}
+			country, _ := info["country"].(string)
 
 			scanner := bufio.NewScanner(cmd.InOrStdin())
 
@@ -78,7 +79,7 @@ func NewVerifyPhoneNumberCommand(cfg *config.Config) *cobra.Command {
 				return fmt.Errorf("no phone number provided")
 			}
 
-			num, err := phonenumbers.Parse(rawNumber, "")
+			num, err := phonenumbers.Parse(rawNumber, country)
 			if err != nil || !phonenumbers.IsValidNumber(num) {
 				return fmt.Errorf("invalid phone number: %s", rawNumber)
 			}
@@ -88,6 +89,16 @@ func NewVerifyPhoneNumberCommand(cfg *config.Config) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("send verification: %w", err)
 			}
+
+			switch method {
+			case "call":
+				fmt.Fprintf(cmd.ErrOrStderr(), "Calling the number %s with a verification code.\n", e164)
+			case "sms":
+				fmt.Fprintf(cmd.ErrOrStderr(), "A verification code has been sent using SMS to the number: %s\n", e164)
+			case "whatsapp":
+				fmt.Fprintf(cmd.ErrOrStderr(), "A verification code has been sent using WhatsApp to the number: %s\n", e164)
+			}
+			fmt.Fprintln(cmd.ErrOrStderr())
 
 			fmt.Fprint(cmd.ErrOrStderr(), "Enter the verification code: ")
 			scanner.Scan()
@@ -99,11 +110,23 @@ func NewVerifyPhoneNumberCommand(cfg *config.Config) *cobra.Command {
 				return fmt.Errorf("no verification code provided")
 			}
 
+			for _, c := range code {
+				if c < '0' || c > '9' {
+					return fmt.Errorf("invalid verification code: must be numeric")
+				}
+			}
+
 			if err := apiClient.VerifyPhone(ctx, userID, sid, code); err != nil {
 				return fmt.Errorf("verify phone: %w", err)
 			}
 
-			fmt.Fprintln(cmd.ErrOrStderr(), "Phone number verified successfully.")
+			// Verify the status was actually updated.
+			if err := apiClient.CheckVerificationStatus(ctx); err != nil {
+				fmt.Fprintln(cmd.ErrOrStderr(), "Phone verification succeeded but the status check failed.")
+				return fmt.Errorf("verification status check failed: %w", err)
+			}
+
+			fmt.Fprintln(cmd.ErrOrStderr(), "Your phone number has been successfully verified.")
 			return nil
 		},
 	}
