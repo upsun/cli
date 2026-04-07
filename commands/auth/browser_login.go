@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -63,7 +64,7 @@ func NewBrowserLoginCommand(cfg *config.Config) *cobra.Command {
 			// Check if already logged in (unless --force).
 			if !force && len(methods) == 0 && !hasMaxAge {
 				s, err := mgr.Load()
-				if err == nil && s != nil && s.AccessToken != "" {
+				if err == nil && s != nil && s.AccessToken != "" && time.Now().Unix() < s.Expires {
 					fmt.Fprintf(cmd.ErrOrStderr(), "You are already logged in as a user.\n")
 					fmt.Fprint(cmd.ErrOrStderr(), "Log in anyway? [y/N] ")
 					scanner := bufio.NewScanner(cmd.InOrStdin())
