@@ -42,11 +42,11 @@ func newAPIClient(ctx context.Context, mgr *session.Manager, cfg *config.Config)
 	var httpClient *oauth2.Transport
 	if apiToken != "" {
 		// Exchange the API token for an OAuth2 access token.
-		accessToken, err := exchangeAPIToken(ctx, cfg, apiToken)
+		s, err := exchangeAPIToken(ctx, cfg, apiToken)
 		if err != nil {
 			return nil, err
 		}
-		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: accessToken})
+		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: s.AccessToken})
 		httpClient = &oauth2.Transport{Source: ts}
 	} else {
 		// Fall back to session-based OAuth token source.

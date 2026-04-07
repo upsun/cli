@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -47,11 +48,11 @@ func NewTokenCommand(cfg *config.Config) *cobra.Command {
 			var accessToken string
 			if apiToken != "" {
 				// Exchange the API token for an OAuth2 access token.
-				tok, err := exchangeAPIToken(cmd.Context(), cfg, apiToken)
+				s, err := exchangeAPIToken(cmd.Context(), cfg, apiToken)
 				if err != nil {
 					return err
 				}
-				accessToken = tok
+				accessToken = s.AccessToken
 			} else {
 				// Fall back to the session token source (browser login).
 				mgr, err := session.New(cfg)
@@ -80,11 +81,11 @@ func NewTokenCommand(cfg *config.Config) *cobra.Command {
 	return cmd
 }
 
-// exchangeAPIToken exchanges an API token for an OAuth2 access token.
-func exchangeAPIToken(ctx context.Context, cfg *config.Config, apiToken string) (string, error) {
+// exchangeAPIToken exchanges an API token for OAuth2 tokens and returns the resulting session.
+func exchangeAPIToken(ctx context.Context, cfg *config.Config, apiToken string) (*session.Session, error) {
 	tokenURL := internalauth.OAuth2TokenURL(cfg)
 	if tokenURL == "" {
-		return "", fmt.Errorf("no OAuth2 token URL configured")
+		return nil, fmt.Errorf("no OAuth2 token URL configured")
 	}
 
 	data := url.Values{
@@ -94,7 +95,7 @@ func exchangeAPIToken(ctx context.Context, cfg *config.Config, apiToken string) 
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
-		return "", fmt.Errorf("exchange API token: %w", err)
+		return nil, fmt.Errorf("exchange API token: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if cfg.API.OAuth2ClientID != "" {
@@ -103,22 +104,36 @@ func exchangeAPIToken(ctx context.Context, cfg *config.Config, apiToken string) 
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("exchange API token: %w", err)
+		return nil, fmt.Errorf("exchange API token: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("exchange API token: server returned %d", resp.StatusCode)
+		return nil, fmt.Errorf("exchange API token: server returned %d", resp.StatusCode)
 	}
 
 	var result struct {
-		AccessToken string `json:"access_token"`
+		AccessToken  string `json:"access_token"`
+		TokenType    string `json:"token_type"`
+		ExpiresIn    int64  `json:"expires_in"`
+		RefreshToken string `json:"refresh_token"`
+		Error        string `json:"error"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("exchange API token: decode response: %w", err)
+		return nil, fmt.Errorf("exchange API token: decode response: %w", err)
+	}
+	if result.Error != "" {
+		return nil, fmt.Errorf("exchange API token: %s", result.Error)
 	}
 	if result.AccessToken == "" {
-		return "", fmt.Errorf("exchange API token: no access token in response")
+		return nil, fmt.Errorf("exchange API token: no access token in response")
 	}
-	return result.AccessToken, nil
+
+	expiry := time.Now().Add(time.Duration(result.ExpiresIn) * time.Second).Unix()
+	return &session.Session{
+		AccessToken:  result.AccessToken,
+		TokenType:    result.TokenType,
+		Expires:      expiry,
+		RefreshToken: result.RefreshToken,
+	}, nil
 }
