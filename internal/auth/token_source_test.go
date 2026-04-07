@@ -71,6 +71,86 @@ func TestSessionTokenSource_RefreshExpired(t *testing.T) {
 	assert.Equal(t, "new-token", tok.AccessToken)
 }
 
+// TestSessionTokenSource_NoSession: Token() returns error when no session has been saved.
+func TestSessionTokenSource_NoSession(t *testing.T) {
+	cfg := loadTestConfig(t)
+	mgr := session.NewWithStore(cfg, session.NewMemStore())
+
+	ts := auth.NewSessionTokenSource(mgr, cfg)
+	_, err := ts.Token()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not logged in")
+}
+
+// TestSessionTokenSource_EmptyAccessToken: Token() returns error when session has no access token.
+func TestSessionTokenSource_EmptyAccessToken(t *testing.T) {
+	cfg := loadTestConfig(t)
+	mgr := session.NewWithStore(cfg, session.NewMemStore())
+	require.NoError(t, mgr.Save(&session.Session{AccessToken: "", RefreshToken: "r"}))
+
+	ts := auth.NewSessionTokenSource(mgr, cfg)
+	_, err := ts.Token()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not logged in")
+}
+
+// TestSessionTokenSource_RefreshServerError: when the token server returns non-200, refresh fails with an error.
+func TestSessionTokenSource_RefreshServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	cfg := loadTestConfig(t)
+	cfg.API.AuthURL = ""
+	cfg.API.OAuth2TokenURL = server.URL + "/token"
+	mgr := session.NewWithStore(cfg, session.NewMemStore())
+
+	past := time.Now().Add(-time.Hour).Unix()
+	require.NoError(t, mgr.Save(&session.Session{
+		AccessToken:  "old",
+		Expires:      past,
+		RefreshToken: "old-refresh",
+	}))
+
+	ts := auth.NewSessionTokenSource(mgr, cfg)
+	_, err := ts.Token()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "401")
+}
+
+// TestSessionTokenSource_RefreshKeepsExistingRefreshToken: when the server omits refresh_token,
+// the original refresh token is preserved.
+func TestSessionTokenSource_RefreshKeepsExistingRefreshToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"access_token": "new-access",
+			"token_type":   "bearer",
+			"expires_in":   3600,
+			// refresh_token intentionally omitted
+		})
+	}))
+	defer server.Close()
+
+	cfg := loadTestConfig(t)
+	cfg.API.AuthURL = ""
+	cfg.API.OAuth2TokenURL = server.URL + "/token"
+	mgr := session.NewWithStore(cfg, session.NewMemStore())
+
+	past := time.Now().Add(-time.Hour).Unix()
+	require.NoError(t, mgr.Save(&session.Session{
+		AccessToken:  "old",
+		Expires:      past,
+		RefreshToken: "keep-me",
+	}))
+
+	ts := auth.NewSessionTokenSource(mgr, cfg)
+	tok, err := ts.Token()
+	require.NoError(t, err)
+	assert.Equal(t, "new-access", tok.AccessToken)
+	assert.Equal(t, "keep-me", tok.RefreshToken)
+}
+
 func loadTestConfig(t *testing.T) *config.Config {
 	t.Helper()
 	data, err := os.ReadFile("../../integration-tests/config.yaml")
