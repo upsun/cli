@@ -48,8 +48,8 @@ func NewVerifyPhoneNumberCommand(cfg *config.Config) *cobra.Command {
 
 			// Choose method.
 			fmt.Fprintln(cmd.ErrOrStderr(), "Choose a verification method:")
-			fmt.Fprintln(cmd.ErrOrStderr(), "  [0] SMS")
-			fmt.Fprintln(cmd.ErrOrStderr(), "  [1] WhatsApp")
+			fmt.Fprintln(cmd.ErrOrStderr(), "  [0] SMS (default)")
+			fmt.Fprintln(cmd.ErrOrStderr(), "  [1] WhatsApp message")
 			fmt.Fprintln(cmd.ErrOrStderr(), "  [2] Call")
 			fmt.Fprint(cmd.ErrOrStderr(), "Enter a number (default: 0): ")
 			scanner.Scan()

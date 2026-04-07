@@ -107,7 +107,7 @@ func NewLogoutCommand(cfg *config.Config) *cobra.Command {
 				if err := mgr.DeleteAll(); err != nil {
 					return err
 				}
-				fmt.Fprintln(cmd.ErrOrStderr(), "\nAll sessions have been deleted.")
+				fmt.Fprintln(cmd.ErrOrStderr(), "All sessions have been deleted.")
 				return nil
 			}
 
