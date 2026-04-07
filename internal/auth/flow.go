@@ -32,13 +32,14 @@ type BrowserFlowOptions struct {
 
 // BrowserFlow orchestrates the OAuth2 PKCE browser login flow.
 type BrowserFlow struct {
-	cfg     *config.Config
-	OpenURL func(string) error // override for testing; defaults to opening the system browser
+	cfg        *config.Config
+	OpenURL    func(string) error // override for testing; defaults to opening the system browser
+	HTTPClient *http.Client       // override for testing; defaults to http.DefaultClient
 }
 
 // NewBrowserFlow creates a BrowserFlow with system browser support.
 func NewBrowserFlow(cfg *config.Config) *BrowserFlow {
-	return &BrowserFlow{cfg: cfg, OpenURL: openSystemBrowser}
+	return &BrowserFlow{cfg: cfg, OpenURL: openSystemBrowser, HTTPClient: http.DefaultClient}
 }
 
 // Run performs the full PKCE flow and returns a session on success.
@@ -181,7 +182,7 @@ func (f *BrowserFlow) exchangeCode(ctx context.Context, code, verifier, redirect
 		req.SetBasicAuth(f.cfg.API.OAuth2ClientID, "")
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := f.HTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("code exchange: %w", err)
 	}

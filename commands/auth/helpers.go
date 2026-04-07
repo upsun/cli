@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 
@@ -14,6 +15,10 @@ import (
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/session"
 )
+
+// httpClient is used for all outbound HTTP requests in this package.
+// Can be replaced in tests to inject a custom transport.
+var httpClient *http.Client = http.DefaultClient
 
 // resolveBaseURL returns the API base URL, preferring the env var override.
 func resolveBaseURL(cfg *config.Config) string {

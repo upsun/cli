@@ -102,7 +102,7 @@ func exchangeAPIToken(ctx context.Context, cfg *config.Config, apiToken string) 
 		req.SetBasicAuth(cfg.API.OAuth2ClientID, "")
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("exchange API token: %w", err)
 	}

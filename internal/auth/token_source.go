@@ -19,15 +19,16 @@ import (
 // sessionTokenSource implements oauth2.TokenSource and the refresher interface
 // using the session Manager for persistence.
 type sessionTokenSource struct {
-	mgr    *session.Manager
-	cfg    *config.Config
-	mu     sync.Mutex
-	cached *oauth2.Token
+	mgr        *session.Manager
+	cfg        *config.Config
+	httpClient *http.Client
+	mu         sync.Mutex
+	cached     *oauth2.Token
 }
 
 // NewSessionTokenSource creates a token source backed by session files.
 func NewSessionTokenSource(mgr *session.Manager, cfg *config.Config) *sessionTokenSource {
-	return &sessionTokenSource{mgr: mgr, cfg: cfg}
+	return &sessionTokenSource{mgr: mgr, cfg: cfg, httpClient: http.DefaultClient}
 }
 
 // Token returns a valid access token, refreshing if necessary.
@@ -97,7 +98,7 @@ func (ts *sessionTokenSource) unsafeRefreshToken(ctx context.Context) error {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.SetBasicAuth(ts.cfg.API.OAuth2ClientID, "")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := ts.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("refresh token: %w", err)
 	}
