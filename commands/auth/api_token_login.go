@@ -50,7 +50,10 @@ func NewAPITokenLoginCommand(cfg *config.Config) *cobra.Command {
 			}
 
 			fmt.Fprintln(cmd.ErrOrStderr(), "You are logged in.")
-			return printUserInfo(cmd.Context(), mgr, cfg, cmd.ErrOrStderr())
+			if err := printUserInfo(cmd.Context(), mgr, cfg, cmd.ErrOrStderr()); err != nil {
+				return err
+			}
+			return delegateSSHFinalization(cmd.Context(), cfg, cmd)
 		},
 	}
 	cobrahelp.SetPhpStyle(cmd)

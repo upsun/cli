@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -38,6 +39,16 @@ func NewInfoCommand(cfg *config.Config) *cobra.Command {
 				s, err := mgr.Load()
 				if err != nil || s == nil || s.AccessToken == "" {
 					return nil
+				}
+			}
+
+			// Check login state before making API calls.
+			if os.Getenv(cfg.Application.EnvPrefix+"TOKEN") == "" {
+				apiToken, _ := mgr.GetAPIToken()
+				if apiToken == "" {
+					if s, err := mgr.Load(); err == nil && (s == nil || s.AccessToken == "") {
+						return fmt.Errorf("not logged in. Run '%s login' to authenticate", cfg.Application.Executable)
+					}
 				}
 			}
 

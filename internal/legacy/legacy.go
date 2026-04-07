@@ -39,6 +39,8 @@ type CLIWrapper struct {
 	ForceColor         bool
 	DebugLogFunc       func(string, ...any)
 
+	ExtraEnv []string
+
 	initOnce  sync.Once
 	_cacheDir string
 }
@@ -154,6 +156,7 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 		c.Version,
 		PHPVersion,
 	))
+	cmd.Env = append(cmd.Env, c.ExtraEnv...)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("could not run PHP CLI command: %w", err)
 	}
