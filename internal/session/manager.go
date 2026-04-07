@@ -27,8 +27,10 @@ func New(cfg *config.Config) (*Manager, error) {
 
 // NewWithStore creates a Manager with an injected Store (for testing).
 func NewWithStore(cfg *config.Config, store Store) *Manager {
-	id, _ := ResolveSessionID(cfg) // error only if WritableUserDir is misconfigured; fall back to "default"
-	if id == "" {
+	id, err := ResolveSessionID(cfg)
+	if err != nil {
+		// WritableUserDir is misconfigured; fall back to "default" and warn.
+		fmt.Fprintf(os.Stderr, "session: could not resolve session ID: %v\n", err)
 		id = "default"
 	}
 	return &Manager{cfg: cfg, store: store, id: id}
