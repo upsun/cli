@@ -3,10 +3,13 @@ package tests
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -103,6 +106,45 @@ func TestAuthBrowserLogin_Success(t *testing.T) {
 
 	err = cmd.Wait()
 	require.NoError(t, err)
+}
+
+// writeOAuthSession writes a pre-populated OAuth session directly to the filesystem for a given
+// homeDir and session ID. This bypasses the session.Manager so integration tests can set up
+// authenticated state without running a full login flow.
+func writeOAuthSession(t *testing.T, homeDir, sessionID string, s map[string]interface{}) {
+	t.Helper()
+	base := filepath.Join(homeDir, ".platform-test-cli", ".session")
+	sessDir := filepath.Join(base, "sess-"+sessionID)
+	cliDir := filepath.Join(base, "sess-cli-"+sessionID)
+	require.NoError(t, os.MkdirAll(sessDir, 0700))
+	require.NoError(t, os.MkdirAll(cliDir, 0700))
+	data, err := json.Marshal(s)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(sessDir, "sess-"+sessionID+".json"), data, 0600))
+}
+
+func TestAuthBrowserLogin_AlreadyLoggedInOAuth_DeclineRelogin(t *testing.T) {
+	// No servers needed: the command exits before reaching the browser flow.
+	f := newCommandFactory(t, "", "")
+	f.extraEnv = append(f.extraEnv,
+		EnvPrefix+"NO_INTERACTION=", // allow interactive mode (testEnv sets it to 1)
+		"SHELL_INTERACTIVE=1",
+	)
+
+	// Pre-populate a valid, non-expired OAuth session.
+	writeOAuthSession(t, f.homeDir, "default", map[string]interface{}{
+		"accessToken":  "test-oauth-token",
+		"tokenType":    "bearer",
+		"expires":      time.Now().Add(time.Hour).Unix(),
+		"refreshToken": "test-refresh",
+	})
+
+	// Pipe "n" to decline re-login.
+	f.stdin = strings.NewReader("n\n")
+
+	_, stderr, err := f.RunCombinedOutput("auth:browser-login")
+	require.NoError(t, err, "expected exit 0 when user declines re-login, stderr: %s", stderr)
+	assert.Contains(t, stderr, "You are already logged in")
 }
 
 func TestAuthBrowserLogin_AlreadyLoggedIn(t *testing.T) {
