@@ -1,12 +1,18 @@
 package auth
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/spf13/viper"
+
 	cobrahelp "github.com/upsun/cli/commands/cobrahelp"
+	internalauth "github.com/upsun/cli/internal/auth"
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/session"
 )
@@ -35,22 +41,62 @@ func NewInfoCommand(cfg *config.Config) *cobra.Command {
 				return err
 			}
 
-			// Determine login state once, used by both the noAutoLogin guard and the error check.
+			// Determine login state; distinguish expired sessions from never-logged-in.
 			envToken := os.Getenv(cfg.Application.EnvPrefix + "TOKEN")
 			loggedIn := envToken != ""
+			var sessionExpired bool
 			if !loggedIn {
 				if apiToken, _ := mgr.GetAPIToken(); apiToken != "" {
 					loggedIn = true
 				} else if s, _ := mgr.Load(); s != nil && s.AccessToken != "" {
-					loggedIn = true
+					if time.Now().Unix() < s.Expires {
+						loggedIn = true
+					} else {
+						sessionExpired = true
+					}
 				}
 			}
 
 			if noAutoLogin && !loggedIn {
 				return nil
 			}
+
 			if !loggedIn {
-				return fmt.Errorf("not logged in. Run '%s login' to authenticate", cfg.Application.Executable)
+				if sessionExpired {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Your session has expired. You have been logged out.")
+					fmt.Fprintln(cmd.ErrOrStderr(), "")
+				}
+
+				noInteraction := os.Getenv(cfg.Application.EnvPrefix+"NO_INTERACTION") != "" || viper.GetBool("no-interaction")
+				if !noInteraction {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Authentication is required.")
+					fmt.Fprint(cmd.ErrOrStderr(), "Log in via a browser? [Y/n] ")
+					scanner := bufio.NewScanner(cmd.InOrStdin())
+					scanner.Scan()
+					answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
+					if answer == "" || answer == "y" || answer == "yes" {
+						fmt.Fprintf(cmd.ErrOrStderr(), "\nHelp:\n  Leave this command running during login.\n  If you need to quit, use Ctrl+C.\n\n")
+						flow := internalauth.NewBrowserFlow(cfg)
+						opts := internalauth.BrowserFlowOptions{
+							Stderr: cmd.ErrOrStderr(),
+							OnCodeReceived: func() {
+								fmt.Fprintln(cmd.ErrOrStderr(), "Login information received. Verifying...")
+							},
+						}
+						s, err := flow.Run(ctx, opts)
+						if err != nil {
+							return err
+						}
+						if err := mgr.Save(s); err != nil {
+							return err
+						}
+						loggedIn = true
+					}
+				}
+
+				if !loggedIn {
+					return fmt.Errorf("not logged in. Run '%s login' to authenticate", cfg.Application.Executable)
+				}
 			}
 
 			apiClient, err := newAPIClient(ctx, mgr, cfg)

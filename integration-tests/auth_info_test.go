@@ -4,6 +4,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -59,6 +60,76 @@ func TestAuthInfo_NoAutoLogin_NotLoggedIn(t *testing.T) {
 	t.Log("stderr:", stderr)
 	require.NoError(t, err)
 	assert.Empty(t, strings.TrimSpace(out))
+}
+
+func TestAuthInfo_NotLoggedIn_DeclineRelogin(t *testing.T) {
+	f := newCommandFactory(t, "", "")
+	f.extraEnv = append(f.extraEnv,
+		EnvPrefix+"NO_INTERACTION=", // allow interactive mode (testEnv sets it to 1)
+		"SHELL_INTERACTIVE=1",
+	)
+	f.stdin = strings.NewReader("n\n")
+
+	_, stderr, err := f.RunCombinedOutput("auth:info")
+	require.Error(t, err, "expected exit 1 when user declines re-login")
+	assert.Contains(t, stderr, "Authentication is required.")
+	assert.Contains(t, stderr, "not logged in")
+}
+
+func TestAuthInfo_ExpiredSession_DeclineRelogin(t *testing.T) {
+	f := newCommandFactory(t, "", "")
+	f.extraEnv = append(f.extraEnv,
+		EnvPrefix+"NO_INTERACTION=", // allow interactive mode (testEnv sets it to 1)
+		"SHELL_INTERACTIVE=1",
+	)
+
+	// Pre-populate an expired OAuth session.
+	writeOAuthSession(t, f.homeDir, "default", map[string]interface{}{
+		"accessToken":  "expired-token",
+		"tokenType":    "bearer",
+		"expires":      time.Now().Add(-time.Hour).Unix(),
+		"refreshToken": "expired-refresh",
+	})
+
+	f.stdin = strings.NewReader("n\n")
+
+	_, stderr, err := f.RunCombinedOutput("auth:info")
+	require.Error(t, err, "expected exit 1 when user declines re-login after session expiry")
+	assert.Contains(t, stderr, "Your session has expired. You have been logged out.")
+	assert.Contains(t, stderr, "Authentication is required.")
+	assert.Contains(t, stderr, "not logged in")
+}
+
+func TestAuthInfo_NotLoggedIn_NoInteraction(t *testing.T) {
+	// testEnv sets NO_INTERACTION=1 via env var — no prompt should appear.
+	f := newCommandFactory(t, "", "")
+
+	_, stderr, err := f.RunCombinedOutput("auth:info")
+	require.Error(t, err, "expected exit 1 when not logged in (non-interactive via env)")
+	assert.NotContains(t, stderr, "Log in via a browser")
+	assert.Contains(t, stderr, "not logged in")
+}
+
+func TestAuthInfo_NotLoggedIn_FlagNoInteraction(t *testing.T) {
+	// --no-interaction flag (via Viper) must also suppress the prompt.
+	f := newCommandFactory(t, "", "")
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"NO_INTERACTION=")
+
+	_, stderr, err := f.RunCombinedOutput("auth:info", "--no-interaction")
+	require.Error(t, err, "expected exit 1 when not logged in (--no-interaction flag)")
+	assert.NotContains(t, stderr, "Log in via a browser")
+	assert.Contains(t, stderr, "not logged in")
+}
+
+func TestAuthInfo_NotLoggedIn_FlagYes(t *testing.T) {
+	// --yes implies --no-interaction and must also suppress the prompt.
+	f := newCommandFactory(t, "", "")
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"NO_INTERACTION=")
+
+	_, stderr, err := f.RunCombinedOutput("auth:info", "--yes")
+	require.Error(t, err, "expected exit 1 when not logged in (--yes flag)")
+	assert.NotContains(t, stderr, "Log in via a browser")
+	assert.Contains(t, stderr, "not logged in")
 }
 
 func TestAuthInfo_DeprecatedAliases(t *testing.T) {
