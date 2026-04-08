@@ -1,7 +1,12 @@
 package tests
 
 import (
+	"bufio"
+	"fmt"
+	"io"
+	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -122,14 +127,70 @@ func TestAuthInfo_NotLoggedIn_FlagNoInteraction(t *testing.T) {
 }
 
 func TestAuthInfo_NotLoggedIn_FlagYes(t *testing.T) {
-	// --yes implies --no-interaction and must also suppress the prompt.
-	f := newCommandFactory(t, "", "")
-	f.extraEnv = append(f.extraEnv, EnvPrefix+"NO_INTERACTION=")
+	// --yes must auto-accept the browser login prompt and complete the full flow.
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.SetMyUser(&mockapi.User{ID: "u1", Username: "testuser", Email: "test@example.com"})
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
 
-	_, stderr, err := f.RunCombinedOutput("auth:info", "--yes")
-	require.Error(t, err, "expected exit 1 when not logged in (--yes flag)")
-	assert.NotContains(t, stderr, "Log in via a browser")
-	assert.Contains(t, stderr, "not logged in")
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f.extraEnv = append(f.extraEnv,
+		EnvPrefix+"TOKEN=",       // clear API token so browser flow is used
+		EnvPrefix+"NO_INTERACTION=", // clear env var; --yes must override
+		"SHELL_INTERACTIVE=1",
+	)
+
+	cmd := f.buildCommand("auth:info", "--yes")
+	cmd.Stderr = nil
+	stderrPipe, err := cmd.StderrPipe()
+	require.NoError(t, err)
+	require.NoError(t, cmd.Start())
+
+	// Read stderr until we find the local callback server port.
+	portCh := make(chan string, 1)
+	go func() {
+		re := regexp.MustCompile(`127\.0\.0\.1:(\d+)`)
+		scanner := bufio.NewScanner(stderrPipe)
+		for scanner.Scan() {
+			if m := re.FindStringSubmatch(scanner.Text()); m != nil {
+				portCh <- m[1]
+				for scanner.Scan() { // drain
+				}
+				return
+			}
+		}
+	}()
+
+	select {
+	case port := <-portCh:
+		localURL := fmt.Sprintf("http://127.0.0.1:%s", port)
+		time.Sleep(100 * time.Millisecond)
+
+		noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		}}
+		resp, err := noRedirect.Get(localURL)
+		require.NoError(t, err)
+		loc := resp.Header.Get("Location")
+		_ = resp.Body.Close()
+
+		authResp, err := noRedirect.Get(loc)
+		require.NoError(t, err)
+		callbackLoc := authResp.Header.Get("Location")
+		_ = authResp.Body.Close()
+
+		callbackResp, err := http.Get(callbackLoc) //nolint:noctx
+		require.NoError(t, err)
+		_, _ = io.Copy(io.Discard, callbackResp.Body)
+		_ = callbackResp.Body.Close()
+
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for browser callback server to start")
+	}
+
+	require.NoError(t, cmd.Wait())
 }
 
 func TestAuthInfo_DeprecatedAliases(t *testing.T) {

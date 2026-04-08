@@ -67,31 +67,41 @@ func NewInfoCommand(cfg *config.Config) *cobra.Command {
 					fmt.Fprintln(cmd.ErrOrStderr(), "")
 				}
 
-				noInteraction := os.Getenv(cfg.Application.EnvPrefix+"NO_INTERACTION") != "" || viper.GetBool("no-interaction")
-				if !noInteraction {
+				// --yes auto-accepts the browser login prompt.
+				// --no-interaction (without --yes) suppresses the prompt entirely.
+				yesFlag := viper.GetBool("yes")
+				noInteraction := !yesFlag && (os.Getenv(cfg.Application.EnvPrefix+"NO_INTERACTION") != "" || viper.GetBool("no-interaction"))
+
+				shouldLogin := false
+				if yesFlag {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Authentication is required.")
+					shouldLogin = true
+				} else if !noInteraction {
 					fmt.Fprintln(cmd.ErrOrStderr(), "Authentication is required.")
 					fmt.Fprint(cmd.ErrOrStderr(), "Log in via a browser? [Y/n] ")
 					scanner := bufio.NewScanner(cmd.InOrStdin())
 					scanner.Scan()
 					answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
-					if answer == "" || answer == "y" || answer == "yes" {
-						fmt.Fprintf(cmd.ErrOrStderr(), "\nHelp:\n  Leave this command running during login.\n  If you need to quit, use Ctrl+C.\n\n")
-						flow := internalauth.NewBrowserFlow(cfg)
-						opts := internalauth.BrowserFlowOptions{
-							Stderr: cmd.ErrOrStderr(),
-							OnCodeReceived: func() {
-								fmt.Fprintln(cmd.ErrOrStderr(), "Login information received. Verifying...")
-							},
-						}
-						s, err := flow.Run(ctx, opts)
-						if err != nil {
-							return err
-						}
-						if err := mgr.Save(s); err != nil {
-							return err
-						}
-						loggedIn = true
+					shouldLogin = answer == "" || answer == "y" || answer == "yes"
+				}
+
+				if shouldLogin {
+					fmt.Fprintf(cmd.ErrOrStderr(), "\nHelp:\n  Leave this command running during login.\n  If you need to quit, use Ctrl+C.\n\n")
+					flow := internalauth.NewBrowserFlow(cfg)
+					opts := internalauth.BrowserFlowOptions{
+						Stderr: cmd.ErrOrStderr(),
+						OnCodeReceived: func() {
+							fmt.Fprintln(cmd.ErrOrStderr(), "Login information received. Verifying...")
+						},
 					}
+					s, err := flow.Run(ctx, opts)
+					if err != nil {
+						return err
+					}
+					if err := mgr.Save(s); err != nil {
+						return err
+					}
+					loggedIn = true
 				}
 
 				if !loggedIn {
