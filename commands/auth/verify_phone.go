@@ -69,22 +69,27 @@ func NewVerifyPhoneNumberCommand(cfg *config.Config) *cobra.Command {
 				method = choice
 			}
 
-			// Get phone number.
-			fmt.Fprint(cmd.ErrOrStderr(), "Enter your phone number (international format, e.g. +1 415 555 0100): ")
-			scanner.Scan()
-			if err := scanner.Err(); err != nil {
-				return fmt.Errorf("read input: %w", err)
+			// Get phone number — re-prompt on invalid input (PHP parity: askInput with validator).
+			var e164 string
+			for {
+				fmt.Fprint(cmd.ErrOrStderr(), "Enter your phone number (international format, e.g. +1 415 555 0100): ")
+				scanner.Scan()
+				if err := scanner.Err(); err != nil {
+					return fmt.Errorf("read input: %w", err)
+				}
+				rawNumber := strings.TrimSpace(scanner.Text())
+				if rawNumber == "" {
+					fmt.Fprintln(cmd.ErrOrStderr(), "The phone number is not valid.")
+					continue
+				}
+				num, err := phonenumbers.Parse(rawNumber, country)
+				if err != nil || !phonenumbers.IsValidNumber(num) {
+					fmt.Fprintln(cmd.ErrOrStderr(), "The phone number is not valid.")
+					continue
+				}
+				e164 = phonenumbers.Format(num, phonenumbers.E164)
+				break
 			}
-			rawNumber := strings.TrimSpace(scanner.Text())
-			if rawNumber == "" {
-				return fmt.Errorf("no phone number provided")
-			}
-
-			num, err := phonenumbers.Parse(rawNumber, country)
-			if err != nil || !phonenumbers.IsValidNumber(num) {
-				return fmt.Errorf("invalid phone number: %s", rawNumber)
-			}
-			e164 := phonenumbers.Format(num, phonenumbers.E164)
 
 			sid, err := apiClient.SendPhoneVerification(ctx, userID, e164, method)
 			if err != nil {
@@ -101,24 +106,34 @@ func NewVerifyPhoneNumberCommand(cfg *config.Config) *cobra.Command {
 			}
 			fmt.Fprintln(cmd.ErrOrStderr())
 
-			fmt.Fprint(cmd.ErrOrStderr(), "Enter the verification code: ")
-			scanner.Scan()
-			if err := scanner.Err(); err != nil {
-				return fmt.Errorf("read input: %w", err)
-			}
-			code := strings.TrimSpace(scanner.Text())
-			if code == "" {
-				return fmt.Errorf("no verification code provided")
-			}
-
-			for _, c := range code {
-				if !unicode.IsDigit(c) {
-					return fmt.Errorf("invalid verification code: must be numeric")
+			// Get verification code — re-prompt on invalid input or rejected code (PHP parity).
+			for {
+				fmt.Fprint(cmd.ErrOrStderr(), "Enter the verification code: ")
+				scanner.Scan()
+				if err := scanner.Err(); err != nil {
+					return fmt.Errorf("read input: %w", err)
 				}
-			}
-
-			if err := apiClient.VerifyPhone(ctx, userID, sid, code); err != nil {
-				return fmt.Errorf("verify phone: %w", err)
+				code := strings.TrimSpace(scanner.Text())
+				if code == "" {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Invalid verification code")
+					continue
+				}
+				valid := true
+				for _, c := range code {
+					if !unicode.IsDigit(c) {
+						valid = false
+						break
+					}
+				}
+				if !valid {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Invalid verification code")
+					continue
+				}
+				if err := apiClient.VerifyPhone(ctx, userID, sid, code); err != nil {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Invalid verification code")
+					continue
+				}
+				break
 			}
 
 			// Verify the status was actually updated.

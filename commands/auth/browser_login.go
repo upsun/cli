@@ -62,7 +62,7 @@ func NewBrowserLoginCommand(cfg *config.Config) *cobra.Command {
 					scanner.Scan()
 					answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
 					if answer != "y" && answer != "yes" {
-						return nil
+						return fmt.Errorf("login cancelled")
 					}
 					force = true
 				}

@@ -143,7 +143,7 @@ func TestAuthBrowserLogin_AlreadyLoggedInOAuth_DeclineRelogin(t *testing.T) {
 	f.stdin = strings.NewReader("n\n")
 
 	_, stderr, err := f.RunCombinedOutput("auth:browser-login")
-	require.NoError(t, err, "expected exit 0 when user declines re-login, stderr: %s", stderr)
+	require.Error(t, err, "expected exit 1 when user declines re-login, stderr: %s", stderr)
 	assert.Contains(t, stderr, "You are already logged in")
 }
 

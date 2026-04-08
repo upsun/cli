@@ -32,6 +32,46 @@ func TestAuthVerifyPhoneNumber_AlreadyVerified(t *testing.T) {
 	assert.Contains(t, stderr, "already has a verified phone number")
 }
 
+// TestAuthVerifyPhoneNumber_InvalidPhoneRetry: an invalid phone number is re-prompted
+// (not an immediate exit), then a valid number succeeds.
+func TestAuthVerifyPhoneNumber_InvalidPhoneRetry(t *testing.T) {
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.SetMyUser(&mockapi.User{ID: "u1", PhoneNumberVerified: false, Country: "US"})
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"NO_INTERACTION=0", "SHELL_INTERACTIVE=1")
+	// First phone number is invalid; second is valid.
+	f.stdin = strings.NewReader("0\nnot-a-number\n+12015550123\n" + mockapi.TestPhoneVerificationCode + "\n")
+
+	_, stderr, err := f.RunCombinedOutput("auth:verify-phone-number")
+	require.NoError(t, err, "expected success after retrying with valid number; stderr: %s", stderr)
+	assert.Contains(t, stderr, "verified")
+}
+
+// TestAuthVerifyPhoneNumber_InvalidCodeRetry: an invalid verification code is re-prompted
+// (not an immediate exit), then the correct code succeeds.
+func TestAuthVerifyPhoneNumber_InvalidCodeRetry(t *testing.T) {
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.SetMyUser(&mockapi.User{ID: "u1", PhoneNumberVerified: false, Country: "US"})
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"NO_INTERACTION=0", "SHELL_INTERACTIVE=1")
+	// Valid phone, then wrong code, then correct code.
+	f.stdin = strings.NewReader("0\n+12015550123\n000000\n" + mockapi.TestPhoneVerificationCode + "\n")
+
+	_, stderr, err := f.RunCombinedOutput("auth:verify-phone-number")
+	require.NoError(t, err, "expected success after retrying with correct code; stderr: %s", stderr)
+	assert.Contains(t, stderr, "verified")
+}
+
 func TestAuthVerifyPhoneNumber_SMSFlow(t *testing.T) {
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()

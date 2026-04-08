@@ -28,6 +28,28 @@ func TestAuthLogout_Single(t *testing.T) {
 	assert.Contains(t, stderr, "logged out")
 }
 
+// TestAuthLogout_OtherSessionsHint: when other sessions still exist after a single logout,
+// the message must match the PHP wording exactly.
+func TestAuthLogout_OtherSessionsHint(t *testing.T) {
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+
+	f := newCommandFactory(t, "", authServer.URL)
+
+	// Pre-populate two sessions so "other sessions exist" branch fires.
+	future := time.Now().Add(time.Hour).Unix()
+	writeOAuthSession(t, f.homeDir, "default", map[string]interface{}{
+		"accessToken": "token-default", "tokenType": "bearer", "expires": future,
+	})
+	writeOAuthSession(t, f.homeDir, "other", map[string]interface{}{
+		"accessToken": "token-other", "tokenType": "bearer", "expires": future,
+	})
+
+	_, stderr, err := f.RunCombinedOutput("auth:logout")
+	require.NoError(t, err, "stderr: %s", stderr)
+	assert.Contains(t, stderr, "Log out of all sessions with:")
+}
+
 func TestAuthLogout_All(t *testing.T) {
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()

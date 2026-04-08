@@ -116,7 +116,7 @@ func NewLogoutCommand(cfg *config.Config) *cobra.Command {
 				return err
 			}
 			if len(ids) > 0 {
-				fmt.Fprintf(cmd.ErrOrStderr(), "\nOther sessions exist. Use '%s logout --all' to log out from all.\n",
+				fmt.Fprintf(cmd.ErrOrStderr(), "\nOther sessions exist. Log out of all sessions with: %s logout --all\n",
 					cfg.Application.Executable)
 			}
 			return nil
