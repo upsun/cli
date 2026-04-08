@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -29,20 +31,44 @@ func NewAPITokenLoginCommand(cfg *config.Config) *cobra.Command {
 				return fmt.Errorf("non-interactive use of this command is not supported")
 			}
 
-			var apiToken string
+			var (
+				apiToken string
+				s        *session.Session
+			)
 			if len(args) > 0 {
-				apiToken = args[0]
-			} else {
-				fmt.Fprint(cmd.ErrOrStderr(), "Enter your API token: ")
-				if _, err := fmt.Fscan(cmd.InOrStdin(), &apiToken); err != nil {
-					return fmt.Errorf("read API token: %w", err)
+				apiToken = strings.TrimSpace(args[0])
+				var err error
+				s, err = exchangeAPIToken(cmd.Context(), cfg, apiToken)
+				if err != nil {
+					return fmt.Errorf("login failed: %w", err)
 				}
-			}
-			apiToken = strings.TrimSpace(apiToken)
-
-			s, err := exchangeAPIToken(cmd.Context(), cfg, apiToken)
-			if err != nil {
-				return fmt.Errorf("login failed: %w", err)
+			} else {
+				const maxAttempts = 5
+				scanner := bufio.NewScanner(cmd.InOrStdin())
+				for attempt := 1; attempt <= maxAttempts; attempt++ {
+					fmt.Fprint(cmd.ErrOrStderr(), "Enter your API token: ")
+					if !scanner.Scan() {
+						return fmt.Errorf("read API token: %w", scanner.Err())
+					}
+					apiToken = strings.TrimSpace(scanner.Text())
+					if apiToken == "" {
+						fmt.Fprintln(cmd.ErrOrStderr(), "The token cannot be empty")
+						continue
+					}
+					var err error
+					s, err = exchangeAPIToken(cmd.Context(), cfg, apiToken)
+					if err == nil {
+						break
+					}
+					if errors.Is(err, ErrInvalidAPIToken) {
+						fmt.Fprintln(cmd.ErrOrStderr(), ErrInvalidAPIToken.Error())
+						if attempt == maxAttempts {
+							return fmt.Errorf("login failed after %d attempts", maxAttempts)
+						}
+						continue
+					}
+					return fmt.Errorf("login failed: %w", err)
+				}
 			}
 			fmt.Fprintln(cmd.ErrOrStderr(), "The API token is valid.")
 

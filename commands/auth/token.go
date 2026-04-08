@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -76,6 +77,10 @@ func NewTokenCommand(cfg *config.Config) *cobra.Command {
 	return cmd
 }
 
+// ErrInvalidAPIToken is returned by exchangeAPIToken when the server rejects the token (400/401).
+// Callers can use errors.Is to detect this and re-prompt.
+var ErrInvalidAPIToken = errors.New("Invalid API token")
+
 // exchangeAPIToken exchanges an API token for OAuth2 tokens and returns the resulting session.
 func exchangeAPIToken(ctx context.Context, cfg *config.Config, apiToken string) (*session.Session, error) {
 	tokenURL := internalauth.OAuth2TokenURL(cfg)
@@ -103,6 +108,9 @@ func exchangeAPIToken(ctx context.Context, cfg *config.Config, apiToken string) 
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusUnauthorized {
+		return nil, ErrInvalidAPIToken
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("exchange API token: server returned %d", resp.StatusCode)
 	}
