@@ -72,6 +72,42 @@ func TestAuthVerifyPhoneNumber_InvalidCodeRetry(t *testing.T) {
 	assert.Contains(t, stderr, "verified")
 }
 
+// TestAuthVerifyPhoneNumber_ExhaustPhoneAttempts: 5 consecutive invalid phone numbers exit non-zero.
+func TestAuthVerifyPhoneNumber_ExhaustPhoneAttempts(t *testing.T) {
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.SetMyUser(&mockapi.User{ID: "u1", PhoneNumberVerified: false, Country: "US"})
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"NO_INTERACTION=0", "SHELL_INTERACTIVE=1")
+	f.stdin = strings.NewReader("0\nbad1\nbad2\nbad3\nbad4\nbad5\n")
+
+	_, stderr, err := f.RunCombinedOutput("auth:verify-phone-number")
+	require.Error(t, err, "expected failure after 5 invalid phone numbers")
+	assert.Contains(t, stderr, "The phone number is not valid.")
+}
+
+// TestAuthVerifyPhoneNumber_ExhaustCodeAttempts: 5 consecutive wrong codes exit non-zero.
+func TestAuthVerifyPhoneNumber_ExhaustCodeAttempts(t *testing.T) {
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.SetMyUser(&mockapi.User{ID: "u1", PhoneNumberVerified: false, Country: "US"})
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"NO_INTERACTION=0", "SHELL_INTERACTIVE=1")
+	f.stdin = strings.NewReader("0\n+12015550123\n000001\n000002\n000003\n000004\n000005\n")
+
+	_, stderr, err := f.RunCombinedOutput("auth:verify-phone-number")
+	require.Error(t, err, "expected failure after 5 wrong codes")
+	assert.Contains(t, stderr, "Invalid verification code")
+}
+
 func TestAuthVerifyPhoneNumber_SMSFlow(t *testing.T) {
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()

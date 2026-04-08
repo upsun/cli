@@ -69,22 +69,22 @@ func NewVerifyPhoneNumberCommand(cfg *config.Config) *cobra.Command {
 				method = choice
 			}
 
-			// Get phone number — re-prompt on invalid input (PHP parity: askInput with validator).
+			// Get phone number — re-prompt up to 5 times on invalid input (PHP parity: askInput with setMaxAttempts(5)).
+			const maxAttempts = 5
 			var e164 string
-			for {
+			for attempt := 1; attempt <= maxAttempts; attempt++ {
 				fmt.Fprint(cmd.ErrOrStderr(), "Enter your phone number (international format, e.g. +1 415 555 0100): ")
 				scanner.Scan()
 				if err := scanner.Err(); err != nil {
 					return fmt.Errorf("read input: %w", err)
 				}
 				rawNumber := strings.TrimSpace(scanner.Text())
-				if rawNumber == "" {
+				num, parseErr := phonenumbers.Parse(rawNumber, country)
+				if rawNumber == "" || parseErr != nil || !phonenumbers.IsValidNumber(num) {
 					fmt.Fprintln(cmd.ErrOrStderr(), "The phone number is not valid.")
-					continue
-				}
-				num, err := phonenumbers.Parse(rawNumber, country)
-				if err != nil || !phonenumbers.IsValidNumber(num) {
-					fmt.Fprintln(cmd.ErrOrStderr(), "The phone number is not valid.")
+					if attempt == maxAttempts {
+						return fmt.Errorf("too many invalid phone numbers")
+					}
 					continue
 				}
 				e164 = phonenumbers.Format(num, phonenumbers.E164)
@@ -106,31 +106,33 @@ func NewVerifyPhoneNumberCommand(cfg *config.Config) *cobra.Command {
 			}
 			fmt.Fprintln(cmd.ErrOrStderr())
 
-			// Get verification code — re-prompt on invalid input or rejected code (PHP parity).
-			for {
+			// Get verification code — re-prompt up to 5 times on invalid input or rejected code (PHP parity).
+			for attempt := 1; attempt <= maxAttempts; attempt++ {
 				fmt.Fprint(cmd.ErrOrStderr(), "Enter the verification code: ")
 				scanner.Scan()
 				if err := scanner.Err(); err != nil {
 					return fmt.Errorf("read input: %w", err)
 				}
 				code := strings.TrimSpace(scanner.Text())
-				if code == "" {
-					fmt.Fprintln(cmd.ErrOrStderr(), "Invalid verification code")
-					continue
-				}
-				valid := true
+				isNumeric := code != ""
 				for _, c := range code {
 					if !unicode.IsDigit(c) {
-						valid = false
+						isNumeric = false
 						break
 					}
 				}
-				if !valid {
+				if !isNumeric {
 					fmt.Fprintln(cmd.ErrOrStderr(), "Invalid verification code")
+					if attempt == maxAttempts {
+						return fmt.Errorf("too many invalid verification codes")
+					}
 					continue
 				}
 				if err := apiClient.VerifyPhone(ctx, userID, sid, code); err != nil {
 					fmt.Fprintln(cmd.ErrOrStderr(), "Invalid verification code")
+					if attempt == maxAttempts {
+						return fmt.Errorf("too many invalid verification codes")
+					}
 					continue
 				}
 				break
