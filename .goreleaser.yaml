@@ -160,7 +160,7 @@ brews:
     repository:
       owner: upsun
       name: homebrew-tap
-      token: "{{ .Env.GITHUB_TOKEN }}"
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     ids:
       - platform
 
@@ -191,7 +191,7 @@ brews:
     repository:
       owner: upsun
       name: homebrew-tap
-      token: "{{ .Env.GITHUB_TOKEN }}"
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     ids:
       - upsun
 
@@ -223,7 +223,7 @@ scoops:
     repository:
       owner: upsun
       name: homebrew-tap
-      token: "{{ .Env.GITHUB_TOKEN }}"
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     ids:
       - platform
 
@@ -245,7 +245,7 @@ scoops:
     repository:
       owner: upsun
       name: homebrew-tap
-      token: "{{ .Env.GITHUB_TOKEN }}"
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     ids:
       - upsun
 
