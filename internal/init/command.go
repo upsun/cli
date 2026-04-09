@@ -31,7 +31,7 @@ type Options struct {
 	ExtraContext   string
 
 	HTTPClient     *http.Client
-	AIServiceURL   string
+	APIURL         string
 	UserAgent      string
 	RequestTimeout time.Duration // Defaults to 10 minutes
 
@@ -53,8 +53,8 @@ func RunAIConfig(
 	opts *Options,
 	stdout, stderr io.Writer,
 ) error {
-	if opts.AIServiceURL == "" {
-		return fmt.Errorf("no AI service URL available")
+	if opts.APIURL == "" {
+		return fmt.Errorf("no API URL available")
 	}
 	if opts.HTTPClient == nil {
 		opts.HTTPClient = http.DefaultClient
@@ -88,7 +88,7 @@ func RunAIConfig(
 		return err
 	}
 
-	u, err := url.Parse(opts.AIServiceURL)
+	u, err := url.Parse(opts.APIURL)
 	if err != nil {
 		return err
 	}
