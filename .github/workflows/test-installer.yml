@@ -49,7 +49,7 @@ jobs:
         run: ${{ matrix.prereqs }}
 
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run installer
         env:
@@ -73,7 +73,7 @@ jobs:
         run: apt-get update && apt-get install -y curl ca-certificates gzip
 
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run installer
         env:
@@ -89,7 +89,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run installer
         run: sh installer.sh
@@ -103,7 +103,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run installer
         env:
