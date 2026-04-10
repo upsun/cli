@@ -141,7 +141,7 @@ func RunAIConfig(
 			if key == "output" {
 				return json.Unmarshal(data, &apiOutput)
 			}
-			return fmt.Errorf("unexpected data key: %s", key)
+			return nil
 		})
 		eg, egCtx = errgroup.WithContext(ctx)
 		msgChan   = make(chan streaming.Message, 10) // Buffered to prevent deadlock if handleMessage errors.
