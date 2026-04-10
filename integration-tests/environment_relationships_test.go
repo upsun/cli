@@ -125,5 +125,6 @@ func TestRelationshipsRemote(t *testing.T) {
 	assert.Contains(t, output, "redis")
 
 	// Extract a property via SSH.
-	assertTrimmed(t, "database.internal", f.Run("relationships", "-p", projectID, "-e", ".", "--refresh", "-P", "database.0.host"))
+	assertTrimmed(t, "database.internal",
+		f.Run("relationships", "-p", projectID, "-e", ".", "--refresh", "-P", "database.0.host"))
 }
