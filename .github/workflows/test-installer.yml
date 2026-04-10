@@ -23,7 +23,9 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     container: ${{ matrix.image }}
-
+    defaults:
+      run:
+        shell: sh
     strategy:
       fail-fast: false
       matrix:
@@ -63,7 +65,7 @@ jobs:
       - name: Run installer
         env:
           INSTALL_METHOD: ${{ matrix.method }}
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ matrix.method == 'raw' && github.token || '' }}
           VERSION: ${{ inputs.version }}
         run: sh installer.sh
 
@@ -87,7 +89,7 @@ jobs:
       - name: Run installer
         env:
           INSTALL_METHOD: ${{ matrix.method }}
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ matrix.method == 'raw' && github.token || '' }}
           VERSION: ${{ inputs.version }}
         run: sh installer.sh
 
