@@ -13,19 +13,20 @@ pass=0
 fail=0
 errors=""
 
+# Run a test in a Docker container.
+# Arguments: label, image, prereqs, [extra docker args...]
 run_test() {
-    image="$1"
-    method="$2"
+    label="$1"
+    image="$2"
     prereqs="$3"
+    shift 3
 
-    label="${image} (${method})"
     echo ""
     echo "=== ${label} ==="
 
     if docker run --rm \
         -v "$(pwd)/installer.sh:/installer.sh:ro" \
-        -e INSTALL_METHOD="$method" \
-        -e "VERSION=${VERSION}" \
+        "$@" \
         "$image" \
         sh -c "${prereqs}sh /installer.sh && upsun --version"; then
         echo "--- PASS: ${label} ---"
@@ -40,20 +41,29 @@ run_test() {
 echo "installer.sh test suite"
 echo "======================="
 
-run_test "debian:bookworm" "apt" \
+# Default flow tests: let the installer auto-detect the install method.
+
+run_test "debian:bookworm (default)" "debian:bookworm" \
     "apt-get update -qq && apt-get install -y -qq curl ca-certificates && "
 
-run_test "ubuntu:24.04" "apt" \
+run_test "ubuntu:24.04 (default)" "ubuntu:24.04" \
     "apt-get update -qq && apt-get install -y -qq curl ca-certificates && "
 
-run_test "fedora:41" "yum" \
+run_test "fedora:41 (default)" "fedora:41" \
     "yum install -y -q curl && "
 
-run_test "alpine:3.21" "apk" \
+run_test "alpine:3.21 (default)" "alpine:3.21" \
     "apk add -q --no-cache curl ca-certificates && "
 
-run_test "debian:bookworm" "raw" \
-    "apt-get update -qq && apt-get install -y -qq curl ca-certificates gzip && "
+# Raw install test: setting VERSION triggers the raw method on Linux.
+if [ -n "$VERSION" ]; then
+    run_test "debian:bookworm (raw, VERSION=$VERSION)" "debian:bookworm" \
+        "apt-get update -qq && apt-get install -y -qq curl ca-certificates gzip && " \
+        -e "VERSION=${VERSION}"
+else
+    echo ""
+    echo "Skipping raw install test (set VERSION to enable)"
+fi
 
 echo ""
 echo "======================="
