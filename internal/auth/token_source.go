@@ -90,7 +90,9 @@ func (ts *sessionTokenSource) unsafeRefreshToken(ctx context.Context, s *session
 		return fmt.Errorf("refresh token: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.SetBasicAuth(ts.cfg.API.OAuth2ClientID, "")
+	if ts.cfg.API.OAuth2ClientID != "" {
+		req.SetBasicAuth(ts.cfg.API.OAuth2ClientID, "")
+	}
 
 	resp, err := ts.httpClient.Do(req)
 	if err != nil {

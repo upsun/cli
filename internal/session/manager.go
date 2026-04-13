@@ -183,7 +183,7 @@ func (m *Manager) GetAPIToken() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	data, err := os.ReadFile(path)
+	data, err := m.store.ReadFile(path)
 	if os.IsNotExist(err) {
 		return "", nil
 	}
@@ -199,10 +199,10 @@ func (m *Manager) SetAPIToken(token string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	if err := m.store.MkdirAll(filepath.Dir(path)); err != nil {
 		return err
 	}
-	return os.WriteFile(path, []byte(token), 0o600)
+	return m.store.WriteFile(path, []byte(token))
 }
 
 // DeleteAPIToken removes the stored API token.
@@ -211,11 +211,7 @@ func (m *Manager) DeleteAPIToken() error {
 	if err != nil {
 		return err
 	}
-	err = os.Remove(path)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	return err
+	return m.store.RemoveFile(path)
 }
 
 // SetActiveSessionID writes the session ID to the session-id file,

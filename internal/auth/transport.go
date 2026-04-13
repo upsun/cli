@@ -29,7 +29,9 @@ type Transport struct {
 // RoundTrip adds Authorization via the underlying oauth2.Transport. If the
 // response is 401 Unauthorized, it clears the cached token and retries once.
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	wrapRequest(req)
+	if err := wrapRequest(req); err != nil {
+		return nil, fmt.Errorf("buffer request body: %w", err)
+	}
 
 	resp, err := t.base.RoundTrip(req)
 
@@ -85,16 +87,22 @@ func TransportFromContext(ctx context.Context) (http.RoundTripper, bool) {
 // wrapRequest buffers req.Body so that it can be replayed on retry.
 // It stores the bytes in req.GetBody so RoundTrip can restore the body
 // before the second attempt (bytes.Buffer is drained after the first read).
-func wrapRequest(req *http.Request) {
-	if req.Body == nil {
-		return
+// If GetBody is already set the caller already provides replay capability,
+// so no buffering is needed.
+func wrapRequest(req *http.Request) error {
+	if req.Body == nil || req.GetBody != nil {
+		return nil
 	}
-	b, _ := io.ReadAll(req.Body)
+	b, err := io.ReadAll(req.Body)
+	if err != nil {
+		return err
+	}
 	_ = req.Body.Close()
 	req.Body = io.NopCloser(bytes.NewReader(b))
 	req.GetBody = func() (io.ReadCloser, error) {
 		return io.NopCloser(bytes.NewReader(b)), nil
 	}
+	return nil
 }
 
 func flushReader(r io.ReadCloser) {
