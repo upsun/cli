@@ -103,7 +103,7 @@ func (f *BrowserFlow) Run(ctx context.Context, opts BrowserFlowOptions) (*sessio
 		fmt.Fprintln(hw, "Login successful. You may close this tab.")
 	})
 
-	srv := &http.Server{Handler: mux}
+	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	go func() { _ = srv.Serve(listener) }()
 	defer func() {
 		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -225,6 +225,6 @@ func findPort(start, end int) (net.Listener, int, error) {
 	return nil, 0, fmt.Errorf("failed to find available port between %d and %d", start, end)
 }
 
-func openSystemBrowser(url string) error {
-	return openBrowser(url)
+func openSystemBrowser(u string) error {
+	return openBrowser(u)
 }

@@ -70,7 +70,8 @@ func NewInfoCommand(cfg *config.Config) *cobra.Command {
 				// --yes auto-accepts the browser login prompt.
 				// --no-interaction (without --yes) suppresses the prompt entirely.
 				yesFlag := viper.GetBool("yes")
-				noInteraction := !yesFlag && (os.Getenv(cfg.Application.EnvPrefix+"NO_INTERACTION") != "" || viper.GetBool("no-interaction"))
+				noInteraction := !yesFlag && (os.Getenv(cfg.Application.EnvPrefix+"NO_INTERACTION") != "" ||
+					viper.GetBool("no-interaction"))
 
 				shouldLogin := false
 				if yesFlag {
@@ -86,7 +87,8 @@ func NewInfoCommand(cfg *config.Config) *cobra.Command {
 				}
 
 				if shouldLogin {
-					fmt.Fprintf(cmd.ErrOrStderr(), "\nHelp:\n  Leave this command running during login.\n  If you need to quit, use Ctrl+C.\n\n")
+					fmt.Fprintf(cmd.ErrOrStderr(),
+						"\nHelp:\n  Leave this command running during login.\n  If you need to quit, use Ctrl+C.\n\n")
 					flow := internalauth.NewBrowserFlow(cfg)
 					opts := internalauth.BrowserFlowOptions{
 						Stderr: cmd.ErrOrStderr(),
@@ -121,7 +123,8 @@ func NewInfoCommand(cfg *config.Config) *cobra.Command {
 
 			// Handle deprecated property aliases.
 			if property == "display_name" {
-				fmt.Fprintln(cmd.ErrOrStderr(), "Deprecated: the \"display_name\" property has been replaced by \"first_name\" and \"last_name\".")
+				fmt.Fprintln(cmd.ErrOrStderr(),
+					"Deprecated: the \"display_name\" property has been replaced by \"first_name\" and \"last_name\".")
 				firstName, _ := info["first_name"].(string)
 				lastName, _ := info["last_name"].(string)
 				fmt.Fprintln(cmd.OutOrStdout(), firstName+" "+lastName)

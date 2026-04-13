@@ -55,7 +55,7 @@ func NewHandler(t *testing.T) *Handler {
 
 	// Phone verification endpoints — match the actual Upsun API (same paths the PHP CLI calls).
 	const phoneSID = "test-sid-1"
-	h.Post("/users/{user_id}/phonenumber", func(w http.ResponseWriter, req *http.Request) {
+	h.Post("/users/{user_id}/phonenumber", func(w http.ResponseWriter, _ *http.Request) {
 		phoneVerifyMu.Lock()
 		phoneVerifyPending = true
 		phoneVerifyMu.Unlock()

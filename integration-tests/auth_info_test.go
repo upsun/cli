@@ -137,7 +137,7 @@ func TestAuthInfo_NotLoggedIn_FlagYes(t *testing.T) {
 
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
 	f.extraEnv = append(f.extraEnv,
-		EnvPrefix+"TOKEN=",       // clear API token so browser flow is used
+		EnvPrefix+"TOKEN=",          // clear API token so browser flow is used
 		EnvPrefix+"NO_INTERACTION=", // clear env var; --yes must override
 		"SHELL_INTERACTIVE=1",
 	)
@@ -181,7 +181,7 @@ func TestAuthInfo_NotLoggedIn_FlagYes(t *testing.T) {
 		callbackLoc := authResp.Header.Get("Location")
 		_ = authResp.Body.Close()
 
-		callbackResp, err := http.Get(callbackLoc) //nolint:noctx
+		callbackResp, err := http.Get(callbackLoc) //nolint:noctx,gosec
 		require.NoError(t, err)
 		_, _ = io.Copy(io.Discard, callbackResp.Body)
 		_ = callbackResp.Body.Close()

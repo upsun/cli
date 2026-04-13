@@ -117,7 +117,7 @@ func TestAuthAPITokenLogin_RetryOnInvalid(t *testing.T) {
 
 	_, stderr, err := f.RunCombinedOutput("auth:api-token-login")
 	require.NoError(t, err, "expected success after retry; stderr: %s", stderr)
-	assert.Contains(t, stderr, "Invalid API token")
+	assert.Contains(t, stderr, "invalid API token")
 	assert.Contains(t, stderr, "The API token is valid.")
 }
 
@@ -139,5 +139,5 @@ func TestAuthAPITokenLogin_ExhaustsRetries(t *testing.T) {
 
 	_, stderr, err := f.RunCombinedOutput("auth:api-token-login")
 	require.Error(t, err, "expected failure after 5 invalid tokens")
-	assert.Contains(t, stderr, "Invalid API token")
+	assert.Contains(t, stderr, "invalid API token")
 }

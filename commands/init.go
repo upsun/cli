@@ -317,4 +317,3 @@ func choose(stderr io.Writer, message string, options []string) (result string, 
 	err = survey.AskOne(prompt, &result, survey.WithValidator(survey.Required))
 	return
 }
-

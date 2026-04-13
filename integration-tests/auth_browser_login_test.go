@@ -95,7 +95,7 @@ func TestAuthBrowserLogin_Success(t *testing.T) {
 		_ = authResp.Body.Close()
 
 		// The auth server redirects to our local callback — GET to simulate browser.
-		callbackResp, err := http.Get(callbackLoc)
+		callbackResp, err := http.Get(callbackLoc) //nolint:gosec
 		require.NoError(t, err)
 		_, _ = io.Copy(io.Discard, callbackResp.Body)
 		_ = callbackResp.Body.Close()
@@ -116,11 +116,11 @@ func writeOAuthSession(t *testing.T, homeDir, sessionID string, s map[string]int
 	base := filepath.Join(homeDir, ".platform-test-cli", ".session")
 	sessDir := filepath.Join(base, "sess-"+sessionID)
 	cliDir := filepath.Join(base, "sess-cli-"+sessionID)
-	require.NoError(t, os.MkdirAll(sessDir, 0700))
-	require.NoError(t, os.MkdirAll(cliDir, 0700))
+	require.NoError(t, os.MkdirAll(sessDir, 0o700))
+	require.NoError(t, os.MkdirAll(cliDir, 0o700))
 	data, err := json.Marshal(s)
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(sessDir, "sess-"+sessionID+".json"), data, 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(sessDir, "sess-"+sessionID+".json"), data, 0o600))
 }
 
 func TestAuthBrowserLogin_AlreadyLoggedInOAuth_DeclineRelogin(t *testing.T) {

@@ -52,7 +52,7 @@ func TestFileStore_Delete(t *testing.T) {
 func TestFileStore_List(t *testing.T) {
 	dir := t.TempDir()
 	for _, name := range []string{"sess-cli-default", "sess-cli-work", "sess-default", "other-dir"} {
-		require.NoError(t, os.MkdirAll(filepath.Join(dir, name), 0700))
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, name), 0o700))
 	}
 	fs := &session.FileStore{}
 	ids, err := fs.List(dir)
@@ -73,8 +73,8 @@ func TestResolveSessionID_File(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("TEST_CLI_HOME", dir)
 	idFile := filepath.Join(dir, ".platform-test-cli", "session-id")
-	require.NoError(t, os.MkdirAll(filepath.Dir(idFile), 0700))
-	require.NoError(t, os.WriteFile(idFile, []byte("file-session\n"), 0600))
+	require.NoError(t, os.MkdirAll(filepath.Dir(idFile), 0o700))
+	require.NoError(t, os.WriteFile(idFile, []byte("file-session\n"), 0o600))
 	id, err := session.ResolveSessionID(cfg)
 	require.NoError(t, err)
 	assert.Equal(t, "file-session", id)

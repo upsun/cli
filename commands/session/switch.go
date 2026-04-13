@@ -27,7 +27,9 @@ func NewSwitchCommand(cfg *config.Config) *cobra.Command {
 			// Blocked if session ID comes from env.
 			envKey := cfg.Application.EnvPrefix + "SESSION_ID"
 			if id := os.Getenv(envKey); id != "" {
-				return fmt.Errorf("the session ID is set via the environment variable %s; it cannot be changed using this command", envKey)
+				return fmt.Errorf(
+					"the session ID is set via the environment variable %s; it cannot be changed using this command",
+					envKey)
 			}
 
 			mgr, err := internalsession.New(cfg)
@@ -37,11 +39,12 @@ func NewSwitchCommand(cfg *config.Config) *cobra.Command {
 			previousID := mgr.SessionID()
 
 			var newID string
-			if len(args) > 0 {
+			switch {
+			case len(args) > 0:
 				newID = args[0]
-			} else if os.Getenv(cfg.Application.EnvPrefix+"NO_INTERACTION") != "" {
+			case os.Getenv(cfg.Application.EnvPrefix+"NO_INTERACTION") != "":
 				return fmt.Errorf("the new session ID is required")
-			} else {
+			default:
 				// Interactive prompt.
 				ids, err := mgr.List()
 				if err != nil {

@@ -64,7 +64,7 @@ func (c *Client) CheckVerificationStatus(ctx context.Context) error {
 	q := u.Query()
 	q.Set("force_refresh", "1")
 	u.RawQuery = q.Encode()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), http.NoBody)
 	if err != nil {
 		return err
 	}

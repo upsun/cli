@@ -43,14 +43,14 @@ func (fs *FileStore) Load(path string) (*Session, error) {
 }
 
 func (fs *FileStore) Save(path string, s *Session) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
 	data, err := json.Marshal(s)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0600)
+	return os.WriteFile(path, data, 0o600)
 }
 
 // Delete removes the directory containing the session file.
@@ -60,7 +60,7 @@ func (fs *FileStore) Delete(dir string) error {
 
 // MkdirAll creates the directory with permissions 0700.
 func (fs *FileStore) MkdirAll(path string) error {
-	return os.MkdirAll(path, 0700)
+	return os.MkdirAll(path, 0o700)
 }
 
 // List scans baseDir for sess-cli-* directories and returns the session IDs.

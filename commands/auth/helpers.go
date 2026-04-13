@@ -10,8 +10,8 @@ import (
 
 	"golang.org/x/oauth2"
 
-	internalauth "github.com/upsun/cli/internal/auth"
 	"github.com/upsun/cli/internal/api"
+	internalauth "github.com/upsun/cli/internal/auth"
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/legacy"
 	"github.com/upsun/cli/internal/session"

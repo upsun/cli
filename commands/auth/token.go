@@ -79,7 +79,7 @@ func NewTokenCommand(cfg *config.Config) *cobra.Command {
 
 // ErrInvalidAPIToken is returned by exchangeAPIToken when the server rejects the token (400/401).
 // Callers can use errors.Is to detect this and re-prompt.
-var ErrInvalidAPIToken = errors.New("Invalid API token")
+var ErrInvalidAPIToken = errors.New("invalid API token")
 
 // exchangeAPIToken exchanges an API token for OAuth2 tokens and returns the resulting session.
 func exchangeAPIToken(ctx context.Context, cfg *config.Config, apiToken string) (*session.Session, error) {

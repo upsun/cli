@@ -17,7 +17,7 @@ func ResolveSessionID(cfg *config.Config) (string, error) {
 	if id := os.Getenv(cfg.Application.EnvPrefix + "SESSION_ID"); id != "" {
 		return id, nil
 	}
-	writableDir, err := cfg.WritableUserDir()
+	writableDir, err := cfg.WritableUserDir() //nolint:staticcheck // backwards compatibility needed for session files
 	if err != nil {
 		return "", err
 	}

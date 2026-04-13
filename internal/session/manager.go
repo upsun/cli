@@ -45,7 +45,7 @@ func NewWithID(cfg *config.Config, id string) *Manager {
 func (m *Manager) SessionID() string { return m.id }
 
 func (m *Manager) sessionBaseDir() (string, error) {
-	writableDir, err := m.cfg.WritableUserDir()
+	writableDir, err := m.cfg.WritableUserDir() //nolint:staticcheck // backwards compatibility needed for session files
 	if err != nil {
 		return "", err
 	}
@@ -199,10 +199,10 @@ func (m *Manager) SetAPIToken(token string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	return os.WriteFile(path, []byte(token), 0600)
+	return os.WriteFile(path, []byte(token), 0o600)
 }
 
 // DeleteAPIToken removes the stored API token.
@@ -221,13 +221,13 @@ func (m *Manager) DeleteAPIToken() error {
 // SetActiveSessionID writes the session ID to the session-id file,
 // persisting the active session across invocations.
 func (m *Manager) SetActiveSessionID(id string) error {
-	writableDir, err := m.cfg.WritableUserDir()
+	writableDir, err := m.cfg.WritableUserDir() //nolint:staticcheck // backwards compatibility needed for session files
 	if err != nil {
 		return err
 	}
 	path := filepath.Join(writableDir, "session-id")
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	return os.WriteFile(path, []byte(id), 0600)
+	return os.WriteFile(path, []byte(id), 0o600)
 }

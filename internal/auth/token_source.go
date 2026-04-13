@@ -27,6 +27,8 @@ type sessionTokenSource struct {
 }
 
 // NewSessionTokenSource creates a token source backed by session files.
+//
+//nolint:revive // intentionally returns unexported type; callers use := and only call Token/TokenContext
 func NewSessionTokenSource(mgr *session.Manager, cfg *config.Config) *sessionTokenSource {
 	return &sessionTokenSource{mgr: mgr, cfg: cfg, httpClient: http.DefaultClient}
 }

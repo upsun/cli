@@ -29,7 +29,7 @@ func NewBrowserLoginCommand(cfg *config.Config) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// If an API token is configured, browser login is not applicable.
 			if apiToken := os.Getenv(cfg.Application.EnvPrefix + "TOKEN"); apiToken != "" {
-				return fmt.Errorf("Cannot log in via the browser while an API token is set (%sTOKEN)", cfg.Application.EnvPrefix)
+				return fmt.Errorf("cannot log in via the browser while an API token is set (%sTOKEN)", cfg.Application.EnvPrefix)
 			}
 
 			mgr, err := session.New(cfg)
@@ -39,7 +39,7 @@ func NewBrowserLoginCommand(cfg *config.Config) *cobra.Command {
 
 			// Also check for an API token in the session.
 			if storedToken, err := mgr.GetAPIToken(); err == nil && storedToken != "" {
-				return fmt.Errorf("Cannot log in via the browser while an API token is configured")
+				return fmt.Errorf("cannot log in via the browser while an API token is configured")
 			}
 
 			// Non-interactive guard.
@@ -62,7 +62,7 @@ func NewBrowserLoginCommand(cfg *config.Config) *cobra.Command {
 					scanner.Scan()
 					answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
 					if answer != "y" && answer != "yes" {
-						return fmt.Errorf("login cancelled")
+						return fmt.Errorf("login canceled")
 					}
 					force = true
 				}
@@ -81,7 +81,8 @@ func NewBrowserLoginCommand(cfg *config.Config) *cobra.Command {
 				opts.MaxAge = &maxAge
 			}
 
-			fmt.Fprintf(cmd.ErrOrStderr(), "\nHelp:\n  Leave this command running during login.\n  If you need to quit, use Ctrl+C.\n\n")
+			fmt.Fprintf(cmd.ErrOrStderr(),
+				"\nHelp:\n  Leave this command running during login.\n  If you need to quit, use Ctrl+C.\n\n")
 
 			s, err := flow.Run(cmd.Context(), opts)
 			if err != nil {
@@ -98,7 +99,9 @@ func NewBrowserLoginCommand(cfg *config.Config) *cobra.Command {
 				fmt.Fprintln(cmd.ErrOrStderr(), "Warning:")
 				fmt.Fprintln(cmd.ErrOrStderr(), "No refresh token is available. This will cause frequent login errors.")
 				fmt.Fprintln(cmd.ErrOrStderr(), "Please contact support.")
-				fmt.Fprintf(cmd.ErrOrStderr(), "For internal use: the OAuth 2 client is probably misconfigured (client ID: %s).\n", clientID)
+				fmt.Fprintf(cmd.ErrOrStderr(),
+					"For internal use: the OAuth 2 client is probably misconfigured (client ID: %s).\n",
+					clientID)
 			}
 
 			fmt.Fprintln(cmd.ErrOrStderr(), "You are logged in.")

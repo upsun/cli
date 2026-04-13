@@ -18,9 +18,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/upsun/cli/internal"
 	authcmds "github.com/upsun/cli/commands/auth"
 	sessioncmds "github.com/upsun/cli/commands/session"
+	"github.com/upsun/cli/internal"
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/config/alt"
 	"github.com/upsun/cli/internal/legacy"
