@@ -1,0 +1,116 @@
+name: Test installer.sh
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'CLI version to install for raw tests (leave empty for latest release)'
+        required: false
+        type: string
+  push:
+    branches:
+      - main
+    paths:
+      - installer.sh
+      - .github/workflows/test-installer.yml
+  pull_request:
+    paths:
+      - installer.sh
+      - .github/workflows/test-installer.yml
+
+permissions:
+  contents: read
+
+jobs:
+  # Default install flow: the installer auto-detects the package manager.
+  # CI is overridden to empty so that is_ci() returns false (otherwise
+  # the installer would always select the "raw" method on Linux).
+  linux:
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    defaults:
+      run:
+        shell: sh
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: debian:bookworm
+            prereqs: apt-get update && apt-get install -y curl ca-certificates
+          - image: ubuntu:24.04
+            prereqs: apt-get update && apt-get install -y curl ca-certificates
+          - image: fedora:41
+            prereqs: yum install -y curl
+          - image: alpine:3.21
+            prereqs: apk add --no-cache curl ca-certificates
+
+    steps:
+      - name: Install prerequisites
+        run: ${{ matrix.prereqs }}
+
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Run installer
+        env:
+          CI: ""
+        run: sh installer.sh
+
+      - name: Verify installation
+        run: upsun --version
+
+  # Raw install on Linux: setting VERSION triggers the raw method.
+  # Without a VERSION input the installer queries the GitHub API for the
+  # latest release.
+  linux-raw:
+    runs-on: ubuntu-latest
+    container: debian:bookworm
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - name: Install prerequisites
+        run: apt-get update && apt-get install -y curl ca-certificates gzip
+
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Run installer
+        env:
+          VERSION: ${{ inputs.version }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: sh installer.sh
+
+      - name: Verify installation
+        run: upsun --version
+
+  # Default install flow on macOS (auto-detects homebrew).
+  macos:
+    runs-on: macos-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Run installer
+        run: sh installer.sh
+
+      - name: Verify installation
+        run: upsun --version
+
+  # Raw install on macOS (INSTALL_METHOD is required because VERSION
+  # does not affect macOS method selection).
+  macos-raw:
+    runs-on: macos-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Run installer
+        env:
+          INSTALL_METHOD: raw
+          VERSION: ${{ inputs.version }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: sh installer.sh
+
+      - name: Verify installation
+        run: upsun --version

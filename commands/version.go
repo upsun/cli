@@ -27,11 +27,6 @@ func newVersionCommand(cnf *config.Config) *cobra.Command {
 				)
 				fmt.Fprintf(
 					color.Output,
-					"Embedded Legacy CLI version %s\n",
-					color.CyanString(legacy.LegacyCLIVersion),
-				)
-				fmt.Fprintf(
-					color.Output,
 					"Commit %s (built %s by %s)\n",
 					color.CyanString(config.Commit),
 					color.CyanString(config.Date),

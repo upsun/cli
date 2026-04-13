@@ -48,14 +48,12 @@ type Config struct {
 		UserAgent string `validate:"omitempty" yaml:"user_agent,omitempty"`       // a template - see UserAgent method
 		SessionID string `validate:"omitempty,ascii" yaml:"session_id,omitempty"` // the ID for the authentication session - defaults to "default"
 
-		OAuth2ClientID     string `validate:"omitempty" yaml:"oauth2_client_id,omitempty"`                               // e.g. "upsun-cli"
-		OAuth2AuthorizeURL string `validate:"required_without=AuthURL,omitempty,url" yaml:"oauth2_auth_url,omitempty"`   // e.g. "https://auth.upsun.com/oauth2/authorize"
-		OAuth2RevokeURL    string `validate:"required_without=AuthURL,omitempty,url" yaml:"oauth2_revoke_url,omitempty"` // e.g. "https://auth.upsun.com/oauth2/revoke"
-		OAuth2TokenURL     string `validate:"required_without=AuthURL,omitempty,url" yaml:"oauth2_token_url,omitempty"`  // e.g. "https://auth.upsun.com/oauth2/token"
-		CertifierURL       string `validate:"required_without=AuthURL,omitempty,url" yaml:"certifier_url,omitempty"`     // No longer used
-
-		AIServiceURL        string `validate:"omitempty,url" yaml:"ai_url,omitempty"`    // The AI service URL, e.g. "https://ai.upsun.com".
-		EnableOrganizations bool   `validate:"omitempty" yaml:"organizations,omitempty"` // Whether the "organizations" feature is enabled.
+		OAuth2ClientID      string `validate:"omitempty" yaml:"oauth2_client_id,omitempty"`                               // e.g. "upsun-cli"
+		OAuth2AuthorizeURL  string `validate:"required_without=AuthURL,omitempty,url" yaml:"oauth2_auth_url,omitempty"`   // e.g. "https://auth.upsun.com/oauth2/authorize"
+		OAuth2RevokeURL     string `validate:"required_without=AuthURL,omitempty,url" yaml:"oauth2_revoke_url,omitempty"` // e.g. "https://auth.upsun.com/oauth2/revoke"
+		OAuth2TokenURL      string `validate:"required_without=AuthURL,omitempty,url" yaml:"oauth2_token_url,omitempty"`  // e.g. "https://auth.upsun.com/oauth2/token"
+		CertifierURL        string `validate:"required_without=AuthURL,omitempty,url" yaml:"certifier_url,omitempty"`     // No longer used
+		EnableOrganizations bool   `validate:"omitempty" yaml:"organizations,omitempty"`                                  // Whether the "organizations" feature is enabled.
 	} `validate:"required"`
 	Detection struct {
 		GitRemoteName string   `validate:"required" yaml:"git_remote_name"` // e.g. "upsun"

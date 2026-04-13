@@ -70,11 +70,8 @@ readonly class CurlCli implements InputConfiguringInterface
         $shouldRetry = false;
         $newToken = '';
         $stdoutBuffer = '';
-        $onOutput = function ($type, $buffer) use ($censor, $output, $stdErr, $process, $retryOn401, &$newToken, &$shouldRetry, &$stdoutBuffer) {
-            if ($shouldRetry) {
-                // Ensure there is no output after a retry is triggered.
-                return;
-            }
+        $stderrBuffer = '';
+        $onOutput = function ($type, $buffer) use ($censor, $output, $stdErr, $retryOn401, &$stdoutBuffer, &$stderrBuffer) {
             if ($type === Process::OUT) {
                 if ($retryOn401) {
                     // Buffer stdout when we might need to retry on 401.
@@ -85,17 +82,8 @@ readonly class CurlCli implements InputConfiguringInterface
                 return;
             }
             if ($type === Process::ERR) {
-                if ($retryOn401 && $this->parseCurlStatusCode($buffer) === 401 && $this->api->isLoggedIn()) {
-                    $shouldRetry = true;
-                    $stdoutBuffer = '';  // Discard buffered stdout from the 401 response.
-                    $process->clearErrorOutput();
-                    $process->clearOutput();
-
-                    $newToken = $this->api->getAccessToken(true);
-                    $stdErr->writeln('The access token has been refreshed. Retrying request.');
-
-                    $process->stop();
-                    return;
+                if ($retryOn401) {
+                    $stderrBuffer .= $buffer;
                 }
                 if ($stdErr->isVeryVerbose()) {
                     $stdErr->write($censor($buffer));
@@ -107,11 +95,22 @@ readonly class CurlCli implements InputConfiguringInterface
 
         $process->run($onOutput);
 
+        // Check for 401 after the process completes, using the full accumulated
+        // stderr buffer. This avoids a race condition where the process may exit
+        // before the callback processes the stderr chunk containing the status line.
+        if ($retryOn401 && $this->parseCurlStatusCode($stderrBuffer) === 401 && $this->api->isLoggedIn()) {
+            $shouldRetry = true;
+            $stdoutBuffer = '';  // Discard buffered stdout from the 401 response.
+            $newToken = $this->api->getAccessToken(true);
+            $stdErr->writeln('The access token has been refreshed. Retrying request.');
+        }
+
         if ($shouldRetry) {
             // Create a new curl process, replacing the access token.
             $commandline = $this->buildCurlCommand($url, $newToken, $input);
             $process = Process::fromShellCommandline($commandline);
-            $stdoutBuffer = '';  // Reset the buffer for the retry.
+            $stdoutBuffer = '';  // Reset the buffers for the retry.
+            $stderrBuffer = '';
             $shouldRetry = false;
 
             // Update the $token variable in the $censor closure.

@@ -1,11 +1,5 @@
 PHP_VERSION = 8.4.16
 
-GORELEASER_ID ?= upsun
-
-ifeq ($(GOOS), darwin)
-	GORELEASER_ID=$(GORELEASER_ID)-macos
-endif
-
 GOOS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 GOARCH := $(shell uname -m)
 ifeq ($(GOARCH), x86_64)
@@ -15,7 +9,13 @@ ifeq ($(GOARCH), aarch64)
 	GOARCH=arm64
 endif
 
-VERSION := $(shell git describe --always)
+FLAVOR ?= upsun
+
+ifeq ($(GOOS), darwin)
+	GORELEASER_ID = $(FLAVOR)-macos
+else
+	GORELEASER_ID = $(FLAVOR)
+endif
 
 # Tooling versions
 GORELEASER_VERSION=v2.12.0
@@ -111,7 +111,6 @@ ifndef GPG_SIGNING_KEY_FILE
 	$(error GPG_SIGNING_KEY_FILE is not set. Set it to the path of your GPG private key for RPM signing.)
 endif
 	PHP_VERSION=$(PHP_VERSION) goreleaser release --clean
-	VERSION=$(VERSION) bash cloudsmith.sh
 
 .PHONY: test
 # "We encourage users of encoding/json to test their programs with GOEXPERIMENT=jsonv2 enabled" (https://tip.golang.org/doc/go1.25)

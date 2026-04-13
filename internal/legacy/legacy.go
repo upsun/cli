@@ -23,10 +23,7 @@ import (
 //go:embed archives/platform.phar
 var phar []byte
 
-var (
-	LegacyCLIVersion = "0.0.0"
-	PHPVersion       = "0.0.0"
-)
+var PHPVersion = "0.0.0"
 
 const configBasename = "config.yaml"
 
@@ -58,7 +55,7 @@ func (c *CLIWrapper) cacheDir() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		cd = filepath.Join(cd, fmt.Sprintf("legacy-%s-%s", PHPVersion, LegacyCLIVersion))
+		cd = filepath.Join(cd, "legacy-"+c.Version)
 		if err := os.Mkdir(cd, 0o700); err != nil && !errors.Is(err, fs.ErrExist) {
 			return "", err
 		}
@@ -152,11 +149,10 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 		cmd.Env = append(cmd.Env, "CLICOLOR_FORCE=1")
 	}
 	cmd.Env = append(cmd.Env, fmt.Sprintf(
-		"%sUSER_AGENT={APP_NAME_DASH}/%s ({UNAME_S}; {UNAME_R}; PHP %s; WRAPPER %s)",
+		"%sUSER_AGENT={APP_NAME_DASH}/%s ({UNAME_S}; {UNAME_R}; PHP %s)",
 		envPrefix,
-		LegacyCLIVersion,
-		PHPVersion,
 		c.Version,
+		PHPVersion,
 	))
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("could not run PHP CLI command: %w", err)

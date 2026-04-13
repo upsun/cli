@@ -25,6 +25,8 @@ builds:
       - platformsh
     ldflags:
       - -s -w
+      - -X "github.com/upsun/cli/internal/config.Version={{.Version}}"
+      - -X "github.com/upsun/cli/internal/config.BuiltBy=goreleaser"
       - -X "github.com/upsun/cli/internal/legacy.PHPVersion={{.Env.PHP_VERSION}}"
     main: ./cmd/platform
   - binary: platform
@@ -40,6 +42,8 @@ builds:
       - platformsh
     ldflags:
       - -s -w
+      - -X "github.com/upsun/cli/internal/config.Version={{.Version}}"
+      - -X "github.com/upsun/cli/internal/config.BuiltBy=goreleaser"
       - -X "github.com/upsun/cli/internal/legacy.PHPVersion={{.Env.PHP_VERSION}}"
     main: ./cmd/platform
 
@@ -58,6 +62,8 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
+      - -X "github.com/upsun/cli/internal/config.Version={{.Version}}"
+      - -X "github.com/upsun/cli/internal/config.BuiltBy=goreleaser"
       - -X "github.com/upsun/cli/internal/legacy.PHPVersion={{.Env.PHP_VERSION}}"
     main: ./cmd/platform
   - binary: upsun
@@ -71,6 +77,8 @@ builds:
       - arm64
     ldflags:
       - -s -w
+      - -X "github.com/upsun/cli/internal/config.Version={{.Version}}"
+      - -X "github.com/upsun/cli/internal/config.BuiltBy=goreleaser"
       - -X "github.com/upsun/cli/internal/legacy.PHPVersion={{.Env.PHP_VERSION}}"
     main: ./cmd/platform
 
@@ -93,9 +101,11 @@ universal_binaries:
     replace: true
 
 release:
+  replace_existing_artifacts: true
   github:
     owner: upsun
     name: cli
+  prerelease: auto
   footer: |
     ## Upgrade
 
@@ -146,10 +156,11 @@ archives:
 
 brews:
   - name: platformsh-cli
+    skip_upload: '{{ envOrDefault "SKIP_UPLOAD_TAPS" "auto" }}'
     repository:
       owner: upsun
       name: homebrew-tap
-      token: "{{ .Env.GITHUB_TOKEN }}"
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     ids:
       - platform
 
@@ -176,10 +187,11 @@ brews:
       system "#{bin}/platform --version"
 
   - name: upsun-cli
+    skip_upload: '{{ envOrDefault "SKIP_UPLOAD_TAPS" "auto" }}'
     repository:
       owner: upsun
       name: homebrew-tap
-      token: "{{ .Env.GITHUB_TOKEN }}"
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     ids:
       - upsun
 
@@ -207,10 +219,11 @@ brews:
 
 scoops:
   - name: platform
+    skip_upload: '{{ envOrDefault "SKIP_UPLOAD_TAPS" "auto" }}'
     repository:
       owner: upsun
       name: homebrew-tap
-      token: "{{ .Env.GITHUB_TOKEN }}"
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     ids:
       - platform
 
@@ -228,10 +241,11 @@ scoops:
       - extras/vcredist2022
 
   - name: upsun
+    skip_upload: '{{ envOrDefault "SKIP_UPLOAD_TAPS" "auto" }}'
     repository:
       owner: upsun
       name: homebrew-tap
-      token: "{{ .Env.GITHUB_TOKEN }}"
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     ids:
       - upsun
 

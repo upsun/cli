@@ -2,7 +2,6 @@ package commands
 
 import (
 	"bytes"
-	"cmp"
 	"context"
 	"fmt"
 	"io"
@@ -109,9 +108,6 @@ func runInitCommand(
 
 	cnf := config.FromContext(cmd.Context())
 
-	// TODO check if this is needed
-	cnf.API.AIServiceURL = cmp.Or(os.Getenv(cnf.Application.EnvPrefix+"API_AI_URL"), cnf.API.AIServiceURL)
-
 	legacyCLIClient, err := auth.NewLegacyCLIClient(cmd.Context(),
 		makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), cmd.ErrOrStderr(), cmd.InOrStdin()))
 	if err != nil {
@@ -183,7 +179,7 @@ func runInitCommand(
 	}
 
 	initOptions.HTTPClient = legacyCLIClient.HTTPClient
-	initOptions.AIServiceURL = cnf.API.AIServiceURL
+	initOptions.APIURL = cnf.API.BaseURL
 	initOptions.UserAgent = cnf.UserAgent()
 	initOptions.IsInteractive = isInteractive
 	initOptions.Yes = viper.GetBool("yes")
@@ -232,9 +228,6 @@ func handleOrganizations(
 func canUseAI(cnf *config.Config) (msg string, canUseAI bool) {
 	if !cnf.API.EnableOrganizations {
 		return "using AI requires Organizations to be enabled", false
-	}
-	if cnf.API.AIServiceURL == "" {
-		return "using AI requires the service URL to be set", false
 	}
 	return "", true
 }
