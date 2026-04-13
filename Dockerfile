@@ -7,7 +7,7 @@ RUN apt-get update && \
 
 # Install Upsun CLI
 ARG VERSION=
-RUN curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | INSTALL_METHOD=raw VERSION=$VERSION bash
+RUN curl -fsSL https://raw.githubusercontent.com/upsun/cli/$VERSION/installer.sh | INSTALL_METHOD=raw VERSION=$VERSION bash
 
 # Default command
 ENTRYPOINT ["upsun"]
