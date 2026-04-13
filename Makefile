@@ -17,11 +17,6 @@ else
 	GORELEASER_ID = $(FLAVOR)
 endif
 
-# Use GORELEASER_CURRENT_TAG if set (from GitHub Actions), otherwise derive from git
-ifeq ($(origin VERSION), undefined)
-VERSION := $(or $(GORELEASER_CURRENT_TAG),$(shell git describe --tags --always 2>/dev/null || echo "0.0.0-dev"))
-endif
-
 # Tooling versions
 GORELEASER_VERSION=v2.12.0
 REPOGEN_VERSION=v1.0.4
@@ -116,11 +111,6 @@ ifndef GPG_SIGNING_KEY_FILE
 	$(error GPG_SIGNING_KEY_FILE is not set. Set it to the path of your GPG private key for RPM signing.)
 endif
 	PHP_VERSION=$(PHP_VERSION) goreleaser release --clean
-	@if echo "$(VERSION)" | grep -qv -- '-'; then \
-		VERSION=$(VERSION) bash cloudsmith.sh; \
-	else \
-		echo "Skipping Cloudsmith upload for pre-release version $(VERSION)"; \
-	fi
 
 .PHONY: test
 # "We encourage users of encoding/json to test their programs with GOEXPERIMENT=jsonv2 enabled" (https://tip.golang.org/doc/go1.25)
