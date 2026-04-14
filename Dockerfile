@@ -1,10 +1,12 @@
 FROM ubuntu:24.04
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl bash git ssh-client && \
+    apt-get install -y --no-install-recommends ca-certificates curl bash git ssh-client && \
     rm -rf /var/lib/apt/lists/*
 
 ARG VERSION=
-RUN curl -fsSL https://raw.githubusercontent.com/upsun/cli/$VERSION/installer.sh | INSTALL_METHOD=raw VERSION=$VERSION bash
+RUN curl -fsSL https://raw.githubusercontent.com/upsun/cli/$VERSION/installer.sh -o /tmp/installer.sh && \
+    INSTALL_METHOD=raw VERSION=$VERSION bash /tmp/installer.sh && \
+    rm /tmp/installer.sh
 
 ENTRYPOINT ["upsun"]
