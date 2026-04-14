@@ -120,12 +120,6 @@ The CLI is also available as a Docker image:
 docker run --rm -it ghcr.io/upsun/cli
 ```
 
-To use a specific version:
-
-```console
-docker run --rm -it ghcr.io/upsun/cli:v6.0.0
-```
-
 ## Upgrade
 
 Upgrade using the same tool:
