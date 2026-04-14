@@ -21,6 +21,9 @@ on:
 permissions:
   contents: write
 
+env:
+  IMAGE: ghcr.io/upsun/cli
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -201,7 +204,7 @@ jobs:
           context: https://github.com/${{ github.repository }}.git#${{ needs.release.outputs.tag }}
           platforms: ${{ matrix.platform }}
           push: true
-          tags: ghcr.io/upsun/cli:${{ needs.release.outputs.tag }}-${{ matrix.suffix }}
+          tags: ${{ env.IMAGE }}:${{ needs.release.outputs.tag }}-${{ matrix.suffix }}
           build-args: |
             VERSION=${{ needs.release.outputs.tag }}
           cache-from: type=gha,scope=${{ matrix.suffix }}
@@ -224,14 +227,14 @@ jobs:
       - name: Create and push versioned manifest
         run: |
           docker buildx imagetools create \
-            --tag ghcr.io/upsun/cli:${{ needs.release.outputs.tag }} \
-            ghcr.io/upsun/cli:${{ needs.release.outputs.tag }}-amd64 \
-            ghcr.io/upsun/cli:${{ needs.release.outputs.tag }}-arm64
+            --tag ${{ env.IMAGE }}:${{ needs.release.outputs.tag }} \
+            ${{ env.IMAGE }}:${{ needs.release.outputs.tag }}-amd64 \
+            ${{ env.IMAGE }}:${{ needs.release.outputs.tag }}-arm64
 
       - name: Create and push latest manifest
         if: needs.release.outputs.is_prerelease == 'false'
         run: |
           docker buildx imagetools create \
-            --tag ghcr.io/upsun/cli:latest \
-            ghcr.io/upsun/cli:${{ needs.release.outputs.tag }}-amd64 \
-            ghcr.io/upsun/cli:${{ needs.release.outputs.tag }}-arm64
+            --tag ${{ env.IMAGE }}:latest \
+            ${{ env.IMAGE }}:${{ needs.release.outputs.tag }}-amd64 \
+            ${{ env.IMAGE }}:${{ needs.release.outputs.tag }}-arm64
