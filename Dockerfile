@@ -1,13 +1,10 @@
-FROM ubuntu:24.04
+FROM alpine:3
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl git openssh-client && \
-    rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache ca-certificates curl git openssh-client
 
 ARG VERSION=
-RUN [ -n "$VERSION" ] || { echo "ERROR: VERSION build arg must be set" >&2; exit 1; }
+RUN [ -n "$VERSION" ] || { echo "VERSION is required" >&2; exit 1; }
 COPY installer.sh /tmp/installer.sh
-RUN INSTALL_METHOD=raw VERSION=$VERSION sh /tmp/installer.sh && \
-    rm /tmp/installer.sh
+RUN INSTALL_METHOD=raw VERSION=$VERSION sh /tmp/installer.sh && rm /tmp/installer.sh
 
 ENTRYPOINT ["upsun"]
