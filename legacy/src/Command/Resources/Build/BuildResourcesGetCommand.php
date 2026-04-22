@@ -44,8 +44,8 @@ class BuildResourcesGetCommand extends CommandBase
         if (!$this->api->supportsSizingApi($selection->getProject())) {
             $this->stdErr->writeln(sprintf(
                 'The flexible resources API is not enabled for the project %s.' . "\n"
-                . 'The function you attempted to use is not available on upsun fixed (platformsh).' . "\n"
-                . 'Please refer to the Upsun fixed (platformsh) documentation: https://fixed.docs.upsun.com/',
+                . 'The function you attempted to use is not available on fixed plans.' . "\n"
+                . 'Please refer to the Fixed documentation: https://fixed.docs.upsun.com/',
                 $this->api->getProjectLabel($selection->getProject(), 'comment')
             ));
             return 1;
