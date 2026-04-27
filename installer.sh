@@ -31,7 +31,7 @@ set -eu
 
 # global variables
 binary="upsun"
-vendor_name="Upsun (formerly Platform.sh)"
+vendor_name="Upsun"
 cmd_shasum=""
 cmd_sudo=""
 dir_bin="/usr/bin"
