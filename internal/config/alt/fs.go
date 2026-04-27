@@ -150,26 +150,6 @@ func binDirAllowlist(homeDir string) []string {
 	return out
 }
 
-func isWritableDir(path string) bool {
-	stat, err := os.Stat(path)
-	if err != nil || !stat.IsDir() {
-		return false
-	}
-	f, err := os.CreateTemp(path, ".platform-alt-write-check-*")
-	if err != nil {
-		return false
-	}
-	name := f.Name()
-	if err := f.Close(); err != nil {
-		_ = os.Remove(name)
-		return false
-	}
-	if err := os.Remove(name); err != nil {
-		return false
-	}
-	return true
-}
-
 // isExistingDirectory checks if a path exists and is a directory.
 func isExistingDirectory(path string) (bool, error) {
 	stat, err := os.Stat(path)
