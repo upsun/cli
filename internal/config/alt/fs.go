@@ -20,15 +20,11 @@ var executableFn = os.Executable
 // FindConfigDir finds an appropriate destination directory for an "alt" CLI configuration YAML file.
 //
 // XDG_CONFIG_HOME is honored explicitly because os.UserConfigDir ignores it on macOS and Windows.
+// Per the XDG Base Directory spec, an explicitly set value is honored regardless of whether the
+// directory already exists — writeFile creates parents as needed.
 func FindConfigDir() (string, error) {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		isDir, err := isExistingDirectory(xdg)
-		if err != nil {
-			return "", err
-		}
-		if isDir {
-			return filepath.Join(xdg, subDir), nil
-		}
+		return filepath.Join(xdg, subDir), nil
 	}
 
 	userConfigDir, err := os.UserConfigDir()
@@ -51,9 +47,10 @@ func FindConfigDir() (string, error) {
 	return filepath.Join(homeDir, homeSubDir), nil
 }
 
-// FindBinDir picks a bin directory from a per-OS allowlist. It prefers the entry that already
-// holds the running executable (so the alt installs alongside its source binary in
-// package-manager layouts), falling back to the first writable PATH entry, then ~/.platform-alt/bin.
+// FindBinDir picks a bin directory from a per-OS allowlist. It prefers the allowlist entry that
+// already holds the running executable (so the alt installs alongside its source binary in
+// package-manager layouts), falling back to the first allowlist entry that is on PATH and
+// writable, then ~/.platform-alt/bin.
 //
 // The symlink-resolved match exists for Linuxbrew: on Linux, os.Executable returns the resolved
 // Cellar path rather than the bin-dir symlink that PATH points at, so a string-compare against

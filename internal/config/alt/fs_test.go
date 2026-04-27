@@ -13,7 +13,7 @@ import (
 func TestFindConfigDir(t *testing.T) {
 	tempDir := t.TempDir()
 
-	t.Run("XDG_CONFIG_HOME exists", func(t *testing.T) {
+	t.Run("XDG_CONFIG_HOME set", func(t *testing.T) {
 		if runtime.GOOS == "plan9" {
 			t.Skip()
 		}
@@ -22,6 +22,18 @@ func TestFindConfigDir(t *testing.T) {
 		result, err := FindConfigDir()
 		assert.NoError(t, err)
 		assert.Equal(t, filepath.Join(tempDir, subDir), result)
+	})
+
+	t.Run("XDG_CONFIG_HOME honored even when target does not yet exist", func(t *testing.T) {
+		if runtime.GOOS == "plan9" {
+			t.Skip()
+		}
+		nonExistent := filepath.Join(tempDir, "does-not-exist-yet")
+		t.Setenv("XDG_CONFIG_HOME", nonExistent)
+
+		result, err := FindConfigDir()
+		assert.NoError(t, err)
+		assert.Equal(t, filepath.Join(nonExistent, subDir), result)
 	})
 
 	t.Run("HOME fallback", func(t *testing.T) {
@@ -34,7 +46,9 @@ func TestFindConfigDir(t *testing.T) {
 		// HOME, that directory wins.
 		ucd, ucdErr := os.UserConfigDir()
 		isDir, _ := isExistingDirectory(ucd)
-		if ucdErr != nil || !isDir {
+		if ucdErr == nil && isDir {
+			assert.Equal(t, filepath.Join(ucd, subDir), result)
+		} else {
 			assert.Equal(t, filepath.Join(tempDir, homeSubDir), result)
 		}
 	})
