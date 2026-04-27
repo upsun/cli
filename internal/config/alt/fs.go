@@ -121,6 +121,7 @@ func binDirAllowlist(homeDir string) []string {
 		raw = []string{
 			filepath.Join(homeDir, "scoop", "shims"),
 			filepath.Join(homeDir, "AppData", "Local", "Programs"),
+			xdgBinHome,
 			filepath.Join(homeDir, ".local", "bin"),
 		}
 	default:
