@@ -51,10 +51,6 @@ func FindConfigDir() (string, error) {
 // already holds the running executable (so the alt installs alongside its source binary in
 // package-manager layouts), falling back to the first allowlist entry that is on PATH and
 // writable, then ~/.platform-alt/bin.
-//
-// The symlink-resolved match exists for Linuxbrew: on Linux, os.Executable returns the resolved
-// Cellar path rather than the bin-dir symlink that PATH points at, so a string-compare against
-// the allowlist entry would miss.
 func FindBinDir() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -63,35 +59,18 @@ func FindBinDir() (string, error) {
 
 	candidates := binDirAllowlist(homeDir)
 	pathValue := os.Getenv("PATH")
-
-	exe, exeErr := executableFn()
-	var normExeDir, exeBase, resolvedExe string
-	var resolveExeErr error
-	if exeErr == nil {
-		normExeDir = normalizePathEntry(filepath.Dir(exe), homeDir)
-		exeBase = filepath.Base(exe)
-		resolvedExe, resolveExeErr = filepath.EvalSymlinks(exe)
-	}
+	matchExe := exeMatcher(homeDir)
 
 	var firstValid string
 	for _, c := range candidates {
 		if !inPathValue(c, pathValue) || !isWritableDir(c) {
 			continue
 		}
+		if matchExe(c) {
+			return c, nil
+		}
 		if firstValid == "" {
 			firstValid = c
-		}
-		if exeErr != nil {
-			continue
-		}
-		if normalizePathEntry(c, homeDir) == normExeDir {
-			return c, nil
-		}
-		if resolveExeErr != nil {
-			continue
-		}
-		if resolved, err := filepath.EvalSymlinks(filepath.Join(c, exeBase)); err == nil && resolved == resolvedExe {
-			return c, nil
 		}
 	}
 
@@ -99,6 +78,31 @@ func FindBinDir() (string, error) {
 		return firstValid, nil
 	}
 	return filepath.Join(homeDir, homeSubDir, "bin"), nil
+}
+
+// exeMatcher returns a predicate that reports whether a candidate bin directory holds the
+// running executable. The symlink branch handles package-manager layouts like Linuxbrew, where
+// os.Executable returns the resolved Cellar path rather than the bin-dir symlink that PATH
+// points at — a string compare against the allowlist entry would otherwise miss.
+func exeMatcher(homeDir string) func(string) bool {
+	exe, err := executableFn()
+	if err != nil {
+		return func(string) bool { return false }
+	}
+	normExeDir := normalizePathEntry(filepath.Dir(exe), homeDir)
+	exeBase := filepath.Base(exe)
+	resolvedExe, resolveErr := filepath.EvalSymlinks(exe)
+
+	return func(c string) bool {
+		if normalizePathEntry(c, homeDir) == normExeDir {
+			return true
+		}
+		if resolveErr != nil {
+			return false
+		}
+		resolved, err := filepath.EvalSymlinks(filepath.Join(c, exeBase))
+		return err == nil && resolved == resolvedExe
+	}
 }
 
 func binDirAllowlist(homeDir string) []string {
