@@ -105,6 +105,37 @@ func TestFindBinDir(t *testing.T) {
 		assert.Equal(t, sourceBin, result)
 	})
 
+	t.Run("linuxbrew-style symlinked source dir is co-located via allowlist", func(t *testing.T) {
+		// Reproduces the Linuxbrew layout. On Linux, os.Executable returns /proc/self/exe
+		// fully resolved, so the running process sees the Cellar path — not the bin dir
+		// holding the symlink. We must still detect that the alt should be installed in the
+		// bin dir alongside the symlink.
+		tempDir := t.TempDir()
+		brewBin := filepath.Join(tempDir, ".linuxbrew", "bin")
+		cellarBin := filepath.Join(tempDir, ".linuxbrew", "Cellar", "upsun", "1.0.0", "bin")
+		require.NoError(t, os.MkdirAll(brewBin, 0o755))
+		require.NoError(t, os.MkdirAll(cellarBin, 0o755))
+		cellarExe := filepath.Join(cellarBin, "exe")
+		require.NoError(t, os.WriteFile(cellarExe, []byte("#!/bin/sh\n"), 0o755))
+		require.NoError(t, os.Symlink(cellarExe, filepath.Join(brewBin, "exe")))
+
+		// PATH contains both a higher-priority allowlist entry and the brew bin dir; the
+		// co-location rule must win over the higher-priority writable entry.
+		higherPriorityBin := filepath.Join(tempDir, ".local", "bin")
+		require.NoError(t, os.MkdirAll(higherPriorityBin, 0o755))
+		require.NoError(t, os.Setenv("HOME", tempDir))
+		require.NoError(t, os.Setenv("PATH", higherPriorityBin+string(os.PathListSeparator)+brewBin))
+		// Point XDG_BIN_HOME at the brew bin so it appears on the allowlist regardless of
+		// the test host's GOOS (the hardcoded /home/linuxbrew/.linuxbrew/bin entry only
+		// matches on a real Linuxbrew install).
+		require.NoError(t, os.Setenv("XDG_BIN_HOME", brewBin))
+		executableFn = func() (string, error) { return cellarExe, nil }
+
+		result, err := FindBinDir()
+		assert.NoError(t, err)
+		assert.Equal(t, brewBin, result)
+	})
+
 	t.Run("nvm-style source dir is not selected", func(t *testing.T) {
 		tempDir := t.TempDir()
 		nvmBin := filepath.Join(tempDir, ".nvm", "versions", "node", "v20.0.0", "bin")
