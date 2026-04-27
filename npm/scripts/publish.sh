@@ -40,19 +40,24 @@ if [ ${#all_tarballs[@]} -eq 0 ]; then
 fi
 
 # Classify each tarball by reading its package.json once: the wrapper is
-# the one named "upsun"; everything else is a platform package. Cache
-# name and version so the propagation wait does not re-open the tarball.
-declare -A NAME_OF VERSION_OF
+# the one named "upsun"; everything else is a platform package. Names
+# and versions for platform tarballs are cached in parallel arrays so
+# the propagation wait does not re-open the tarball. Parallel arrays
+# rather than associative arrays so this works on macOS's default Bash 3.2.
 platform_tarballs=()
+platform_names=()
+platform_versions=()
 wrapper_tarballs=()
 for t in "${all_tarballs[@]}"; do
   pkg_json=$(tar -xzOf "$t" package/package.json)
-  NAME_OF["$t"]=$(awk -F'"' '/"name":/ { print $4; exit }' <<<"$pkg_json")
-  VERSION_OF["$t"]=$(awk -F'"' '/"version":/ { print $4; exit }' <<<"$pkg_json")
-  if [ "${NAME_OF[$t]}" = "upsun" ]; then
+  name=$(awk -F'"' '/"name":/ { print $4; exit }' <<<"$pkg_json")
+  version=$(awk -F'"' '/"version":/ { print $4; exit }' <<<"$pkg_json")
+  if [ "$name" = "upsun" ]; then
     wrapper_tarballs+=("$t")
   else
     platform_tarballs+=("$t")
+    platform_names+=("$name")
+    platform_versions+=("$version")
   fi
 done
 
@@ -84,8 +89,8 @@ for t in "${platform_tarballs[@]}"; do publish_one "$t"; done
 
 if [ "${DRY_RUN}" != "1" ]; then
   echo "publish.sh: waiting for platform packages to propagate"
-  for t in "${platform_tarballs[@]}"; do
-    wait_visible "${NAME_OF[$t]}" "${VERSION_OF[$t]}"
+  for i in "${!platform_tarballs[@]}"; do
+    wait_visible "${platform_names[$i]}" "${platform_versions[$i]}"
   done
 fi
 
