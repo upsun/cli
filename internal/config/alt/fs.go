@@ -14,15 +14,12 @@ const (
 	homeSubDir = ".platform-alt"
 )
 
-// executableFn is the source of the current executable path. It is a variable so tests can stub
-// out os.Executable.
+// var so tests can stub os.Executable.
 var executableFn = os.Executable
 
 // FindConfigDir finds an appropriate destination directory for an "alt" CLI configuration YAML file.
 //
-// XDG_CONFIG_HOME takes precedence on all platforms, since os.UserConfigDir does not honor it on
-// macOS or Windows. If neither XDG_CONFIG_HOME nor os.UserConfigDir yields an existing directory,
-// it falls back to ~/.platform-alt.
+// XDG_CONFIG_HOME is honored explicitly because os.UserConfigDir ignores it on macOS and Windows.
 func FindConfigDir() (string, error) {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
 		isDir, err := isExistingDirectory(xdg)
@@ -54,26 +51,13 @@ func FindConfigDir() (string, error) {
 	return filepath.Join(homeDir, homeSubDir), nil
 }
 
-// FindBinDir finds an appropriate destination directory for an "alt" CLI executable.
+// FindBinDir picks a bin directory from a per-OS allowlist. It prefers the entry that already
+// holds the running executable (so the alt installs alongside its source binary in
+// package-manager layouts), falling back to the first writable PATH entry, then ~/.platform-alt/bin.
 //
-// The selection rules are:
-//
-//  1. If the currently running CLI executable lives in (or is reachable via a symlink from) a
-//     directory on the per-OS allowlist, and that directory is writable and on PATH, install
-//     the alt there. This co-locates the alt with the source binary in package-manager installs
-//     (e.g. Homebrew, Linuxbrew, Scoop).
-//  2. Otherwise, pick the first allowlist entry that is writable and on PATH.
-//  3. Otherwise, fall back to ~/.platform-alt/bin (the caller is expected to print PATH
-//     instructions in that case).
-//
-// The symlink reachability check matters because os.Executable behaves differently per OS: on
-// macOS and Windows it returns the path used to invoke the binary (preserving symlinks), while
-// on Linux it returns /proc/self/exe fully resolved. Linuxbrew installs a symlink in
-// /home/linuxbrew/.linuxbrew/bin pointing into a versioned Cellar directory, so the resolved
-// exe path doesn't match the allowlist directly — we have to compare resolved targets instead.
-//
-// The allowlist exists to avoid installing alongside binaries in version-scoped or developer
-// locations such as ~/.nvm/versions/node/<v>/bin or a local ./dist build directory.
+// The symlink-resolved match exists for Linuxbrew: on Linux, os.Executable returns the resolved
+// Cellar path rather than the bin-dir symlink that PATH points at, so a string-compare against
+// the allowlist entry would miss.
 func FindBinDir() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -83,57 +67,43 @@ func FindBinDir() (string, error) {
 	candidates := binDirAllowlist(homeDir)
 	pathValue := os.Getenv("PATH")
 
-	if exe, err := executableFn(); err == nil {
-		if dir, ok := findCoLocatedBinDir(exe, candidates, pathValue, homeDir); ok {
-			return dir, nil
-		}
+	exe, exeErr := executableFn()
+	var normExeDir, exeBase, resolvedExe string
+	var resolveExeErr error
+	if exeErr == nil {
+		normExeDir = normalizePathEntry(filepath.Dir(exe), homeDir)
+		exeBase = filepath.Base(exe)
+		resolvedExe, resolveExeErr = filepath.EvalSymlinks(exe)
 	}
 
+	var firstValid string
 	for _, c := range candidates {
-		if inPathValue(c, pathValue) && isWritableDir(c) {
+		if !inPathValue(c, pathValue) || !isWritableDir(c) {
+			continue
+		}
+		if firstValid == "" {
+			firstValid = c
+		}
+		if exeErr != nil {
+			continue
+		}
+		if normalizePathEntry(c, homeDir) == normExeDir {
+			return c, nil
+		}
+		if resolveExeErr != nil {
+			continue
+		}
+		if resolved, err := filepath.EvalSymlinks(filepath.Join(c, exeBase)); err == nil && resolved == resolvedExe {
 			return c, nil
 		}
 	}
 
+	if firstValid != "" {
+		return firstValid, nil
+	}
 	return filepath.Join(homeDir, homeSubDir, "bin"), nil
 }
 
-// findCoLocatedBinDir returns the allowlist entry that holds the running executable, either
-// directly or via a symlink, provided the entry is writable and on PATH. It handles the
-// platform-specific behavior of os.Executable described on FindBinDir.
-func findCoLocatedBinDir(exe string, allowlist []string, pathValue, homeDir string) (string, bool) {
-	exeDir := filepath.Dir(exe)
-	exeBase := filepath.Base(exe)
-	resolvedExe, resolveExeErr := filepath.EvalSymlinks(exe)
-
-	for _, c := range allowlist {
-		if !inPathValue(c, pathValue) || !isWritableDir(c) {
-			continue
-		}
-		// Direct match: exe's directory equals this allowlist entry. Covers macOS Homebrew
-		// (where os.Executable preserves the bin-dir symlink path) and plain copies.
-		if normalizePathEntry(exeDir, homeDir) == normalizePathEntry(c, homeDir) {
-			return c, true
-		}
-		// Symlink-resolved match: <c>/<exeBase> resolves to the same file as exe. Covers
-		// Linuxbrew, where os.Executable returns the resolved Cellar path but the allowlist
-		// entry points at the bin dir that holds the symlink.
-		if resolveExeErr != nil {
-			continue
-		}
-		resolvedCandidate, err := filepath.EvalSymlinks(filepath.Join(c, exeBase))
-		if err != nil {
-			continue
-		}
-		if resolvedCandidate == resolvedExe {
-			return c, true
-		}
-	}
-	return "", false
-}
-
-// binDirAllowlist returns the per-OS list of acceptable bin directories, in priority order.
-// Empty entries (e.g. unset XDG_BIN_HOME) and duplicates are removed.
 func binDirAllowlist(homeDir string) []string {
 	xdgBinHome := os.Getenv("XDG_BIN_HOME")
 
@@ -178,8 +148,6 @@ func binDirAllowlist(homeDir string) []string {
 	return out
 }
 
-// isWritableDir reports whether path is an existing directory that the current process can write
-// to. Detection is best-effort: it tries to create and remove a temp file in the directory.
 func isWritableDir(path string) bool {
 	stat, err := os.Stat(path)
 	if err != nil || !stat.IsDir() {
