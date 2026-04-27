@@ -156,8 +156,13 @@ func isWritableDir(path string) bool {
 		return false
 	}
 	name := f.Name()
-	_ = f.Close()
-	_ = os.Remove(name)
+	if err := f.Close(); err != nil {
+		_ = os.Remove(name)
+		return false
+	}
+	if err := os.Remove(name); err != nil {
+		return false
+	}
 	return true
 }
 
