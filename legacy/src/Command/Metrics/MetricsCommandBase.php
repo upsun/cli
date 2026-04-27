@@ -266,6 +266,8 @@ abstract class MetricsCommandBase extends CommandBase
     protected function validateTimeInput(InputInterface $input): false|TimeSpec
     {
         $isLatest = $input->getOption('latest');
+        $intervalString = $input->getOption('interval');
+        $intervalProvided = $intervalString !== null && $intervalString !== '';
 
         if ($to = $input->getOption('to')) {
             $endTime = \strtotime((string) $to);
@@ -289,7 +291,7 @@ abstract class MetricsCommandBase extends CommandBase
                 return false;
             }
             $rangeSeconds = (int) $rangeSeconds;
-        } elseif ($isLatest && !$input->getOption('interval')) {
+        } elseif ($isLatest && !$intervalProvided) {
             $rangeSeconds = self::LATEST_GRAIN;
         } else {
             $rangeSeconds = self::DEFAULT_RANGE;
@@ -298,11 +300,11 @@ abstract class MetricsCommandBase extends CommandBase
         $startTime = $endTime - $rangeSeconds;
         $interval = null;
 
-        if ($intervalString = $input->getOption('interval')) {
+        if ($intervalProvided) {
             $interval = (int) (new Duration())->toSeconds($intervalString);
 
             if (empty($interval)) {
-                $this->stdErr->writeln('Invalid --range: <error>' . $intervalString . '</error>');
+                $this->stdErr->writeln('Invalid --interval: <error>' . $intervalString . '</error>');
 
                 return false;
             }
