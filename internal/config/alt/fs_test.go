@@ -106,28 +106,29 @@ func TestFindBinDir(t *testing.T) {
 		assert.Equal(t, sourceBin, result)
 	})
 
-	t.Run("linuxbrew-style symlinked source dir is co-located via allowlist", func(t *testing.T) {
+	t.Run("symlinked source dir is co-located via allowlist", func(t *testing.T) {
 		tempDir := t.TempDir()
-		brewBin := filepath.Join(tempDir, ".linuxbrew", "bin")
-		cellarBin := filepath.Join(tempDir, ".linuxbrew", "Cellar", "upsun", "1.0.0", "bin")
-		require.NoError(t, os.MkdirAll(brewBin, 0o755))
-		require.NoError(t, os.MkdirAll(cellarBin, 0o755))
-		cellarExe := filepath.Join(cellarBin, "exe")
-		require.NoError(t, os.WriteFile(cellarExe, []byte("#!/bin/sh\n"), 0o600))
-		require.NoError(t, os.Symlink(cellarExe, filepath.Join(brewBin, "exe")))
+		shimBin := filepath.Join(tempDir, "shim", "bin")
+		realBin := filepath.Join(tempDir, "real", "bin")
+		require.NoError(t, os.MkdirAll(shimBin, 0o755))
+		require.NoError(t, os.MkdirAll(realBin, 0o755))
+		realExe := filepath.Join(realBin, "exe")
+		require.NoError(t, os.WriteFile(realExe, []byte("#!/bin/sh\n"), 0o600))
+		require.NoError(t, os.Symlink(realExe, filepath.Join(shimBin, "exe")))
 
 		higherPriorityBin := filepath.Join(tempDir, ".local", "bin")
 		require.NoError(t, os.MkdirAll(higherPriorityBin, 0o755))
 		t.Setenv("HOME", tempDir)
-		t.Setenv("PATH", higherPriorityBin+string(os.PathListSeparator)+brewBin)
-		// XDG_BIN_HOME pulls brewBin onto the allowlist regardless of host GOOS — the hardcoded
-		// /home/linuxbrew/.linuxbrew/bin entry only matches on a real Linuxbrew install.
-		t.Setenv("XDG_BIN_HOME", brewBin)
-		setExe(cellarExe)
+		t.Setenv("PATH", higherPriorityBin+string(os.PathListSeparator)+shimBin)
+		// XDG_BIN_HOME pulls shimBin onto the allowlist; the running exe lives outside the
+		// allowlist but is reachable via a symlink from shimBin, so co-location should still
+		// pick shimBin.
+		t.Setenv("XDG_BIN_HOME", shimBin)
+		setExe(realExe)
 
 		result, err := FindBinDir()
 		assert.NoError(t, err)
-		assert.Equal(t, brewBin, result)
+		assert.Equal(t, shimBin, result)
 	})
 
 	t.Run("nvm-style source dir is not selected", func(t *testing.T) {

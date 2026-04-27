@@ -81,9 +81,10 @@ func FindBinDir() (string, error) {
 }
 
 // exeMatcher returns a predicate that reports whether a candidate bin directory holds the
-// running executable. The symlink branch handles package-manager layouts like Linuxbrew, where
-// os.Executable returns the resolved Cellar path rather than the bin-dir symlink that PATH
-// points at — a string compare against the allowlist entry would otherwise miss.
+// running executable. The symlink branch handles bin directories injected via XDG_BIN_HOME
+// that contain a symlink into a separate install location (e.g. a Cellar-style layout): the
+// candidate's path doesn't match os.Executable directly, but the symlinked entry resolves to
+// the same file.
 func exeMatcher(homeDir string) func(string) bool {
 	exe, err := executableFn()
 	if err != nil {
@@ -108,11 +109,13 @@ func exeMatcher(homeDir string) func(string) bool {
 func binDirAllowlist(homeDir string) []string {
 	xdgBinHome := os.Getenv("XDG_BIN_HOME")
 
+	// Homebrew bin directories (/opt/homebrew/bin on macOS, /home/linuxbrew/.linuxbrew/bin on
+	// Linux) are deliberately omitted: those directories are managed by Homebrew, and we should
+	// not deposit binaries there.
 	var raw []string
 	switch runtime.GOOS {
 	case "darwin":
 		raw = []string{
-			"/opt/homebrew/bin",
 			"/usr/local/bin",
 			xdgBinHome,
 			filepath.Join(homeDir, ".local", "bin"),
@@ -127,7 +130,6 @@ func binDirAllowlist(homeDir string) []string {
 		}
 	default:
 		raw = []string{
-			"/home/linuxbrew/.linuxbrew/bin",
 			xdgBinHome,
 			filepath.Join(homeDir, ".local", "bin"),
 			filepath.Join(homeDir, "bin"),
