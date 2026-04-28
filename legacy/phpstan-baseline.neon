@@ -81,7 +81,7 @@ parameters:
 			path: src/Command/Resources/ResourcesSizeListCommand.php
 
 		-
-			message: "#^Parameter \\#1 \\$items of method Platformsh\\\\Cli\\\\Service\\\\QuestionHelper\\:\\:choose\\(\\) expects array\\<string, string\\>, array\\<int, string\\> given\\.$#"
+			message: "#^Parameter \\#1 \\$items of method Platformsh\\\\Cli\\\\Service\\\\QuestionHelper\\:\\:choose\\(\\) expects array\\<string, string\\>, array\\<int\\|string, string\\> given\\.$#"
 			count: 1
 			path: src/Command/SshKey/SshKeyDeleteCommand.php
 

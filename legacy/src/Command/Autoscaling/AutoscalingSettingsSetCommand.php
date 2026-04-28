@@ -342,7 +342,9 @@ class AutoscalingSettingsSetCommand extends CommandBase
                 'Enter the threshold (%)',
                 $currentServiceSettings['triggers'][$metric][$direction]['threshold'] ?? null,
                 $defaults['triggers'][$metric][$direction]['threshold'],
-                function ($value) { return $this->validateThreshold($value); },
+                function ($value) {
+                    return $this->validateThreshold($value);
+                },
                 $service,
                 'threshold-' . $direction,
                 $updates
@@ -389,7 +391,9 @@ class AutoscalingSettingsSetCommand extends CommandBase
             'Enter the minimum number of instances',
             $currentServiceSettings['instances']['min'] ?? null,
             1,
-            function ($value) use ($instanceLimit) { return $this->validateInstanceCount($value, $instanceLimit); },
+            function ($value) use ($instanceLimit) {
+                return $this->validateInstanceCount($value, $instanceLimit);
+            },
             $service,
             'instances-min',
             $updates
@@ -400,7 +404,9 @@ class AutoscalingSettingsSetCommand extends CommandBase
             'Enter the maximum number of instances',
             $currentServiceSettings['instances']['max'] ?? null,
             $instanceLimit,
-            function ($value) use ($instanceLimit) { return $this->validateInstanceCount($value, $instanceLimit); },
+            function ($value) use ($instanceLimit) {
+                return $this->validateInstanceCount($value, $instanceLimit);
+            },
             $service,
             'instances-max',
             $updates

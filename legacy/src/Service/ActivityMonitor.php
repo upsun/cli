@@ -132,7 +132,9 @@ class ActivityMonitor
         });
         $startTime = $this->getStart($activity) ?: time();
         $bar->setPlaceholderFormatterDefinition('elapsed', fn() => $this->formatDuration(time() - $startTime));
-        $bar->setPlaceholderFormatterDefinition('fgColor', function () use (&$progressColor): string { return $progressColor; });
+        $bar->setPlaceholderFormatterDefinition('fgColor', function () use (&$progressColor): string {
+            return $progressColor;
+        });
         $bar->setFormat('[%bar%] <fg=%fgColor%>%elapsed:6s%</> (%state%)');
         $bar->start();
 
@@ -466,7 +468,9 @@ class ActivityMonitor
             }
             return implode(', ', $withCount);
         });
-        $bar->setPlaceholderFormatterDefinition('fgColor', function () use (&$progressColor): string { return $progressColor; });
+        $bar->setPlaceholderFormatterDefinition('fgColor', function () use (&$progressColor): string {
+            return $progressColor;
+        });
         $bar->setPlaceholderFormatterDefinition('elapsed', fn() => $this->formatDuration(time() - $startTime));
         $bar->start();
 
