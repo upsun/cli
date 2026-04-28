@@ -18,6 +18,9 @@ jobs:
         uses: actions/dependency-review-action@v4
 
       - name: Scan for secrets
-        uses: trufflesecurity/trufflehog@v3.95.2
+        # Tracks main intentionally: trufflehog ships only specific patch tags
+        # (no moving v3 tag), and as a secret scanner we want each run to use
+        # the latest detector set.
+        uses: trufflesecurity/trufflehog@main
         with:
           extra_args: --only-verified
