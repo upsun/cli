@@ -78,7 +78,7 @@ class Installer
   'manifestUrl' => 'https://platform.sh/cli/manifest.json',
   'configDir' => '.platformsh',
   'executable' => 'platform',
-  'cliName' => 'Platform.sh CLI',
+  'cliName' => 'Upsun CLI (Platform.sh compatibility)',
   'userAgent' => 'platformsh-cli',
   'serviceEnvPrefix' => 'PLATFORM_',
   'migratePrompt' => true,
