@@ -16,7 +16,7 @@ use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-#[AsCommand(name: 'autoscaling:get', description: 'View the autoscaling configuration of apps and workers on an environment', aliases: ['autoscaling'])]
+#[AsCommand(name: 'autoscaling:get', description: 'View the autoscaling configuration of apps, workers, and services on an environment', aliases: ['autoscaling'])]
 class AutoscalingSettingsGetCommand extends CommandBase
 {
     /** @var array<string, string> */

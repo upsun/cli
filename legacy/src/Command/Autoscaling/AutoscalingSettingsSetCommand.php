@@ -20,7 +20,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-#[AsCommand(name: 'autoscaling:set', description: 'Set the autoscaling configuration of apps or workers in an environment')]
+#[AsCommand(name: 'autoscaling:set', description: 'Set the autoscaling configuration of apps, workers, or services in an environment')]
 class AutoscalingSettingsSetCommand extends CommandBase
 {
     public function __construct(private readonly Api $api, private readonly Config $config, private readonly Io $io, private readonly QuestionHelper $questionHelper, private readonly ResourcesUtil $resourcesUtil, private readonly Selector $selector, private readonly SubCommandRunner $subCommandRunner)

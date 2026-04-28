@@ -298,8 +298,8 @@ class VariableCommandUtil
     private function listApps(Project $project, ?Environment $environment = null): array|false
     {
         if (!$environment) {
-            if ($project->default_branch !== '') {
-                $environment = $this->api->getEnvironment($project->default_branch, $project);
+            if (\is_string($project->default_branch) && $project->default_branch !== '') {
+                $environment = $this->api->getEnvironment($project->default_branch, $project) ?: null;
             }
             if (!$environment) {
                 return false;
