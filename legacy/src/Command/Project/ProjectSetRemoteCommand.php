@@ -38,17 +38,14 @@ class ProjectSetRemoteCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $projectId = $input->getArgument('project');
-        $unset = false;
-        if ($projectId === '-') {
-            $unset = true;
-            $projectId = null;
-        }
-
-        if ($projectId) {
-            $identifier = $this->identifier;
-            $result = $identifier->identify($projectId);
+        $projectArg = $input->getArgument('project');
+        $unset = $projectArg === '-';
+        $projectId = null;
+        $projectHost = null;
+        if (!$unset && is_string($projectArg) && $projectArg !== '') {
+            $result = $this->identifier->identify($projectArg);
             $projectId = $result['projectId'];
+            $projectHost = $result['host'];
         }
         $cwd = getcwd();
         if (!$cwd) {
@@ -123,13 +120,17 @@ class ProjectSetRemoteCommand extends CommandBase
             $selectorConfig = null;
         }
 
-        $asking = $projectId === null;
-        $selection = $this->selector->getSelection($input, $selectorConfig);
-        if ($asking) {
+        if ($projectId !== null) {
+            $project = $this->api->getProject($projectId, $projectHost);
+            if (!$project) {
+                $this->stdErr->writeln(sprintf('Project not found: <error>%s</error>', $projectId));
+                return 1;
+            }
+        } else {
+            $selection = $this->selector->getSelection($input, $selectorConfig);
             $this->stdErr->writeln('');
+            $project = $selection->getProject();
         }
-
-        $project = $selection->getProject();
         if ($currentProject && $currentProject->id === $project->id) {
             $this->stdErr->writeln(sprintf(
                 'The remote project for this repository is already set as: %s',
