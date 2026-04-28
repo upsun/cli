@@ -41,11 +41,8 @@ class ProjectSetRemoteCommand extends CommandBase
         $projectArg = $input->getArgument('project');
         $unset = $projectArg === '-';
         $projectId = null;
-        $projectHost = null;
         if (!$unset && is_string($projectArg) && $projectArg !== '') {
-            $result = $this->identifier->identify($projectArg);
-            $projectId = $result['projectId'];
-            $projectHost = $result['host'];
+            $projectId = $this->identifier->identify($projectArg)['projectId'];
         }
         $cwd = getcwd();
         if (!$cwd) {
@@ -121,7 +118,7 @@ class ProjectSetRemoteCommand extends CommandBase
         }
 
         if ($projectId !== null) {
-            $project = $this->api->getProject($projectId, $projectHost);
+            $project = $this->api->getProject($projectId);
             if (!$project) {
                 $this->stdErr->writeln(sprintf('Project not found: <error>%s</error>', $projectId));
                 return 1;
