@@ -44,7 +44,8 @@ func (c *Config) TempDir() (string, error) {
 	path := filepath.Join(d, c.Application.TempSubDir)
 
 	// If the subdirectory cannot be created due to a read-only filesystem, fall back to /tmp.
-	if err := os.MkdirAll(path, 0o700); err != nil {
+	// G301: 0o700 restricts to the user; path is the user's own cache dir.
+	if err := os.MkdirAll(path, 0o700); err != nil { //nolint:gosec
 		if !errors.Is(err, syscall.EROFS) {
 			return "", err
 		}

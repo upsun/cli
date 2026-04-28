@@ -11,7 +11,8 @@ import (
 // LoadYAML reads the configuration file from the environment if specified, falling back to the embedded file.
 func LoadYAML() ([]byte, error) {
 	if path := os.Getenv("CLI_CONFIG_FILE"); path != "" {
-		b, err := os.ReadFile(path)
+		// G304: the operator deliberately points the CLI at a config file via this env var.
+		b, err := os.ReadFile(path) //nolint:gosec
 		if err != nil {
 			return nil, fmt.Errorf("failed to load config: %w", err)
 		}
