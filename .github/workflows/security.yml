@@ -18,6 +18,6 @@ jobs:
         uses: actions/dependency-review-action@v4
 
       - name: Scan for secrets
-        uses: trufflesecurity/trufflehog@v3
+        uses: trufflesecurity/trufflehog@v3.95.2
         with:
           extra_args: --only-verified
