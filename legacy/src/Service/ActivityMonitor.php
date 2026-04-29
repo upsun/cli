@@ -685,6 +685,13 @@ class ActivityMonitor
     {
         $url = $activity->getLink('log');
 
+        // Strip any query string from the URL. The log link can inherit query
+        // parameters (such as "count") from the base activities collection
+        // URL, and those are rejected by the log endpoint with HTTP 400.
+        if (($queryPos = \strpos($url, '?')) !== false) {
+            $url = \substr($url, 0, $queryPos);
+        }
+
         // Try fetching the stream with a 10 second timeout per call, and a .5
         // second interval between calls, for up to 2 minutes.
         $readTimeout = 10;
