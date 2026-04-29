@@ -26,7 +26,7 @@ class ActivityMonitorTest extends TestCase
     public function testFormatResultNull(): void
     {
         // An in-progress activity has no result yet.
-        $activity = new Activity(['id' => 'a', 'state' => Activity::STATE_IN_PROGRESS]);
+        $activity = new Activity(['id' => 'a', 'state' => Activity::STATE_IN_PROGRESS, 'result' => null]);
         $this->assertSame('', ActivityMonitor::formatResult($activity, false));
         $this->assertSame('', ActivityMonitor::formatResult($activity, true));
     }
@@ -50,6 +50,7 @@ class ActivityMonitorTest extends TestCase
         $activity = new Activity([
             'id' => 'a',
             'state' => Activity::STATE_IN_PROGRESS,
+            'result' => null,
             'commands' => [
                 ['exit_code' => 1],
             ],

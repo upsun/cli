@@ -7,24 +7,30 @@ namespace Platformsh\Client\Model;
  *
  * The upstream docblock types properties as non-nullable strings, but the API
  * returns null for several properties until the activity reaches a particular
- * state (e.g. result is null until the activity finishes).
+ * state (e.g. result is null until the activity finishes). The list and
+ * nullability here follow the Upsun OpenAPI spec
+ * (https://developer.upsun.com/openapi.json).
  *
  * @property-read string      $id
  * @property-read int         $completion_percent
  * @property-read string      $log
- * @property-read string      $created_at
- * @property-read string      $updated_at
+ * @property-read string|null $created_at
+ * @property-read string|null $updated_at
  * @property-read string[]    $environments
+ * @property-read string|null $started_at
  * @property-read string|null $completed_at
+ * @property-read string|null $cancelled_at
+ * @property-read string|null $expires_at
  * @property-read array       $parameters
  * @property-read string      $project
+ * @property-read string|null $integration
  * @property-read string      $state
  * @property-read string|null $result
- * @property-read string|null $started_at
  * @property-read string      $type
- * @property-read string      $description
- * @property-read string      $text
+ * @property-read string|null $description
+ * @property-read string|null $text
  * @property-read array       $payload
+ * @property-read array       $timings
  * @property-read array       $commands
  */
 class Activity
