@@ -10,6 +10,8 @@ parameters:
 		- dist/installer.php
 	excludePaths:
 		- dist/installer.php
+	stubFiles:
+		- phpstan-stubs/Activity.stub
 
 includes:
 	- phpstan-baseline.neon
