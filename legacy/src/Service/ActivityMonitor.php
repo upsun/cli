@@ -597,7 +597,7 @@ class ActivityMonitor
 
         foreach ($activity->commands ?? [] as $command) {
             if ($command['exit_code'] > 0) {
-                $name = Activity::RESULT_FAILURE;
+                $name = self::RESULT_NAMES[Activity::RESULT_FAILURE];
                 $result = Activity::RESULT_FAILURE;
                 break;
             }
@@ -689,6 +689,13 @@ class ActivityMonitor
     {
         $url = $activity->getLink('log');
 
+        // Strip any query string from the URL. The log link can inherit query
+        // parameters (such as "count") from the base activities collection
+        // URL, and those are rejected by the log endpoint with HTTP 400.
+        if (($queryPos = \strpos($url, '?')) !== false) {
+            $url = \substr($url, 0, $queryPos);
+        }
+
         // Try fetching the stream with a 10 second timeout per call, and a .5
         // second interval between calls, for up to 2 minutes.
         $readTimeout = 10;
@@ -709,7 +716,7 @@ class ActivityMonitor
                 throw new \RuntimeException('Failed to open activity log stream: ' . $url);
             }
             $bar->advance();
-            \usleep((int) $interval * 1000000);
+            \usleep((int) ($interval * 1000000));
             $bar->advance();
             $stream = \fopen($url, 'r', false, $this->api->getStreamContext($readTimeout));
         }
