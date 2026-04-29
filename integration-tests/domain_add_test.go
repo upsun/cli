@@ -43,17 +43,13 @@ func TestDomainAdd(t *testing.T) {
 		})
 	})
 
-	type createRequest struct {
-		Name           string `json:"name"`
-		ReplacementFor string `json:"replacement_for"`
-	}
-	var captured createRequest
+	var captured map[string]any
 	apiHandler.Post("/projects/"+projectID+"/environments/main/domains", func(w http.ResponseWriter, req *http.Request) {
 		body, err := io.ReadAll(req.Body)
 		require.NoError(t, err)
 		require.NoError(t, json.Unmarshal(body, &captured))
 		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(map[string]any{"name": captured.Name})
+		_ = json.NewEncoder(w).Encode(map[string]any{"name": captured["name"]})
 	})
 
 	apiServer := httptest.NewServer(apiHandler)
@@ -64,6 +60,6 @@ func TestDomainAdd(t *testing.T) {
 	stdout, stderr, err := f.RunCombinedOutput("domain:add", "-p", projectID, "-e", ".", "--no-wait", "example.com")
 	require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
 	assert.Contains(t, stderr, "Adding the domain: example.com")
-	assert.Equal(t, "example.com", captured.Name)
-	assert.Empty(t, captured.ReplacementFor)
+	assert.Equal(t, "example.com", captured["name"])
+	assert.NotContains(t, captured, "replacement_for", "request body must omit replacement_for when --attach is not given")
 }
