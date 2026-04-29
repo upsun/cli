@@ -170,7 +170,10 @@ class Selector implements CompleterInterface
         // Select the app.
         $appName = null;
         $remoteContainer = null;
-        if ($input->hasOption('app')) {
+        // Skip when --app is an array option (used purely as a filter, e.g.
+        // by resources:get); the calling command will handle filtering itself.
+        // VALUE_IS_ARRAY options always return an array (empty by default).
+        if ($input->hasOption('app') && !is_array($input->getOption('app'))) {
             if ($input->getOption('app')) {
                 $appName = (string) $input->getOption('app');
             } elseif (isset($result['appId'])) {
