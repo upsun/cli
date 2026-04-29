@@ -1,0 +1,32 @@
+<?php
+
+namespace Platformsh\Client\Model;
+
+/**
+ * Local PHPStan stub for the Activity model.
+ *
+ * The upstream docblock types properties as non-nullable strings, but the API
+ * returns null for several properties until the activity reaches a particular
+ * state (e.g. result is null until the activity finishes).
+ *
+ * @property-read string      $id
+ * @property-read int         $completion_percent
+ * @property-read string      $log
+ * @property-read string      $created_at
+ * @property-read string      $updated_at
+ * @property-read string[]    $environments
+ * @property-read string|null $completed_at
+ * @property-read array       $parameters
+ * @property-read string      $project
+ * @property-read string      $state
+ * @property-read string|null $result
+ * @property-read string|null $started_at
+ * @property-read string      $type
+ * @property-read string      $description
+ * @property-read string      $text
+ * @property-read array       $payload
+ * @property-read array       $commands
+ */
+class Activity
+{
+}
