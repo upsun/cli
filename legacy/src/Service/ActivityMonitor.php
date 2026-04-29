@@ -592,7 +592,8 @@ class ActivityMonitor
      */
     public static function formatResult(Activity $activity, bool $decorate = true): string
     {
-        $result = $activity->result;
+        // The result is null until the activity has finished.
+        $result = $activity->result ?? '';
         $name = self::RESULT_NAMES[$result] ?? $result;
 
         foreach ($activity->commands ?? [] as $command) {
