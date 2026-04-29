@@ -258,7 +258,7 @@ func (s *Server) handleChannels(conn ssh.ConnMetadata, chans <-chan ssh.NewChann
 		for {
 			select {
 			case s := <-exitWithStatus:
-				_, err = channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{uint32(s)})) //nolint: gosec
+				_, err = channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{uint32(s)}))
 				if err != nil {
 					t.Fatalf("Failed to send exit status: %v", err)
 				}

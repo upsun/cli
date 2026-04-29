@@ -68,7 +68,9 @@ class ResourcesCommandBase extends CommandBase
         }
         $requestedApps = ArrayArgument::getOption($input, 'app');
         if (!empty($requestedApps)) {
-            $selectedNames = Wildcard::select(array_keys(array_filter($services, function ($s) { return $s instanceof WebApp; })), $requestedApps);
+            $selectedNames = Wildcard::select(array_keys(array_filter($services, function ($s) {
+                return $s instanceof WebApp;
+            })), $requestedApps);
             if (!$selectedNames) {
                 $this->stdErr->writeln('No applications were found matching the name(s): <error>' . implode('</error>, <error>', $requestedApps) . '</error>');
                 return false;
@@ -77,7 +79,9 @@ class ResourcesCommandBase extends CommandBase
         }
         $requestedWorkers = ArrayArgument::getOption($input, 'worker');
         if (!empty($requestedWorkers)) {
-            $selectedNames = Wildcard::select(array_keys(array_filter($services, function ($s) { return $s instanceof Worker; })), $requestedWorkers);
+            $selectedNames = Wildcard::select(array_keys(array_filter($services, function ($s) {
+                return $s instanceof Worker;
+            })), $requestedWorkers);
             if (!$selectedNames) {
                 $this->stdErr->writeln('No workers were found matching the name(s): <error>' . implode('</error>, <error>', $requestedWorkers) . '</error>');
                 return false;

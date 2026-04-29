@@ -93,7 +93,7 @@ func (f *cmdFactory) RunCombinedOutput(args ...string) (stdOut, stdErr string, e
 }
 
 func (f *cmdFactory) buildCommand(args ...string) *exec.Cmd {
-	cmd := exec.Command(getCommandName(f.t), args...) //nolint:gosec
+	cmd := exec.Command(getCommandName(f.t), args...)
 	cmd.Env = testEnv()
 	cmd.Dir = f.dir
 	if cmd.Dir == "" {

@@ -71,7 +71,9 @@ class OrganizationCreateCommand extends OrganizationCommandBase
             'defaultCallback' => function () {
                 return $this->api->getUser()->country ?: null;
             },
-            'normalizer' => function ($value) { return $this->countryService->countryToCode($value); },
+            'normalizer' => function ($value) {
+                return $this->countryService->countryToCode($value);
+            },
             'validator' => function ($countryCode) use ($countryList) {
                 return isset($countryList[$countryCode]) ? true : "Invalid country: $countryCode";
             },
