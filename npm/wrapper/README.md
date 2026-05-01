@@ -15,6 +15,14 @@ platform-specific binary installed via `optionalDependencies`. On install,
 npm picks the matching binary for your OS and architecture; nothing is
 downloaded at runtime.
 
+## Shell completion
+
+Run the following once to install shell completion (bash and zsh):
+
+```sh
+upsun completion install
+```
+
 ## Source
 
 Code, issues, and full documentation live at
