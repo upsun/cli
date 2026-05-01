@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -14,6 +15,22 @@ import (
 
 	"github.com/upsun/cli/internal/config"
 )
+
+func TestMakeCmdIgnoresSystemPHPIni(t *testing.T) {
+	w := &CLIWrapper{Config: &config.Config{}}
+	w.Config.Application.Executable = "platform-test"
+
+	cmd := w.makeCmd(context.Background(), []string{"help"}, t.TempDir())
+
+	// The "-n" flag must be present and precede the phar path so that PHP
+	// ignores any host php.ini before the script runs.
+	idxN := slices.Index(cmd.Args, "-n")
+	require.GreaterOrEqual(t, idxN, 1, "expected -n in PHP args: %v", cmd.Args)
+	pharIdx := slices.IndexFunc(cmd.Args, func(s string) bool {
+		return strings.HasSuffix(s, ".phar")
+	})
+	require.Greater(t, pharIdx, idxN, "-n must come before the phar path")
+}
 
 func TestLegacyCLI(t *testing.T) {
 	if len(phar) == 0 || len(phpCLI) == 0 {
@@ -70,4 +87,25 @@ func TestLegacyCLI(t *testing.T) {
 	err = wrapper.Exec(context.Background(), "--version")
 	assert.NoError(t, err)
 	assert.Equal(t, "Test CLI "+testCLIVersion, strings.TrimSuffix(stdout.String(), "\n"))
+
+	// Simulate a host-PHP config that would cause warnings on a static binary
+	// (as in Lando containers): an ini that tries to dlopen extensions which
+	// the embedded static PHP cannot load. With "-n" passed to PHP, the host
+	// ini must be ignored entirely and produce no startup warnings.
+	iniPath := filepath.Join(tempDir, "php.ini")
+	require.NoError(t, os.WriteFile(iniPath, []byte(
+		"extension=pdo_mysql\nextension=opcache\nextension=bcmath\n",
+	), 0o644))
+	t.Setenv("PHPRC", iniPath)
+	t.Setenv("PHP_INI_SCAN_DIR", tempDir)
+
+	stdout.Reset()
+	capturedErr := &bytes.Buffer{}
+	wrapper.Stderr = capturedErr
+	err = wrapper.Exec(context.Background(), "--version")
+	wrapper.Stderr = stdErr
+	assert.NoError(t, err)
+	combined := stdout.String() + capturedErr.String()
+	assert.NotContains(t, combined, "Unable to load dynamic library")
+	assert.NotContains(t, combined, "Failed loading")
 }
