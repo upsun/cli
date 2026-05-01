@@ -37,6 +37,7 @@ The installer is configurable using the following environment variables:
 * `INSTALL_METHOD` - force a specific installation method, possible values are `brew` and `raw`
 * `INSTALL_DIR` - the installation directory for the `raw` installation method, for example you can use `INSTALL_DIR=$HOME/.local/bin` for a single user installation
 * `VERSION` - the version of the CLI to install, if you need a version other than the latest one
+* `INSTALL_NO_COMPLETION` - set to skip installing shell completion (the installer would otherwise run `upsun completion install` after the `raw` install path on bash and zsh)
 
 #### Installation configuration examples
 

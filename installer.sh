@@ -24,6 +24,9 @@ set -eu
 # GitHub token check
 : "${GITHUB_TOKEN:=}"
 
+# Set to skip the post-install `upsun completion install` step
+: "${INSTALL_NO_COMPLETION:=}"
+
 # CI specifics
 : "${CI:=}"
 : "${BUILD_NUMBER:=}"
@@ -623,6 +626,30 @@ is_ci() {
     fi
 }
 
+install_completion() {
+    # apt/yum/apk/homebrew already drop completion files; only the raw path needs this.
+    if [ "raw" != "${INSTALL_METHOD}" ]; then
+        return
+    fi
+
+    if [ ! -z "${INSTALL_NO_COMPLETION}" ] || is_ci; then
+        return
+    fi
+
+    case "$(basename "${SHELL:-}")" in
+        bash|zsh) ;;
+        *) return ;;
+    esac
+
+    output "\nInstalling shell completion" "heading"
+    # $binary is either "upsun" (when dir_bin is in PATH) or a full path
+    # (set by check_directories), so it works as a command in both cases.
+    if ! call_user "$binary completion install"; then
+        add_footer_note "  ⚠ Could not install shell completion" \
+            "    Run later with: $binary completion install"
+    fi
+}
+
 install_raw() {
     # Start downloading the right version
     output "\nDownloading the $vendor_name CLI" "heading"
@@ -685,4 +712,5 @@ elif [ "apt" = "${INSTALL_METHOD}" ] || [ "yum" = "${INSTALL_METHOD}" ] || [ "ap
     fi
 fi
 install
+install_completion
 outro
