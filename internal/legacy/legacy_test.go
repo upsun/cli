@@ -19,6 +19,8 @@ import (
 func TestMakeCmdIgnoresSystemPHPIni(t *testing.T) {
 	w := &CLIWrapper{Config: &config.Config{}}
 	w.Config.Application.Executable = "platform-test"
+	// Isolate from any host env: pharPath() reads {EnvPrefix}PHAR_PATH.
+	w.Config.Application.EnvPrefix = "TEST_MAKECMD_"
 
 	cmd := w.makeCmd(context.Background(), []string{"help"}, t.TempDir())
 
