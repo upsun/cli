@@ -156,6 +156,9 @@ build_wrapper_pkg() {
   cp "${NPM_DIR}/wrapper/bin/upsun.js" "${pkg_dir}/bin/upsun.js"
   chmod +x "${pkg_dir}/bin/upsun.js"
 
+  cp "${NPM_DIR}/wrapper/bin/postinstall.js" "${pkg_dir}/bin/postinstall.js"
+  chmod +x "${pkg_dir}/bin/postinstall.js"
+
   cp "${NPM_DIR}/wrapper/README.md" "${pkg_dir}/README.md"
 
   (cd "${pkg_dir}" && npm pack --pack-destination "${OUT_DIR}" >/dev/null)
