@@ -194,9 +194,8 @@ class Selector implements CompleterInterface
             }
 
             // The remote container can only be selected if an environment was
-            // identified. When envRequired is false (e.g. for db:dump), the
-            // calling command is responsible for handling the case where there
-            // is no environment.
+            // identified. When envRequired is false, the calling command is
+            // responsible for handling the case where there is no environment.
             if ($environment !== null) {
                 $remoteContainer = $this->selectRemoteContainer($environment, $input, $appName);
             }
