@@ -91,14 +91,14 @@ sudo apt-get update
 sudo apt-get install -y upsun-cli
 ```
 
-### CentOS/RHEL/Fedora
+### RPM (Fedora, RHEL, CentOS, AlmaLinux, Rocky)
 
 ```console
 # Add the repository
 sudo tee /etc/yum.repos.d/upsun.repo << 'EOF'
 [upsun]
 name=Upsun CLI
-baseurl=https://repositories.upsun.com/fedora/$releasever/$basearch
+baseurl=https://repositories.upsun.com/rpm/$basearch
 enabled=1
 gpgcheck=1
 gpgkey=https://repositories.upsun.com/gpg.key
