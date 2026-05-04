@@ -193,7 +193,12 @@ class Selector implements CompleterInterface
                 ), OutputInterface::VERBOSITY_VERBOSE);
             }
 
-            $remoteContainer = $this->selectRemoteContainer($environment, $input, $appName);
+            // The remote container can only be selected if an environment was
+            // identified. When envRequired is false, the calling command is
+            // responsible for handling the case where there is no environment.
+            if ($environment !== null) {
+                $remoteContainer = $this->selectRemoteContainer($environment, $input, $appName);
+            }
         }
 
         $selection = new Selection($config, $project, $environment, $appName, $remoteContainer);
