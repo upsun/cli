@@ -70,12 +70,16 @@ func TestVariableCreate(t *testing.T) {
 	_, stdErr, err := f.RunCombinedOutput("var:create", "-p", p, "-l", "e", "-e", "main", "env:TEST", "--value", "env-level-value")
 	assert.NoError(t, err)
 	assert.Contains(t, stdErr, "Creating variable env:TEST on the environment main")
+	// Regression: var:create must not print "Variable not found" when the
+	// variable does not yet exist.
+	assert.NotContains(t, stdErr, "Variable not found")
 
 	assertTrimmed(t, "env-level-value", f.Run("var:get", "-p", p, "-e", "main", "env:TEST", "-P", "value"))
 
 	_, stdErr, err = f.RunCombinedOutput("var:create", "-p", p, "env:TEST", "-l", "p", "--value", "project-level-value")
 	assert.NoError(t, err)
 	assert.Contains(t, stdErr, "Creating variable env:TEST on the project "+p)
+	assert.NotContains(t, stdErr, "Variable not found")
 
 	assertTrimmed(t, "project-level-value", f.Run("var:get", "-p", p, "-e", "main", "env:TEST", "-P", "value", "-l", "p"))
 	assertTrimmed(t, "env-level-value", f.Run("var:get", "-p", p, "-e", "main", "env:TEST", "-P", "value", "-l", "e"))

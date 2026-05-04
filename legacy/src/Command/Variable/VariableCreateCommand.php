@@ -79,7 +79,7 @@ class VariableCreateCommand extends CommandBase
             if (($prefix = $input->getOption('prefix')) && $prefix !== 'none') {
                 $name = rtrim((string) $prefix, ':') . ':' . $name;
             }
-            $existing = $this->variableCommandUtil->getExistingVariable($name, $selection, $this->variableCommandUtil->getRequestedLevel($input));
+            $existing = $this->variableCommandUtil->getExistingVariable($name, $selection, $this->variableCommandUtil->getRequestedLevel($input), false);
             if ($existing) {
                 if (!$input->getOption('update')) {
                     $this->stdErr->writeln('The variable already exists: <error>' . $name . '</error>');
