@@ -4,7 +4,7 @@
     "license": "MIT",
     "require": {
         "php": ">=8.2",
-        "doctrine/cache": "~1.5",
+        "doctrine/cache": "~2.2",
         "guzzlehttp/guzzle": "^7",
         "platformsh/console-form": "^1@beta",
         "platformsh/client": "^3@beta",
