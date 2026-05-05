@@ -4,7 +4,7 @@ go 1.26.2
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
-	github.com/Masterminds/semver/v3 v3.4.0
+	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/alecthomas/chroma/v2 v2.23.1
 	github.com/briandowns/spinner v1.23.2
 	github.com/fatih/color v1.19.0
