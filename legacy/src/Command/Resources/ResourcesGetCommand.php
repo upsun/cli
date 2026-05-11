@@ -11,6 +11,7 @@ use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
 use Platformsh\Client\Exception\EnvironmentStateException;
+use Platformsh\Client\Model\Deployment\WebApp;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Input\InputInterface;
@@ -30,13 +31,14 @@ class ResourcesGetCommand extends ResourcesCommandBase
         'cpu' => 'CPU',
         'memory' => 'Memory (MB)',
         'disk' => 'Disk (MB)',
+        'object_storage' => 'Object storage (GB)',
         'instance_count' => 'Instances',
         'base_memory' => 'Base memory',
         'memory_ratio' => 'Memory ratio',
     ];
 
     /** @var string[] */
-    protected array $defaultColumns = ['service', 'profile_size', 'cpu_type', 'cpu', 'memory', 'disk', 'instance_count'];
+    protected array $defaultColumns = ['service', 'profile_size', 'cpu_type', 'cpu', 'memory', 'disk', 'object_storage', 'instance_count'];
 
     public function __construct(private readonly Api $api, private readonly Config $config, private readonly PropertyFormatter $propertyFormatter, private readonly ResourcesUtil $resourcesUtil, private readonly Selector $selector, private readonly Table $table)
     {
@@ -127,6 +129,7 @@ class ResourcesGetCommand extends ResourcesCommandBase
                 'base_memory' => $empty,
                 'memory_ratio' => $empty,
                 'disk' => $empty,
+                'object_storage' => $empty,
                 'instance_count' => $empty,
                 'cpu_type' => $empty,
                 'cpu' => $empty,
@@ -160,6 +163,14 @@ class ResourcesGetCommand extends ResourcesCommandBase
                 } else {
                     $row['disk'] = $this->propertyFormatter->format($properties['disk'], 'disk');
                 }
+            }
+
+            // Object storage is only available on apps. Stored in MiB on the
+            // wire; displayed to users in GB.
+            if (!$service instanceof WebApp) {
+                $row['object_storage'] = $notApplicable;
+            } elseif (isset($properties['resources']['disk']['object'])) {
+                $row['object_storage'] = ResourcesUtil::formatObjectStorageGB($properties['resources']['disk']['object']);
             }
 
             $row['instance_count'] = isset($properties['instance_count']) ? $this->propertyFormatter->format($properties['instance_count'], 'instance_count') : '1';
