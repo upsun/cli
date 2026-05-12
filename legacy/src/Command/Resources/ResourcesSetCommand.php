@@ -599,7 +599,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
             ));
         }
         $gb = (int) $value;
-        if ((string) $gb !== $value || $gb < 0) {
+        if ($gb != $value || $value < 0) {
             throw new InvalidArgumentException(sprintf(
                 'Invalid object storage size <error>%s</error>: it must be a non-negative integer in GB.',
                 $value,
