@@ -115,6 +115,7 @@ class ResourcesGetCommand extends ResourcesCommandBase
         $cpuTypeOption = $input->getOption('cpu-type');
         $autoscalingIndicator = '<comment>(A)</comment>';
         $hasAutoscalingIndicator = false;
+        $hasObjectStorage = false;
         foreach ($services as $name => $service) {
             $properties = $service->getProperties();
             if (!$this->table->formatIsMachineReadable() && !empty($autoscalingEnabled[$name])) {
@@ -171,6 +172,7 @@ class ResourcesGetCommand extends ResourcesCommandBase
                 $row['object_storage'] = $notApplicable;
             } elseif (isset($properties['resources']['disk']['object'])) {
                 $row['object_storage'] = ResourcesUtil::formatObjectStorageGB($properties['resources']['disk']['object']);
+                $hasObjectStorage = true;
             }
 
             $row['instance_count'] = isset($properties['instance_count']) ? $this->propertyFormatter->format($properties['instance_count'], 'instance_count') : '1';
@@ -178,7 +180,11 @@ class ResourcesGetCommand extends ResourcesCommandBase
             $rows[] = $row;
         }
 
-        $this->table->render($rows, $this->tableHeader, $this->defaultColumns);
+        $defaultColumns = $this->defaultColumns;
+        if (!$hasObjectStorage) {
+            $defaultColumns = array_values(array_diff($defaultColumns, ['object_storage']));
+        }
+        $this->table->render($rows, $this->tableHeader, $defaultColumns);
 
         if (!$this->table->formatIsMachineReadable()) {
             if ($hasAutoscalingIndicator) {
