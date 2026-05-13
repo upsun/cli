@@ -172,7 +172,9 @@ class ResourcesGetCommand extends ResourcesCommandBase
                 $row['object_storage'] = $notApplicable;
             } elseif (isset($properties['resources']['disk']['object'])) {
                 $row['object_storage'] = ResourcesUtil::formatObjectStorageGB($properties['resources']['disk']['object']);
-                $hasObjectStorage = true;
+                if ($properties['resources']['disk']['object'] > 0) {
+                    $hasObjectStorage = true;
+                }
             }
 
             $row['instance_count'] = isset($properties['instance_count']) ? $this->propertyFormatter->format($properties['instance_count'], 'instance_count') : '1';
