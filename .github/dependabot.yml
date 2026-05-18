@@ -4,7 +4,16 @@ updates:
     directory: /legacy
     schedule:
       interval: weekly
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
+
   - package-ecosystem: gomod
     directory: /
     schedule:
       interval: weekly
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
