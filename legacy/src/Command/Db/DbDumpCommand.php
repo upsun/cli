@@ -56,12 +56,14 @@ class DbDumpCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        // The environment is only optional when running inside a container,
+        // where the database can be selected via local relationships.
+        $hasLocalEnvVar = $this->relationships->hasLocalEnvVar();
         $selectorConfig = new SelectorConfig(
-            envRequired: false,
-            allowLocalHost: $this->relationships->hasLocalEnvVar(),
+            envRequired: !$hasLocalEnvVar,
+            allowLocalHost: $hasLocalEnvVar,
             chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive(),
         );
-        // TODO check if this still allows offline use from the container
         $selection = $this->selector->getSelection($input, $selectorConfig);
         $host = $this->selector->getHostFromSelection($input, $selection);
 
