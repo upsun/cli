@@ -3,7 +3,8 @@
 #
 # Inputs (env vars, all optional):
 #   DIST_DIR  Directory containing GoReleaser archives. Default: <repo>/dist
-#   VERSION   Package version. Default: derived from the first matching archive name.
+#   VERSION   Package version. Required when DIST_DIR holds archives for more
+#             than one version; otherwise derived from the single archive present.
 #   OUT_DIR   Where to write per-package working dirs and tarballs. Default: npm/dist
 #
 # Produces:
@@ -33,12 +34,12 @@ fi
 # single universal binary that runs on both Apple Silicon and Intel.
 PLATFORMS=(linux-x64 linux-arm64 darwin win32-x64)
 
-archive_glob_for() {
+archive_suffix_for() {
   case "$1" in
-    linux-x64)   echo "upsun_*_linux_amd64.tar.gz" ;;
-    linux-arm64) echo "upsun_*_linux_arm64.tar.gz" ;;
-    darwin)      echo "upsun_*_darwin_all.tar.gz" ;;
-    win32-x64)   echo "upsun_*_windows_amd64.zip" ;;
+    linux-x64)   echo "linux_amd64.tar.gz" ;;
+    linux-arm64) echo "linux_arm64.tar.gz" ;;
+    darwin)      echo "darwin_all.tar.gz" ;;
+    win32-x64)   echo "windows_amd64.zip" ;;
     *) echo "build.sh: unsupported platform suffix: $1" >&2; exit 1 ;;
   esac
 }
@@ -88,6 +89,14 @@ if [ -z "${VERSION:-}" ]; then
     echo "build.sh: no upsun_*_linux_amd64.tar.gz in ${DIST_DIR}; set VERSION explicitly" >&2
     exit 1
   fi
+  # Refuse to guess when multiple versions are present: goreleaser run
+  # without --clean leaves stale archives behind, and picking the wrong
+  # one produced an npm 5.10.4 wrapper containing a 5.10.3 binary.
+  if [ ${#matches[@]} -gt 1 ]; then
+    echo "build.sh: multiple upsun_*_linux_amd64.tar.gz archives in ${DIST_DIR}; set VERSION explicitly or remove stale archives" >&2
+    printf '  %s\n' "${matches[@]}" >&2
+    exit 1
+  fi
   base="$(basename "${matches[0]}")"
   # upsun_X.Y.Z_linux_amd64.tar.gz -> X.Y.Z
   VERSION="${base#upsun_}"
@@ -101,19 +110,17 @@ mkdir -p "${OUT_DIR}"
 
 build_platform_pkg() {
   local suffix="$1"
-  local glob; glob="$(archive_glob_for "$suffix")"
   local bin; bin="$(bin_name_for "$suffix")"
   local name="@upsun/cli-${suffix}"
 
-  shopt -s nullglob
-  # shellcheck disable=SC2206 # intentional glob expansion
-  local archives=("${DIST_DIR}"/${glob})
-  shopt -u nullglob
-  if [ ${#archives[@]} -eq 0 ]; then
-    echo "build.sh: no archive matching ${glob} in ${DIST_DIR}" >&2
+  # Resolve the archive by exact VERSION rather than a glob: stale archives
+  # from earlier goreleaser runs would otherwise let the wrong binary ship
+  # under a newer package version.
+  local archive="${DIST_DIR}/upsun_${VERSION}_$(archive_suffix_for "$suffix")"
+  if [ ! -f "${archive}" ]; then
+    echo "build.sh: archive not found: ${archive}" >&2
     exit 1
   fi
-  local archive="${archives[0]}"
 
   local pkg_dir="${OUT_DIR}/${suffix}"
   mkdir -p "${pkg_dir}/bin"
