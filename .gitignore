@@ -1,5 +1,6 @@
 internal/legacy/archives/*
 dist/
+npm/dist/
 php-*
 completion
 
