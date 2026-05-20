@@ -216,7 +216,7 @@ if [[ "$PACKAGE_MANAGER" == "all" || "$PACKAGE_MANAGER" == "rpm" ]]; then
 
     # --- Per-Fedora-version repos at /fedora/$ver/$arch/ (backwards compat) ---
     # Fedora versions to support (configurable via environment variable)
-    FEDORA_VERSIONS="${FEDORA_VERSIONS:-40 41 42 43}"
+    FEDORA_VERSIONS="${FEDORA_VERSIONS:-40 41 42 43 44}"
 
     for FEDORA_VER in $FEDORA_VERSIONS; do
         echo "--- Processing Fedora $FEDORA_VER ---"
