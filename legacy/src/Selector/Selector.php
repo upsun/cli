@@ -496,8 +496,11 @@ class Selector implements CompleterInterface
             sort($ids, SORT_NATURAL | SORT_FLAG_CASE);
 
             $id = $this->questionHelper->askInput($config->enterEnvText, $defaultEnvironmentId, array_keys($environments), function (?string $value) use ($environments): string {
-                if ($value === null || !isset($environments[$value])) {
-                    throw new \RuntimeException('Environment not found: ' . ($value ?? ''));
+                if ($value === null || $value === '') {
+                    throw new \RuntimeException('An environment ID is required');
+                }
+                if (!isset($environments[$value])) {
+                    throw new \RuntimeException('Environment not found: ' . $value);
                 }
 
                 return $value;
