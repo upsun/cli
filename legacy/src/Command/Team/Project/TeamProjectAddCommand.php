@@ -122,7 +122,7 @@ class TeamProjectAddCommand extends TeamCommandBase
                 $first = true;
                 do {
                     $choice = $this->questionHelper->askInput($questionText, null, array_values($autocomplete), function ($value) use ($autocomplete, $first, $teamProjectIds): ?string {
-                        [$id, ] = explode(' - ', $value);
+                        [$id, ] = explode(' - ', (string) $value);
                         if (empty(trim($id))) {
                             if (!$first) {
                                 return null;
