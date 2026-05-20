@@ -10,6 +10,13 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// activityResponse returns a standard activity-embedded response.
+func activityResponse() map[string]any {
+	return map[string]any{
+		"_embedded": map[string]any{"activities": []Activity{}},
+	}
+}
+
 func (h *Handler) handleListProjectVariables(w http.ResponseWriter, req *http.Request) {
 	h.RLock()
 	defer h.RUnlock()
@@ -67,6 +74,21 @@ func (h *Handler) handleCreateProjectVariable(w http.ResponseWriter, req *http.R
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"_embedded": map[string]any{"entity": newVar},
 	})
+}
+
+func (h *Handler) handleDeleteProjectVariable(w http.ResponseWriter, req *http.Request) {
+	h.Lock()
+	defer h.Unlock()
+	projectID := chi.URLParam(req, "project_id")
+	variableName, _ := url.PathUnescape(chi.URLParam(req, "name"))
+	for k, v := range h.projectVariables[projectID] {
+		if v.Name == variableName {
+			h.projectVariables[projectID] = slices.Delete(h.projectVariables[projectID], k, k+1)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNotFound)
 }
 
 func (h *Handler) handlePatchProjectVariable(w http.ResponseWriter, req *http.Request) {
@@ -189,4 +211,22 @@ func (h *Handler) handlePatchEnvLevelVariable(w http.ResponseWriter, req *http.R
 	patched.UpdatedAt = time.Now()
 	h.envLevelVariables[projectID][environmentID][key] = &patched
 	_ = json.NewEncoder(w).Encode(&patched)
+}
+
+func (h *Handler) handleDeleteEnvLevelVariable(w http.ResponseWriter, req *http.Request) {
+	h.Lock()
+	defer h.Unlock()
+	projectID := chi.URLParam(req, "project_id")
+	environmentID, _ := url.PathUnescape(chi.URLParam(req, "environment_id"))
+	variableName, _ := url.PathUnescape(chi.URLParam(req, "name"))
+	for k, v := range h.envLevelVariables[projectID][environmentID] {
+		if v.Name == variableName {
+			h.envLevelVariables[projectID][environmentID] = slices.Delete(
+				h.envLevelVariables[projectID][environmentID], k, k+1,
+			)
+			_ = json.NewEncoder(w).Encode(activityResponse())
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNotFound)
 }
