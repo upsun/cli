@@ -92,6 +92,33 @@ func (f *cmdFactory) RunCombinedOutput(args ...string) (stdOut, stdErr string, e
 	return stdOutBuffer.String(), stdErrBuffer.String(), err
 }
 
+// RunInteractive runs a command with stdin piped from stdinInput. It keeps
+// the legacy CLI in interactive mode under a pipe by setting SHELL_INTERACTIVE
+// and stripping NO_INTERACTION.
+func (f *cmdFactory) RunInteractive(stdinInput string, args ...string) (stdOut, stdErr string, err error) {
+	cmd := f.buildCommand(args...)
+	newEnv := make([]string, 0, len(cmd.Env)+1)
+	for _, e := range cmd.Env {
+		if strings.HasPrefix(e, EnvPrefix+"NO_INTERACTION=") {
+			continue
+		}
+		newEnv = append(newEnv, e)
+	}
+	newEnv = append(newEnv, "SHELL_INTERACTIVE=1")
+	cmd.Env = newEnv
+	cmd.Stdin = strings.NewReader(stdinInput)
+	var stdOutBuffer bytes.Buffer
+	var stdErrBuffer bytes.Buffer
+	cmd.Stdout = &stdOutBuffer
+	cmd.Stderr = &stdErrBuffer
+	if testing.Verbose() {
+		cmd.Stderr = io.MultiWriter(&stdErrBuffer, os.Stderr)
+	}
+	f.t.Log("Running (interactive):", cmd)
+	err = cmd.Run()
+	return stdOutBuffer.String(), stdErrBuffer.String(), err
+}
+
 func (f *cmdFactory) buildCommand(args ...string) *exec.Cmd {
 	cmd := exec.Command(getCommandName(f.t), args...)
 	cmd.Env = testEnv()

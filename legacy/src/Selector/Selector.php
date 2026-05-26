@@ -453,8 +453,8 @@ class Selector implements CompleterInterface
                 }
             }
             asort($autocomplete, SORT_NATURAL | SORT_FLAG_CASE);
-            return $this->questionHelper->askInput($config->enterProjectText, null, array_values($autocomplete), function ($value) use ($autocomplete): string {
-                [$id, ] = explode(' - ', $value);
+            return $this->questionHelper->askInput($config->enterProjectText, null, array_values($autocomplete), function (?string $value) use ($autocomplete): string {
+                [$id] = explode(' - ', $value ?? '', 2);
                 if (empty(trim($id))) {
                     throw new InvalidArgumentException('A project ID is required');
                 }
@@ -495,7 +495,10 @@ class Selector implements CompleterInterface
             $ids = array_keys($environments);
             sort($ids, SORT_NATURAL | SORT_FLAG_CASE);
 
-            $id = $this->questionHelper->askInput($config->enterEnvText, $defaultEnvironmentId, array_keys($environments), function (string $value) use ($environments): string {
+            $id = $this->questionHelper->askInput($config->enterEnvText, $defaultEnvironmentId, array_keys($environments), function (?string $value) use ($environments): string {
+                if ($value === null || $value === '') {
+                    throw new \RuntimeException('An environment ID is required');
+                }
                 if (!isset($environments[$value])) {
                     throw new \RuntimeException('Environment not found: ' . $value);
                 }
