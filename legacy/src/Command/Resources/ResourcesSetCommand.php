@@ -64,7 +64,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 'object-storage',
                 null,
                 InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
-                'Set the object storage size (in GB) of apps.'
+                'Set the object storage size (in MB) of apps.'
                 . "\nItems are in the format <info>name:value</info> as above."
                 . "\nOnly applicable to apps; a value of 0 disables the bucket.",
             )
@@ -96,7 +96,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
         $this->addExample('Set profile sizes for two apps and a service', '--size frontend:0.1,backend:.25,database:1');
         $this->addExample('Give the "backend" app 3 instances', '--count backend:3');
         $this->addExample('Give 512 MB disk to the "backend" app and 2 GB to the "database" service', '--disk backend:512,database:2048');
-        $this->addExample('Give 512 GB of object storage to the "backend" app', '--object-storage backend:512');
+        $this->addExample('Give 524288 MB (512 GB) of object storage to the "backend" app', '--object-storage backend:524288');
         $this->addExample('Set the same profile size for the "backend" and "frontend" apps using a wildcard', '--size ' . OsUtil::escapeShellArg('*end:0.1'));
         $this->addExample('Set the same instance count for all apps using a wildcard', '--count ' . OsUtil::escapeShellArg('*:3'));
     }
@@ -478,12 +478,10 @@ class ResourcesSetCommand extends ResourcesCommandBase
             ));
         }
         if (isset($updates['resources']['disk']['object'])) {
-            $previousMib = $properties['resources']['disk']['object'] ?? null;
-            $newMib = $updates['resources']['disk']['object'];
             $this->stdErr->writeln('    Object storage: ' . $this->resourcesUtil->formatChange(
-                $previousMib === null ? null : ResourcesUtil::formatObjectStorageGB($previousMib),
-                ResourcesUtil::formatObjectStorageGB($newMib),
-                ' GB',
+                $properties['resources']['disk']['object'] ?? null,
+                $updates['resources']['disk']['object'],
+                ' MB',
             ));
         }
     }
@@ -585,7 +583,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
     }
 
     /**
-     * Validates a given object storage size, returning the value in MiB.
+     * Validates a given object storage size in MB.
      *
      * @throws InvalidArgumentException
      */
@@ -598,15 +596,14 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 $this->typeName($service),
             ));
         }
-        $gb = (int) $value;
-        if ($gb != $value || $value < 0) {
+        $size = (int) $value;
+        if ($size != $value || $value < 0) {
             throw new InvalidArgumentException(sprintf(
-                'Invalid object storage size <error>%s</error>: it must be a non-negative integer in GB.',
+                'Invalid object storage size <error>%s</error>: it must be a non-negative integer in MB.',
                 $value,
             ));
         }
-        // The API stores object storage in MiB. 1 GB is treated as 1024 MiB.
-        return $gb * 1024;
+        return $size;
     }
 
     /**

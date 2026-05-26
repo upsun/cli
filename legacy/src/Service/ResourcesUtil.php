@@ -226,21 +226,6 @@ class ResourcesUtil
     }
 
     /**
-     * Formats a MiB value as a GB string for object storage display.
-     *
-     * Object storage is in MiB on the wire; the CLI exposes it to users in GB
-     * (where 1 GB is treated as 1024 MiB).
-     */
-    public static function formatObjectStorageGB(int|float $mib): string
-    {
-        $gb = $mib / 1024;
-        if ($gb == (int) $gb) {
-            return (string) (int) $gb;
-        }
-        return rtrim(rtrim(sprintf('%.2f', $gb), '0'), '.');
-    }
-
-    /**
      * Adds a --resources-init option to commands that support it.
      *
      * The option will only be added if the api.sizing feature is enabled.

@@ -31,7 +31,7 @@ class ResourcesGetCommand extends ResourcesCommandBase
         'cpu' => 'CPU',
         'memory' => 'Memory (MB)',
         'disk' => 'Disk (MB)',
-        'object_storage' => 'Object storage (GB)',
+        'object_storage' => 'Object storage (MB)',
         'instance_count' => 'Instances',
         'base_memory' => 'Base memory',
         'memory_ratio' => 'Memory ratio',
@@ -166,12 +166,11 @@ class ResourcesGetCommand extends ResourcesCommandBase
                 }
             }
 
-            // Object storage is only available on apps. Stored in MiB on the
-            // wire; displayed to users in GB.
+            // Object storage is only available on apps.
             if (!$service instanceof WebApp) {
                 $row['object_storage'] = $notApplicable;
             } elseif (isset($properties['resources']['disk']['object'])) {
-                $row['object_storage'] = ResourcesUtil::formatObjectStorageGB($properties['resources']['disk']['object']);
+                $row['object_storage'] = (string) $properties['resources']['disk']['object'];
                 if ($properties['resources']['disk']['object'] > 0) {
                     $hasObjectStorage = true;
                 }
