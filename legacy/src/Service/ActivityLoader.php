@@ -127,7 +127,9 @@ readonly class ActivityLoader
         $activities = [];
         while ($limit === null || count($activities) < $limit) {
             if ($activity = end($activities)) {
-                $startsAt = new DateTime($activity->created_at);
+                if (!empty($activity->created_at)) {
+                    $startsAt = new DateTime($activity->created_at);
+                }
             }
             $nextActivities = $apiResource->getActivities($limit ? $limit - count($activities) : 0, $types, $startsAt, $state, $result);
             $new = false;
