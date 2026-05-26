@@ -686,11 +686,6 @@ parameters:
 			path: src/Service/ActivityMonitor.php
 
 		-
-			message: "#^Parameter \\#1 \\$datetime of function strtotime expects string, string\\|null given\\.$#"
-			count: 2
-			path: src/Service/ActivityMonitor.php
-
-		-
 			message: "#^Ternary operator condition is always false\\.$#"
 			count: 1
 			path: src/Service/ActivityMonitor.php
