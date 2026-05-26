@@ -947,12 +947,12 @@ class AutoscalingSettingsSetCommand extends CommandBase
     /**
      * Formats a change in a duration.
      *
-     * @param int|string $previousValue
+     * @param int|string|null $previousValue
      * @param int|string $newValue
      *
      * @return string
      */
-    protected function formatDurationChange(int|string $previousValue, int|string $newValue): string
+    protected function formatDurationChange(int|string|null $previousValue, int|string $newValue): string
     {
         return $this->resourcesUtil->formatChange(
             $previousValue,
