@@ -100,7 +100,11 @@ class AutoscalingSettingsSetCommand extends CommandBase
         }
 
         // Get autoscaling default values
-        $defaults = $autoscalingSettings['defaults'];
+        $defaults = $autoscalingSettings['defaults'] ?? null;
+        if (!is_array($defaults)) {
+            $this->stdErr->writeln('<error>The autoscaling API did not return any default settings for this environment.</error>');
+            return 1;
+        }
 
         // Validate the --service option.
         $service = $input->getOption('service');
