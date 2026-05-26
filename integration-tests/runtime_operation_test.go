@@ -78,9 +78,10 @@ func TestRuntimeOperationRun(t *testing.T) {
 
 	var receivedBody atomic.Value // map[string]any
 	apiHandler.Post(envPath+"/runtime-operations", func(w http.ResponseWriter, r *http.Request) {
-		b, _ := io.ReadAll(r.Body)
+		b, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
 		var body map[string]any
-		_ = json.Unmarshal(b, &body)
+		require.NoError(t, json.Unmarshal(b, &body))
 		receivedBody.Store(body)
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"_embedded": map[string]any{"activities": []any{}},
