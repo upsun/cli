@@ -432,13 +432,16 @@ class ResourcesSetCommand extends ResourcesCommandBase
             $newProperties = array_replace_recursive($properties, $updates);
 
             $newSizeInfo = $this->resourcesUtil->sizeInfo($newProperties, $containerProfiles);
-            $this->stdErr->writeln('    CPU: ' . $this->resourcesUtil->formatChange(
-                $this->resourcesUtil->formatCPU($sizeInfo ? $sizeInfo['cpu'] : null) . ' ' . $this->formatCPUType($sizeInfo),
-                $this->resourcesUtil->formatCPU($newSizeInfo['cpu']) . ' ' . $this->formatCPUType($newSizeInfo)
-            ));
+            $previousCPU = $sizeInfo !== null
+                ? $this->resourcesUtil->formatCPU($sizeInfo['cpu']) . ' ' . $this->formatCPUType($sizeInfo)
+                : null;
+            $newCPU = $newSizeInfo !== null
+                ? $this->resourcesUtil->formatCPU($newSizeInfo['cpu']) . ' ' . $this->formatCPUType($newSizeInfo)
+                : '';
+            $this->stdErr->writeln('    CPU: ' . $this->resourcesUtil->formatChange($previousCPU, $newCPU));
             $this->stdErr->writeln('    Memory: ' . $this->resourcesUtil->formatChange(
-                $sizeInfo ? $sizeInfo['memory'] : null,
-                $newSizeInfo['memory'],
+                $sizeInfo !== null ? $sizeInfo['memory'] : null,
+                $newSizeInfo !== null ? $newSizeInfo['memory'] : null,
                 ' MB',
             ));
         }
