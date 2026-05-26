@@ -287,6 +287,10 @@ class AutoscalingSettingsSetCommand extends CommandBase
             }
 
             if (!empty($updates[$service])) {
+                if ($metric === null) {
+                    $this->stdErr->writeln('<error>The --metric option is required when not running interactively.</error>');
+                    return 1;
+                }
                 $metric = $this->validateMetric($metric, $supportedMetrics);
                 // since we have some changes, inject the metric name for them
                 $updates[$service]['metric'] = $metric;
