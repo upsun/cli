@@ -432,15 +432,26 @@ class ResourcesSetCommand extends ResourcesCommandBase
             $newProperties = array_replace_recursive($properties, $updates);
 
             $newSizeInfo = $this->resourcesUtil->sizeInfo($newProperties, $containerProfiles);
-            $this->stdErr->writeln('    CPU: ' . $this->resourcesUtil->formatChange(
-                $this->resourcesUtil->formatCPU($sizeInfo ? $sizeInfo['cpu'] : null) . ' ' . $this->formatCPUType($sizeInfo),
-                $this->resourcesUtil->formatCPU($newSizeInfo['cpu']) . ' ' . $this->formatCPUType($newSizeInfo)
-            ));
-            $this->stdErr->writeln('    Memory: ' . $this->resourcesUtil->formatChange(
-                $sizeInfo ? $sizeInfo['memory'] : null,
-                $newSizeInfo['memory'],
-                ' MB',
-            ));
+            if ($newSizeInfo === null) {
+                // The requested profile_size isn't in the deployment's
+                // container_profiles catalog, so we can't show CPU/memory
+                // changes. Surface that rather than printing blank values.
+                $this->stdErr->writeln(sprintf(
+                    '    Size: <info>%s</info> (CPU/memory details unavailable for this profile size)',
+                    $updates['resources']['profile_size'],
+                ));
+            } else {
+                $previousCPU = $sizeInfo !== null
+                    ? $this->resourcesUtil->formatCPU($sizeInfo['cpu']) . ' ' . $this->formatCPUType($sizeInfo)
+                    : null;
+                $newCPU = $this->resourcesUtil->formatCPU($newSizeInfo['cpu']) . ' ' . $this->formatCPUType($newSizeInfo);
+                $this->stdErr->writeln('    CPU: ' . $this->resourcesUtil->formatChange($previousCPU, $newCPU));
+                $this->stdErr->writeln('    Memory: ' . $this->resourcesUtil->formatChange(
+                    $sizeInfo !== null ? $sizeInfo['memory'] : null,
+                    $newSizeInfo['memory'],
+                    ' MB',
+                ));
+            }
         }
         if (isset($updates['instance_count'])) {
             $this->stdErr->writeln('    Instance count: ' . $this->resourcesUtil->formatChange(

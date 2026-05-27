@@ -1,6 +1,16 @@
 parameters:
 	ignoreErrors:
 		-
+			message: "#^Parameter \\#1 \\$commandName of method Symfony\\\\Component\\\\Console\\\\Application\\:\\:setDefaultCommand\\(\\) expects string, string\\|null given\\.$#"
+			count: 1
+			path: src/Application.php
+
+		-
+			message: "#^Parameter \\#1 \\$name of method Platformsh\\\\Cli\\\\Service\\\\Config\\:\\:isCommandEnabled\\(\\) expects string, string\\|null given\\.$#"
+			count: 1
+			path: src/Application.php
+
+		-
 			message: "#^Call to an undefined method Platformsh\\\\Client\\\\Connection\\\\ConnectorInterface\\:\\:getOAuth2Provider\\(\\)\\.$#"
 			count: 1
 			path: src/Command/Auth/ApiTokenLoginCommand.php
@@ -14,6 +24,11 @@ parameters:
 			message: "#^Call to an undefined method GuzzleHttp\\\\ClientInterface\\:\\:post\\(\\)\\.$#"
 			count: 3
 			path: src/Command/Auth/VerifyPhoneNumberCommand.php
+
+		-
+			message: "#^Offset 'triggers' does not exist on array\\<string, mixed\\>\\|null\\.$#"
+			count: 2
+			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
 		-
 			message: "#^Access to an undefined property Platformsh\\\\Client\\\\Model\\\\Backup\\:\\:\\$safe\\.$#"
@@ -56,8 +71,88 @@ parameters:
 			path: src/Command/BotCommand.php
 
 		-
+			message: "#^Cannot call method getStr\\(\\) on Platformsh\\\\Cli\\\\Service\\\\Config\\|null\\.$#"
+			count: 2
+			path: src/Command/CommandBase.php
+
+		-
+			message: "#^Cannot call method isCommandEnabled\\(\\) on Platformsh\\\\Cli\\\\Service\\\\Config\\|null\\.$#"
+			count: 1
+			path: src/Command/CommandBase.php
+
+		-
+			message: "#^Cannot call method isCommandHidden\\(\\) on Platformsh\\\\Cli\\\\Service\\\\Config\\|null\\.$#"
+			count: 1
+			path: src/Command/CommandBase.php
+
+		-
+			message: "#^Method Platformsh\\\\Cli\\\\Command\\\\CommandBase\\:\\:getPreferredName\\(\\) should return string but returns string\\|null\\.$#"
+			count: 1
+			path: src/Command/CommandBase.php
+
+		-
+			message: "#^Parameter \\#3 \\$name of static method Platformsh\\\\Cli\\\\Model\\\\EnvironmentDomain\\:\\:add\\(\\) expects string, string\\|null given\\.$#"
+			count: 1
+			path: src/Command/Domain/DomainAddCommand.php
+
+		-
+			message: "#^Cannot call method getLink\\(\\) on Platformsh\\\\Client\\\\Model\\\\Environment\\|null\\.$#"
+			count: 1
+			path: src/Command/Domain/DomainGetCommand.php
+
+		-
+			message: "#^Parameter \\#1 \\$environment of static method Platformsh\\\\Cli\\\\Model\\\\EnvironmentDomain\\:\\:getList\\(\\) expects Platformsh\\\\Client\\\\Model\\\\Environment, Platformsh\\\\Client\\\\Model\\\\Environment\\|null given\\.$#"
+			count: 1
+			path: src/Command/Domain/DomainGetCommand.php
+
+		-
+			message: "#^Cannot call method getLink\\(\\) on Platformsh\\\\Client\\\\Model\\\\Environment\\|null\\.$#"
+			count: 1
+			path: src/Command/Domain/DomainUpdateCommand.php
+
+		-
+			message: "#^Parameter \\#1 \\$id of static method Platformsh\\\\Client\\\\Model\\\\ApiResourceBase\\:\\:get\\(\\) expects string, string\\|null given\\.$#"
+			count: 1
+			path: src/Command/Domain/DomainUpdateCommand.php
+
+		-
+			message: "#^Parameter \\#1 \\$name of method Platformsh\\\\Client\\\\Model\\\\Project\\:\\:getDomain\\(\\) expects string, string\\|null given\\.$#"
+			count: 1
+			path: src/Command/Domain/DomainUpdateCommand.php
+
+		-
+			message: "#^Method Platformsh\\\\Cli\\\\Command\\\\Environment\\\\EnvironmentPushCommand\\:\\:execute\\(\\) should return int but returns int\\|null\\.$#"
+			count: 1
+			path: src/Command/Environment/EnvironmentPushCommand.php
+
+		-
+			message: "#^Parameter \\#1 \\$id of method Platformsh\\\\Cli\\\\Service\\\\Api\\:\\:getEnvironment\\(\\) expects string, string\\|null given\\.$#"
+			count: 1
+			path: src/Command/Environment/EnvironmentSynchronizeCommand.php
+
+		-
+			message: "#^Method Platformsh\\\\Cli\\\\Command\\\\Environment\\\\EnvironmentXdebugCommand\\:\\:execute\\(\\) should return int but returns int\\|null\\.$#"
+			count: 1
+			path: src/Command/Environment/EnvironmentXdebugCommand.php
+
+		-
+			message: "#^Cannot call method find\\(\\) on Symfony\\\\Component\\\\Console\\\\Application\\|null\\.$#"
+			count: 2
+			path: src/Command/HelpCommand.php
+
+		-
 			message: "#^Call to an undefined method GuzzleHttp\\\\ClientInterface\\:\\:post\\(\\)\\.$#"
 			count: 1
+			path: src/Command/Integration/IntegrationCommandBase.php
+
+		-
+			message: "#^Cannot call method getProject\\(\\) on Platformsh\\\\Cli\\\\Selector\\\\Selection\\|null\\.$#"
+			count: 1
+			path: src/Command/Integration/IntegrationCommandBase.php
+
+		-
+			message: "#^Cannot call method hasProject\\(\\) on Platformsh\\\\Cli\\\\Selector\\\\Selection\\|null\\.$#"
+			count: 2
 			path: src/Command/Integration/IntegrationCommandBase.php
 
 		-
@@ -66,9 +161,24 @@ parameters:
 			path: src/Command/Integration/IntegrationCommandBase.php
 
 		-
+			message: "#^Parameter \\#1 \\$app of method Platformsh\\\\Client\\\\Model\\\\Environment\\:\\:getSshUrl\\(\\) expects string, string\\|null given\\.$#"
+			count: 1
+			path: src/Command/Local/LocalDrushAliasesCommand.php
+
+		-
 			message: "#^Cannot call method set\\(\\) on Platformsh\\\\ConsoleForm\\\\Field\\\\Field\\|false\\.$#"
 			count: 1
 			path: src/Command/Organization/OrganizationCreateCommand.php
+
+		-
+			message: "#^Cannot access property \\$email on Platformsh\\\\Client\\\\Model\\\\Ref\\\\UserRef\\|null\\.$#"
+			count: 1
+			path: src/Command/Organization/User/OrganizationUserProjectsCommand.php
+
+		-
+			message: "#^Parameter \\#1 \\$userRef of method Platformsh\\\\Cli\\\\Service\\\\Api\\:\\:getUserRefLabel\\(\\) expects Platformsh\\\\Client\\\\Model\\\\Ref\\\\UserRef, Platformsh\\\\Client\\\\Model\\\\Ref\\\\UserRef\\|null given\\.$#"
+			count: 4
+			path: src/Command/Organization/User/OrganizationUserProjectsCommand.php
 
 		-
 			message: "#^Call to an undefined method GuzzleHttp\\\\ClientInterface\\:\\:get\\(\\)\\.$#"
@@ -76,9 +186,49 @@ parameters:
 			path: src/Command/Project/ProjectCreateCommand.php
 
 		-
+			message: "#^Cannot call method has\\(\\) on Symfony\\\\Component\\\\Console\\\\Application\\|null\\.$#"
+			count: 1
+			path: src/Command/Project/ProjectGetCommand.php
+
+		-
+			message: "#^Parameter \\#1 \\$rows of method Platformsh\\\\Cli\\\\Service\\\\Table\\:\\:render\\(\\) expects array\\<array\\<int\\|string, float\\|int\\|string\\|Symfony\\\\Component\\\\Console\\\\Helper\\\\TableCell\\>\\|Symfony\\\\Component\\\\Console\\\\Helper\\\\TableSeparator\\>, array\\<int, array\\<string, Platformsh\\\\Cli\\\\Console\\\\AdaptiveTableCell\\|string\\|null\\>\\> given\\.$#"
+			count: 2
+			path: src/Command/Project/ProjectListCommand.php
+
+		-
+			message: "#^Trying to invoke \\(callable\\(\\)\\: mixed\\)\\|null but it might not be a callable\\.$#"
+			count: 1
+			path: src/Command/Resources/ResourcesSetCommand.php
+
+		-
 			message: "#^Access to an undefined property Platformsh\\\\Client\\\\Model\\\\Deployment\\\\Service\\|Platformsh\\\\Client\\\\Model\\\\Deployment\\\\WebApp\\|Platformsh\\\\Client\\\\Model\\\\Deployment\\\\Worker\\:\\:\\$container_profile\\.$#"
 			count: 3
 			path: src/Command/Resources/ResourcesSizeListCommand.php
+
+		-
+			message: "#^Parameter \\#2 \\$service of method Platformsh\\\\Client\\\\Model\\\\Deployment\\\\EnvironmentDeployment\\:\\:execRuntimeOperation\\(\\) expects string, string\\|null given\\.$#"
+			count: 1
+			path: src/Command/RuntimeOperation/RunCommand.php
+
+		-
+			message: "#^Parameter \\#2 \\$content of method Symfony\\\\Component\\\\Filesystem\\\\Filesystem\\:\\:dumpFile\\(\\) expects resource\\|string, string\\|null given\\.$#"
+			count: 1
+			path: src/Command/Self/SelfInstallCommand.php
+
+		-
+			message: "#^Parameter \\#1 \\$messages of method Symfony\\\\Component\\\\Console\\\\Output\\\\OutputInterface\\:\\:writeln\\(\\) expects iterable\\|string, string\\|null given\\.$#"
+			count: 1
+			path: src/Command/Self/SelfReleaseCommand.php
+
+		-
+			message: "#^Parameter \\#2 \\$pid of method Platformsh\\\\Cli\\\\Command\\\\Server\\\\ServerCommandBase\\:\\:writeServerInfo\\(\\) expects int, int\\|null given\\.$#"
+			count: 1
+			path: src/Command/Server/ServerRunCommand.php
+
+		-
+			message: "#^Parameter \\#2 \\$pid of method Platformsh\\\\Cli\\\\Command\\\\Server\\\\ServerCommandBase\\:\\:writeServerInfo\\(\\) expects int, int\\|null given\\.$#"
+			count: 1
+			path: src/Command/Server/ServerStartCommand.php
 
 		-
 			message: "#^Parameter \\#1 \\$items of method Platformsh\\\\Cli\\\\Service\\\\QuestionHelper\\:\\:choose\\(\\) expects array\\<string, string\\>, array\\<int\\|string, string\\> given\\.$#"
@@ -96,6 +246,11 @@ parameters:
 			path: src/Command/Team/Project/TeamProjectDeleteCommand.php
 
 		-
+			message: "#^Cannot call method has\\(\\) on Symfony\\\\Component\\\\Console\\\\Application\\|null\\.$#"
+			count: 2
+			path: src/Command/Team/TeamCommandBase.php
+
+		-
 			message: "#^Call to an undefined method GuzzleHttp\\\\ClientInterface\\:\\:get\\(\\)\\.$#"
 			count: 1
 			path: src/Command/Team/TeamListCommand.php
@@ -106,9 +261,54 @@ parameters:
 			path: src/Command/Team/User/TeamUserAddCommand.php
 
 		-
+			message: "#^Cannot call method has\\(\\) on Symfony\\\\Component\\\\Console\\\\Application\\|null\\.$#"
+			count: 1
+			path: src/Command/Team/User/TeamUserAddCommand.php
+
+		-
+			message: "#^Cannot access property \\$type on Platformsh\\\\Client\\\\Model\\\\Environment\\|null\\.$#"
+			count: 1
+			path: src/Command/User/UserGetCommand.php
+
+		-
+			message: "#^Cannot call method getUser\\(\\) on Platformsh\\\\Client\\\\Model\\\\Environment\\|null\\.$#"
+			count: 1
+			path: src/Command/User/UserGetCommand.php
+
+		-
+			message: "#^Cannot access property \\$id on Platformsh\\\\Client\\\\Model\\\\Environment\\|null\\.$#"
+			count: 2
+			path: src/Command/Variable/VariableCreateCommand.php
+
+		-
+			message: "#^Cannot call method getFields\\(\\) on Platformsh\\\\ConsoleForm\\\\Form\\|null\\.$#"
+			count: 1
+			path: src/Command/Variable/VariableCreateCommand.php
+
+		-
+			message: "#^Cannot call method getLink\\(\\) on Platformsh\\\\Client\\\\Model\\\\Environment\\|null\\.$#"
+			count: 1
+			path: src/Command/Variable/VariableCreateCommand.php
+
+		-
+			message: "#^Cannot call method getVariable\\(\\) on Platformsh\\\\Client\\\\Model\\\\Environment\\|null\\.$#"
+			count: 1
+			path: src/Command/Variable/VariableCreateCommand.php
+
+		-
+			message: "#^Cannot call method resolveOptions\\(\\) on Platformsh\\\\ConsoleForm\\\\Form\\|null\\.$#"
+			count: 1
+			path: src/Command/Variable/VariableCreateCommand.php
+
+		-
 			message: "#^Dead catch \\- Platformsh\\\\ConsoleForm\\\\Exception\\\\ConditionalFieldException is never thrown in the try block\\.$#"
 			count: 1
 			path: src/Command/Variable/VariableCreateCommand.php
+
+		-
+			message: "#^Cannot call method getFields\\(\\) on Platformsh\\\\ConsoleForm\\\\Form\\|null\\.$#"
+			count: 1
+			path: src/Command/Variable/VariableUpdateCommand.php
 
 		-
 			message: "#^Call to an undefined method GuzzleHttp\\\\ClientInterface\\:\\:get\\(\\)\\.$#"
@@ -116,9 +316,24 @@ parameters:
 			path: src/Command/Version/VersionListCommand.php
 
 		-
+			message: "#^Parameter \\#1 \\$messages of method Symfony\\\\Component\\\\Console\\\\Output\\\\OutputInterface\\:\\:writeln\\(\\) expects iterable\\|string, string\\|null given\\.$#"
+			count: 1
+			path: src/Command/WelcomeCommand.php
+
+		-
 			message: "#^While loop condition is always true\\.$#"
 			count: 1
 			path: src/Command/WinkyCommand.php
+
+		-
+			message: "#^Method Platformsh\\\\Cli\\\\Console\\\\AdaptiveTable\\:\\:wrapCell\\(\\) should return string but returns string\\|null\\.$#"
+			count: 1
+			path: src/Console/AdaptiveTable.php
+
+		-
+			message: "#^Method Platformsh\\\\Cli\\\\Console\\\\AdaptiveTable\\:\\:wrapWithDecoration\\(\\) should return string but returns string\\|null\\.$#"
+			count: 1
+			path: src/Console/AdaptiveTable.php
 
 		-
 			message: "#^Method Platformsh\\\\Cli\\\\Console\\\\CustomJsonDescriptor\\:\\:describeApplication\\(\\) has parameter \\$options with no value type specified in iterable type array\\.$#"
@@ -201,6 +416,11 @@ parameters:
 			path: src/Console/CustomMarkdownDescriptor.php
 
 		-
+			message: "#^Parameter \\#3 \\$subject of function str_replace expects array\\|string, string\\|null given\\.$#"
+			count: 1
+			path: src/Console/CustomMarkdownDescriptor.php
+
+		-
 			message: "#^Method Platformsh\\\\Cli\\\\Console\\\\CustomTextDescriptor\\:\\:describeApplication\\(\\) has parameter \\$options with no value type specified in iterable type array\\.$#"
 			count: 1
 			path: src/Console/CustomTextDescriptor.php
@@ -229,6 +449,16 @@ parameters:
 			message: "#^Method Platformsh\\\\Cli\\\\Console\\\\CustomTextDescriptor\\:\\:writeText\\(\\) has parameter \\$options with no value type specified in iterable type array\\.$#"
 			count: 1
 			path: src/Console/CustomTextDescriptor.php
+
+		-
+			message: "#^Method Platformsh\\\\Cli\\\\Console\\\\ProcessManager\\:\\:startProcess\\(\\) should return int but returns int\\|null\\.$#"
+			count: 1
+			path: src/Console/ProcessManager.php
+
+		-
+			message: "#^Parameter \\#1 \\$exitCode of method Platformsh\\\\Cli\\\\Console\\\\ProcessManager\\:\\:getSignal\\(\\) expects int, int\\|null given\\.$#"
+			count: 1
+			path: src/Console/ProcessManager.php
 
 		-
 			message: "#^Method Platformsh\\\\Cli\\\\CredentialHelper\\\\SessionStorage\\:\\:load\\(\\) return type has no value type specified in iterable type array\\.$#"
@@ -306,12 +536,72 @@ parameters:
 			path: src/Exception/RootNotFoundException.php
 
 		-
+			message: "#^Cannot call method getName\\(\\) on Platformsh\\\\Cli\\\\Local\\\\LocalApplication\\|null\\.$#"
+			count: 1
+			path: src/Local/BuildFlavor/BuildFlavorBase.php
+
+		-
+			message: "#^Cannot call method getSharedFileMounts\\(\\) on Platformsh\\\\Cli\\\\Local\\\\LocalApplication\\|null\\.$#"
+			count: 1
+			path: src/Local/BuildFlavor/BuildFlavorBase.php
+
+		-
+			message: "#^Cannot call method getSourceDir\\(\\) on Platformsh\\\\Cli\\\\Local\\\\LocalApplication\\|null\\.$#"
+			count: 1
+			path: src/Local/BuildFlavor/BuildFlavorBase.php
+
+		-
+			message: "#^Cannot call method getStr\\(\\) on Platformsh\\\\Cli\\\\Service\\\\Config\\|null\\.$#"
+			count: 3
+			path: src/Local/BuildFlavor/BuildFlavorBase.php
+
+		-
+			message: "#^Cannot call method isSingle\\(\\) on Platformsh\\\\Cli\\\\Local\\\\LocalApplication\\|null\\.$#"
+			count: 1
+			path: src/Local/BuildFlavor/BuildFlavorBase.php
+
+		-
+			message: "#^Cannot call method shouldMoveToRoot\\(\\) on Platformsh\\\\Cli\\\\Local\\\\LocalApplication\\|null\\.$#"
+			count: 1
+			path: src/Local/BuildFlavor/BuildFlavorBase.php
+
+		-
+			message: "#^Parameter \\#1 \\$source of method Platformsh\\\\Cli\\\\Service\\\\Filesystem\\:\\:copyAll\\(\\) expects string, string\\|null given\\.$#"
+			count: 1
+			path: src/Local/BuildFlavor/BuildFlavorBase.php
+
+		-
+			message: "#^Parameter \\#1 \\$string of function substr expects string, string\\|null given\\.$#"
+			count: 1
+			path: src/Local/BuildFlavor/BuildFlavorBase.php
+
+		-
+			message: "#^Parameter \\#1 \\$target of method Platformsh\\\\Cli\\\\Service\\\\Filesystem\\:\\:symlink\\(\\) expects string, string\\|null given\\.$#"
+			count: 1
+			path: src/Local/BuildFlavor/BuildFlavorBase.php
+
+		-
+			message: "#^Cannot call method getSharedFileMounts\\(\\) on Platformsh\\\\Cli\\\\Local\\\\LocalApplication\\|null\\.$#"
+			count: 1
+			path: src/Local/BuildFlavor/Drupal.php
+
+		-
+			message: "#^Parameter \\#1 \\$source of method Platformsh\\\\Cli\\\\Service\\\\Filesystem\\:\\:symlinkAll\\(\\) expects string, string\\|null given\\.$#"
+			count: 2
+			path: src/Local/BuildFlavor/Drupal.php
+
+		-
 			message: "#^Access to an undefined property PhpParser\\\\Node\\\\Expr\\\\Error\\|PhpParser\\\\Node\\\\Expr\\\\Variable\\:\\:\\$name\\.$#"
 			count: 3
 			path: src/Rector/DependencyInjection.php
 
 		-
 			message: "#^Access to an undefined property PhpParser\\\\Node\\\\Expr\\|PhpParser\\\\Node\\\\Identifier\\:\\:\\$name\\.$#"
+			count: 2
+			path: src/Rector/InjectCommandServicesRector.php
+
+		-
+			message: "#^Cannot access property \\$name on PhpParser\\\\Node\\\\Identifier\\|null\\.$#"
 			count: 2
 			path: src/Rector/InjectCommandServicesRector.php
 
@@ -323,6 +613,11 @@ parameters:
 		-
 			message: "#^Access to an undefined property PhpParser\\\\Node\\\\Expr\\|PhpParser\\\\Node\\\\Identifier\\:\\:\\$name\\.$#"
 			count: 1
+			path: src/Rector/NewServicesRector.php
+
+		-
+			message: "#^Cannot access property \\$name on PhpParser\\\\Node\\\\Identifier\\|null\\.$#"
+			count: 2
 			path: src/Rector/NewServicesRector.php
 
 		-
@@ -341,6 +636,16 @@ parameters:
 			path: src/Rector/NewServicesRector.php
 
 		-
+			message: "#^Argument of an invalid type array\\<PhpParser\\\\Node\\\\Stmt\\>\\|null supplied for foreach, only iterables are supported\\.$#"
+			count: 1
+			path: src/Rector/UnnecessaryServiceVariablesRector.php
+
+		-
+			message: "#^Cannot access property \\$name on PhpParser\\\\Node\\\\Identifier\\|null\\.$#"
+			count: 1
+			path: src/Rector/UnnecessaryServiceVariablesRector.php
+
+		-
 			message: "#^Access to an undefined property PhpParser\\\\Node\\\\Arg\\|PhpParser\\\\Node\\\\VariadicPlaceholder\\:\\:\\$value\\.$#"
 			count: 3
 			path: src/Rector/UseSelectorServiceRector.php
@@ -351,9 +656,34 @@ parameters:
 			path: src/Rector/UseSelectorServiceRector.php
 
 		-
+			message: "#^Cannot access property \\$name on PhpParser\\\\Node\\\\Identifier\\|null\\.$#"
+			count: 2
+			path: src/Rector/UseSelectorServiceRector.php
+
+		-
 			message: "#^Parameter \\#2 \\$callable of method Rector\\\\Rector\\\\AbstractRector\\:\\:traverseNodesWithCallable\\(\\) expects callable\\(PhpParser\\\\Node\\)\\: \\(array\\<PhpParser\\\\Node\\>\\|int\\|PhpParser\\\\Node\\|null\\), Closure\\(PhpParser\\\\NodeAbstract\\)\\: \\(PhpParser\\\\Node\\\\Expr\\\\Assign\\|PhpParser\\\\Node\\\\Expr\\\\MethodCall\\|null\\) given\\.$#"
 			count: 1
 			path: src/Rector/UseSelectorServiceRector.php
+
+		-
+			message: "#^Cannot call method fetchNextPage\\(\\) on Platformsh\\\\Client\\\\Model\\\\Collection\\|null\\.$#"
+			count: 1
+			path: src/Service/AccessApi.php
+
+		-
+			message: "#^Cannot call method getData\\(\\) on Platformsh\\\\Client\\\\Model\\\\Collection\\|null\\.$#"
+			count: 1
+			path: src/Service/AccessApi.php
+
+		-
+			message: "#^Cannot call method hasNextPage\\(\\) on Platformsh\\\\Client\\\\Model\\\\Collection\\|null\\.$#"
+			count: 1
+			path: src/Service/AccessApi.php
+
+		-
+			message: "#^Method Platformsh\\\\Cli\\\\Service\\\\ActivityMonitor\\:\\:indent\\(\\) should return string but returns string\\|null\\.$#"
+			count: 1
+			path: src/Service/ActivityMonitor.php
 
 		-
 			message: "#^Ternary operator condition is always false\\.$#"
@@ -376,6 +706,31 @@ parameters:
 			path: src/Service/Api.php
 
 		-
+			message: "#^Parameter \\#1 \\$project of method Platformsh\\\\Cli\\\\Service\\\\Api\\:\\:supportsGuaranteedCPU\\(\\) expects Platformsh\\\\Client\\\\Model\\\\Project, Platformsh\\\\Client\\\\Model\\\\Project\\|null given\\.$#"
+			count: 1
+			path: src/Service/Api.php
+
+		-
+			message: "#^Parameter \\#1 \\$storage of method Platformsh\\\\Client\\\\Session\\\\Session\\:\\:setStorage\\(\\) expects Platformsh\\\\Client\\\\Session\\\\Storage\\\\SessionStorageInterface, Platformsh\\\\Client\\\\Session\\\\Storage\\\\SessionStorageInterface\\|null given\\.$#"
+			count: 1
+			path: src/Service/Api.php
+
+		-
+			message: "#^Method Platformsh\\\\Cli\\\\Service\\\\CurlCli\\:\\:run\\(\\) should return int but returns int\\|null\\.$#"
+			count: 1
+			path: src/Service/CurlCli.php
+
+		-
+			message: "#^Parameter \\#2 \\$appName of method Platformsh\\\\Cli\\\\Service\\\\Api\\:\\:getSiteUrl\\(\\) expects string, string\\|null given\\.$#"
+			count: 1
+			path: src/Service/Drush.php
+
+		-
+			message: "#^Method Platformsh\\\\Cli\\\\Service\\\\Filesystem\\:\\:fixTarPath\\(\\) should return string but returns string\\|null\\.$#"
+			count: 1
+			path: src/Service/Filesystem.php
+
+		-
 			message: "#^Method Platformsh\\\\Cli\\\\Service\\\\Filesystem\\:\\:remove\\(\\) has parameter \\$files with no value type specified in iterable type iterable\\.$#"
 			count: 1
 			path: src/Service/Filesystem.php
@@ -386,9 +741,64 @@ parameters:
 			path: src/Service/Filesystem.php
 
 		-
+			message: "#^Parameter \\#7 \\$uri of method Platformsh\\\\Cli\\\\Service\\\\Git\\:\\:execute\\(\\) expects string, string\\|null given\\.$#"
+			count: 1
+			path: src/Service/Git.php
+
+		-
+			message: "#^Parameter \\#2 \\$sha of method Platformsh\\\\Cli\\\\Service\\\\GitDataApi\\:\\:getCommitByShaHash\\(\\) expects string, string\\|null given\\.$#"
+			count: 1
+			path: src/Service/GitDataApi.php
+
+		-
 			message: "#^Call to an undefined method GuzzleHttp\\\\ClientInterface\\:\\:head\\(\\)\\.$#"
 			count: 1
 			path: src/Service/Identifier.php
+
+		-
+			message: "#^Parameter \\#1 \\$messages of method Symfony\\\\Component\\\\Console\\\\Output\\\\OutputInterface\\:\\:writeln\\(\\) expects iterable\\|string, string\\|null given\\.$#"
+			count: 1
+			path: src/Service/SelfUpdater.php
+
+		-
+			message: "#^Method Platformsh\\\\Cli\\\\Service\\\\Shell\\:\\:runProcess\\(\\) should return int but returns int\\|null\\.$#"
+			count: 1
+			path: src/Service/Shell.php
+
+		-
+			message: "#^Parameter \\#1 \\$messages of method Symfony\\\\Component\\\\Console\\\\Output\\\\OutputInterface\\:\\:write\\(\\) expects iterable\\|string, string\\|null given\\.$#"
+			count: 1
+			path: src/Service/Shell.php
+
+		-
+			message: "#^Method Platformsh\\\\Cli\\\\Service\\\\Ssh\\:\\:getHost\\(\\) should return string\\|false but returns string\\|false\\|null\\.$#"
+			count: 1
+			path: src/Service/Ssh.php
+
+		-
+			message: "#^Argument of an invalid type array\\<Platformsh\\\\Cli\\\\Tunnel\\\\Tunnel\\>\\|null supplied for foreach, only iterables are supported\\.$#"
+			count: 1
+			path: src/Service/TunnelManager.php
+
+		-
+			message: "#^Method Platformsh\\\\Cli\\\\Service\\\\TunnelManager\\:\\:getTunnels\\(\\) should return array\\<Platformsh\\\\Cli\\\\Tunnel\\\\Tunnel\\> but returns array\\<Platformsh\\\\Cli\\\\Tunnel\\\\Tunnel\\>\\|null\\.$#"
+			count: 1
+			path: src/Service/TunnelManager.php
+
+		-
+			message: "#^Method Platformsh\\\\Cli\\\\Util\\\\Csv\\:\\:formatCell\\(\\) should return string but returns string\\|null\\.$#"
+			count: 1
+			path: src/Util/Csv.php
+
+		-
+			message: "#^Parameter \\#3 \\$subject of function str_replace expects array\\|string, string\\|null given\\.$#"
+			count: 1
+			path: src/Util/OsUtil.php
+
+		-
+			message: "#^Method Platformsh\\\\Cli\\\\Util\\\\PlainFormat\\:\\:formatCell\\(\\) should return string but returns string\\|null\\.$#"
+			count: 1
+			path: src/Util/PlainFormat.php
 
 		-
 			message: "#^Dead catch \\- InvalidArgumentException is never thrown in the try block\\.$#"
@@ -396,9 +806,39 @@ parameters:
 			path: tests/Command/User/UserAddCommandTest.php
 
 		-
+			message: "#^Parameter \\#1 \\$parentDir of method Platformsh\\\\Cli\\\\Tests\\\\Local\\\\BuildFlavor\\\\BuildFlavorTestBase\\:\\:createTempDir\\(\\) expects string, string\\|null given\\.$#"
+			count: 1
+			path: tests/Local/BuildFlavor/BuildFlavorTestBase.php
+
+		-
+			message: "#^Cannot call method getTreeId\\(\\) on Platformsh\\\\Cli\\\\Local\\\\LocalBuild\\|null\\.$#"
+			count: 2
+			path: tests/Local/LocalBuildTest.php
+
+		-
 			message: "#^Property Platformsh\\\\Cli\\\\Tests\\\\Local\\\\LocalBuildTest\\:\\:\\$localBuild \\(Platformsh\\\\Cli\\\\Local\\\\LocalBuild\\|null\\) does not accept object\\.$#"
 			count: 1
 			path: tests/Local/LocalBuildTest.php
+
+		-
+			message: "#^Parameter \\#1 \\$parentDir of method Platformsh\\\\Cli\\\\Tests\\\\Service\\\\DrushServiceTest\\:\\:createTempDir\\(\\) expects string, string\\|null given\\.$#"
+			count: 1
+			path: tests/Service/DrushServiceTest.php
+
+		-
+			message: "#^Parameter \\#1 \\$parentDir of method Platformsh\\\\Cli\\\\Tests\\\\Service\\\\FilesystemServiceTest\\:\\:createTempDir\\(\\) expects string, string\\|null given\\.$#"
+			count: 1
+			path: tests/Service/FilesystemServiceTest.php
+
+		-
+			message: "#^Parameter \\#1 \\$parentDir of method Platformsh\\\\Cli\\\\Tests\\\\Service\\\\GitServiceTest\\:\\:createTempDir\\(\\) expects string, string\\|null given\\.$#"
+			count: 1
+			path: tests/Service/GitServiceTest.php
+
+		-
+			message: "#^Parameter \\#1 \\$objectOrMethod of class ReflectionMethod constructor expects object\\|string, Platformsh\\\\Cli\\\\Service\\\\Ssh\\|null given\\.$#"
+			count: 2
+			path: tests/Service/SshTest.php
 
 		-
 			message: "#^Property Platformsh\\\\Cli\\\\Tests\\\\Service\\\\SshTest\\:\\:\\$ssh \\(Platformsh\\\\Cli\\\\Service\\\\Ssh\\|null\\) does not accept object\\.$#"

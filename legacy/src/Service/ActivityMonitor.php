@@ -478,7 +478,7 @@ class ActivityMonitor
         // timestamp, so that they can be more efficiently refreshed.
         $mostRecentTimestamp = 0;
         foreach ($activities as $activity) {
-            $created = strtotime($activity->created_at);
+            $created = !empty($activity->created_at) ? strtotime($activity->created_at) : false;
             $mostRecentTimestamp = $created > $mostRecentTimestamp ? $created : $mostRecentTimestamp;
         }
 
@@ -674,7 +674,10 @@ class ActivityMonitor
      */
     private function getStart(Activity $activity): int|false
     {
-        return !empty($activity->started_at) ? strtotime($activity->started_at) : strtotime($activity->created_at);
+        if (!empty($activity->started_at)) {
+            return strtotime($activity->started_at);
+        }
+        return !empty($activity->created_at) ? strtotime($activity->created_at) : false;
     }
 
     /**
