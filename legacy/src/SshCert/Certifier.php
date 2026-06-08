@@ -90,9 +90,14 @@ class Certifier
         $tempCertificateFilename = $tempPrivateKeyFilename . '-cert.pub';
         $tempPublicKeyFilename = $tempPrivateKeyFilename . '.pub';
 
-        // Remove the old certificate and key from the SSH agent.
+        // Remove old keys from the SSH agent. The filename depends on the key
+        // algorithm, so remove every certifier-managed key, not just the
+        // current one, to avoid leaving a stale identity loaded after an
+        // algorithm switch.
         if ($this->config->getBool('ssh.add_to_agent')) {
-            $this->shell->execute(['ssh-add', '-d', $privateKeyFilename], null, false, !$this->stdErr->isVeryVerbose());
+            foreach ($this->managedPrivateKeys($dir) as $keyFile) {
+                $this->shell->execute(['ssh-add', '-d', $keyFile], null, false, !$this->stdErr->isVeryVerbose());
+            }
         }
 
         $apiClient = $this->api->getClient();
@@ -299,6 +304,30 @@ class Certifier
     private function privateKeyFilename(): string
     {
         return 'id_' . $this->keyAlgorithm();
+    }
+
+    /**
+     * Lists the certifier-managed private key files in the session ssh dir.
+     *
+     * This matches the "id_<algorithm>" naming, excluding public keys,
+     * certificates and temporary files, so that keys for every algorithm can
+     * be removed from the SSH agent regardless of the current configuration.
+     *
+     * @param string $dir The session ssh directory.
+     *
+     * @return string[] Absolute private key filenames.
+     */
+    private function managedPrivateKeys(string $dir): array
+    {
+        $keys = [];
+        foreach (glob($dir . DIRECTORY_SEPARATOR . 'id_*') ?: [] as $file) {
+            $name = basename($file);
+            if (str_ends_with($name, '.pub') || str_contains($name, '_tmp')) {
+                continue;
+            }
+            $keys[] = $file;
+        }
+        return $keys;
     }
 
     /**
