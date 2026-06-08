@@ -333,6 +333,15 @@ ssh:
   # often provides a weak security benefit.
   cert_key_ttl: 86400
 
+  # The key algorithm used for the temporary SSH key pair generated when
+  # requesting an SSH certificate. Accepts any "ssh-keygen -t" type, e.g.
+  # ed25519 or rsa.
+  #
+  # The default "auto" detects FIPS mode: ed25519 is not available on FIPS-mode
+  # systems, so rsa is used there and ed25519 elsewhere. Setting an explicit
+  # algorithm disables detection and uses that algorithm directly.
+  cert_key_algorithm: 'auto'
+
 # How the CLI detects and configures Git repositories as projects.
 detection:
   ## Required keys that must be defined elsewhere:
