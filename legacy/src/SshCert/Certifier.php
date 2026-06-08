@@ -259,11 +259,19 @@ class Certifier
      *
      * @param string $configured The configured ssh.cert_key_algorithm value.
      * @param bool $fipsEnabled Whether the host is in FIPS mode.
+     *
+     * @throws \InvalidArgumentException if an explicit value is not a plain key type token.
      */
     public static function chooseKeyAlgorithm(string $configured, bool $fipsEnabled): string
     {
+        $configured = trim($configured);
         if ($configured === '' || $configured === 'auto') {
             return $fipsEnabled ? 'rsa' : 'ed25519';
+        }
+        // The value is used both as an "ssh-keygen -t" type and to build the
+        // key filename, so reject anything that is not a plain token.
+        if (!preg_match('/^[a-z0-9-]+$/', $configured)) {
+            throw new \InvalidArgumentException(sprintf('Invalid ssh.cert_key_algorithm value: "%s"', $configured));
         }
         return $configured;
     }

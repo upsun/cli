@@ -31,4 +31,30 @@ class CertifierTest extends TestCase
     {
         $this->assertSame($expected, Certifier::chooseKeyAlgorithm($configured, $fipsEnabled));
     }
+
+    public function testChooseKeyAlgorithmTrimsWhitespace(): void
+    {
+        $this->assertSame('rsa', Certifier::chooseKeyAlgorithm(' rsa ', false));
+        $this->assertSame('ed25519', Certifier::chooseKeyAlgorithm("auto\n", false));
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function invalidKeyAlgorithmProvider(): array
+    {
+        return [
+            'path traversal' => ['../../.ssh/id_rsa'],
+            'slash' => ['rsa/evil'],
+            'space inside' => ['rsa evil'],
+            'uppercase' => ['RSA'],
+        ];
+    }
+
+    #[DataProvider('invalidKeyAlgorithmProvider')]
+    public function testChooseKeyAlgorithmRejectsInvalidValues(string $configured): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        Certifier::chooseKeyAlgorithm($configured, false);
+    }
 }

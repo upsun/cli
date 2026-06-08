@@ -20,8 +20,11 @@ func TestSSHCerts(t *testing.T) {
 	apiServer := httptest.NewServer(apiHandler)
 	defer apiServer.Close()
 
-	t.Run("default ed25519", func(t *testing.T) {
+	// The algorithm is set explicitly in each subtest so that expectations do
+	// not depend on the runner's FIPS mode (which the "auto" default detects).
+	t.Run("explicit ed25519", func(t *testing.T) {
 		f := newCommandFactory(t, apiServer.URL, authServer.URL)
+		f.extraEnv = []string{EnvPrefix + "SSH_CERT_KEY_ALGORITHM=ed25519"}
 
 		output := f.Run("ssh-cert:info")
 		assert.Regexp(t, `(?m)^filename: .+?id_ed25519-cert\.pub$`, output)
