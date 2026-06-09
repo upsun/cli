@@ -64,10 +64,38 @@ done
 
 publish_one() {
   local tarball="$1"
+  # Re-derive name+version from the tarball so this stays self-contained.
+  local pkg_json name version
+  pkg_json=$(tar -xzOf "$tarball" package/package.json)
+  name=$(awk -F'"' '/"name":/ { print $4; exit }' <<<"$pkg_json")
+  version=$(awk -F'"' '/"version":/ { print $4; exit }' <<<"$pkg_json")
+
+  # Idempotent re-run: skip versions already on the registry. A publish can
+  # fail partway (e.g. a transient Sigstore transparency-log error during
+  # provenance signing) after some packages are already up; re-running then
+  # finishes the rest instead of erroring on "cannot publish over existing".
+  if npm view "${name}@${version}" version >/dev/null 2>&1; then
+    echo "  ${name}@${version} already published; skipping"
+    return 0
+  fi
+
   local args=(publish "$tarball" --access public --tag "${NPM_TAG}")
   if [ "${DRY_RUN}" = "1" ]; then args+=(--dry-run); fi
-  echo "  npm ${args[*]}"
-  npm "${args[@]}"
+
+  # Retry transient failures. npm provenance signing hits Sigstore's public
+  # Rekor log, which intermittently returns errors; each attempt regenerates a
+  # fresh signature, so a retry clears them.
+  local attempt
+  for attempt in 1 2 3; do
+    echo "  npm ${args[*]} (attempt ${attempt})"
+    if npm "${args[@]}"; then return 0; fi
+    if [ "${attempt}" -lt 3 ]; then
+      echo "  publish of ${name}@${version} failed; retrying in $((attempt * 10))s" >&2
+      sleep $((attempt * 10))
+    fi
+  done
+  echo "publish.sh: giving up on ${name}@${version} after 3 attempts" >&2
+  return 1
 }
 
 wait_visible() {
