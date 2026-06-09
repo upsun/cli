@@ -151,6 +151,49 @@ jobs:
         run: |
           rm -rf "${{ steps.signing-keys.outputs.key_dir }}"
 
+  npm:
+    runs-on: ubuntu-latest
+    needs: release
+    environment: production
+    permissions:
+      contents: read # gh release download
+      id-token: write # OIDC token for npm trusted publishing
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      # registry-url is deliberately unset: it would write an .npmrc authToken
+      # line bound to NODE_AUTH_TOKEN, and an empty token there shadows OIDC.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Ensure npm supports trusted publishing
+        run: npm install -g npm@latest # trusted publishing needs npm >= 11.5.1
+
+      - name: Download release archives
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          mkdir -p dist
+          gh release download "$TAG" --repo upsun/cli --dir dist \
+            -p 'upsun_*_linux_amd64.tar.gz' \
+            -p 'upsun_*_linux_arm64.tar.gz' \
+            -p 'upsun_*_darwin_all.tar.gz' \
+            -p 'upsun_*_windows_amd64.zip'
+
+      - name: Build npm tarballs
+        run: make npm-pack
+
+      - name: Publish to npm
+        env:
+          NPM_TAG: ${{ needs.release.outputs.is_prerelease == 'true' && 'next' || 'latest' }}
+        run: make npm-publish
+
   docker:
     runs-on: ${{ matrix.runner }}
     needs: release

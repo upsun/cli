@@ -6,9 +6,10 @@
 #   NPM_TAG      dist-tag, e.g. "latest" or "next". Default: "latest"
 #   DRY_RUN      1 to run npm publish --dry-run. Default: 0
 #
-# Auth: requires ~/.npmrc to have a working //registry.npmjs.org/:_authToken,
-# or NODE_AUTH_TOKEN set with a registry-url-configured ~/.npmrc (the
-# setup-node action handles this in CI).
+# Auth: in CI this runs under npm OIDC trusted publishing (no token; npm
+# exchanges a GitHub Actions OIDC token automatically). Run by hand, it uses
+# the standard npm mechanism: ~/.npmrc with a //registry.npmjs.org/:_authToken,
+# or `npm login`. Note `npm login` needs an interactive terminal (passkey MFA).
 #
 # Order: platform packages first, then wait for them to become visible
 # in the public registry, then publish the wrapper. The wait matters:
