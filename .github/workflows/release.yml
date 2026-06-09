@@ -166,15 +166,11 @@ jobs:
 
       # registry-url is deliberately unset: it would write an .npmrc authToken
       # line bound to NODE_AUTH_TOKEN, and an empty token there shadows OIDC.
+      # Node 24 bundles npm >= 11.5.1, which OIDC trusted publishing requires.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
-
-      # Pinned for reproducible releases; bump intentionally. Trusted
-      # publishing needs npm >= 11.5.1, newer than the npm Node 22 bundles.
-      - name: Install npm with trusted-publishing support
-        run: npm install -g npm@11.16.0
+          node-version: 24
 
       - name: Download release archives
         env:
