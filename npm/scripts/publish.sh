@@ -74,7 +74,9 @@ publish_one() {
   # fail partway (e.g. a transient Sigstore transparency-log error during
   # provenance signing) after some packages are already up; re-running then
   # finishes the rest instead of erroring on "cannot publish over existing".
-  if npm view "${name}@${version}" version >/dev/null 2>&1; then
+  # Skipped in dry-run so `npm publish --dry-run` still validates the tarball
+  # (and surfaces a version that was not bumped).
+  if [ "${DRY_RUN}" != "1" ] && npm view "${name}@${version}" version >/dev/null 2>&1; then
     echo "  ${name}@${version} already published; skipping"
     return 0
   fi
@@ -84,11 +86,21 @@ publish_one() {
 
   # Retry transient failures. npm provenance signing hits Sigstore's public
   # Rekor log, which intermittently returns errors; each attempt regenerates a
-  # fresh signature, so a retry clears them.
-  local attempt
+  # fresh signature, so a retry clears them. A publish-conflict is not
+  # transient: the version is already there (e.g. published by a prior attempt
+  # that `npm view` had not yet caught up to), so treat it as success rather
+  # than retrying to failure.
+  local attempt out rc
   for attempt in 1 2 3; do
     echo "  npm ${args[*]} (attempt ${attempt})"
-    if npm "${args[@]}"; then return 0; fi
+    # Capture inside `if` so `set -e` does not abort on a failed attempt.
+    if out=$(npm "${args[@]}" 2>&1); then rc=0; else rc=$?; fi
+    printf '%s\n' "$out"
+    if [ "$rc" -eq 0 ]; then return 0; fi
+    if printf '%s' "$out" | grep -qiE 'EPUBLISHCONFLICT|cannot publish over'; then
+      echo "  ${name}@${version} already published; treating as success"
+      return 0
+    fi
     if [ "${attempt}" -lt 3 ]; then
       echo "  publish of ${name}@${version} failed; retrying in $((attempt * 10))s" >&2
       sleep $((attempt * 10))
