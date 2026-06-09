@@ -171,16 +171,19 @@ jobs:
         with:
           node-version: 22
 
-      - name: Ensure npm supports trusted publishing
-        run: npm install -g npm@latest # trusted publishing needs npm >= 11.5.1
+      # Pinned for reproducible releases; bump intentionally. Trusted
+      # publishing needs npm >= 11.5.1, newer than the npm Node 22 bundles.
+      - name: Install npm with trusted-publishing support
+        run: npm install -g npm@11.16.0
 
       - name: Download release archives
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.release.outputs.tag }}
+          REPO: ${{ github.repository }}
         run: |
           mkdir -p dist
-          gh release download "$TAG" --repo upsun/cli --dir dist \
+          gh release download "$TAG" --repo "$REPO" --dir dist \
             -p 'upsun_*_linux_amd64.tar.gz' \
             -p 'upsun_*_linux_arm64.tar.gz' \
             -p 'upsun_*_darwin_all.tar.gz' \
