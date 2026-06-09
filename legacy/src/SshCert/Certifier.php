@@ -340,13 +340,23 @@ class Certifier
     {
         $this->stdErr->writeln('Generating local key pair', OutputInterface::VERBOSITY_VERBOSE);
 
+        $algorithm = $this->keyAlgorithm();
         $args = [
             'ssh-keygen',
-            '-t', $this->keyAlgorithm(),
+            '-t', $algorithm,
             '-f', $filename,
             '-N', '', // No passphrase
             '-C', $this->config->getStr('application.slug') . '-temporary-cert', // Key comment
         ];
+
+        // Set an explicit RSA key size rather than relying on the host
+        // ssh-keygen default, which varies by OpenSSH version. 4096 bits is
+        // well above the FIPS minimum. Other algorithms have a fixed (ed25519)
+        // or independently valid (ecdsa) size.
+        if ($algorithm === 'rsa') {
+            $args[] = '-b';
+            $args[] = '4096';
+        }
 
         // The "y\n" input is passed to avoid an error or prompt if ssh-keygen
         // encounters existing keys. This seems to be necessary during race
