@@ -132,7 +132,9 @@ class ActivityMonitor
         });
         $startTime = $this->getStart($activity) ?: time();
         $bar->setPlaceholderFormatterDefinition('elapsed', fn() => $this->formatDuration(time() - $startTime));
-        $bar->setPlaceholderFormatterDefinition('fgColor', function () use (&$progressColor): string { return $progressColor; });
+        $bar->setPlaceholderFormatterDefinition('fgColor', function () use (&$progressColor): string {
+            return $progressColor;
+        });
         $bar->setFormat('[%bar%] <fg=%fgColor%>%elapsed:6s%</> (%state%)');
         $bar->start();
 
@@ -466,7 +468,9 @@ class ActivityMonitor
             }
             return implode(', ', $withCount);
         });
-        $bar->setPlaceholderFormatterDefinition('fgColor', function () use (&$progressColor): string { return $progressColor; });
+        $bar->setPlaceholderFormatterDefinition('fgColor', function () use (&$progressColor): string {
+            return $progressColor;
+        });
         $bar->setPlaceholderFormatterDefinition('elapsed', fn() => $this->formatDuration(time() - $startTime));
         $bar->start();
 
@@ -474,7 +478,7 @@ class ActivityMonitor
         // timestamp, so that they can be more efficiently refreshed.
         $mostRecentTimestamp = 0;
         foreach ($activities as $activity) {
-            $created = strtotime($activity->created_at);
+            $created = !empty($activity->created_at) ? strtotime($activity->created_at) : false;
             $mostRecentTimestamp = $created > $mostRecentTimestamp ? $created : $mostRecentTimestamp;
         }
 
@@ -588,12 +592,13 @@ class ActivityMonitor
      */
     public static function formatResult(Activity $activity, bool $decorate = true): string
     {
-        $result = $activity->result;
+        // The result is null until the activity has finished.
+        $result = $activity->result ?? '';
         $name = self::RESULT_NAMES[$result] ?? $result;
 
         foreach ($activity->commands ?? [] as $command) {
             if ($command['exit_code'] > 0) {
-                $name = Activity::RESULT_FAILURE;
+                $name = self::RESULT_NAMES[Activity::RESULT_FAILURE];
                 $result = Activity::RESULT_FAILURE;
                 break;
             }
@@ -669,7 +674,10 @@ class ActivityMonitor
      */
     private function getStart(Activity $activity): int|false
     {
-        return !empty($activity->started_at) ? strtotime($activity->started_at) : strtotime($activity->created_at);
+        if (!empty($activity->started_at)) {
+            return strtotime($activity->started_at);
+        }
+        return !empty($activity->created_at) ? strtotime($activity->created_at) : false;
     }
 
     /**
@@ -684,6 +692,13 @@ class ActivityMonitor
     private function getLogStream(Activity $activity, ProgressBar $bar)
     {
         $url = $activity->getLink('log');
+
+        // Strip any query string from the URL. The log link can inherit query
+        // parameters (such as "count") from the base activities collection
+        // URL, and those are rejected by the log endpoint with HTTP 400.
+        if (($queryPos = \strpos($url, '?')) !== false) {
+            $url = \substr($url, 0, $queryPos);
+        }
 
         // Try fetching the stream with a 10 second timeout per call, and a .5
         // second interval between calls, for up to 2 minutes.
@@ -705,7 +720,7 @@ class ActivityMonitor
                 throw new \RuntimeException('Failed to open activity log stream: ' . $url);
             }
             $bar->advance();
-            \usleep((int) $interval * 1000000);
+            \usleep((int) ($interval * 1000000));
             $bar->advance();
             $stream = \fopen($url, 'r', false, $this->api->getStreamContext($readTimeout));
         }

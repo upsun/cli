@@ -51,7 +51,9 @@ class TunnelManager
             'service' => $service,
         ];
 
-        return new Tunnel($this->getId($metadata), $localPort ?: $this->getPort(), $service['host'], $service['port'], $metadata);
+        // The 'port' value from the API relationship metadata is a string, but
+        // Tunnel expects an int, so cast it here.
+        return new Tunnel($this->getId($metadata), $localPort ?: $this->getPort(), $service['host'], (int) $service['port'], $metadata);
     }
 
     /**

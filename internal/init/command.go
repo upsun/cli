@@ -171,7 +171,8 @@ func RunAIConfig(
 	yamlContent := strings.TrimSpace(apiOutput.ConfigYAML)
 
 	// Check if stdout is a terminal and supports color
-	if f, ok := stdout.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
+	// G115: file descriptors fit comfortably in an int on all supported platforms.
+	if f, ok := stdout.(*os.File); ok && term.IsTerminal(int(f.Fd())) { //nolint:gosec
 		if err := quick.Highlight(stdout, yamlContent+"\n", "yaml", "terminal", "bw"); err != nil {
 			// Fall back to plain text if highlighting fails
 			fmt.Fprintln(stdout, yamlContent)

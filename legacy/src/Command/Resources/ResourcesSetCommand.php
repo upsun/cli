@@ -60,6 +60,14 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 . "\nItems are in the format <info>name:value</info> as above."
                 . "\nA value of 'default' will use the default size, and 'min' or 'minimum' will use the minimum.",
             )
+            ->addOption(
+                'object-storage',
+                null,
+                InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
+                'Set the object storage size (in MB) of apps.'
+                . "\nItems are in the format <info>name:value</info> as above."
+                . "\nOnly applicable to apps; a value of 0 disables the bucket.",
+            )
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Try to run the update, even if it might exceed your limits')
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Show the changes that would be made, without changing anything');
 
@@ -88,6 +96,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
         $this->addExample('Set profile sizes for two apps and a service', '--size frontend:0.1,backend:.25,database:1');
         $this->addExample('Give the "backend" app 3 instances', '--count backend:3');
         $this->addExample('Give 512 MB disk to the "backend" app and 2 GB to the "database" service', '--disk backend:512,database:2048');
+        $this->addExample('Give 524288 MB (512 GB) of object storage to the "backend" app', '--object-storage backend:524288');
         $this->addExample('Set the same profile size for the "backend" and "frontend" apps using a wildcard', '--size ' . OsUtil::escapeShellArg('*end:0.1'));
         $this->addExample('Set the same instance count for all apps using a wildcard', '--count ' . OsUtil::escapeShellArg('*:3'));
     }
@@ -143,6 +152,10 @@ class ResourcesSetCommand extends ResourcesCommandBase
         // Validate the --disk option.
         [$givenDiskSizes, $diskErrored] = $this->parseSetting($input, 'disk', $services, fn($v, $serviceName, $service) => $this->validateDiskSize($v, $serviceName, $service));
         $errored = $errored || $diskErrored;
+
+        // Validate the --object-storage option.
+        [$givenObjectStorage, $objectStorageErrored] = $this->parseSetting($input, 'object-storage', $services, fn($v, $serviceName, $service) => $this->validateObjectStorage($v, $serviceName, $service));
+        $errored = $errored || $objectStorageErrored;
         if ($errored) {
             return 1;
         }
@@ -171,7 +184,8 @@ class ResourcesSetCommand extends ResourcesCommandBase
         $showCompleteForm = $input->isInteractive()
             && $input->getOption('size') === []
             && $input->getOption('count') === []
-            && $input->getOption('disk') === [];
+            && $input->getOption('disk') === []
+            && $input->getOption('object-storage') === [];
 
         $updates = [];
         $current = [];
@@ -304,6 +318,14 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 }
             }
 
+            // Set the object storage size (apps only).
+            if ($service instanceof WebApp && isset($givenObjectStorage[$name])) {
+                $currentObject = $properties['resources']['disk']['object'] ?? null;
+                if ($givenObjectStorage[$name] !== $currentObject) {
+                    $updates[$group][$name]['resources']['disk']['object'] = $givenObjectStorage[$name];
+                }
+            }
+
             if ($headerShown) {
                 $this->stdErr->writeln('');
             }
@@ -432,15 +454,26 @@ class ResourcesSetCommand extends ResourcesCommandBase
             $newProperties = array_replace_recursive($properties, $updates);
 
             $newSizeInfo = $this->resourcesUtil->sizeInfo($newProperties, $containerProfiles);
-            $this->stdErr->writeln('    CPU: ' . $this->resourcesUtil->formatChange(
-                $this->resourcesUtil->formatCPU($sizeInfo ? $sizeInfo['cpu'] : null) . ' ' . $this->formatCPUType($sizeInfo),
-                $this->resourcesUtil->formatCPU($newSizeInfo['cpu']) . ' ' . $this->formatCPUType($newSizeInfo)
-            ));
-            $this->stdErr->writeln('    Memory: ' . $this->resourcesUtil->formatChange(
-                $sizeInfo ? $sizeInfo['memory'] : null,
-                $newSizeInfo['memory'],
-                ' MB',
-            ));
+            if ($newSizeInfo === null) {
+                // The requested profile_size isn't in the deployment's
+                // container_profiles catalog, so we can't show CPU/memory
+                // changes. Surface that rather than printing blank values.
+                $this->stdErr->writeln(sprintf(
+                    '    Size: <info>%s</info> (CPU/memory details unavailable for this profile size)',
+                    $updates['resources']['profile_size'],
+                ));
+            } else {
+                $previousCPU = $sizeInfo !== null
+                    ? $this->resourcesUtil->formatCPU($sizeInfo['cpu']) . ' ' . $this->formatCPUType($sizeInfo)
+                    : null;
+                $newCPU = $this->resourcesUtil->formatCPU($newSizeInfo['cpu']) . ' ' . $this->formatCPUType($newSizeInfo);
+                $this->stdErr->writeln('    CPU: ' . $this->resourcesUtil->formatChange($previousCPU, $newCPU));
+                $this->stdErr->writeln('    Memory: ' . $this->resourcesUtil->formatChange(
+                    $sizeInfo !== null ? $sizeInfo['memory'] : null,
+                    $newSizeInfo['memory'],
+                    ' MB',
+                ));
+            }
         }
         if (isset($updates['instance_count'])) {
             $this->stdErr->writeln('    Instance count: ' . $this->resourcesUtil->formatChange(
@@ -452,6 +485,13 @@ class ResourcesSetCommand extends ResourcesCommandBase
             $this->stdErr->writeln('    Disk: ' . $this->resourcesUtil->formatChange(
                 $properties['disk'] ?? null,
                 $updates['disk'],
+                ' MB',
+            ));
+        }
+        if (isset($updates['resources']['disk']['object'])) {
+            $this->stdErr->writeln('    Object storage: ' . $this->resourcesUtil->formatChange(
+                $properties['resources']['disk']['object'] ?? null,
+                $updates['resources']['disk']['object'],
                 ' MB',
             ));
         }
@@ -548,6 +588,30 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 $value,
                 $this->typeName($service),
                 $properties['resources']['minimum']['disk'],
+            ));
+        }
+        return $size;
+    }
+
+    /**
+     * Validates a given object storage size in MB.
+     *
+     * @throws InvalidArgumentException
+     */
+    protected function validateObjectStorage(string $value, string $serviceName, WebApp|Worker|Service $service): int
+    {
+        if (!$service instanceof WebApp) {
+            throw new InvalidArgumentException(sprintf(
+                'Object storage is only available on apps; <error>%s</error> is a %s.',
+                $serviceName,
+                $this->typeName($service),
+            ));
+        }
+        $size = (int) $value;
+        if ($size != $value || $value < 0) {
+            throw new InvalidArgumentException(sprintf(
+                'Invalid object storage size <error>%s</error>: it must be a non-negative integer in MB.',
+                $value,
             ));
         }
         return $size;

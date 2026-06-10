@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Tests\Service;
 
 use PHPUnit\Framework\TestCase;
+use Platformsh\Cli\Selector\Selection;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Service\Relationships;
 use Platformsh\Cli\Service\TunnelManager;
 use Platformsh\Cli\Tunnel\Tunnel;
+use Platformsh\Client\Model\Environment;
+use Platformsh\Client\Model\Project;
 
 class TunnelManagerTest extends TestCase
 {
@@ -93,6 +96,29 @@ class TunnelManagerTest extends TestCase
         $this->assertSame('web', $tunnel->metadata['appName']);
         $this->assertSame('redis', $tunnel->metadata['relationship']);
         $this->assertSame(1, $tunnel->metadata['serviceKey']);
+    }
+
+    public function testCreateCastsRemotePortToInt(): void
+    {
+        // Relationship data from the API delivers 'port' as a string, but
+        // Tunnel::$remotePort is typed int. Regression test for #72.
+        $selection = new Selection(
+            null,
+            new Project(['id' => 'proj1']),
+            new Environment(['id' => 'main']),
+            'app',
+        );
+        $service = [
+            'host' => 'database.internal',
+            'port' => '3306',
+            '_relationship_name' => 'database',
+            '_relationship_key' => 0,
+        ];
+
+        $tunnel = $this->createManager()->create($selection, $service, 30000);
+
+        $this->assertSame(3306, $tunnel->remotePort);
+        $this->assertSame(30000, $tunnel->localPort);
     }
 
     public function testUnserializeOldFormatDerivedIdIsStable(): void

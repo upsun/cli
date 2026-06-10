@@ -1,4 +1,4 @@
-PHP_VERSION = 8.4.16
+PHP_VERSION = 8.4.20
 
 GOOS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 GOARCH := $(shell uname -m)
@@ -155,3 +155,18 @@ vendor-snapshot: check-vendor .goreleaser.vendor.yaml goreleaser internal/legacy
 .PHONY: goreleaser-check
 goreleaser-check:  goreleaser ## Check the goreleaser configs
 	PHP_VERSION=$(PHP_VERSION) goreleaser check --config=.goreleaser.yaml
+
+# ----- npm distribution -----
+# See npm/README.md.
+
+.PHONY: npm-pack
+npm-pack: ## Build npm tarballs from existing GoReleaser archives in dist/
+	bash npm/scripts/build.sh
+
+.PHONY: npm-publish
+npm-publish: ## Publish npm tarballs (requires npm auth). NPM_TAG=latest|next, DRY_RUN=1 to dry-run
+	bash npm/scripts/publish.sh
+
+.PHONY: npm-clean
+npm-clean: ## Remove npm/dist working directory
+	rm -rf npm/dist

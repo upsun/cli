@@ -56,12 +56,14 @@ class DbDumpCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        // The environment is only optional when running inside a container,
+        // where the database can be selected via local relationships.
+        $hasLocalEnvVar = $this->relationships->hasLocalEnvVar();
         $selectorConfig = new SelectorConfig(
-            envRequired: false,
-            allowLocalHost: $this->relationships->hasLocalEnvVar(),
+            envRequired: !$hasLocalEnvVar,
+            allowLocalHost: $hasLocalEnvVar,
             chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive(),
         );
-        // TODO check if this still allows offline use from the container
         $selection = $this->selector->getSelection($input, $selectorConfig);
         $host = $this->selector->getHostFromSelection($input, $selection);
 
@@ -223,6 +225,13 @@ class DbDumpCommand extends CommandBase
                     . $this->relationships->getDbCommandArgs($cmdName, $database, $schema);
                 if ($schemaOnly) {
                     $dumpCommand .= ' --no-data';
+                }
+                if ($this->relationships->isOracleDB($database)) {
+                    // For oracle-mysql, skip tablespace dumping: the PROCESS
+                    // privilege is required to dump tablespaces and we don't
+                    // have it.
+                    // https://dev.mysql.com/doc/refman/8.0/en/mysqldump.html#option_mysqldump_no-tablespaces
+                    $dumpCommand .= ' --no-tablespaces';
                 }
                 foreach ($excludedTables as $table) {
                     $dumpCommand .= ' ' . OsUtil::escapePosixShellArg(sprintf('--ignore-table=%s.%s', $database['path'], $table));

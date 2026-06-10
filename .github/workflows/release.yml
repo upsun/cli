@@ -4,19 +4,6 @@ on:
   push:
     tags:
       - "v[0-9]*"
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Tag to release (must already be pushed, e.g. v5.10.0-rc1)"
-        required: true
-      upload_taps:
-        description: "Upload to Homebrew/Scoop taps (overrides pre-release skip)"
-        type: boolean
-        default: false
-      upload_repos:
-        description: "Upload to package repositories via repogen (overrides pre-release skip)"
-        type: boolean
-        default: false
 
 permissions:
   contents: write
@@ -37,8 +24,9 @@ jobs:
     steps:
       - name: Resolve tag
         id: tag
+        env:
+          TAG: ${{ github.ref_name }}
         run: |
-          TAG="${{ inputs.tag || github.ref_name }}"
           if ! echo "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$'; then
             echo "::error::Tag '$TAG' does not match semver format (vMAJOR.MINOR.PATCH)"
             exit 1
@@ -51,7 +39,7 @@ jobs:
           fi
 
       - name: Check out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ steps.tag.outputs.tag }}
           fetch-depth: 0
@@ -73,7 +61,7 @@ jobs:
         run: echo "dir=$(cd legacy && composer config cache-files-dir)" >> $GITHUB_OUTPUT
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-${{ hashFiles('legacy/composer.lock') }}
@@ -93,7 +81,7 @@ jobs:
           echo "repogen=$(grep '^REPOGEN_VERSION' Makefile | cut -d= -f2 | tr -d ' ')" >> $GITHUB_OUTPUT
 
       - name: Cache PHP binaries
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: php-cache
         with:
           path: internal/legacy/archives/php_*
@@ -115,7 +103,7 @@ jobs:
           chmod 600 "$KEY_DIR/gpg-signing-key.asc"
 
       - name: Cache Go binaries
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/go/bin
           key: ${{ runner.os }}-go-bin-goreleaser-${{ steps.tool-versions.outputs.goreleaser }}-repogen-${{ steps.tool-versions.outputs.repogen }}
@@ -125,15 +113,13 @@ jobs:
 
       - name: Generate GitHub App token for homebrew-tap
         id: app-token
-        if: startsWith(github.ref, 'refs/tags/') || inputs.tag
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           repositories: homebrew-tap
 
-      - name: Build release (tag)
-        if: startsWith(github.ref, 'refs/tags/') || inputs.tag
+      - name: Build release
         env:
           GORELEASER_CURRENT_TAG: ${{ steps.tag.outputs.tag }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -141,26 +127,19 @@ jobs:
           RSA_SIGNING_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/rsa-signing-key.pem
           GPG_SIGNING_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/gpg-signing-key.asc
           CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
-          SKIP_UPLOAD_TAPS: ${{ inputs.upload_taps == true && 'false' || 'auto' }}
+          SKIP_UPLOAD_TAPS: auto
         run: make release
 
-      - name: Build snapshot (branch)
-        if: "!startsWith(github.ref, 'refs/tags/') && !inputs.tag"
-        env:
-          RSA_SIGNING_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/rsa-signing-key.pem
-          GPG_SIGNING_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/gpg-signing-key.asc
-        run: make snapshot
-
       - name: Configure AWS credentials
-        if: steps.tag.outputs.is_prerelease == 'false' || inputs.upload_repos == true
-        uses: aws-actions/configure-aws-credentials@v4
+        if: steps.tag.outputs.is_prerelease == 'false'
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-1
 
       - name: Upload packages to repository
-        if: steps.tag.outputs.is_prerelease == 'false' || inputs.upload_repos == true
+        if: steps.tag.outputs.is_prerelease == 'false'
         env:
           GPG_PRIVATE_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/gpg-signing-key.asc
           RSA_PRIVATE_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/rsa-signing-key.pem
@@ -171,6 +150,48 @@ jobs:
         if: always()
         run: |
           rm -rf "${{ steps.signing-keys.outputs.key_dir }}"
+
+  npm:
+    runs-on: ubuntu-latest
+    needs: release
+    environment: production
+    permissions:
+      contents: read # gh release download
+      id-token: write # OIDC token for npm trusted publishing
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      # registry-url is deliberately unset: it would write an .npmrc authToken
+      # line bound to NODE_AUTH_TOKEN, and an empty token there shadows OIDC.
+      # Node 24 bundles npm >= 11.5.1, which OIDC trusted publishing requires.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Download release archives
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          mkdir -p dist
+          gh release download "$TAG" --repo "$REPO" --dir dist \
+            -p 'upsun_*_linux_amd64.tar.gz' \
+            -p 'upsun_*_linux_arm64.tar.gz' \
+            -p 'upsun_*_darwin_all.tar.gz' \
+            -p 'upsun_*_windows_amd64.zip'
+
+      - name: Build npm tarballs
+        run: make npm-pack
+
+      - name: Publish to npm
+        env:
+          NPM_TAG: ${{ needs.release.outputs.is_prerelease == 'true' && 'next' || 'latest' }}
+        run: make npm-publish
 
   docker:
     runs-on: ${{ matrix.runner }}
@@ -189,17 +210,17 @@ jobs:
       packages: write
     steps:
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: https://github.com/${{ github.repository }}.git#${{ needs.release.outputs.tag }}
           platforms: ${{ matrix.platform }}
@@ -218,7 +239,7 @@ jobs:
       packages: write
     steps:
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
