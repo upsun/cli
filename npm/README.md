@@ -44,7 +44,21 @@ make npm-pack           # reads dist/, writes npm/dist/*.tgz
 The build script resolves the version from the GoReleaser archive
 filenames. Override with `VERSION=...` if you need to.
 
-## Publish
+## Automated publishing (CI)
+
+The `npm` job in `.github/workflows/release.yml` publishes automatically on
+every release tag: it downloads the release archives, runs `make npm-pack`,
+and runs `make npm-publish`. Prerelease tags publish under the `next`
+dist-tag; full releases under `latest`.
+
+Auth uses npm [trusted publishing](https://docs.npmjs.com/trusted-publishers)
+(OIDC) — no stored token, and provenance is generated automatically. This
+requires a one-time setup on npmjs.com: for each of the five packages, add a
+GitHub Actions trusted publisher pointing at repository `upsun/cli`, workflow
+`release.yml`, environment `production`. The job runs npm >= 11.5.1 (required
+for OIDC) and has `id-token: write`.
+
+## Manual publishing (fallback)
 
 ```sh
 make npm-publish              # publish all five packages in lockstep
@@ -56,9 +70,10 @@ The script publishes platform packages first, then the wrapper, so the
 registry is never in a state where the wrapper points at platform
 packages that don't yet exist.
 
-Auth is via the standard npm mechanism: `~/.npmrc` with a token, or the
-`actions/setup-node` action in CI populating one for you from
-`NODE_AUTH_TOKEN`. The `--access public` flag is set so first-time
+Run this in an interactive terminal: the npm account uses passkey-based MFA,
+so `npm publish` prompts for a one-time password and fails with `EOTP` when
+run non-interactively. Auth is via the standard npm mechanism: `~/.npmrc` with
+a token, or `npm login`. The `--access public` flag is set so first-time
 publishes of scoped packages do not get marked private.
 
 ## Versioning

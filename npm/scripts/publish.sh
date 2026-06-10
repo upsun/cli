@@ -6,9 +6,10 @@
 #   NPM_TAG      dist-tag, e.g. "latest" or "next". Default: "latest"
 #   DRY_RUN      1 to run npm publish --dry-run. Default: 0
 #
-# Auth: requires ~/.npmrc to have a working //registry.npmjs.org/:_authToken,
-# or NODE_AUTH_TOKEN set with a registry-url-configured ~/.npmrc (the
-# setup-node action handles this in CI).
+# Auth: in CI this runs under npm OIDC trusted publishing (no token; npm
+# exchanges a GitHub Actions OIDC token automatically). Run by hand, it uses
+# the standard npm mechanism: ~/.npmrc with a //registry.npmjs.org/:_authToken,
+# or `npm login`. Note `npm login` needs an interactive terminal (passkey MFA).
 #
 # Order: platform packages first, then wait for them to become visible
 # in the public registry, then publish the wrapper. The wait matters:
@@ -63,10 +64,50 @@ done
 
 publish_one() {
   local tarball="$1"
+  # Re-derive name+version from the tarball so this stays self-contained.
+  local pkg_json name version
+  pkg_json=$(tar -xzOf "$tarball" package/package.json)
+  name=$(awk -F'"' '/"name":/ { print $4; exit }' <<<"$pkg_json")
+  version=$(awk -F'"' '/"version":/ { print $4; exit }' <<<"$pkg_json")
+
+  # Idempotent re-run: skip versions already on the registry. A publish can
+  # fail partway (e.g. a transient Sigstore transparency-log error during
+  # provenance signing) after some packages are already up; re-running then
+  # finishes the rest instead of erroring on "cannot publish over existing".
+  # Skipped in dry-run so `npm publish --dry-run` still validates the tarball
+  # (and surfaces a version that was not bumped).
+  if [ "${DRY_RUN}" != "1" ] && npm view "${name}@${version}" version >/dev/null 2>&1; then
+    echo "  ${name}@${version} already published; skipping"
+    return 0
+  fi
+
   local args=(publish "$tarball" --access public --tag "${NPM_TAG}")
   if [ "${DRY_RUN}" = "1" ]; then args+=(--dry-run); fi
-  echo "  npm ${args[*]}"
-  npm "${args[@]}"
+
+  # Retry transient failures. npm provenance signing hits Sigstore's public
+  # Rekor log, which intermittently returns errors; each attempt regenerates a
+  # fresh signature, so a retry clears them. A publish-conflict is not
+  # transient: the version is already there (e.g. published by a prior attempt
+  # that `npm view` had not yet caught up to), so treat it as success rather
+  # than retrying to failure.
+  local attempt out rc
+  for attempt in 1 2 3; do
+    echo "  npm ${args[*]} (attempt ${attempt})"
+    # Capture inside `if` so `set -e` does not abort on a failed attempt.
+    if out=$(npm "${args[@]}" 2>&1); then rc=0; else rc=$?; fi
+    printf '%s\n' "$out"
+    if [ "$rc" -eq 0 ]; then return 0; fi
+    if printf '%s' "$out" | grep -qiE 'EPUBLISHCONFLICT|cannot publish over'; then
+      echo "  ${name}@${version} already published; treating as success"
+      return 0
+    fi
+    if [ "${attempt}" -lt 3 ]; then
+      echo "  publish of ${name}@${version} failed; retrying in $((attempt * 10))s" >&2
+      sleep $((attempt * 10))
+    fi
+  done
+  echo "publish.sh: giving up on ${name}@${version} after 3 attempts" >&2
+  return 1
 }
 
 wait_visible() {
