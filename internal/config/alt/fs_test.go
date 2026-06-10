@@ -161,6 +161,29 @@ func TestFindBinDir(t *testing.T) {
 		assert.Equal(t, xdgBin, result)
 	})
 
+	t.Run("writable but non-searchable PATH entry is skipped", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("running as root; cannot create a non-searchable directory")
+		}
+		tempDir := t.TempDir()
+		// Write permission without the search (execute) bit is not enough to create files.
+		noSearchBin := filepath.Join(tempDir, ".local", "bin")
+		writableBin := filepath.Join(tempDir, "bin")
+		require.NoError(t, os.MkdirAll(noSearchBin, 0o755))
+		require.NoError(t, os.MkdirAll(writableBin, 0o755))
+		require.NoError(t, os.Chmod(noSearchBin, 0o655))
+		t.Cleanup(func() { _ = os.Chmod(noSearchBin, 0o755) })
+
+		t.Setenv("HOME", tempDir)
+		t.Setenv("PATH", noSearchBin+string(os.PathListSeparator)+writableBin)
+		t.Setenv("XDG_BIN_HOME", "")
+		setExe(filepath.Join(tempDir, "exe"))
+
+		result, err := FindBinDir()
+		assert.NoError(t, err)
+		assert.Equal(t, writableBin, result)
+	})
+
 	t.Run("non-writable PATH entry is skipped", func(t *testing.T) {
 		if os.Geteuid() == 0 {
 			t.Skip("running as root; cannot create a non-writable directory")
