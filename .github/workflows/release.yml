@@ -168,7 +168,7 @@ jobs:
       # line bound to NODE_AUTH_TOKEN, and an empty token there shadows OIDC.
       # Node 24 bundles npm >= 11.5.1, which OIDC trusted publishing requires.
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
 
