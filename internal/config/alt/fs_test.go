@@ -184,6 +184,70 @@ func TestFindBinDir(t *testing.T) {
 	})
 }
 
+func TestBinDirAllowlist(t *testing.T) {
+	homeDir := string(filepath.Separator) + filepath.Join("home", "u")
+	xdgBin := string(filepath.Separator) + filepath.Join("custom", "bin")
+
+	cases := []struct {
+		goos       string
+		xdgBinHome string
+		expected   []string
+	}{
+		{
+			goos:       "linux",
+			xdgBinHome: xdgBin,
+			expected: []string{
+				xdgBin,
+				filepath.Join(homeDir, ".local", "bin"),
+				filepath.Join(homeDir, "bin"),
+			},
+		},
+		{
+			goos:       "darwin",
+			xdgBinHome: xdgBin,
+			expected: []string{
+				xdgBin,
+				"/usr/local/bin",
+				filepath.Join(homeDir, ".local", "bin"),
+				filepath.Join(homeDir, "bin"),
+			},
+		},
+		{
+			goos:       "windows",
+			xdgBinHome: xdgBin,
+			expected: []string{
+				xdgBin,
+				filepath.Join(homeDir, "scoop", "shims"),
+				filepath.Join(homeDir, "AppData", "Local", "Programs"),
+				filepath.Join(homeDir, ".local", "bin"),
+			},
+		},
+		{
+			goos:       "linux",
+			xdgBinHome: "",
+			expected: []string{
+				filepath.Join(homeDir, ".local", "bin"),
+				filepath.Join(homeDir, "bin"),
+			},
+		},
+		{
+			goos:       "linux",
+			xdgBinHome: filepath.Join(homeDir, ".local", "bin"),
+			expected: []string{
+				filepath.Join(homeDir, ".local", "bin"),
+				filepath.Join(homeDir, "bin"),
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.goos+" XDG_BIN_HOME="+c.xdgBinHome, func(t *testing.T) {
+			t.Setenv("XDG_BIN_HOME", c.xdgBinHome)
+			assert.Equal(t, c.expected, binDirAllowlist(c.goos, homeDir))
+		})
+	}
+}
+
 func TestFSHelpers(t *testing.T) {
 	tempDir := t.TempDir()
 

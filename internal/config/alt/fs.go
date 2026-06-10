@@ -57,7 +57,7 @@ func FindBinDir() (string, error) {
 		return "", fmt.Errorf("could not determine home directory: %w", err)
 	}
 
-	candidates := binDirAllowlist(homeDir)
+	candidates := binDirAllowlist(runtime.GOOS, homeDir)
 	pathValue := os.Getenv("PATH")
 	matchExe := exeMatcher(homeDir)
 
@@ -106,26 +106,27 @@ func exeMatcher(homeDir string) func(string) bool {
 	}
 }
 
-func binDirAllowlist(homeDir string) []string {
+func binDirAllowlist(goos, homeDir string) []string {
+	// An explicitly set XDG_BIN_HOME is the strongest user signal, so it comes first on every OS.
 	xdgBinHome := os.Getenv("XDG_BIN_HOME")
 
 	// Homebrew bin directories (/opt/homebrew/bin on macOS, /home/linuxbrew/.linuxbrew/bin on
 	// Linux) are deliberately omitted: those directories are managed by Homebrew, and we should
 	// not deposit binaries there.
 	var raw []string
-	switch runtime.GOOS {
+	switch goos {
 	case "darwin":
 		raw = []string{
-			"/usr/local/bin",
 			xdgBinHome,
+			"/usr/local/bin",
 			filepath.Join(homeDir, ".local", "bin"),
 			filepath.Join(homeDir, "bin"),
 		}
 	case "windows":
 		raw = []string{
+			xdgBinHome,
 			filepath.Join(homeDir, "scoop", "shims"),
 			filepath.Join(homeDir, "AppData", "Local", "Programs"),
-			xdgBinHome,
 			filepath.Join(homeDir, ".local", "bin"),
 		}
 	default:
