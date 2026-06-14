@@ -10,7 +10,9 @@ import (
 
 type State struct {
 	Updates struct {
-		LastChecked int64 `json:"last_checked"`
+		LastChecked        int64  `json:"last_checked"`
+		LastNotified       int64  `json:"last_notified,omitempty"`
+		KnownLatestVersion string `json:"known_latest_version,omitempty"`
 	} `json:"updates,omitempty"`
 
 	ConfigUpdates struct {
