@@ -21,7 +21,7 @@ namespace Platformsh\Client\Model;
  * @property-read string|null $completed_at
  * @property-read string|null $cancelled_at
  * @property-read string|null $expires_at
- * @property-read array       $parameters
+ * @property-read array<string, mixed> $parameters
  * @property-read string      $project
  * @property-read string|null $integration
  * @property-read string      $state
@@ -29,9 +29,9 @@ namespace Platformsh\Client\Model;
  * @property-read string      $type
  * @property-read string|null $description
  * @property-read string|null $text
- * @property-read array       $payload
- * @property-read array       $timings
- * @property-read array       $commands
+ * @property-read array<string, mixed> $payload
+ * @property-read array<string, mixed> $timings
+ * @property-read array<string, mixed> $commands
  */
 class Activity
 {
