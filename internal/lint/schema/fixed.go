@@ -16,16 +16,16 @@ var (
 	//go:embed platformsh.services.json
 	servicesSchema []byte
 
-	fixedOnce        sync.Once
-	parsedApplicaton *gojsonschema.Schema
-	parsedRoutes     *gojsonschema.Schema
-	parsedServices   *gojsonschema.Schema
-	fixedErr         error
+	fixedOnce         sync.Once
+	parsedApplication *gojsonschema.Schema
+	parsedRoutes      *gojsonschema.Schema
+	parsedServices    *gojsonschema.Schema
+	fixedErr          error
 )
 
 func loadFixed() error {
 	fixedOnce.Do(func() {
-		if parsedApplicaton, fixedErr = gojsonschema.NewSchema(
+		if parsedApplication, fixedErr = gojsonschema.NewSchema(
 			gojsonschema.NewBytesLoader(applicationSchema)); fixedErr != nil {
 			return
 		}
@@ -43,7 +43,7 @@ func LoadApplication() (*gojsonschema.Schema, error) {
 	if err := loadFixed(); err != nil {
 		return nil, err
 	}
-	return parsedApplicaton, nil
+	return parsedApplication, nil
 }
 
 // LoadRoutes loads the Fixed-style routes (.platform/routes.yaml) schema.

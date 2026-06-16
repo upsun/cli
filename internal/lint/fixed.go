@@ -74,7 +74,8 @@ func lintFixed(_ context.Context, dir string) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	return Combine(result, checks), nil
+	result.Merge(checks)
+	return result, nil
 }
 
 // loadFixedApplications collects applications from .platform.app.yaml files and
@@ -109,7 +110,7 @@ func loadFixedApplications(dir string, result *Result) (map[string]any, error) {
 			result.AddError(source, "this looks like Flex (.upsun) configuration in a Fixed-style file")
 			continue
 		}
-		*result = *Combine(result, CheckSchemaScoped(data, appSchema, source))
+		result.Merge(CheckSchemaScoped(data, appSchema, source))
 		add(fixedAppName(data), source, data)
 	}
 
@@ -137,7 +138,7 @@ func loadFixedApplications(dir string, result *Result) (map[string]any, error) {
 				continue
 			}
 			src := fmt.Sprintf(".platform/applications.yaml[%d]", i)
-			*result = *Combine(result, CheckSchemaScoped(data, appSchema, src))
+			result.Merge(CheckSchemaScoped(data, appSchema, src))
 			add(fixedAppName(data), src, data)
 		}
 	case map[string]any:
@@ -150,12 +151,14 @@ func loadFixedApplications(dir string, result *Result) (map[string]any, error) {
 				result.AddError(".platform/applications.yaml: "+name, "application must be a map")
 				continue
 			}
-			// In map form the name comes from the key, not the value.
-			if _, ok := data["name"]; !ok {
-				data["name"] = name
-			}
 			src := ".platform/applications.yaml: " + name
-			*result = *Combine(result, CheckSchemaScoped(data, appSchema, src))
+			// In map form the name comes from the key and must not be set in the value.
+			if _, ok := data["name"]; ok {
+				result.AddError(src, "the application name must not be set here; it is taken from the key")
+				continue
+			}
+			data["name"] = name
+			result.Merge(CheckSchemaScoped(data, appSchema, src))
 			add(name, src, data)
 		}
 	case nil:
@@ -195,7 +198,7 @@ func loadFixedSection(
 	if err != nil {
 		return nil, fmt.Errorf("failed to load %s schema: %w", file, err)
 	}
-	*result = *Combine(result, CheckSchemaScoped(data, sch, ".platform/"+file))
+	result.Merge(CheckSchemaScoped(data, sch, ".platform/"+file))
 	return data, nil
 }
 
@@ -228,23 +231,11 @@ func hasAnyKey(m map[string]any, keys []string) bool {
 	return false
 }
 
+// toStringMap asserts that v is a YAML map. yaml.v3 always decodes mappings to
+// map[string]any, so a plain type assertion suffices.
 func toStringMap(v any) (map[string]any, bool) {
-	switch m := v.(type) {
-	case map[string]any:
-		return m, true
-	case map[any]any:
-		out := make(map[string]any, len(m))
-		for k, val := range m {
-			ks, ok := k.(string)
-			if !ok {
-				return nil, false
-			}
-			out[ks] = val
-		}
-		return out, true
-	default:
-		return nil, false
-	}
+	m, ok := v.(map[string]any)
+	return m, ok
 }
 
 // relTo returns abs relative to dir, falling back to abs on error.

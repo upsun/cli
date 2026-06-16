@@ -98,6 +98,15 @@ func (r *Result) String() string {
 	return r.formatResult(true)
 }
 
+// Merge appends another result's errors and warnings into this one.
+func (r *Result) Merge(other *Result) {
+	if other == nil {
+		return
+	}
+	r.Errors = append(r.Errors, other.Errors...)
+	r.Warnings = append(r.Warnings, other.Warnings...)
+}
+
 // Combine combines a list of validation results.
 func Combine(results ...*Result) *Result {
 	result := &Result{}

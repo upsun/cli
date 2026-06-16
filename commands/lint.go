@@ -1,11 +1,13 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -20,9 +22,9 @@ var errLintFailed = errors.New("")
 
 func newLintCommand(cnf *config.Config) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:           "lint [path]",
+		Use:           "app:config-validate [path]",
 		Short:         "Validate project configuration",
-		Aliases:       []string{"validate", "app:config-validate"},
+		Aliases:       []string{"lint", "validate"},
 		Args:          cobra.MaximumNArgs(1),
 		SilenceErrors: true,
 		SilenceUsage:  true,
@@ -48,26 +50,29 @@ func runLint(cmd *cobra.Command, args []string) error {
 }
 
 func lintInput(cmd *cobra.Command, args []string) (*lint.Result, string, error) {
-	useStdin, _ := cmd.Flags().GetBool("stdin")
+	explicitStdin, _ := cmd.Flags().GetBool("stdin")
 	format, _ := cmd.Flags().GetString("format")
 	if format != "text" && format != "json" {
 		return nil, "", fmt.Errorf("invalid --format %q: must be \"text\" or \"json\"", format)
 	}
 
-	if !useStdin && len(args) == 0 {
-		if stat, err := os.Stdin.Stat(); err == nil && (stat.Mode()&os.ModeCharDevice) == 0 {
-			useStdin = true
-		}
+	ctx := cmd.Context()
+	if explicitStdin {
+		result, err := lintStdin(ctx, cmd)
+		return result, format, err
 	}
 
-	ctx := cmd.Context()
-	if useStdin {
+	// With no path argument, lint piped stdin if it carries content; otherwise
+	// (e.g. a non-interactive shell or CI with no input) fall back to the directory.
+	if len(args) == 0 && stdinIsPiped() {
 		content, err := io.ReadAll(cmd.InOrStdin())
 		if err != nil {
 			return nil, format, err
 		}
-		result, err := lint.CheckContent(ctx, string(content))
-		return result, format, err
+		if strings.TrimSpace(string(content)) != "" {
+			result, err := lint.CheckContent(ctx, string(content))
+			return result, format, err
+		}
 	}
 
 	path := "."
@@ -76,6 +81,21 @@ func lintInput(cmd *cobra.Command, args []string) (*lint.Result, string, error) 
 	}
 	result, _, err := lint.CheckDir(ctx, path)
 	return result, format, err
+}
+
+// lintStdin reads configuration from standard input and lints it.
+func lintStdin(ctx context.Context, cmd *cobra.Command) (*lint.Result, error) {
+	content, err := io.ReadAll(cmd.InOrStdin())
+	if err != nil {
+		return nil, err
+	}
+	return lint.CheckContent(ctx, string(content))
+}
+
+// stdinIsPiped reports whether standard input is a pipe or file rather than a terminal.
+func stdinIsPiped() bool {
+	stat, err := os.Stdin.Stat()
+	return err == nil && (stat.Mode()&os.ModeCharDevice) == 0
 }
 
 func printLintResult(cmd *cobra.Command, result *lint.Result, format string) error {

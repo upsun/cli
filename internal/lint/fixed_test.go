@@ -64,6 +64,15 @@ type: "php:999"`,
 			wantErrors: []string{"at least 1 route must be defined when multiple applications are defined"},
 		},
 		{
+			name: "applications.yaml map form must not set name in value",
+			files: map[string]string{
+				".platform/applications.yaml": `frontend:
+  name: frontend
+  type: "php:8.3"`,
+			},
+			wantErrors: []string{"the application name must not be set here"},
+		},
+		{
 			name: "wrong style guard",
 			files: map[string]string{
 				".platform.app.yaml": `applications:
