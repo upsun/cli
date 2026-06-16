@@ -9,6 +9,9 @@ import (
 // ChannelStable is the current stable NixOS channel, used for composable images.
 const ChannelStable = "25.11"
 
+// registry.json is generated from https://meta.upsun.com/images by gen.go.
+//
+//go:generate go run gen.go
 //go:embed registry.json
 var Data []byte
 

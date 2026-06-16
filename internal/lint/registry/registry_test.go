@@ -14,6 +14,9 @@ func TestRegistry(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, reg)
 	assert.Contains(t, reg, "golang")
-	assert.Contains(t, reg["golang"].Versions.Supported, "1.24")
+	// Don't assert a specific version, which drifts as the registry is refreshed.
+	assert.NotEmpty(t, reg["golang"].Versions.Supported)
+	assert.True(t, reg["golang"].IsRuntime)
+	// redis-persistent is added by clean().
 	assert.Contains(t, reg, "redis-persistent")
 }

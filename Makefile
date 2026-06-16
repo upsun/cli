@@ -132,6 +132,23 @@ lint-gomod:
 lint-golangci:
 	golangci-lint run --timeout=2m
 
+# Embedded lint assets, refreshed from upstream.
+# - registry.json: transformed from https://meta.upsun.com/images by gen.go.
+# - upsun-config-schema.json and the platformsh.*.json schemas: from platformify.
+PLATFORMIFY_SCHEMA_URL = https://raw.githubusercontent.com/platformsh/platformify/refs/heads/main/validator/schema
+
+.PHONY: lint-assets
+lint-assets: ## Refresh the embedded lint registry and schemas from upstream
+	cd internal/lint/registry && GOEXPERIMENT=jsonv2 go run gen.go
+	curl -sfSL $(PLATFORMIFY_SCHEMA_URL)/upsun.json -o internal/lint/schema/upsun-config-schema.json
+	curl -sfSL $(PLATFORMIFY_SCHEMA_URL)/platformsh.application.json -o internal/lint/schema/platformsh.application.json
+	curl -sfSL $(PLATFORMIFY_SCHEMA_URL)/platformsh.routes.json -o internal/lint/schema/platformsh.routes.json
+	curl -sfSL $(PLATFORMIFY_SCHEMA_URL)/platformsh.services.json -o internal/lint/schema/platformsh.services.json
+
+.PHONY: lint-assets-check
+lint-assets-check: lint-assets ## Fail if the embedded lint assets are stale
+	git diff --exit-code -- internal/lint/registry/registry.json internal/lint/schema
+
 .goreleaser.vendor.yaml: check-vendor ## Generate the goreleaser vendor config
 	cat .goreleaser.vendor.yaml.tpl | envsubst > .goreleaser.vendor.yaml
 
