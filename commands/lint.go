@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -55,7 +55,8 @@ func runLint(cmd *cobra.Command, args []string, vendor lint.Vendor) error {
 	result, format, err := lintInput(cmd, args, vendor)
 	if err != nil {
 		// Print operational errors ourselves, since the command silences errors.
-		fmt.Fprintln(cmd.ErrOrStderr(), color.RedString(err.Error()))
+		// Go error strings are lowercase by convention; capitalize for display.
+		fmt.Fprintln(cmd.ErrOrStderr(), color.RedString(capitalizeFirst(err.Error())))
 		return errLintFailed
 	}
 	return printLintResult(cmd, result, format)
@@ -92,11 +93,21 @@ func lintInput(cmd *cobra.Command, args []string, vendor lint.Vendor) (*lint.Res
 		path = args[0]
 	}
 	root := lint.FindProjectRoot(path)
-	if abs, err := filepath.Abs(path); err == nil && abs != root {
-		fmt.Fprintln(cmd.ErrOrStderr(), color.New(color.Faint).Sprintf("Linting project root: %s", root))
+	if format == "text" {
+		fmt.Fprintln(cmd.ErrOrStderr(), "Validating configuration in directory: "+color.CyanString(root))
 	}
 	result, _, err := lint.CheckDir(ctx, root, vendor)
 	return result, format, err
+}
+
+// capitalizeFirst upper-cases the first rune of s for user-facing display.
+func capitalizeFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	r := []rune(s)
+	r[0] = unicode.ToUpper(r[0])
+	return string(r)
 }
 
 // lintStdin reads configuration from standard input and lints it.
@@ -132,14 +143,23 @@ func printLintResult(cmd *cobra.Command, result *lint.Result, format string) err
 	}
 
 	w := cmd.ErrOrStderr()
+	printIssueSection(w, color.New(color.FgRed, color.Bold), "Linter errors:", result.ErrorLines())
+	printIssueSection(w, color.New(color.FgYellow, color.Bold), "Linter warnings:", result.WarningLines())
 	if result.HasErrors() {
-		fmt.Fprintln(w, color.RedString(result.String()))
 		return errLintFailed
 	}
-	if result.HasWarnings() {
-		fmt.Fprintln(w, color.YellowString(result.String()))
-		return nil
+	if !result.HasWarnings() {
+		fmt.Fprintln(w, color.GreenString("✓")+" The configuration is valid.")
 	}
-	fmt.Fprintln(w, color.GreenString("✓ The configuration is valid."))
 	return nil
+}
+
+// printIssueSection prints a colored heading followed by the issue lines in the
+// default color. It is a no-op when there are no lines.
+func printIssueSection(w io.Writer, heading *color.Color, title string, lines []string) {
+	if len(lines) == 0 {
+		return
+	}
+	fmt.Fprintln(w, heading.Sprint(title))
+	fmt.Fprintln(w, strings.Join(lines, "\n"))
 }

@@ -44,13 +44,14 @@ func (r *Result) HasWarnings() bool {
 	return len(r.Warnings) > 0
 }
 
-// formatIssues formats a list of validation issues with a given prefix.
-func formatIssues(issues []Issue, prefix string) []string {
+// issueLines formats a list of validation issues into sorted lines, without a
+// heading. Callers that want a heading prepend their own (see formatIssues).
+func issueLines(issues []Issue) []string {
 	if len(issues) == 0 {
 		return nil
 	}
 
-	var messages []string
+	messages := make([]string, 0, len(issues))
 	for _, issue := range issues {
 		if issue.Path != "" {
 			messages = append(messages, fmt.Sprintf("  - %s: %s", issue.Path, issue.Message))
@@ -61,9 +62,22 @@ func formatIssues(issues []Issue, prefix string) []string {
 
 	// Sort the issue messages for consistent ordering.
 	sort.Strings(messages)
+	return messages
+}
 
-	// Add prefix at the beginning.
-	return append([]string{prefix}, messages...)
+// ErrorLines returns the formatted, sorted error lines without a heading.
+func (r *Result) ErrorLines() []string { return issueLines(r.Errors) }
+
+// WarningLines returns the formatted, sorted warning lines without a heading.
+func (r *Result) WarningLines() []string { return issueLines(r.Warnings) }
+
+// formatIssues formats a list of validation issues with a given prefix.
+func formatIssues(issues []Issue, prefix string) []string {
+	lines := issueLines(issues)
+	if lines == nil {
+		return nil
+	}
+	return append([]string{prefix}, lines...)
 }
 
 // formatResult formats all lint issues with appropriate capitalization.
