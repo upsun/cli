@@ -94,7 +94,7 @@ services:
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := Lint(context.Background(), tc.content)
+			result, err := LintContent(context.Background(), tc.content)
 			assert.NoError(t, err)
 
 			if tc.wantErr {

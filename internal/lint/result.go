@@ -14,8 +14,8 @@ type Result struct {
 
 // Issue represents a single linting problem with its location in the content.
 type Issue struct {
-	Path    string // e.g., "applications.foo.type", "services.database"
-	Message string
+	Path    string `json:"path"` // e.g., "applications.foo.type", "services.database"
+	Message string `json:"message"`
 }
 
 // AddError adds an error to the linter result.

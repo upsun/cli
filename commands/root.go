@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
-	"github.com/platformsh/platformify/commands"
 	"github.com/platformsh/platformify/vendorization"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -133,22 +132,14 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 			" This implies --no-interaction. Ignored in verbose mode.",
 	)
 
-	validateCmd := commands.NewValidateCommand(assets)
-	validateCmd.Use = "app:config-validate"
-	validateCmd.Aliases = []string{"validate", "lint"}
-	validateCmd.SetHelpFunc(func(_ *cobra.Command, _ []string) {
-		internalCmd := innerAppConfigValidateCommand(cnf)
-		fmt.Println(internalCmd.HelpPage(cnf))
-	})
-
 	// Add subcommands.
 	cmd.AddCommand(
 		newConfigInstallCommand(),
 		newCompletionCommand(cnf),
 		newHelpCommand(cnf),
 		newInitCommand(cnf, assets),
+		newLintCommand(cnf),
 		newListCommand(cnf),
-		validateCmd,
 		versionCommand,
 	)
 	if cnf.Service.ProjectConfigFlavor == "upsun" {
