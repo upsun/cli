@@ -53,7 +53,7 @@ func CheckRoutes(cfg *Config) *Result {
 		// Check if the target exists
 		if !validTargets[targetName] {
 			// Build a helpful error message listing available targets
-			var availableTargets []string
+			availableTargets := make([]string, 0, len(validTargets))
 			for target := range validTargets {
 				availableTargets = append(availableTargets, target)
 			}

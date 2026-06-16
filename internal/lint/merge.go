@@ -35,9 +35,9 @@ func findUpsunConfigFiles(fsys fs.FS, path string) ([]string, error) {
 // If a key is duplicated across files, it returns an error. Returns the merged YAML as a string.
 func mergeConfigFiles(fsys fs.FS, files []string) (string, error) {
 	merged := map[string]map[string]any{
-		"applications": {},
-		"routes":       {},
-		"services":     {},
+		keyApplications: {},
+		keyRoutes:       {},
+		keyServices:     {},
 	}
 	for _, file := range files {
 		b, err := fs.ReadFile(fsys, file)
@@ -48,7 +48,7 @@ func mergeConfigFiles(fsys fs.FS, files []string) (string, error) {
 		if err := yaml.Unmarshal(b, &doc); err != nil {
 			return "", fmt.Errorf("failed to parse YAML in %s: %w", file, err)
 		}
-		for _, key := range []string{"applications", "routes", "services"} {
+		for _, key := range []string{keyApplications, keyRoutes, keyServices} {
 			if section, ok := doc[key]; ok && section != nil {
 				sectionMap, ok := section.(map[string]any)
 				if !ok {
@@ -64,7 +64,7 @@ func mergeConfigFiles(fsys fs.FS, files []string) (string, error) {
 		}
 	}
 	out := map[string]any{}
-	for _, key := range []string{"applications", "routes", "services"} {
+	for _, key := range []string{keyApplications, keyRoutes, keyServices} {
 		if len(merged[key]) > 0 {
 			out[key] = merged[key]
 		}

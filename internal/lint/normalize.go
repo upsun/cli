@@ -30,9 +30,9 @@ func (s Style) String() string {
 	}
 }
 
-// LintDir detects the configuration style in dir and lints it, returning the
+// CheckDir detects the configuration style in dir and lints it, returning the
 // detected style. Detection is based purely on the directory layout.
-func LintDir(ctx context.Context, dir string) (*Result, Style, error) {
+func CheckDir(ctx context.Context, dir string) (*Result, Style, error) {
 	flex := hasFlexConfig(dir)
 	fixed := hasFixedConfig(dir)
 
@@ -42,7 +42,7 @@ func LintDir(ctx context.Context, dir string) (*Result, Style, error) {
 		if err != nil {
 			return nil, StyleFlex, err
 		}
-		result, err := LintContent(ctx, content)
+		result, err := CheckContent(ctx, content)
 		if err != nil {
 			return nil, StyleFlex, err
 		}
@@ -52,7 +52,8 @@ func LintDir(ctx context.Context, dir string) (*Result, Style, error) {
 		}
 		return result, StyleFlex, nil
 	case fixed:
-		return nil, StyleFixed, fmt.Errorf("fixed-style (.platform) configuration linting is not yet implemented")
+		result, err := lintFixed(ctx, dir)
+		return result, StyleFixed, err
 	default:
 		return nil, StyleUnknown, fmt.Errorf(
 			"no Upsun configuration found in %q (looked for .upsun/*.yaml and .platform[.app].yaml)", dir)
@@ -94,7 +95,7 @@ func findFixedAppFiles(dir string) []string {
 			}
 			return nil
 		}
-		if d.Name() == ".platform.app.yaml" {
+		if d.Name() == fixedAppConfig {
 			found = append(found, path)
 		}
 		return nil

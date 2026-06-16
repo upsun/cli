@@ -66,7 +66,7 @@ func lintInput(cmd *cobra.Command, args []string) (*lint.Result, string, error) 
 		if err != nil {
 			return nil, format, err
 		}
-		result, err := lint.LintContent(ctx, string(content))
+		result, err := lint.CheckContent(ctx, string(content))
 		return result, format, err
 	}
 
@@ -74,7 +74,7 @@ func lintInput(cmd *cobra.Command, args []string) (*lint.Result, string, error) 
 	if len(args) == 1 {
 		path = args[0]
 	}
-	result, _, err := lint.LintDir(ctx, path)
+	result, _, err := lint.CheckDir(ctx, path)
 	return result, format, err
 }
 

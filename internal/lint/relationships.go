@@ -17,7 +17,8 @@ func CheckRelationships(cfg *Config) *Result {
 		serviceNames[name] = source
 		return ""
 	}
-	for appName, app := range cfg.Applications {
+	for appName := range cfg.Applications {
+		app := cfg.Applications[appName]
 		if msg := addService(appName, "applications"); msg != "" {
 			result.AddError("applications."+appName, msg)
 		}
@@ -34,7 +35,8 @@ func CheckRelationships(cfg *Config) *Result {
 	}
 
 	var linkedServices = make(map[string]struct{})
-	for appName, appConfig := range cfg.Applications {
+	for appName := range cfg.Applications {
+		appConfig := cfg.Applications[appName]
 		for relName, value := range appConfig.Relationships {
 			// By default, the relationship links to the service with the same name.
 			var relationshipService = relName

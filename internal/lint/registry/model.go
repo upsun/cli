@@ -9,8 +9,8 @@ type Registry map[string]Image
 
 func (r Registry) AllTypes(runtime bool) []string {
 	types := make([]string, 0, len(r))
-	for k, v := range r {
-		if v.IsRuntime == runtime {
+	for k := range r {
+		if r[k].IsRuntime == runtime {
 			types = append(types, k)
 		}
 	}
@@ -120,7 +120,8 @@ func (v VersionInfo) LatestVersion() string {
 // with latest_version as a direct field for easier Jinja template access.
 func (r Registry) ForTemplates() map[string]map[string]any {
 	result := make(map[string]map[string]any, len(r))
-	for key, img := range r {
+	for key := range r {
+		img := r[key]
 		result[key] = map[string]any{
 			"name":           img.Name,
 			"type":           img.Type,

@@ -11,15 +11,10 @@ import (
 
 var ErrEmptyContent = errors.New("empty content")
 
-// Lint checks generated configuration and returns a Result.
-func LintContent(_ context.Context, content string) (*Result, error) {
+// CheckContent checks merged Flex-style configuration content and returns a Result.
+func CheckContent(_ context.Context, content string) (*Result, error) {
 	if len(content) == 0 {
 		return nil, ErrEmptyContent
-	}
-
-	reg, err := registry.Parsed()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load registry: %w", err)
 	}
 
 	yamlSchema, err := schema.Load()
@@ -37,11 +32,21 @@ func LintContent(_ context.Context, content string) (*Result, error) {
 		return nil, err
 	}
 
-	// Run all other validation checks.
+	return runChecks(cfg, StyleFlex)
+}
+
+// runChecks runs the semantic checks over a decoded config, adapting some
+// checks to the configuration style.
+func runChecks(cfg *Config, style Style) (*Result, error) {
+	reg, err := registry.Parsed()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load registry: %w", err)
+	}
+
 	return Combine(
 		CheckRelationships(cfg),
 		CheckNames(cfg),
-		CheckTypes(cfg, reg),
+		CheckTypes(cfg, reg, style),
 		CheckScripts(cfg),
 		CheckWebConfig(cfg),
 		CheckDependencies(cfg),

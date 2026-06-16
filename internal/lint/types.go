@@ -9,13 +9,15 @@ import (
 )
 
 // CheckTypes checks that application, service and worker types are supported images and versions.
-func CheckTypes(cfg *Config, reg registry.Registry) *Result {
+func CheckTypes(cfg *Config, reg registry.Registry, style Style) *Result {
 	result := &Result{}
 
 	check := func(t string, runtime bool) error { return checkType(t, reg, runtime) }
 
-	for appName, app := range cfg.Applications {
-		if app.Type == "" && !isStackEmpty(app.Stack) {
+	for appName := range cfg.Applications {
+		app := cfg.Applications[appName]
+		// Composable images and the 'stack' key are a Flex-only feature.
+		if style == StyleFlex && app.Type == "" && !isStackEmpty(app.Stack) {
 			// For backwards compatibility, we allow 'stack' to be specified without 'type'.
 			result.AddWarning("applications."+appName,
 				"'type' should be specified (as a composable image) when using 'stack'")
@@ -24,11 +26,12 @@ func CheckTypes(cfg *Config, reg registry.Registry) *Result {
 		if err := check(app.Type, true); err != nil {
 			result.AddError("applications."+appName+".type", err.Error())
 		}
-		if strings.HasPrefix(app.Type, "composable") && isStackEmpty(app.Stack) {
+		if style == StyleFlex && strings.HasPrefix(app.Type, "composable") && isStackEmpty(app.Stack) {
 			result.AddWarning("applications."+appName, "'stack' should be specified when using a composable image")
 		}
 	}
-	for appName, app := range cfg.Applications {
+	for appName := range cfg.Applications {
+		app := cfg.Applications[appName]
 		for workerName, w := range app.Workers {
 			if w.Type != "" {
 				if err := check(w.Type, true); err != nil {
