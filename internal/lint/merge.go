@@ -8,19 +8,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// findUpsunConfigFiles returns all .upsun/*.yaml and .upsun/*.yml files in the given directory.
-func findUpsunConfigFiles(fsys fs.FS, path string) ([]string, error) {
-	// Find both .yaml and .yml files
+// findFlexConfigFiles returns all *.yaml and *.yml files in the Flex config
+// directory (e.g. .upsun) of the given path. Flex files may have any name.
+func findFlexConfigFiles(fsys fs.FS, path, configDir string) ([]string, error) {
 	patterns := []string{
-		filepath.Join(path, ".upsun", "*.yaml"),
-		filepath.Join(path, ".upsun", "*.yml"),
+		filepath.Join(path, configDir, "*.yaml"),
+		filepath.Join(path, configDir, "*.yml"),
 	}
 
 	var allMatches []string
 	for _, pattern := range patterns {
 		matches, err := fs.Glob(fsys, pattern)
 		if err != nil {
-			return nil, fmt.Errorf("could not glob .upsun directory: %w", err)
+			return nil, fmt.Errorf("could not glob %s directory: %w", configDir, err)
 		}
 		allMatches = append(allMatches, matches...)
 	}
@@ -76,10 +76,10 @@ func mergeConfigFiles(fsys fs.FS, files []string) (string, error) {
 	return string(buf), nil
 }
 
-// getMergedConfigFiles merges all .upsun/*.yaml files in the given directory.
-// It is a convenience wrapper for findUpsunConfigFiles + mergeConfigFiles.
-func getMergedConfigFiles(fsys fs.FS, path string) (string, error) {
-	files, err := findUpsunConfigFiles(fsys, path)
+// getMergedConfigFiles merges all Flex config files in the given directory.
+// It is a convenience wrapper for findFlexConfigFiles + mergeConfigFiles.
+func getMergedConfigFiles(fsys fs.FS, path, configDir string) (string, error) {
+	files, err := findFlexConfigFiles(fsys, path, configDir)
 	if err != nil {
 		return "", err
 	}

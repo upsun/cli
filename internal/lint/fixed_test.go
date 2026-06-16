@@ -79,7 +79,7 @@ type: "php:999"`,
   foo:
     type: "php:8.3"`,
 			},
-			wantErrors: []string{"looks like Flex (.upsun) configuration in a Fixed-style file"},
+			wantErrors: []string{"looks like Flex configuration in a Fixed-style file"},
 		},
 		{
 			name: "app file missing required name",
@@ -97,7 +97,7 @@ type: "php:999"`,
 				writeFile(t, filepath.Join(dir, name), content)
 			}
 
-			result, style, err := CheckDir(context.Background(), dir)
+			result, style, err := CheckDir(context.Background(), dir, upsunVendor())
 			require.NoError(t, err)
 			assert.Equal(t, StyleFixed, style)
 
@@ -115,9 +115,14 @@ type: "php:999"`,
 
 func TestLintFixed_DuplicateAppName(t *testing.T) {
 	dir := t.TempDir()
+	// A multi-app layout: shared config at the root, one app per subdirectory.
+	writeFile(t, filepath.Join(dir, ".platform", "routes.yaml"), "{}")
 	writeFile(t, filepath.Join(dir, "a", ".platform.app.yaml"), "name: same\ntype: \"php:8.3\"")
 	writeFile(t, filepath.Join(dir, "b", ".platform.app.yaml"), "name: same\ntype: \"php:8.3\"")
-	result, _, err := CheckDir(context.Background(), dir)
+	result, _, err := CheckDir(context.Background(), dir, upsunVendor())
 	require.NoError(t, err)
+	// The error should name both source files so it is actionable.
 	assert.Contains(t, result.String(), `duplicate application name "same"`)
+	assert.Contains(t, result.String(), filepath.Join("a", ".platform.app.yaml"))
+	assert.Contains(t, result.String(), filepath.Join("b", ".platform.app.yaml"))
 }

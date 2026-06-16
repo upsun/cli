@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/fatih/color"
@@ -28,7 +29,9 @@ func newLintCommand(cnf *config.Config) *cobra.Command {
 		Args:          cobra.MaximumNArgs(1),
 		SilenceErrors: true,
 		SilenceUsage:  true,
-		RunE:          runLint,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runLint(cmd, args, vendorFromConfig(cnf))
+		},
 	}
 	cmd.Flags().Bool("stdin", false, "Read merged Flex configuration from standard input")
 	cmd.Flags().String("format", "text", "Output format: text or json")
@@ -39,8 +42,17 @@ func newLintCommand(cnf *config.Config) *cobra.Command {
 	return cmd
 }
 
-func runLint(cmd *cobra.Command, args []string) error {
-	result, format, err := lintInput(cmd, args)
+// vendorFromConfig builds the linter's vendor conventions from the CLI config.
+func vendorFromConfig(cnf *config.Config) lint.Vendor {
+	return lint.Vendor{
+		Flavor:    cnf.Service.ProjectConfigFlavor,
+		ConfigDir: cnf.Service.ProjectConfigDir,
+		AppFile:   cnf.Service.AppConfigFile,
+	}
+}
+
+func runLint(cmd *cobra.Command, args []string, vendor lint.Vendor) error {
+	result, format, err := lintInput(cmd, args, vendor)
 	if err != nil {
 		// Print operational errors ourselves, since the command silences errors.
 		fmt.Fprintln(cmd.ErrOrStderr(), color.RedString(err.Error()))
@@ -49,7 +61,7 @@ func runLint(cmd *cobra.Command, args []string) error {
 	return printLintResult(cmd, result, format)
 }
 
-func lintInput(cmd *cobra.Command, args []string) (*lint.Result, string, error) {
+func lintInput(cmd *cobra.Command, args []string, vendor lint.Vendor) (*lint.Result, string, error) {
 	explicitStdin, _ := cmd.Flags().GetBool("stdin")
 	format, _ := cmd.Flags().GetString("format")
 	if format != "text" && format != "json" {
@@ -79,7 +91,11 @@ func lintInput(cmd *cobra.Command, args []string) (*lint.Result, string, error) 
 	if len(args) == 1 {
 		path = args[0]
 	}
-	result, _, err := lint.CheckDir(ctx, path)
+	root := lint.FindProjectRoot(path)
+	if abs, err := filepath.Abs(path); err == nil && abs != root {
+		fmt.Fprintln(cmd.ErrOrStderr(), color.New(color.Faint).Sprintf("Linting project root: %s", root))
+	}
+	result, _, err := lint.CheckDir(ctx, root, vendor)
 	return result, format, err
 }
 

@@ -13,33 +13,32 @@ import (
 	"github.com/upsun/cli/internal/lint/schema"
 )
 
-// Configuration section keys and the legacy per-app config file name.
+// Configuration section keys.
 const (
 	keyApplications = "applications"
 	keyServices     = "services"
 	keyRoutes       = "routes"
-	fixedAppConfig  = ".platform.app.yaml"
 )
 
 // flexTopKeys are the top-level keys that indicate Flex-style configuration.
 var flexTopKeys = []string{keyApplications, keyServices, keyRoutes}
 
-// lintFixed lints legacy Platform.sh (Fixed-style) configuration in dir:
-// .platform.app.yaml files and/or .platform/applications.yaml, plus optional
-// .platform/routes.yaml and .platform/services.yaml.
-func lintFixed(_ context.Context, dir string) (*Result, error) {
+// lintFixed lints Fixed-style configuration in dir using the resolved names in
+// cfg: per-app config files (cfg.app) and/or cfg.dir/applications.yaml, plus
+// optional cfg.dir/routes.yaml and cfg.dir/services.yaml.
+func lintFixed(_ context.Context, dir string, cfg fixedNames) (*Result, error) {
 	result := &Result{}
 
-	apps, err := loadFixedApplications(dir, result)
+	apps, err := loadFixedApplications(dir, cfg, result)
 	if err != nil {
 		return nil, err
 	}
 
-	services, err := loadFixedSection(dir, "services.yaml", schema.LoadServices, result)
+	services, err := loadFixedSection(dir, cfg.dir, keyServices, schema.LoadServices, result)
 	if err != nil {
 		return nil, err
 	}
-	routes, err := loadFixedSection(dir, "routes.yaml", schema.LoadRoutes, result)
+	routes, err := loadFixedSection(dir, cfg.dir, keyRoutes, schema.LoadRoutes, result)
 	if err != nil {
 		return nil, err
 	}
@@ -65,12 +64,12 @@ func lintFixed(_ context.Context, dir string) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg, err := DecodeConfig(string(mergedYAML))
+	decoded, err := DecodeConfig(string(mergedYAML))
 	if err != nil {
 		return nil, err
 	}
 
-	checks, err := runChecks(cfg, StyleFixed)
+	checks, err := runChecks(decoded, StyleFixed)
 	if err != nil {
 		return nil, err
 	}
@@ -78,25 +77,28 @@ func lintFixed(_ context.Context, dir string) (*Result, error) {
 	return result, nil
 }
 
-// loadFixedApplications collects applications from .platform.app.yaml files and
-// .platform/applications.yaml, validating each against the application schema.
-func loadFixedApplications(dir string, result *Result) (map[string]any, error) {
+// loadFixedApplications collects applications from per-app config files and
+// cfg.dir/applications.yaml, validating each against the application schema.
+func loadFixedApplications(dir string, cfg fixedNames, result *Result) (map[string]any, error) {
 	appSchema, err := schema.LoadApplication()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load application schema: %w", err)
 	}
 
 	apps := map[string]any{}
+	sources := map[string]string{}
 	add := func(name, source string, data map[string]any) {
 		if _, dup := apps[name]; dup {
-			result.AddError(source, fmt.Sprintf("duplicate application name %q", name))
+			result.AddError(source, fmt.Sprintf(
+				"duplicate application name %q (already defined in %s)", name, sources[name]))
 			return
 		}
 		apps[name] = data
+		sources[name] = source
 	}
 
-	// Individual .platform.app.yaml files.
-	for _, abs := range findFixedAppFiles(dir) {
+	// Individual per-app config files (e.g. .platform.app.yaml).
+	for _, abs := range findFixedAppFiles(dir, cfg.app) {
 		source := relTo(dir, abs)
 		data, err := readYAMLMap(abs)
 		if err != nil {
@@ -107,26 +109,27 @@ func loadFixedApplications(dir string, result *Result) (map[string]any, error) {
 			continue
 		}
 		if hasAnyKey(data, flexTopKeys) {
-			result.AddError(source, "this looks like Flex (.upsun) configuration in a Fixed-style file")
+			result.AddError(source, "this looks like Flex configuration in a Fixed-style file")
 			continue
 		}
 		result.Merge(CheckSchemaScoped(data, appSchema, source))
 		add(fixedAppName(data), source, data)
 	}
 
-	// .platform/applications.yaml (a list of apps, or a map keyed by app name).
-	appsFile := filepath.Join(dir, ".platform", "applications.yaml")
+	// cfg.dir/applications.yaml (a list of apps, or a map keyed by app name).
+	appsFile, ok := firstExistingYAML(dir, cfg.dir, keyApplications)
+	if !ok {
+		return apps, nil
+	}
+	label := relTo(dir, appsFile)
 	raw, err := os.ReadFile(appsFile)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return apps, nil
-		}
-		result.AddError(".platform/applications.yaml", err.Error())
+		result.AddError(label, err.Error())
 		return apps, nil
 	}
 	var doc any
 	if err := yaml.Unmarshal(raw, &doc); err != nil {
-		result.AddError(".platform/applications.yaml", interpretYAMLError(err))
+		result.AddError(label, interpretYAMLError(err))
 		return apps, nil
 	}
 	switch v := doc.(type) {
@@ -134,10 +137,10 @@ func loadFixedApplications(dir string, result *Result) (map[string]any, error) {
 		for i, item := range v {
 			data, ok := toStringMap(item)
 			if !ok {
-				result.AddError(fmt.Sprintf(".platform/applications.yaml[%d]", i), "application must be a map")
+				result.AddError(fmt.Sprintf("%s[%d]", label, i), "application must be a map")
 				continue
 			}
-			src := fmt.Sprintf(".platform/applications.yaml[%d]", i)
+			src := fmt.Sprintf("%s[%d]", label, i)
 			result.Merge(CheckSchemaScoped(data, appSchema, src))
 			add(fixedAppName(data), src, data)
 		}
@@ -148,10 +151,10 @@ func loadFixedApplications(dir string, result *Result) (map[string]any, error) {
 			}
 			data, ok := toStringMap(item)
 			if !ok {
-				result.AddError(".platform/applications.yaml: "+name, "application must be a map")
+				result.AddError(label+": "+name, "application must be a map")
 				continue
 			}
-			src := ".platform/applications.yaml: " + name
+			src := label + ": " + name
 			// In map form the name comes from the key and must not be set in the value.
 			if _, ok := data["name"]; ok {
 				result.AddError(src, "the application name must not be set here; it is taken from the key")
@@ -164,31 +167,32 @@ func loadFixedApplications(dir string, result *Result) (map[string]any, error) {
 	case nil:
 		// Empty file.
 	default:
-		result.AddError(".platform/applications.yaml", "contents must be a YAML list or map")
+		result.AddError(label, "contents must be a YAML list or map")
 	}
 
 	return apps, nil
 }
 
-// loadFixedSection reads and schema-validates an optional .platform/<file>,
+// loadFixedSection reads and schema-validates an optional cfg.dir/<base>.{yaml,yml},
 // returning its decoded map (keyed by name/URL).
 func loadFixedSection(
-	dir, file string,
+	dir, configDir, base string,
 	loadSchema func() (*gojsonschema.Schema, error),
 	result *Result,
 ) (map[string]any, error) {
-	path := filepath.Join(dir, ".platform", file)
+	path, ok := firstExistingYAML(dir, configDir, base)
+	if !ok {
+		return nil, nil
+	}
+	label := relTo(dir, path)
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		result.AddError(".platform/"+file, err.Error())
+		result.AddError(label, err.Error())
 		return nil, nil
 	}
 	data := map[string]any{}
 	if err := yaml.Unmarshal(raw, &data); err != nil {
-		result.AddError(".platform/"+file, interpretYAMLError(err))
+		result.AddError(label, interpretYAMLError(err))
 		return nil, nil
 	}
 	if len(data) == 0 {
@@ -196,9 +200,9 @@ func loadFixedSection(
 	}
 	sch, err := loadSchema()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load %s schema: %w", file, err)
+		return nil, fmt.Errorf("failed to load %s schema: %w", base, err)
 	}
-	result.Merge(CheckSchemaScoped(data, sch, ".platform/"+file))
+	result.Merge(CheckSchemaScoped(data, sch, label))
 	return data, nil
 }
 
