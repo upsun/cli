@@ -12,7 +12,7 @@ import (
 var ErrEmptyContent = errors.New("empty content")
 
 // Lint checks generated configuration and returns a Result.
-func Lint(_ context.Context, content string) (*Result, error) {
+func LintContent(_ context.Context, content string) (*Result, error) {
 	if len(content) == 0 {
 		return nil, ErrEmptyContent
 	}
