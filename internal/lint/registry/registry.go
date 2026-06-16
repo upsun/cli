@@ -33,7 +33,8 @@ func Parsed() (Registry, error) {
 
 // clean reduces irrelevant information in a registry, for the purposes of this project.
 func clean(reg Registry) {
-	for k, img := range reg {
+	for k := range reg {
+		img := reg[k]
 		// Remove deprecated version info.
 		img.Versions.Deprecated = nil
 		// Remove descriptions.

@@ -13,7 +13,7 @@ import (
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
-	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 }
 
 func TestDetectStyle(t *testing.T) {
@@ -59,7 +59,7 @@ routes:
     type: upstream
     upstream: "app:http"
 `)
-	result, style, err := LintDir(context.Background(), dir)
+	result, style, err := CheckDir(context.Background(), dir)
 	require.NoError(t, err)
 	assert.Equal(t, StyleFlex, style)
 	assert.False(t, result.HasErrors(), "expected no errors, got: %s", result)
@@ -67,7 +67,7 @@ routes:
 
 func TestLintDir_NoConfig(t *testing.T) {
 	dir := t.TempDir()
-	_, style, err := LintDir(context.Background(), dir)
+	_, style, err := CheckDir(context.Background(), dir)
 	require.Error(t, err)
 	assert.Equal(t, StyleUnknown, style)
 	assert.Contains(t, err.Error(), "no Upsun configuration found")
@@ -80,7 +80,7 @@ func TestLintDir_BothPresentPrefersFlex(t *testing.T) {
     type: "php:8.3"
 `)
 	writeFile(t, filepath.Join(dir, ".platform.app.yaml"), "name: app")
-	result, style, err := LintDir(context.Background(), dir)
+	result, style, err := CheckDir(context.Background(), dir)
 	require.NoError(t, err)
 	assert.Equal(t, StyleFlex, style)
 	assert.True(t, result.HasWarnings())

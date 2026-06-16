@@ -14,7 +14,8 @@ func CheckDependencies(cfg *Config) *Result {
 		"ruby":    true,
 	}
 
-	for appName, app := range cfg.Applications {
+	for appName := range cfg.Applications {
+		app := cfg.Applications[appName]
 		for depType, packages := range app.Dependencies {
 			// Lint dependency type
 			if !validTypes[depType] {

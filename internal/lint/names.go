@@ -18,7 +18,8 @@ var (
 func CheckNames(cfg *Config) *Result {
 	result := &Result{}
 
-	for name, app := range cfg.Applications {
+	for name := range cfg.Applications {
+		app := cfg.Applications[name]
 		if err := validateServiceName(name, "application"); err != "" {
 			result.AddError("applications."+name, err)
 		}

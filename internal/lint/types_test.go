@@ -106,7 +106,7 @@ applications:
 			if err != nil {
 				assert.FailNow(t, "decodeConfig failed", err)
 			}
-			result := lint.CheckTypes(cfg, testRegistry)
+			result := lint.CheckTypes(cfg, testRegistry, lint.StyleFlex)
 			if c.expectErrorMessage != "" {
 				assert.True(t, result.HasErrors() || result.HasWarnings())
 				assert.Equal(t, c.expectErrorMessage, result.Error())

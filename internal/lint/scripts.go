@@ -11,7 +11,8 @@ func CheckScripts(cfg *Config) *Result {
 	result := &Result{}
 
 	var scripts = make(map[string]string)
-	for appName, app := range cfg.Applications {
+	for appName := range cfg.Applications {
+		app := cfg.Applications[appName]
 		keyPrefix := "applications." + appName + "."
 
 		// Warn if the start command is not set for non-PHP applications.

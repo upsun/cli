@@ -36,7 +36,8 @@ func validateLocationPath(path string) string {
 func CheckWebConfig(cfg *Config) *Result {
 	result := &Result{}
 
-	for appName, app := range cfg.Applications {
+	for appName := range cfg.Applications {
+		app := cfg.Applications[appName]
 		for locName, loc := range app.Web.Locations {
 			// Validate location key format.
 			locKeyPath := "applications." + appName + ".web.locations"
