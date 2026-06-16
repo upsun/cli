@@ -112,23 +112,55 @@ func innerAppConfigValidateCommand(cnf *config.Config) Command {
 			Command:   "config-validate",
 		},
 		Usage: []string{
-			cnf.Application.Executable + " app:config-validate",
+			cnf.Application.Executable + " app:config-validate [<path>]",
 		},
 		Aliases: []string{
 			"validate",
 			"lint",
 		},
-		Description: "Validate the config files of a project",
+		Description: "Validate the configuration files of a project, reporting all errors at once",
 		Help:        "",
 		Examples: []Example{
 			{
 				Commandline: "",
 				Description: "Validate the project configuration files in your current directory",
 			},
+			{
+				Commandline: "--format=json",
+				Description: "Validate the current directory and output the results as JSON",
+			},
 		},
 		Definition: Definition{
-			Arguments: &orderedmap.OrderedMap[string, Argument]{},
+			Arguments: orderedmap.New[string, Argument](orderedmap.WithInitialData[string, Argument](
+				orderedmap.Pair[string, Argument]{
+					Key: "path",
+					Value: Argument{
+						Name:        "path",
+						IsRequired:  false,
+						IsArray:     false,
+						Description: "The path to a project directory to validate (default: the current directory)",
+					},
+				},
+			)),
 			Options: orderedmap.New[string, Option](orderedmap.WithInitialData[string, Option](
+				orderedmap.Pair[string, Option]{
+					Key: "--format",
+					Value: Option{
+						Name:            "--format",
+						AcceptValue:     true,
+						IsValueRequired: true,
+						Description:     "The output format: \"text\" or \"json\"",
+						Default:         Any{"text"},
+					},
+				},
+				orderedmap.Pair[string, Option]{
+					Key: "--stdin",
+					Value: Option{
+						Name:        "--stdin",
+						Description: "Read merged Flex configuration from standard input",
+						Default:     Any{false},
+					},
+				},
 				orderedmap.Pair[string, Option]{
 					Key:   HelpOption.GetName(),
 					Value: HelpOption,

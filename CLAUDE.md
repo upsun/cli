@@ -53,7 +53,7 @@ go test -v -run TestName ./path/to/package
 ### Hybrid CLI System
 
 The CLI operates as a wrapper around a legacy PHP CLI:
-- Go layer: Handles new commands (init, list, version, config:install, project:convert) and core infrastructure
+- Go layer: Handles new commands (init, list, version, config:install, project:convert, lint) and core infrastructure
 - PHP layer: Legacy commands are proxied through `internal/legacy/CLIWrapper`
 - The PHP CLI (platform.phar) is embedded at build time via go:embed
 
@@ -66,7 +66,8 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 
 **Commands**: `commands/`
 - `root.go`: Root command that sets up the Cobra CLI and delegates to legacy CLI when needed
-- Native Go commands: init, list, version, config:install, project:convert, completion
+- Native Go commands: init, list, version, config:install, project:convert, completion, lint
+- `lint.go`: Native config linter (aliases `validate`, `app:config-validate`). Validates Flex (`.upsun`) and Fixed (`.platform`) config in `internal/lint`, reporting all errors at once
 - Unrecognized commands are passed to the legacy PHP CLI
 
 **Configuration**: `internal/config/`
