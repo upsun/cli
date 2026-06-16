@@ -7,14 +7,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFindUpsunConfigFiles(t *testing.T) {
+func TestFindFlexConfigFiles(t *testing.T) {
 	fsys := fstest.MapFS{
 		".upsun/a.yaml":      &fstest.MapFile{Data: []byte("{}")},
 		".upsun/b.yaml":      &fstest.MapFile{Data: []byte("{}")},
 		".upsun/c.yml":       &fstest.MapFile{Data: []byte("{}")},
 		".upsun/notyaml.txt": &fstest.MapFile{Data: []byte("not yaml")},
 	}
-	files, err := findUpsunConfigFiles(fsys, ".")
+	files, err := findFlexConfigFiles(fsys, ".", ".upsun")
 	require.NoError(t, err)
 	require.ElementsMatch(t, []string{".upsun/a.yaml", ".upsun/b.yaml", ".upsun/c.yml"}, files)
 }
@@ -54,7 +54,7 @@ func TestGetMergedConfigFiles_Success(t *testing.T) {
 		".upsun/b.yml": &fstest.MapFile{Data: []byte(`services:
   db: {type: mariadb}`)},
 	}
-	merged, err := getMergedConfigFiles(fsys, ".")
+	merged, err := getMergedConfigFiles(fsys, ".", ".upsun")
 	require.NoError(t, err)
 	require.Contains(t, merged, "foo")
 	require.Contains(t, merged, "db")
@@ -62,7 +62,7 @@ func TestGetMergedConfigFiles_Success(t *testing.T) {
 
 func TestGetMergedConfigFiles_NoUpsunDir(t *testing.T) {
 	fsys := fstest.MapFS{}
-	_, err := getMergedConfigFiles(fsys, ".")
+	_, err := getMergedConfigFiles(fsys, ".", ".upsun")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), ".upsun")
 }
@@ -71,7 +71,7 @@ func TestGetMergedConfigFiles_NoYamlFiles(t *testing.T) {
 	fsys := fstest.MapFS{
 		".upsun/notyaml.txt": &fstest.MapFile{Data: []byte("not yaml")},
 	}
-	_, err := getMergedConfigFiles(fsys, ".")
+	_, err := getMergedConfigFiles(fsys, ".", ".upsun")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no configuration files found")
 }
