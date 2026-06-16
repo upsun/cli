@@ -2,6 +2,7 @@ package lint
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -57,6 +58,7 @@ func CheckRoutes(cfg *Config) *Result {
 			for target := range validTargets {
 				availableTargets = append(availableTargets, target)
 			}
+			sort.Strings(availableTargets)
 
 			if len(availableTargets) == 0 {
 				result.AddError(fmt.Sprintf("routes[%q].upstream", routeURL),
