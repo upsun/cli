@@ -91,6 +91,37 @@ func TestProjectSetRemote(t *testing.T) {
 		assert.Equal(t, gitURL+"\n", gitConfig(t, repo, "remote.platform-test.url"))
 	})
 
+	t.Run("with project ID in a git worktree", func(t *testing.T) {
+		// In a worktree, .git is a file (a gitlink), not a directory. With the
+		// worktree nested inside a parent checkout, set-remote must act on the
+		// worktree rather than climbing up to the parent repository.
+		parent := initGitRepo(t)
+		// A commit is required before a worktree can be added.
+		require.NoError(t, os.WriteFile(filepath.Join(parent, "README.md"), []byte("test\n"), 0o644))
+		runGit(t, parent, "add", "-A")
+		runGit(t, parent, "commit", "--quiet", "-m", "Initial commit")
+
+		worktree := filepath.Join(parent, "nested", "worktree")
+		runGit(t, parent, "worktree", "add", "-b", "feature", worktree)
+
+		f := newCommandFactory(t, apiServer.URL, authServer.URL)
+		f.dir = worktree
+
+		_, stdErr, err := f.RunCombinedOutput("set-remote", projectID)
+		require.NoError(t, err, "stderr: %s", stdErr)
+		assert.Contains(t, stdErr, "Setting the remote project for this repository to:")
+
+		// The local config must be written in the worktree, not the parent.
+		body, readErr := os.ReadFile(filepath.Join(worktree, ".platform", "local", "project.yaml"))
+		require.NoError(t, readErr)
+		assert.Contains(t, string(body), "id: "+projectID)
+
+		_, statErr := os.Stat(filepath.Join(parent, ".platform"))
+		assert.True(t, os.IsNotExist(statErr), "config must not be written to the parent repository")
+
+		assert.Equal(t, gitURL+"\n", gitConfig(t, worktree, "remote.platform-test.url"))
+	})
+
 	t.Run("with unknown project ID", func(t *testing.T) {
 		repo := initGitRepo(t)
 		f := newCommandFactory(t, apiServer.URL, authServer.URL)
