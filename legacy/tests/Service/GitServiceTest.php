@@ -77,6 +77,27 @@ class GitServiceTest extends TestCase
     }
 
     /**
+     * Test GitHelper::getRoot() inside a Git worktree.
+     *
+     * In a worktree, .git is a file (a gitlink), not a directory.
+     */
+    public function testGetRootInWorktree(): void
+    {
+        $repositoryDir = $this->getRepositoryDir();
+
+        // Add the worktree inside the main repository's working tree, to
+        // mimic a worktree nested under another checkout.
+        $worktreeDir = $repositoryDir . '/nested/worktree';
+        $this->git->execute(['worktree', 'add', '-b', 'feature', $worktreeDir], $repositoryDir, true);
+
+        $this->assertFileExists($worktreeDir . '/.git');
+        $this->assertFalse(is_dir($worktreeDir . '/.git'), 'In a worktree, .git is a file');
+
+        // getRoot() must resolve to the worktree itself, not the parent.
+        $this->assertEquals(realpath($worktreeDir), $this->git->getRoot($worktreeDir));
+    }
+
+    /**
      * Get a Git repository directory.
      *
      * @return string
