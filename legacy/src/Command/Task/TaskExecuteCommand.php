@@ -55,7 +55,7 @@ class TaskExecuteCommand extends CommandBase
         ));
 
         $url = $environment->getUri() . '/tasks/' . rawurlencode($taskName) . '/run';
-        $response = $this->api->getHttpClient()->post($url, ['json' => ['variables' => (object) $variables]]);
+        $response = $this->api->getHttpClient()->request('POST', $url, ['json' => ['variables' => (object) $variables]]);
 
         $result = new Result(
             (array) Utils::jsonDecode((string) $response->getBody(), true),

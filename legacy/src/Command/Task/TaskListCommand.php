@@ -45,7 +45,7 @@ class TaskListCommand extends CommandBase
         $environment = $selection->getEnvironment();
 
         try {
-            $response = $this->api->getHttpClient()->get($environment->getUri() . '/tasks');
+            $response = $this->api->getHttpClient()->request('GET', $environment->getUri() . '/tasks');
         } catch (BadResponseException $e) {
             throw ApiResponseException::create($e->getRequest(), $e->getResponse(), $e);
         }
