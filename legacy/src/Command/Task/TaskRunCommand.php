@@ -18,8 +18,8 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-#[AsCommand(name: 'task:execute', description: 'Execute a task on an environment')]
-class TaskExecuteCommand extends CommandBase
+#[AsCommand(name: 'task:run', description: 'Execute a task on an environment')]
+class TaskRunCommand extends CommandBase
 {
     public function __construct(private readonly Api $api, private readonly Config $config, private readonly Selector $selector)
     {
@@ -36,8 +36,8 @@ class TaskExecuteCommand extends CommandBase
         $this->selector->addEnvironmentOption($this->getDefinition());
         $this->addCompleter($this->selector);
 
-        $this->addExample('Execute the "migrate" task on the environment "main"', 'migrate --environment main');
-        $this->addExample('Execute the "migrate" task, setting environment variable FOO=bar', 'migrate -e main --variable env:FOO=bar');
+        $this->addExample('Run the "migrate" task on the environment "main"', 'migrate --environment main');
+        $this->addExample('Run the "migrate" task, setting environment variable FOO=bar', 'migrate -e main --variable env:FOO=bar');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
