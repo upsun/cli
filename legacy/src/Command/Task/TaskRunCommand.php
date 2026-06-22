@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Task;
 
+use GuzzleHttp\Exception\BadResponseException;
 use GuzzleHttp\Utils;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Model\Variable;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
+use Platformsh\Client\Exception\ApiResponseException;
 use Platformsh\Client\Model\Activity;
 use Platformsh\Client\Model\Result;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -55,7 +57,11 @@ class TaskRunCommand extends CommandBase
         ));
 
         $url = $environment->getUri() . '/tasks/' . rawurlencode($taskName) . '/run';
-        $response = $this->api->getHttpClient()->request('POST', $url, ['json' => ['variables' => (object) $variables]]);
+        try {
+            $response = $this->api->getHttpClient()->request('POST', $url, ['json' => ['variables' => (object) $variables]]);
+        } catch (BadResponseException $e) {
+            throw ApiResponseException::create($e->getRequest(), $e->getResponse(), $e);
+        }
 
         $result = new Result(
             (array) Utils::jsonDecode((string) $response->getBody(), true),
