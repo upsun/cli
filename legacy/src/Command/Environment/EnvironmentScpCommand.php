@@ -34,6 +34,7 @@ class EnvironmentScpCommand extends CommandBase
         $this->selector->addProjectOption($this->getDefinition());
         $this->selector->addEnvironmentOption($this->getDefinition());
         $this->selector->addRemoteContainerOptions($this->getDefinition());
+        $this->selector->addTaskOption($this->getDefinition());
         $this->addCompleter($this->selector);
         Ssh::configureInput($this->getDefinition());
         $this->addExample('Copy local files a.txt and b.txt to remote mount var/files', "a.txt b.txt remote:var/files");
