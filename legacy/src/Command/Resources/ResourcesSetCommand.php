@@ -72,7 +72,11 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 . "\nOnly applicable to apps; a value of 0 disables the bucket.",
             )
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Try to run the update, even if it might exceed your limits')
-            ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Show the changes that would be made, without changing anything');
+            ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Show the changes that would be made, without changing anything')
+            ->addOption('service', 's', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Limit to a service name. This can select any service, including apps and workers.')
+            ->addOption('app', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Limit to an app name')
+            ->addOption('worker', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Limit to a worker name')
+            ->addOption('task', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Limit to a task name');
 
         $this->selector->addProjectOption($this->getDefinition());
         $this->selector->addEnvironmentOption($this->getDefinition());
@@ -128,6 +132,11 @@ class ResourcesSetCommand extends ResourcesCommandBase
         $services = $this->resourcesUtil->allServices($nextDeployment);
         if (empty($services)) {
             $this->stdErr->writeln('No apps or services found');
+            return 1;
+        }
+
+        $services = $this->resourcesUtil->filterServices($services, $input);
+        if (empty($services)) {
             return 1;
         }
 
@@ -288,7 +297,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
                     }
                 } elseif ($showCompleteForm) {
                     $ensureHeader();
-                    $default = $properties['instance_count'] ?: 1;
+                    $default = (string) ($properties['instance_count'] ?: 1);
                     $instanceCount = $this->questionHelper->askInput(
                         'Enter the number of instances',
                         $default,
@@ -314,7 +323,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
                     } else {
                         $default = $properties['resources']['default']['disk'] ?? '512';
                     }
-                    $diskSize = $this->questionHelper->askInput('Enter a disk size in MB', $default, ['512', '1024', '2048'], fn($v) => $this->validateDiskSize($v, $name, $service));
+                    $diskSize = $this->questionHelper->askInput('Enter a disk size in MB', (string) $default, ['512', '1024', '2048'], fn($v) => $this->validateDiskSize($v, $name, $service));
                     if ($diskSize !== ($properties['disk'] ?? null)) {
                         $updates[$group][$name]['disk'] = $diskSize;
                     }
