@@ -11,6 +11,7 @@ use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
 use Platformsh\Client\Exception\EnvironmentStateException;
+use Platformsh\Client\Model\Deployment\Task;
 use Platformsh\Client\Model\Deployment\WebApp;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\ArgvInput;
@@ -18,7 +19,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-#[AsCommand(name: 'resources:get', description: 'View the resources of apps and services on an environment', aliases: ['resources', 'res'])]
+#[AsCommand(name: 'resources:get', description: 'View the resources of apps, tasks and services on an environment', aliases: ['resources', 'res'])]
 class ResourcesGetCommand extends ResourcesCommandBase
 {
     /** @var array<string, string> */
@@ -51,6 +52,7 @@ class ResourcesGetCommand extends ResourcesCommandBase
             ->addOption('service', 's', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Filter by service name. This can select any service, including apps and workers.')
             ->addOption('app', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Filter by app name')
             ->addOption('worker', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Filter by worker name')
+            ->addOption('task', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Filter by task name')
             ->addOption('type', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Filter by service, app or worker type, e.g. "postgresql"')
             ->addOption('cpu-type', null, InputOption::VALUE_OPTIONAL, 'Filter by CPU type, e.g "guaranteed"');
         $this->selector->addProjectOption($this->getDefinition());
@@ -118,14 +120,17 @@ class ResourcesGetCommand extends ResourcesCommandBase
         $hasObjectStorage = false;
         foreach ($services as $name => $service) {
             $properties = $service->getProperties();
+            // Tasks may not specify a profile yet; default so CPU/memory still resolve.
+            $containerProfile = $properties['container_profile'] ?? ($service instanceof Task ? 'BALANCED' : null);
             if (!$this->table->formatIsMachineReadable() && !empty($autoscalingEnabled[$name])) {
                 $name .= ' ' . $autoscalingIndicator;
                 $hasAutoscalingIndicator = true;
             }
             $row = [
                 'service' => $name,
-                'type' => $this->propertyFormatter->format($service->type, 'service_type'),
-                'profile' => $properties['container_profile'] ?: $empty,
+                // The deployment exposes task sizing only (no service type).
+                'type' => $service instanceof Task ? $empty : $this->propertyFormatter->format($service->type, 'service_type'),
+                'profile' => $containerProfile ?: $empty,
                 'profile_size' => $empty,
                 'base_memory' => $empty,
                 'memory_ratio' => $empty,
@@ -137,8 +142,8 @@ class ResourcesGetCommand extends ResourcesCommandBase
                 'memory' => $empty,
             ];
 
-            if (isset($properties['container_profile']) && isset($containerProfiles[$properties['container_profile']][$properties['resources']['profile_size']])) {
-                $profileInfo = $containerProfiles[$properties['container_profile']][$properties['resources']['profile_size']];
+            if ($containerProfile !== null && isset($containerProfiles[$containerProfile][$properties['resources']['profile_size']])) {
+                $profileInfo = $containerProfiles[$containerProfile][$properties['resources']['profile_size']];
                 if ($cpuTypeOption != "" && isset($profileInfo['cpu_type']) && $profileInfo['cpu_type'] != $cpuTypeOption) {
                     continue;
                 }
@@ -176,7 +181,12 @@ class ResourcesGetCommand extends ResourcesCommandBase
                 }
             }
 
-            $row['instance_count'] = isset($properties['instance_count']) ? $this->propertyFormatter->format($properties['instance_count'], 'instance_count') : '1';
+            // Tasks are run-to-completion containers and have no instance count.
+            if ($service instanceof Task) {
+                $row['instance_count'] = $notApplicable;
+            } else {
+                $row['instance_count'] = isset($properties['instance_count']) ? $this->propertyFormatter->format($properties['instance_count'], 'instance_count') : '1';
+            }
 
             $rows[] = $row;
         }

@@ -19,6 +19,7 @@ use GuzzleHttp\Exception\GuzzleException;
 use Platformsh\Client\Exception\EnvironmentStateException;
 use Platformsh\Client\Model\Deployment\EnvironmentDeployment;
 use Platformsh\Client\Model\Deployment\Service;
+use Platformsh\Client\Model\Deployment\Task;
 use Platformsh\Client\Model\Deployment\WebApp;
 use Platformsh\Client\Model\Deployment\Worker;
 use Platformsh\Client\Model\Project;
@@ -28,7 +29,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-#[AsCommand(name: 'resources:set', description: 'Set the resources of apps and services on an environment')]
+#[AsCommand(name: 'resources:set', description: 'Set the resources of apps, tasks and services on an environment')]
 class ResourcesSetCommand extends ResourcesCommandBase
 {
     public function __construct(private readonly ActivityMonitor $activityMonitor, private readonly Api $api, private readonly Config $config, private readonly Io $io, private readonly QuestionHelper $questionHelper, private readonly ResourcesUtil $resourcesUtil, private readonly Selector $selector, private readonly SubCommandRunner $subCommandRunner)
@@ -41,7 +42,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
             'size',
             'S',
             InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
-            'Set the profile size (CPU and memory) of apps, workers, or services.'
+            'Set the profile size (CPU and memory) of apps, workers, tasks, or services.'
                 . "\nItems are in the format <info>name:value</info> and may be comma-separated."
                 . "\nThe % or * characters may be used as a wildcard for the name."
                 . "\nList available sizes with the <info>resources:sizes</info> command."
@@ -79,9 +80,10 @@ class ResourcesSetCommand extends ResourcesCommandBase
         $this->activityMonitor->addWaitOptions($this->getDefinition());
 
         $helpLines = [
-            'Configure the resources allocated to apps, workers and services on an environment.',
+            'Configure the resources allocated to apps, workers, tasks and services on an environment.',
             '',
             'The resources may be the profile size, the instance count, or the disk size (MB).',
+            'Tasks are run-to-completion containers: only their profile size can be set.',
             '',
             sprintf('Profile sizes are predefined CPU & memory values that can be viewed by running: <info>%s resources:sizes</info>', $this->config->getStr('application.executable')),
             '',
@@ -197,10 +199,12 @@ class ResourcesSetCommand extends ResourcesCommandBase
             $group = $this->group($service);
 
             $properties = $service->getProperties();
-            $current[$group][$name]['resources']['profile_size'] = $properties['resources']['profile_size'];
-            $current[$group][$name]['instance_count'] = $properties['instance_count'];
-            $current[$group][$name]['disk'] = $properties['disk'];
-            $current[$group][$name]['sizes'] = $containerProfiles[$properties['container_profile']];
+            // Tasks may lack a profile, instance_count and disk; default safely.
+            $containerProfile = $properties['container_profile'] ?? ($service instanceof Task ? 'BALANCED' : null);
+            $current[$group][$name]['resources']['profile_size'] = $properties['resources']['profile_size'] ?? null;
+            $current[$group][$name]['instance_count'] = $properties['instance_count'] ?? null;
+            $current[$group][$name]['disk'] = $properties['disk'] ?? null;
+            $current[$group][$name]['sizes'] = $containerProfiles[$containerProfile] ?? [];
 
             $header = '<options=bold>' . ucfirst($type) . ': </><options=bold,underscore>' . $name . '</>';
             $headerShown = false;
@@ -219,12 +223,12 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 }
             } elseif ($showCompleteForm
                 || (!isset($properties['resources']['profile_size']) && $input->isInteractive())) {
-                if (isset($properties['container_profile'])) {
-                    $header .= "\n" . sprintf('Container profile: <info>%s</info>', $properties['container_profile']);
+                if ($containerProfile !== null) {
+                    $header .= "\n" . sprintf('Container profile: <info>%s</info>', $containerProfile);
                 }
                 $ensureHeader();
                 $new = isset($properties['resources']['profile_size']) ? 'a new' : 'a';
-                $profileSizes = $containerProfiles[$properties['container_profile']];
+                $profileSizes = $containerProfiles[$containerProfile] ?? [];
                 if (isset($properties['resources']['profile_size'])) {
                     $defaultOption = $properties['resources']['profile_size'];
                 } elseif (isset($properties['resources']['default']['profile_size'])) {
@@ -267,7 +271,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
             // Check if we have guaranteed CPU changes.
             if (isset($updates[$group][$name]['resources']['profile_size'])) {
                 $serviceProfileSize = $updates[$group][$name]['resources']['profile_size'];
-                $serviceProfileType = $properties['container_profile'];
+                $serviceProfileType = $containerProfile;
                 if (isset($containerProfiles[$serviceProfileType][$serviceProfileSize])
                     && $containerProfiles[$serviceProfileType][$serviceProfileSize]['cpu_type'] === 'guaranteed') {
                     $hasGuaranteedCPU = true;
@@ -275,8 +279,8 @@ class ResourcesSetCommand extends ResourcesCommandBase
             }
 
             // Set the instance count.
-            // This is not applicable to a Service, and unavailable when autoscaling is enabled.
-            if (!$service instanceof Service && empty($autoscalingEnabled[$name])) {
+            // This is not applicable to a Service or a Task, and unavailable when autoscaling is enabled.
+            if (!$service instanceof Service && !$service instanceof Task && empty($autoscalingEnabled[$name])) {
                 if (isset($givenCounts[$name])) {
                     $instanceCount = $givenCounts[$name];
                     if ($instanceCount !== $properties['instance_count'] && !($instanceCount === 1 && !isset($properties['instance_count']))) {
@@ -300,21 +304,21 @@ class ResourcesSetCommand extends ResourcesCommandBase
             // Set the disk size.
             if ($this->resourcesUtil->supportsDisk($service)) {
                 if (isset($givenDiskSizes[$name])) {
-                    if ($givenDiskSizes[$name] !== $service->disk) {
+                    if ($givenDiskSizes[$name] !== ($properties['disk'] ?? null)) {
                         $updates[$group][$name]['disk'] = $givenDiskSizes[$name];
                     }
-                } elseif ($showCompleteForm || (empty($service->disk) && $input->isInteractive())) {
+                } elseif ($showCompleteForm || (empty(($properties['disk'] ?? null)) && $input->isInteractive())) {
                     $ensureHeader();
-                    if ($service->disk) {
-                        $default = $service->disk;
+                    if (($properties['disk'] ?? null)) {
+                        $default = $properties['disk'];
                     } else {
                         $default = $properties['resources']['default']['disk'] ?? '512';
                     }
                     $diskSize = $this->questionHelper->askInput('Enter a disk size in MB', $default, ['512', '1024', '2048'], fn($v) => $this->validateDiskSize($v, $name, $service));
-                    if ($diskSize !== $service->disk) {
+                    if ($diskSize !== ($properties['disk'] ?? null)) {
                         $updates[$group][$name]['disk'] = $diskSize;
                     }
-                } elseif (empty($service->disk)) {
+                } elseif (empty(($properties['disk'] ?? null))) {
                     $this->stdErr->writeln(sprintf('A disk size is required for the %s <comment>%s</comment>.', $type, $name));
                     $errored = true;
                 }
@@ -420,7 +424,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
      * Summarizes all the changes that would be made.
      *
      * @param array<array<string, array<string, mixed>>> $updates
-     * @param array<string, WebApp|Worker|Service> $services
+     * @param array<string, WebApp|Worker|Service|Task> $services
      * @param array<string, mixed> $containerProfiles
      * @return void
      */
@@ -440,11 +444,12 @@ class ResourcesSetCommand extends ResourcesCommandBase
      * @param array<string, mixed> $updates
      * @param array<string, mixed> $containerProfiles
      */
-    private function summarizeChangesPerService(string $name, WebApp|Worker|Service $service, array $updates, array $containerProfiles): void
+    private function summarizeChangesPerService(string $name, WebApp|Worker|Service|Task $service, array $updates, array $containerProfiles): void
     {
         $this->stdErr->writeln(sprintf('  <options=bold>%s: </><options=bold,underscore>%s</>', ucfirst($this->typeName($service)), $name));
 
         $properties = $service->getProperties();
+        $properties['container_profile'] ??= $service instanceof Task ? 'BALANCED' : null;
         if (isset($updates['resources']['profile_size'])) {
             $sizeInfo = $this->resourcesUtil->sizeInfo($properties, $containerProfiles);
             $newProperties = array_replace_recursive($properties, $updates);
@@ -496,7 +501,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
     /**
      * Returns the group for a service (where it belongs in the deployment object).
      */
-    protected function group(WebApp|Worker|Service $service): string
+    protected function group(WebApp|Worker|Service|Task $service): string
     {
         if ($service instanceof WebApp) {
             return 'webapps';
@@ -504,19 +509,25 @@ class ResourcesSetCommand extends ResourcesCommandBase
         if ($service instanceof Worker) {
             return 'workers';
         }
+        if ($service instanceof Task) {
+            return 'tasks';
+        }
         return 'services';
     }
 
     /**
      * Returns the service type name for a service.
      */
-    protected function typeName(WebApp|Worker|Service $service): string
+    protected function typeName(WebApp|Worker|Service|Task $service): string
     {
         if ($service instanceof WebApp) {
             return 'app';
         }
         if ($service instanceof Worker) {
             return 'worker';
+        }
+        if ($service instanceof Task) {
+            return 'task';
         }
         return 'service';
     }
@@ -526,10 +537,10 @@ class ResourcesSetCommand extends ResourcesCommandBase
      *
      * @throws InvalidArgumentException
      */
-    protected function validateInstanceCount(string $value, string $serviceName, WebApp|Worker|Service $service, ?int $limit, bool $autoscalingEnabled): int
+    protected function validateInstanceCount(string $value, string $serviceName, WebApp|Worker|Service|Task $service, ?int $limit, bool $autoscalingEnabled): int
     {
-        if ($service instanceof Service) {
-            throw new InvalidArgumentException(sprintf('The instance count of the service <error>%s</error> cannot be changed.', $serviceName));
+        if ($service instanceof Service || $service instanceof Task) {
+            throw new InvalidArgumentException(sprintf('The instance count of the %s <error>%s</error> cannot be changed.', $this->typeName($service), $serviceName));
         }
         if ($autoscalingEnabled) {
             throw new InvalidArgumentException(sprintf('The instance count of the %s <error>%s</error> cannot be changed when autoscaling is enabled.', $this->typeName($service), $serviceName));
@@ -549,7 +560,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
      *
      * @throws InvalidArgumentException
      */
-    protected function validateDiskSize(string $value, string $serviceName, WebApp|Worker|Service $service): int
+    protected function validateDiskSize(string $value, string $serviceName, WebApp|Worker|Service|Task $service): int
     {
         if (!$this->resourcesUtil->supportsDisk($service)) {
             throw new InvalidArgumentException(sprintf(
@@ -594,7 +605,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
      *
      * @throws InvalidArgumentException
      */
-    protected function validateObjectStorage(string $value, string $serviceName, WebApp|Worker|Service $service): int
+    protected function validateObjectStorage(string $value, string $serviceName, WebApp|Worker|Service|Task $service): int
     {
         if (!$service instanceof WebApp) {
             throw new InvalidArgumentException(sprintf(
@@ -618,7 +629,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
      *
      * @throws InvalidArgumentException
      */
-    protected function validateProfileSize(string $value, string $serviceName, WebApp|Worker|Service $service, EnvironmentDeployment $deployment): string
+    protected function validateProfileSize(string $value, string $serviceName, WebApp|Worker|Service|Task $service, EnvironmentDeployment $deployment): string
     {
         $properties = $service->getProperties();
         if ($value === 'default') {
@@ -633,7 +644,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
             }
             return $properties['resources']['minimum']['profile_size'];
         }
-        $containerProfile = $properties['container_profile'];
+        $containerProfile = $properties['container_profile'] ?? ($service instanceof Task ? 'BALANCED' : null);
         if (!isset($deployment->container_profiles[$containerProfile])) {
             throw new \RuntimeException(sprintf('Container profile %s for service %s not found', $containerProfile, $serviceName));
         }
@@ -671,7 +682,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
      *
      * @param InputInterface $input
      * @param string $optionName The input option name.
-     * @param array<string, Service|WebApp|Worker> $services
+     * @param array<string, Service|WebApp|Worker|Task> $services
      * @param callable|null $validator
      *   Validate the value. The callback takes the arguments ($value,
      *   $serviceName, $service) and returns a normalized value or throws
