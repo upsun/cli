@@ -620,6 +620,21 @@ abstract class IntegrationCommandBase extends CommandBase
                 'required' => false,
                 'avoidQuestion' => true,
             ]),
+            'redaction' => new BooleanField('Redaction', [
+                'conditions' => ['type' => [
+                    'httplog',
+                    'newrelic',
+                    'splunk',
+                    'sumologic',
+                    'syslog',
+                    'otlplog',
+                ]],
+                'description' => 'Whether to enable built-in PII redaction (e.g. email addresses) before forwarding log lines',
+                'questionLine' => 'Should built-in PII redaction be enabled',
+                'default' => false,
+                'required' => false,
+                'avoidQuestion' => true,
+            ]),
             'headers' => new ArrayField('HTTP header', [
                 'optionName' => 'header',
                 'conditions' => ['type' => [
