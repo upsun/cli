@@ -61,7 +61,7 @@ jobs:
         run: echo "dir=$(cd legacy && composer config cache-files-dir)" >> $GITHUB_OUTPUT
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-${{ hashFiles('legacy/composer.lock') }}
@@ -81,7 +81,7 @@ jobs:
           echo "repogen=$(grep '^REPOGEN_VERSION' Makefile | cut -d= -f2 | tr -d ' ')" >> $GITHUB_OUTPUT
 
       - name: Cache PHP binaries
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         id: php-cache
         with:
           path: internal/legacy/archives/php_*
@@ -103,7 +103,7 @@ jobs:
           chmod 600 "$KEY_DIR/gpg-signing-key.asc"
 
       - name: Cache Go binaries
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/go/bin
           key: ${{ runner.os }}-go-bin-goreleaser-${{ steps.tool-versions.outputs.goreleaser }}-repogen-${{ steps.tool-versions.outputs.repogen }}
