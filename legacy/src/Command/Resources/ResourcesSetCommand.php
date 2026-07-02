@@ -15,11 +15,13 @@ use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Console\ArrayArgument;
 use Platformsh\Cli\Util\OsUtil;
 use Platformsh\Cli\Util\Wildcard;
+use GuzzleHttp\Exception\GuzzleException;
 use Platformsh\Client\Exception\EnvironmentStateException;
 use Platformsh\Client\Model\Deployment\EnvironmentDeployment;
 use Platformsh\Client\Model\Deployment\Service;
 use Platformsh\Client\Model\Deployment\WebApp;
 use Platformsh\Client\Model\Deployment\Worker;
+use Platformsh\Client\Model\Project;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Input\InputInterface;
@@ -344,23 +346,17 @@ class ResourcesSetCommand extends ResourcesCommandBase
 
         $this->io->debug('Raw updates: ' . json_encode($updates, JSON_UNESCAPED_SLASHES));
 
-        $project = $selection->getProject();
-        $organization = $this->api->getClient()->getOrganizationById($project->getProperty('organization'));
-        if (!$organization) {
-            throw new \RuntimeException('Failed to load project organization: ' . $project->getProperty('organization'));
-        }
-        $profile = $organization->getProfile();
-        if ($input->getOption('force') === false && isset($profile->resources_limit) && $profile->resources_limit) {
+        [$limit, $used] = $input->getOption('force') === false ? $this->trialResourceLimits($selection->getProject()) : [null, null];
+        if ($limit !== null && $used !== null) {
             $diff = $this->computeMemoryCPUStorageDiff($updates, $current);
-            $limit = $profile->resources_limit['limit'];
-            $used = $profile->resources_limit['used']['totals'];
 
             $this->io->debug('Raw diff: ' . json_encode($diff, JSON_UNESCAPED_SLASHES));
             $this->io->debug('Raw limits: ' . json_encode($limit, JSON_UNESCAPED_SLASHES));
             $this->io->debug('Raw used: ' . json_encode($used, JSON_UNESCAPED_SLASHES));
 
+            // Each limit may be absent or null, meaning that resource is not capped.
             $errored = false;
-            if ($limit['cpu'] < $used['cpu'] + $diff['cpu']) {
+            if (isset($limit['cpu']) && $limit['cpu'] < ($used['cpu'] ?? 0) + $diff['cpu']) {
                 $this->stdErr->writeln(sprintf(
                     'The requested resources will exceed your organization\'s trial CPU limit, which is: <comment>%s</comment>.',
                     $limit['cpu'],
@@ -368,7 +364,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 $errored = true;
             }
 
-            if ($limit['memory'] < $used['memory'] + ($diff['memory'] / 1024)) {
+            if (isset($limit['memory']) && $limit['memory'] < ($used['memory'] ?? 0) + ($diff['memory'] / 1024)) {
                 $this->stdErr->writeln(sprintf(
                     'The requested resources will exceed your organization\'s trial memory limit, which is: <comment>%sGB</comment>.',
                     $limit['memory'],
@@ -376,7 +372,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 $errored = true;
             }
 
-            if ($limit['storage'] < $used['storage'] + ($diff['disk'] / 1024)) {
+            if (isset($limit['storage']) && $limit['storage'] < ($used['storage'] ?? 0) + ($diff['disk'] / 1024)) {
                 $this->stdErr->writeln(sprintf(
                     'The requested resources will exceed your organization\'s trial storage limit, which is: <comment>%sGB</comment>.',
                     $limit['storage'],
@@ -745,6 +741,45 @@ class ResourcesSetCommand extends ResourcesCommandBase
             }
         }
         return $ret;
+    }
+
+    /**
+     * Returns the organization's trial resource limits and current usage totals.
+     *
+     * Both are arrays of amounts keyed by resource type (cpu, memory, storage).
+     * Individual limits may be absent or null, meaning the resource is not capped.
+     * Returns [null, null] if the organization has no active trial, or if the
+     * trial or usage information is unavailable.
+     *
+     * @return array{0: ?array<string, int|float|null>, 1: ?array<string, int|float|null>}
+     */
+    private function trialResourceLimits(Project $project): array
+    {
+        $organization = $this->api->getOrganizationById($project->getProperty('organization'));
+        if (!$organization) {
+            throw new \RuntimeException('Failed to load project organization: ' . $project->getProperty('organization'));
+        }
+        $httpClient = $this->api->getHttpClient();
+        try {
+            $data = (array) json_decode((string) $httpClient->request('GET', $organization->getUri() . '/trial')->getBody(), true);
+        } catch (GuzzleException $e) {
+            // Trials may not be enabled, e.g. for other vendors.
+            $this->io->debug('Ignoring error fetching the organization trial: ' . $e->getMessage());
+            return [null, null];
+        }
+        if (!isset($data['trial']['status'], $data['trial']['resource_limit']) || $data['trial']['status'] !== 'active') {
+            return [null, null];
+        }
+        try {
+            $usage = (array) json_decode((string) $httpClient->request('GET', $organization->getUri() . '/usage')->getBody(), true);
+        } catch (GuzzleException $e) {
+            $this->io->debug('Ignoring error fetching the organization usage: ' . $e->getMessage());
+            return [null, null];
+        }
+        if (!isset($usage['totals'])) {
+            return [null, null];
+        }
+        return [$data['trial']['resource_limit'], $usage['totals']];
     }
 
     /**
