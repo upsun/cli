@@ -746,10 +746,11 @@ class ResourcesSetCommand extends ResourcesCommandBase
     /**
      * Returns the organization's trial resource limits and current usage totals.
      *
-     * Both are arrays of amounts keyed by resource type (cpu, memory, storage).
-     * Individual limits may be absent or null, meaning the resource is not capped.
-     * Returns [null, null] if the organization has no active trial, or if the
-     * trial or usage information is unavailable.
+     * Both are arrays of amounts keyed by resource type, including cpu,
+     * memory and storage (as well as others such as projects). Individual
+     * limits may be absent or null, meaning the resource is not capped.
+     * Returns [null, null] if the organization has no active trial, or if
+     * the trial or usage information is unavailable.
      *
      * @return array{0: ?array<string, int|float|null>, 1: ?array<string, int|float|null>}
      */
