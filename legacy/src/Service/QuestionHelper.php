@@ -183,6 +183,12 @@ class QuestionHelper extends BaseQuestionHelper
             $questionText .= sprintf(' (%s<question>%s</question>)', $defaultLabel, $default);
         }
         $questionText .= ': ';
+        // When a validator is set, Symfony passes the default through it if the
+        // user accepts it. Validators validate typed text, so coerce the default
+        // to a string to match what typed input would provide.
+        if ($validator !== null && $default !== null) {
+            $default = (string) $default;
+        }
         $question = new Question($questionText, $default);
         if (!empty($autoCompleterValues)) {
             $question->setAutocompleterValues($autoCompleterValues);
