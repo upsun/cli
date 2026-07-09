@@ -64,6 +64,14 @@ class VariableCreateCommand extends CommandBase
         $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: false));
         $this->selection = $selection;
 
+        // The 'environment' form field validates the --environment option
+        // against the list of environment IDs. Replace the default-environment
+        // placeholder ('.') with the resolved environment ID so validation
+        // succeeds. See CLI-164.
+        if ($selection->hasEnvironment() && $input->getOption('environment') === Selector::DEFAULT_ENVIRONMENT_CODE) {
+            $input->setOption('environment', $selection->getEnvironment()->id);
+        }
+
         // Merge the 'name' argument with the --name option.
         if ($input->getArgument('name')) {
             if ($input->getOption('name')) {

@@ -98,6 +98,24 @@ func TestVariableCreate(t *testing.T) {
 	assertTrimmed(t, "false", f.Run("var:get", "-p", p, "env:TEST", "-l", "p", "-P", "visible_runtime"))
 }
 
+func TestVariableCreateDefaultEnvironment(t *testing.T) {
+	// Regression test for CLI-164: using "-e ." (the default-environment code)
+	// must not fail form validation of the --environment option.
+	s := setupVariableTest(t)
+	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
+
+	f, p := s.factory, s.projectID
+
+	//nolint:lll
+	_, stdErr, err := f.RunCombinedOutput("var:create", "-p", p, "-e", ".", "-l", "e", "env:FOOBAR", "--value", "bar foo")
+	assert.NoError(t, err)
+	assert.Contains(t, stdErr, "Selecting default environment")
+	assert.Contains(t, stdErr, "Creating variable env:FOOBAR on the environment main")
+	assert.NotContains(t, stdErr, "is not one of")
+
+	assertTrimmed(t, "bar foo", f.Run("var:get", "-p", p, "-e", "main", "env:FOOBAR", "-P", "value"))
+}
+
 func TestVariableCreateWithAppScope(t *testing.T) {
 	s := setupVariableTest(t)
 
