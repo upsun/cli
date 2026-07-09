@@ -131,7 +131,7 @@ class VariableGetCommand extends CommandBase
             $this->stdErr->writeln(sprintf(
                 'To update the variable, use: <info>%s variable:update %s</info>',
                 $executable,
-                OsUtil::escapeShellArg($name),
+                OsUtil::escapeShellArg($variable->name),
             ));
         }
 
