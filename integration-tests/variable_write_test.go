@@ -106,7 +106,6 @@ func TestVariableCreateDefaultEnvironment(t *testing.T) {
 
 	f, p := s.factory, s.projectID
 
-	//nolint:lll
 	_, stdErr, err := f.RunCombinedOutput("var:create", "-p", p, "-e", ".", "-l", "e", "env:FOOBAR", "--value", "bar foo")
 	assert.NoError(t, err)
 	assert.Contains(t, stdErr, "Selecting default environment")
