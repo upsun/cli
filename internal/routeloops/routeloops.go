@@ -144,8 +144,8 @@ func canonicalizeCycle(nodes []string) []string {
 }
 
 // normalize prepares a URL string for edge lookup. It strips whitespace and
-// smart quotes, lowercases the scheme+host, and collapses a single trailing
-// slash on the host portion. Placeholders like {default} are preserved as-is.
+// smart quotes, lowercases the scheme+host, and trims trailing slashes.
+// Placeholders like {default} are preserved as-is.
 func normalize(s string) string {
 	s = strings.TrimFunc(s, func(r rune) bool {
 		if unicode.IsSpace(r) {

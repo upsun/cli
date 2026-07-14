@@ -51,7 +51,11 @@ func ParseFile(path string) ([]Route, error) {
 	if err != nil {
 		return nil, err
 	}
-	return parseAuto(data)
+	routes, err := parseAuto(data)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	return routes, nil
 }
 
 func parseAuto(data []byte) ([]Route, error) {
