@@ -132,7 +132,10 @@ class ConfigTest extends TestCase
     public function testGetNoProxy(): void
     {
         $config = new Config([], $this->configFile);
+        $original = ['no_proxy' => getenv('no_proxy'), 'NO_PROXY' => getenv('NO_PROXY')];
         try {
+            putenv('no_proxy');
+            putenv('NO_PROXY');
             $this->assertEquals([], $config->getNoProxy());
 
             putenv('no_proxy=example.com, .example.net,');
@@ -142,8 +145,9 @@ class ConfigTest extends TestCase
             putenv('NO_PROXY=example.org');
             $this->assertEquals(['example.org'], $config->getNoProxy());
         } finally {
-            putenv('no_proxy');
-            putenv('NO_PROXY');
+            foreach ($original as $name => $value) {
+                putenv($value === false ? $name : $name . '=' . $value);
+            }
         }
     }
 }

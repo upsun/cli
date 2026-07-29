@@ -32,11 +32,13 @@ class BrowserLoginCommandTest extends TestCase
         $tokenUrl = 'https://auth.example.com/oauth2/token';
 
         $sentRequest = null;
+        $sentOptions = [];
         $httpClient = $this->createMock(ClientInterface::class);
         $httpClient->expects($this->once())
             ->method('send')
-            ->willReturnCallback(function (RequestInterface $request) use (&$sentRequest): Response {
+            ->willReturnCallback(function (RequestInterface $request, array $options = []) use (&$sentRequest, &$sentOptions): Response {
                 $sentRequest = $request;
+                $sentOptions = $options;
                 return new Response(200, [], '{"access_token": "test-token", "token_type": "bearer"}');
             });
 
@@ -68,5 +70,6 @@ class BrowserLoginCommandTest extends TestCase
         $this->assertSame('test-token', $token['access_token']);
         $this->assertInstanceOf(RequestInterface::class, $sentRequest);
         $this->assertSame($tokenUrl, (string) $sentRequest->getUri());
+        $this->assertSame(['test-client-id', ''], $sentOptions['auth'] ?? null);
     }
 }
