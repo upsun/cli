@@ -140,14 +140,16 @@ class BrowserLoginCommand extends CommandBase
         chmod($responseFile, 0o600);
 
         // Start the local server.
-        $process = new Process([
-            (new PhpExecutableFinder())->find() ?: PHP_BINARY,
-            '-dvariables_order=egps',
-            '-S',
-            $localAddress,
-            '-t',
-            $listenerDir,
-        ]);
+        $phpCommand = [(new PhpExecutableFinder())->find() ?: PHP_BINARY];
+        if (!php_ini_loaded_file() && !php_ini_scanned_files()) {
+            // This process parsed no php.ini file, so tell the server not to
+            // parse one either. Otherwise it may load a php.ini which does not
+            // suit this PHP build, for example one that enables extensions
+            // which are already built in.
+            $phpCommand[] = '-n';
+        }
+        $phpCommand[] = '-dvariables_order=egps';
+        $process = new Process(array_merge($phpCommand, ['-S', $localAddress, '-t', $listenerDir]));
         $codeVerifier = $this->generateCodeVerifier();
         $process->setEnv([
             'CLI_OAUTH_APP_NAME' => $this->config->getStr('application.name'),
