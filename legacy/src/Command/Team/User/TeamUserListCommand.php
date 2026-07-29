@@ -12,6 +12,7 @@ use Platformsh\Cli\Console\AdaptiveTableCell;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
+use Platformsh\Cli\Util\PaginationUtil;
 use Platformsh\Client\Model\Team\TeamMember;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
@@ -78,16 +79,20 @@ class TeamUserListCommand extends TeamCommandBase
         $url = $team->getUri() . '/members';
         $progress = new ProgressMessage($output);
         $pageNumber = 1;
-        do {
+        while (true) {
             if ($pageNumber > 1) {
                 $progress->showIfOutputDecorated(sprintf('Loading users (page %d)...', $pageNumber));
             }
             $result = TeamMember::getCollectionWithParent($url, $httpClient, $options);
             $progress->done();
             $members = \array_merge($members, $result['items']);
-            $url = $result['collection']->getNextPageUrl();
+            $nextPage = PaginationUtil::nextPage($result['collection']->getNextPageUrl(), $url, $options['query']);
+            if ($nextPage === null || !$fetchAllPages) {
+                break;
+            }
+            [$url, $options['query']] = $nextPage;
             $pageNumber++;
-        } while ($url && $fetchAllPages);
+        }
 
         if (empty($members)) {
             $this->stdErr->writeln(\sprintf('No users were found in the team %s.', $this->getTeamLabel($team)));

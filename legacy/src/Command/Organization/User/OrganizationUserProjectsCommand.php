@@ -14,6 +14,7 @@ use Platformsh\Cli\Model\ProjectRoles;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
 use Platformsh\Cli\Util\OsUtil;
+use Platformsh\Cli\Util\PaginationUtil;
 use Platformsh\Client\Model\CentralizedPermissions\UserExtendedAccess;
 use Platformsh\Client\Model\Ref\UserRef;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -118,12 +119,12 @@ class OrganizationUserProjectsCommand extends OrganizationCommandBase
             $collection = UserExtendedAccess::getPagedCollection($url, $httpClient, $options);
             $progress->done();
             $items = \array_merge($items, $collection['items']);
-            if (count($collection['items']) > 0 && isset($collection['next']) && $collection['next'] !== $url) {
-                $url = $collection['next'];
-                $pageNumber++;
-                continue;
+            $nextPage = PaginationUtil::nextPage($collection['next'], $url, $options['query']);
+            if ($nextPage === null) {
+                break;
             }
-            break;
+            [$url, $options['query']] = $nextPage;
+            $pageNumber++;
         }
 
         if (empty($items)) {
