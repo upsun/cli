@@ -191,6 +191,15 @@ abstract class IntegrationCommandBase extends CommandBase
      */
     private function getFields(): array
     {
+        $logForwardingTypes = [
+            'httplog',
+            'newrelic',
+            'splunk',
+            'sumologic',
+            'syslog',
+            'otlplog',
+        ];
+
         $allSupportedTypes = [
             'bitbucket',
             'bitbucket_server',
@@ -606,14 +615,7 @@ abstract class IntegrationCommandBase extends CommandBase
                 'required' => false,
             ]),
             'tls_verify' => new BooleanField('Verify TLS', [
-                'conditions' => ['type' => [
-                    'httplog',
-                    'newrelic',
-                    'splunk',
-                    'sumologic',
-                    'syslog',
-                    'otlplog',
-                ]],
+                'conditions' => ['type' => $logForwardingTypes],
                 'description' => 'Whether HTTPS certificate verification should be enabled (recommended)',
                 'questionLine' => 'Should HTTPS certificate verification be enabled (recommended)',
                 'default' => true,
@@ -664,6 +666,14 @@ abstract class IntegrationCommandBase extends CommandBase
                     }
                     return true;
                 },
+            ]),
+            'excluded_services' => new ArrayField('Excluded services', [
+                'optionName' => 'excluded-services',
+                'conditions' => ['type' => $logForwardingTypes],
+                'default' => [],
+                'description' => 'A list of services to exclude from the log forwarding.',
+                'required' => false,
+                'avoidQuestion' => true,
             ]),
         ];
     }

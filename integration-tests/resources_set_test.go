@@ -69,13 +69,9 @@ func TestResourcesSet_CurrentSizeMissingFromContainerProfiles(t *testing.T) {
 		})
 	})
 
-	// Organization profile without a resources_limit: skips the
-	// trial-limit branch that would otherwise reach into
-	// $current['sizes'] (a separate nullable path not under test here).
-	apiHandler.Get("/organizations/"+orgID+"/profile", func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{})
-	})
-
+	// No trial endpoint is mocked: the trial-limit branch that would
+	// otherwise reach into $current['sizes'] is skipped (a separate
+	// nullable path not under test here).
 	nextPath := "/projects/" + projectID + "/environments/main/deployments/next"
 	apiHandler.Get(nextPath, func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
