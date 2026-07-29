@@ -10,14 +10,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Dependency Review
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
 
       - name: Scan for secrets
+        # Tracks main intentionally: trufflehog ships only specific patch tags
+        # (no moving v3 tag), and as a secret scanner we want each run to use
+        # the latest detector set.
         uses: trufflesecurity/trufflehog@main
         with:
           extra_args: --only-verified

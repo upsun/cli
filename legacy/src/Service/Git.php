@@ -425,7 +425,9 @@ class Git
 
         $current = $dir;
         while (true) {
-            if (is_dir($current . '/.git')) {
+            // file_exists rather than is_dir: in a Git worktree (or submodule)
+            // .git is a file (a gitlink), not a directory.
+            if (file_exists($current . '/.git')) {
                 return realpath($current) ?: $current;
             }
 

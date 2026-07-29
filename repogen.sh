@@ -180,10 +180,41 @@ if [[ "$PACKAGE_MANAGER" == "all" || "$PACKAGE_MANAGER" == "debian" ]]; then
 fi
 
 # --- RPM Repository ---
-# Generates repos for multiple Fedora versions to support $releasever in yum/dnf configs
+# Generates a version-agnostic /rpm/$arch/ repo plus per-Fedora /fedora/$ver/$arch/
+# repos. The version-agnostic path works on any RPM distro (Fedora, AlmaLinux,
+# RHEL, Rocky, CentOS Stream); the per-version paths are kept for backwards
+# compatibility with users who already configured them.
 if [[ "$PACKAGE_MANAGER" == "all" || "$PACKAGE_MANAGER" == "rpm" ]]; then
     echo "=== Processing RPM packages ==="
 
+    # --- Universal RPM repo at /rpm/$arch/ ---
+    # Used by installer.sh and recommended for new setups. Independent of $releasever.
+    echo "--- Processing universal RPM repo (/rpm) ---"
+
+    RPM_UNIV_DIR="${REPO_DIR}/rpm-universal"
+    mkdir -p "$RPM_UNIV_DIR"
+
+    # Sync existing metadata from S3 (not packages)
+    for arch in x86_64 aarch64; do
+        mkdir -p "${RPM_UNIV_DIR}/all/${arch}/repodata"
+        aws s3 sync "s3://${AWS_BUCKET}/rpm/${arch}/repodata" "${RPM_UNIV_DIR}/all/${arch}/repodata" --delete 2>/dev/null || true
+    done
+
+    # repogen requires a version; "all" is just the local output subdirectory,
+    # whose contents are synced to /rpm/ (without the "all" prefix) in S3.
+    repogen generate \
+        --input-dir "$PACKAGES_RPM_DIR" \
+        --output-dir "$RPM_UNIV_DIR" \
+        --incremental \
+        --arch amd64,arm64 \
+        --origin "Upsun" \
+        --label "Upsun CLI" \
+        --version "all" \
+        --gpg-key "$GPG_KEY_FILE"
+
+    aws s3 sync "${RPM_UNIV_DIR}/all" "s3://${AWS_BUCKET}/rpm"
+
+    # --- Per-Fedora-version repos at /fedora/$ver/$arch/ (backwards compat) ---
     # Fedora versions to support (configurable via environment variable)
     FEDORA_VERSIONS="${FEDORA_VERSIONS:-40 41 42 43}"
 

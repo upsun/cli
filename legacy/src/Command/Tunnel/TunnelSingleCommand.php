@@ -12,6 +12,7 @@ use Platformsh\Cli\Service\Relationships;
 use Platformsh\Cli\Service\Ssh;
 use Platformsh\Cli\Console\ProcessManager;
 use Platformsh\Cli\Service\TunnelManager;
+use Platformsh\Cli\Util\OsUtil;
 use Platformsh\Cli\Util\PortUtil;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
@@ -81,24 +82,32 @@ class TunnelSingleCommand extends TunnelCommandBase
         }
         $sshArgs = $this->ssh->getSshArgs($sshUrl, $sshOptions);
 
-        if ($localPort = $input->getOption('port')) {
-            if (!PortUtil::validatePort($localPort)) {
-                $this->stdErr->writeln(sprintf('Invalid port: <error>%s</error>', $localPort));
+        $localPort = null;
+        if ($portOption = $input->getOption('port')) {
+            if (!PortUtil::validatePort($portOption)) {
+                $this->stdErr->writeln(sprintf('Invalid port: <error>%s</error>', $portOption));
 
                 return 1;
             }
-            if (PortUtil::isPortInUse($localPort)) {
-                $this->stdErr->writeln(sprintf('Port already in use: <error>%s</error>', $localPort));
+            if (PortUtil::isPortInUse($portOption)) {
+                $this->stdErr->writeln(sprintf('Port already in use: <error>%s</error>', $portOption));
 
                 return 1;
             }
+            $localPort = (int) $portOption;
         }
 
         $tunnel = $this->tunnelManager->create($selection, $service, $localPort);
 
         $relationshipString = $this->tunnelManager->formatRelationship($tunnel);
 
-        if ($openTunnelInfo = $this->tunnelManager->isOpen($tunnel)) {
+        // The persistent tunnel state used by tunnel:list/info/close depends on
+        // POSIX signals to detect dead processes. On Windows that detection is
+        // unavailable, so stale entries would never be cleaned up. Since this
+        // command runs in the foreground anyway, skip the state on Windows.
+        $trackState = !OsUtil::isWindows();
+
+        if ($trackState && ($openTunnelInfo = $this->tunnelManager->isOpen($tunnel))) {
             $this->stdErr->writeln(sprintf(
                 'A tunnel is already opened to the relationship <info>%s</info>, at: <info>%s</info>',
                 $relationshipString,
@@ -127,7 +136,9 @@ class TunnelSingleCommand extends TunnelCommandBase
             return 1;
         }
 
-        $this->tunnelManager->saveNewTunnel($tunnel, $pid);
+        if ($trackState) {
+            $this->tunnelManager->saveNewTunnel($tunnel, $pid);
+        }
 
         if ($output->isVerbose()) {
             // Just an extra line for separation from the process manager's log.

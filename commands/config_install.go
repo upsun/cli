@@ -12,6 +12,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/symfony-cli/terminal"
 
 	"github.com/upsun/cli/internal/config"
@@ -102,7 +103,7 @@ func runConfigInstall(cmd *cobra.Command, args []string) error {
 	cmd.PrintErrf("The executable runs %s with the new configuration.\n",
 		color.CyanString(formatPath(target)))
 	cmd.PrintErrln()
-	if terminal.Stdin.IsInteractive() {
+	if terminal.Stdin.IsInteractive() && !viper.GetBool("no-interaction") {
 		if !terminal.AskConfirmation("Are you sure you want to continue?", true) {
 			os.Exit(1)
 		}

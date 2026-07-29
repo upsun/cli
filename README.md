@@ -91,14 +91,14 @@ sudo apt-get update
 sudo apt-get install -y upsun-cli
 ```
 
-### CentOS/RHEL/Fedora
+### RPM (Fedora, RHEL, CentOS, AlmaLinux, Rocky)
 
 ```console
 # Add the repository
 sudo tee /etc/yum.repos.d/upsun.repo << 'EOF'
 [upsun]
 name=Upsun CLI
-baseurl=https://repositories.upsun.com/fedora/$releasever/$basearch
+baseurl=https://repositories.upsun.com/rpm/$basearch
 enabled=1
 gpgcheck=1
 gpgkey=https://repositories.upsun.com/gpg.key
@@ -111,6 +111,14 @@ sudo dnf install -y upsun-cli
 ### Manual installation
 
 For manual installation, you can also [download the latest binaries](https://github.com/upsun/cli/releases/latest).
+
+### Docker
+
+The CLI is also available as a Docker image:
+
+```console
+docker run --rm -it ghcr.io/upsun/cli
+```
 
 ## Upgrade
 
@@ -188,6 +196,7 @@ Releases are automated via GitHub Actions. To create a new release:
    - Sign packages (APK, DEB, RPM)
    - Create a GitHub release with all artifacts
    - Update package repositories at repositories.upsun.com
+   - Build and push Docker image to ghcr.io/upsun/cli
 
 ## Licenses
 

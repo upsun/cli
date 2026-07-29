@@ -64,6 +64,11 @@ linters:
         linters:
           - revive
         text: "var-naming: avoid meaningless package names"
+      # Test infrastructure: mock servers and integration test harness exercise the
+      # CLI under controlled inputs, so gosec's taint analysis produces false positives.
+      - path: (pkg/mockapi/|pkg/mockssh/|integration-tests/)
+        linters:
+          - gosec
     paths:
       - vendor
       - third_party$

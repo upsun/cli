@@ -1,5 +1,5 @@
 parameters:
-	level: 7
+	level: 8
 	paths:
 		- dist
 		- resources
@@ -10,6 +10,8 @@ parameters:
 		- dist/installer.php
 	excludePaths:
 		- dist/installer.php
+	stubFiles:
+		- phpstan-stubs/Activity.stub
 
 includes:
 	- phpstan-baseline.neon

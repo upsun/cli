@@ -81,7 +81,10 @@ class OrganizationUserAddCommand extends OrganizationUserCommandBase
             } else {
                 $questionText = 'Optionally, enter a list of permissions to add (separated by commas)';
             }
-            $response = $this->questionHelper->askInput($questionText, null, [], function ($value) {
+            $response = $this->questionHelper->askInput($questionText, null, [], function (?string $value): ?string {
+                if ($value === null) {
+                    return null;
+                }
                 foreach (ArrayArgument::split([$value]) as $permission) {
                     if (!\in_array($permission, self::$allPermissions)) {
                         throw new InvalidArgumentException('Unrecognized permission: ' . $permission);
@@ -89,7 +92,7 @@ class OrganizationUserAddCommand extends OrganizationUserCommandBase
                 }
                 return $value;
             });
-            $permissions = ArrayArgument::split([$response]);
+            $permissions = $response === null ? [] : ArrayArgument::split([$response]);
             $this->stdErr->writeln('');
         }
 

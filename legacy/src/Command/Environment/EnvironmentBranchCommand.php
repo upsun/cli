@@ -113,7 +113,7 @@ class EnvironmentBranchCommand extends CommandBase
             if ($checkout) {
                 return $this->subCommandRunner->run(
                     'environment:checkout',
-                    ['id' => $environment->id],
+                    ['environment' => $environment->id],
                 );
             }
 

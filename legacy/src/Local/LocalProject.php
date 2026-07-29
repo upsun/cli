@@ -270,7 +270,9 @@ class LocalProject
             $yaml = new Parser();
             $projectConfig = $yaml->parse((string) file_get_contents($projectRoot . '/' . $configFilename));
             self::$projectConfigs[$projectRoot] = $projectConfig;
-        } elseif ($projectRoot && is_dir($projectRoot . '/.git')) {
+        } elseif ($projectRoot && file_exists($projectRoot . '/.git')) {
+            // Use file_exists rather than is_dir: in a Git worktree (or
+            // submodule) .git is a file (a gitlink), not a directory.
             $gitUrl = $this->getGitRemoteUrl($projectRoot);
             if ($gitUrl && ($projectConfig = $this->parseGitUrl($gitUrl))) {
                 $this->writeCurrentProjectConfig($projectConfig, $projectRoot);
@@ -359,7 +361,7 @@ class LocalProject
     public function writeGitExclude(string $dir): void
     {
         $filesToExclude = ['/' . $this->config->getStr('local.local_dir'), '/' . $this->config->getStr('local.web_root')];
-        $excludeFilename = $dir . '/.git/info/exclude';
+        $excludeFilename = $this->getGitExcludePath($dir);
         $existing = '';
 
         // Skip writing anything if the contents already include the
@@ -389,5 +391,27 @@ class LocalProject
             $content = $existing . "\n" . $content;
         }
         $this->fs->dumpFile($excludeFilename, $content);
+    }
+
+    /**
+     * Finds the path to a repository's info/exclude file.
+     *
+     * In a Git worktree .git is a file, so the exclude file is not at
+     * .git/info/exclude; git resolves it to the shared common directory.
+     *
+     * @param string $dir The repository (or worktree) directory.
+     */
+    private function getGitExcludePath(string $dir): string
+    {
+        $path = $this->git->execute(['rev-parse', '--git-path', 'info/exclude'], $dir);
+        if (!is_string($path) || $path === '') {
+            return $dir . '/.git/info/exclude';
+        }
+        // The path may be returned relative to the repository directory.
+        if (!preg_match('#^(/|[a-zA-Z]:[\\\\/])#', $path)) {
+            $path = $dir . '/' . $path;
+        }
+
+        return $path;
     }
 }

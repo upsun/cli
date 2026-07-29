@@ -40,6 +40,7 @@ trait HasTempDirTrait
     protected function createTempSubDir(string $prefix = ''): string
     {
         $this->tempDirSetUp();
+        assert($this->tempDir !== null);
 
         return $this->createTempDir($this->tempDir, $prefix);
     }

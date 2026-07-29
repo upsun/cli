@@ -5,7 +5,7 @@ import "math/rand/v2"
 const lowercaseAlphanumericChars = "abcdefghijklmnopqrstuvwxyz0123456789"
 
 func randomLength(minLen, maxLen int) int {
-	return rand.IntN(maxLen-minLen) + minLen //nolint:gosec
+	return rand.IntN(maxLen-minLen) + minLen
 }
 
 // ProjectID generates a random project ID.
@@ -17,7 +17,7 @@ func ProjectID() string {
 func lowercaseAlphanumericID(length int) string {
 	id := make([]byte, length)
 	for i := range id {
-		id[i] = lowercaseAlphanumericChars[rand.IntN(len(lowercaseAlphanumericChars))] //nolint:gosec
+		id[i] = lowercaseAlphanumericChars[rand.IntN(len(lowercaseAlphanumericChars))]
 	}
 
 	return string(id)
@@ -28,7 +28,7 @@ func NumericID() string {
 	length := randomLength(6, 10)
 	id := make([]byte, length)
 	for i := range id {
-		id[i] = '0' + byte(rand.IntN(10)) //nolint:gosec
+		id[i] = '0' + byte(rand.IntN(10))
 	}
 
 	return string(id)

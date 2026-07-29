@@ -33,7 +33,7 @@ class EnvironmentDomain extends ApiResourceBase
      *
      * @param array<string, mixed> $ssl
      */
-    public static function add(ClientInterface $client, Environment $environment, string $name, string $replacementFor = '', array $ssl = []): Result
+    public static function add(ClientInterface $client, Environment $environment, string $name, ?string $replacementFor = null, array $ssl = []): Result
     {
         $body = ['name' => $name];
         if (!empty($replacementFor)) {

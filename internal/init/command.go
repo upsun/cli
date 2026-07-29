@@ -31,7 +31,7 @@ type Options struct {
 	ExtraContext   string
 
 	HTTPClient     *http.Client
-	AIServiceURL   string
+	APIURL         string
 	UserAgent      string
 	RequestTimeout time.Duration // Defaults to 10 minutes
 
@@ -53,8 +53,8 @@ func RunAIConfig(
 	opts *Options,
 	stdout, stderr io.Writer,
 ) error {
-	if opts.AIServiceURL == "" {
-		return fmt.Errorf("no AI service URL available")
+	if opts.APIURL == "" {
+		return fmt.Errorf("no API URL available")
 	}
 	if opts.HTTPClient == nil {
 		opts.HTTPClient = http.DefaultClient
@@ -88,7 +88,7 @@ func RunAIConfig(
 		return err
 	}
 
-	u, err := url.Parse(opts.AIServiceURL)
+	u, err := url.Parse(opts.APIURL)
 	if err != nil {
 		return err
 	}
@@ -141,7 +141,7 @@ func RunAIConfig(
 			if key == "output" {
 				return json.Unmarshal(data, &apiOutput)
 			}
-			return fmt.Errorf("unexpected data key: %s", key)
+			return nil
 		})
 		eg, egCtx = errgroup.WithContext(ctx)
 		msgChan   = make(chan streaming.Message, 10) // Buffered to prevent deadlock if handleMessage errors.
@@ -171,7 +171,8 @@ func RunAIConfig(
 	yamlContent := strings.TrimSpace(apiOutput.ConfigYAML)
 
 	// Check if stdout is a terminal and supports color
-	if f, ok := stdout.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
+	// G115: file descriptors fit comfortably in an int on all supported platforms.
+	if f, ok := stdout.(*os.File); ok && term.IsTerminal(int(f.Fd())) { //nolint:gosec
 		if err := quick.Highlight(stdout, yamlContent+"\n", "yaml", "terminal", "bw"); err != nil {
 			// Fall back to plain text if highlighting fails
 			fmt.Fprintln(stdout, yamlContent)

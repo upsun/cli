@@ -73,9 +73,11 @@ func (h *Handler) handleGetEnvironmentSettings(w http.ResponseWriter, req *http.
 	if env.settings != nil {
 		settings = env.settings
 	}
+	// The real API only exposes a "self" link on the settings resource; it does
+	// not advertise an "#edit" operation, so the client cannot run an "edit"
+	// operation against it.
 	settings["_links"] = MakeHALLinks(
-		"self=/projects/"+env.Project+"/environments/"+env.ID+"/settings",
-		"#edit=/projects/"+env.Project+"/environments/"+env.ID+"/settings",
+		"self=/projects/" + env.Project + "/environments/" + env.ID + "/settings",
 	)
 
 	_ = json.NewEncoder(w).Encode(settings)
@@ -101,8 +103,7 @@ func (h *Handler) handleSetEnvironmentSettings(w http.ResponseWriter, req *http.
 		env.settings[k] = v
 	}
 	settings["_links"] = MakeHALLinks(
-		"self=/projects/"+env.Project+"/environments/"+env.ID+"/settings",
-		"#edit=/projects/"+env.Project+"/environments/"+env.ID+"/settings",
+		"self=/projects/" + env.Project + "/environments/" + env.ID + "/settings",
 	)
 
 	h.environments[env.ID] = env

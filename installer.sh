@@ -31,7 +31,7 @@ set -eu
 
 # global variables
 binary="upsun"
-vendor_name="Upsun (formerly Platform.sh)"
+vendor_name="Upsun"
 cmd_shasum=""
 cmd_sudo=""
 dir_bin="/usr/bin"
@@ -515,7 +515,7 @@ install_yum() {
     repo_file="/etc/yum.repos.d/upsun.repo"
     repo_content="[upsun]
 name=Upsun CLI
-baseurl=https://repositories.upsun.com/fedora/\\\$releasever/\\\$basearch
+baseurl=https://repositories.upsun.com/rpm/\\\$basearch
 enabled=1
 gpgcheck=1
 gpgkey=https://repositories.upsun.com/gpg.key"

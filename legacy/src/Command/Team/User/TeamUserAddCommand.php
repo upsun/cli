@@ -56,9 +56,12 @@ class TeamUserAddCommand extends TeamCommandBase
                     $emails[] = $info->email;
                 }
             }
-            $identifier = $this->questionHelper->askInput('Enter an email address to add a user', null, $emails, function (string $value): string {
+            $identifier = $this->questionHelper->askInput('Enter an email address to add a user', null, $emails, function (?string $value): string {
+                if ($value === null) {
+                    throw new InvalidArgumentException('An email address is required');
+                }
                 if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
-                    throw new InvalidArgumentException('Invalid email address:' . $value);
+                    throw new InvalidArgumentException('Invalid email address: ' . $value);
                 }
                 return $value;
             });

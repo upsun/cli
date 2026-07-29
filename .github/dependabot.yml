@@ -4,7 +4,31 @@ updates:
     directory: /legacy
     schedule:
       interval: weekly
+    # Major version bumps of PHP dependencies are usually incompatible
+    # (e.g. doctrine/cache 1.x to 2.x), so only allow minor and patch updates.
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+    groups:
+      php-deps:
+        patterns:
+          - "*"
+
   - package-ecosystem: gomod
     directory: /
     schedule:
       interval: weekly
+    groups:
+      go-deps:
+        patterns:
+          - "*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions-deps:
+        patterns:
+          - "*"

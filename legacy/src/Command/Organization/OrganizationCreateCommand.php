@@ -54,6 +54,7 @@ class OrganizationCreateCommand extends OrganizationCommandBase
             $fields['type'] = new OptionsField('Type', [
                 'description' => 'The organization type.',
                 'options' => $options,
+                'avoidQuestion' => true,
                 'default' => $this->config->getWithDefault('api.default_organization_type', key($options)),
             ]);
         }
@@ -70,7 +71,9 @@ class OrganizationCreateCommand extends OrganizationCommandBase
             'defaultCallback' => function () {
                 return $this->api->getUser()->country ?: null;
             },
-            'normalizer' => function ($value) { return $this->countryService->countryToCode($value); },
+            'normalizer' => function ($value) {
+                return $this->countryService->countryToCode($value);
+            },
             'validator' => function ($countryCode) use ($countryList) {
                 return isset($countryList[$countryCode]) ? true : "Invalid country: $countryCode";
             },

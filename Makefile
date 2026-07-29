@@ -1,4 +1,4 @@
-PHP_VERSION = 8.4.16
+PHP_VERSION = 8.4.20
 
 GOOS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 GOARCH := $(shell uname -m)
@@ -15,11 +15,6 @@ ifeq ($(GOOS), darwin)
 	GORELEASER_ID = $(FLAVOR)-macos
 else
 	GORELEASER_ID = $(FLAVOR)
-endif
-
-# Use GORELEASER_CURRENT_TAG if set (from GitHub Actions), otherwise derive from git
-ifeq ($(origin VERSION), undefined)
-VERSION := $(or $(GORELEASER_CURRENT_TAG),$(shell git describe --tags --always 2>/dev/null || echo "0.0.0-dev"))
 endif
 
 # Tooling versions
@@ -116,11 +111,6 @@ ifndef GPG_SIGNING_KEY_FILE
 	$(error GPG_SIGNING_KEY_FILE is not set. Set it to the path of your GPG private key for RPM signing.)
 endif
 	PHP_VERSION=$(PHP_VERSION) goreleaser release --clean
-	@if echo "$(VERSION)" | grep -qv -- '-'; then \
-		VERSION=$(VERSION) bash cloudsmith.sh; \
-	else \
-		echo "Skipping Cloudsmith upload for pre-release version $(VERSION)"; \
-	fi
 
 .PHONY: test
 # "We encourage users of encoding/json to test their programs with GOEXPERIMENT=jsonv2 enabled" (https://tip.golang.org/doc/go1.25)
@@ -165,3 +155,18 @@ vendor-snapshot: check-vendor .goreleaser.vendor.yaml goreleaser internal/legacy
 .PHONY: goreleaser-check
 goreleaser-check:  goreleaser ## Check the goreleaser configs
 	PHP_VERSION=$(PHP_VERSION) goreleaser check --config=.goreleaser.yaml
+
+# ----- npm distribution -----
+# See npm/README.md.
+
+.PHONY: npm-pack
+npm-pack: ## Build npm tarballs from existing GoReleaser archives in dist/
+	bash npm/scripts/build.sh
+
+.PHONY: npm-publish
+npm-publish: ## Publish npm tarballs (requires npm auth). NPM_TAG=latest|next, DRY_RUN=1 to dry-run
+	bash npm/scripts/publish.sh
+
+.PHONY: npm-clean
+npm-clean: ## Remove npm/dist working directory
+	rm -rf npm/dist

@@ -2,13 +2,17 @@
 
 namespace Platformsh\Cli\Command\Environment;
 
+use GuzzleHttp\Utils;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Platformsh\Cli\Service\ActivityMonitor;
+use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Client\Model\Activity;
+use Platformsh\Client\Model\Result;
+use Platformsh\Client\Model\Settings;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -18,7 +22,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'environment:deploy:type', description: 'Show or set the environment deployment type')]
 class EnvironmentDeployTypeCommand extends CommandBase
 {
-    public function __construct(private readonly ActivityMonitor $activityMonitor, private readonly QuestionHelper $questionHelper, private readonly Selector $selector)
+    public function __construct(private readonly ActivityMonitor $activityMonitor, private readonly Api $api, private readonly QuestionHelper $questionHelper, private readonly Selector $selector)
     {
         parent::__construct();
     }
@@ -89,7 +93,14 @@ class EnvironmentDeployTypeCommand extends CommandBase
             }
         }
 
-        $result = $settings->update(['enable_manual_deployments' => $newType === 'manual']);
+        // Update the setting with a direct PATCH request. The settings API
+        // resource does not advertise an "edit" operation link, so the client's
+        // update() method (which relies on that operation) cannot be used.
+        $httpClient = $this->api->getHttpClient();
+        $response = $httpClient->request('PATCH', $settings->getUri(), [
+            'json' => ['enable_manual_deployments' => $newType === 'manual'],
+        ]);
+        $result = new Result((array) Utils::jsonDecode((string) $response->getBody(), true), $settings->getUri(), $httpClient, Settings::class);
 
         if ($result->getActivities() && $this->activityMonitor->shouldWait($input)) {
             $success = $this->activityMonitor->waitMultiple($result->getActivities(), $selection->getProject());

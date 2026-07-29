@@ -36,7 +36,7 @@ class MultiCommand extends CommandBase
     {
         $this
             ->addArgument('cmd', InputArgument::REQUIRED | InputArgument::IS_ARRAY, 'The command to execute')
-            ->addOption('projects', 'p', InputOption::VALUE_REQUIRED, 'A list of project IDs. ' . ArrayArgument::SPLIT_HELP)
+            ->addOption('projects', 'p', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'A list of project IDs. ' . ArrayArgument::SPLIT_HELP)
             ->addOption('continue', null, InputOption::VALUE_NONE, 'Continue running commands even if an exception is encountered')
             ->addOption('sort', null, InputOption::VALUE_REQUIRED, 'A property by which to sort the list of project options', 'title')
             ->addOption('reverse', null, InputOption::VALUE_NONE, 'Reverse the order of project options');

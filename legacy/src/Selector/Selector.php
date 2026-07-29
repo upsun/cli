@@ -170,7 +170,10 @@ class Selector implements CompleterInterface
         // Select the app.
         $appName = null;
         $remoteContainer = null;
-        if ($input->hasOption('app')) {
+        // Skip when --app is an array option (used purely as a filter, e.g.
+        // by resources:get); the calling command will handle filtering itself.
+        // VALUE_IS_ARRAY options always return an array (empty by default).
+        if ($input->hasOption('app') && !is_array($input->getOption('app'))) {
             if ($input->getOption('app')) {
                 $appName = (string) $input->getOption('app');
             } elseif (isset($result['appId'])) {
@@ -190,7 +193,12 @@ class Selector implements CompleterInterface
                 ), OutputInterface::VERBOSITY_VERBOSE);
             }
 
-            $remoteContainer = $this->selectRemoteContainer($environment, $input, $appName);
+            // The remote container can only be selected if an environment was
+            // identified. When envRequired is false, the calling command is
+            // responsible for handling the case where there is no environment.
+            if ($environment !== null) {
+                $remoteContainer = $this->selectRemoteContainer($environment, $input, $appName);
+            }
         }
 
         $selection = new Selection($config, $project, $environment, $appName, $remoteContainer);
@@ -445,8 +453,8 @@ class Selector implements CompleterInterface
                 }
             }
             asort($autocomplete, SORT_NATURAL | SORT_FLAG_CASE);
-            return $this->questionHelper->askInput($config->enterProjectText, null, array_values($autocomplete), function ($value) use ($autocomplete): string {
-                [$id, ] = explode(' - ', $value);
+            return $this->questionHelper->askInput($config->enterProjectText, null, array_values($autocomplete), function (?string $value) use ($autocomplete): string {
+                [$id] = explode(' - ', $value ?? '', 2);
                 if (empty(trim($id))) {
                     throw new InvalidArgumentException('A project ID is required');
                 }
@@ -487,7 +495,10 @@ class Selector implements CompleterInterface
             $ids = array_keys($environments);
             sort($ids, SORT_NATURAL | SORT_FLAG_CASE);
 
-            $id = $this->questionHelper->askInput($config->enterEnvText, $defaultEnvironmentId, array_keys($environments), function (string $value) use ($environments): string {
+            $id = $this->questionHelper->askInput($config->enterEnvText, $defaultEnvironmentId, array_keys($environments), function (?string $value) use ($environments): string {
+                if ($value === null || $value === '') {
+                    throw new \RuntimeException('An environment ID is required');
+                }
                 if (!isset($environments[$value])) {
                     throw new \RuntimeException('Environment not found: ' . $value);
                 }
