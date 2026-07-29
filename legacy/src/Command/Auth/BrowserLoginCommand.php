@@ -9,7 +9,6 @@ use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\QuestionHelper;
-use GuzzleHttp\Client;
 use GuzzleHttp\Exception\BadResponseException;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Utils;
@@ -313,7 +312,9 @@ class BrowserLoginCommand extends CommandBase
      */
     private function getAccessToken(string $authCode, string $codeVerifier, string $redirectUri): array
     {
-        $client = new Client(['verify' => !$this->config->getBool('api.skip_ssl')]);
+        // Use the shared HTTP client, so that the request uses the detected CA
+        // bundle and any configured proxy.
+        $client = $this->api->getExternalHttpClient();
         $request = new Request('POST', $this->config->getStr('api.oauth2_token_url'), body: http_build_query([
             'grant_type' => 'authorization_code',
             'code' => $authCode,
