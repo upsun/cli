@@ -43,7 +43,7 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
     protected function configure(): void
     {
         $this->setHiddenAliases(['organization:subscriptions'])
-            ->addOption('page', null, InputOption::VALUE_REQUIRED, 'Page number. This enables pagination, despite configuration or --count.')
+            ->addOption('page', null, InputOption::VALUE_REQUIRED, 'Page number. This enables pagination, despite the configuration or --count 0.')
             ->addOption('count', 'c', InputOption::VALUE_REQUIRED, 'The number of items to display per page (max: ' . self::MAX_COUNT . '). Use 0 to disable pagination.');
         $this->selector->addOrganizationOptions($this->getDefinition(), true);
         $this->addCompleter($this->selector);
