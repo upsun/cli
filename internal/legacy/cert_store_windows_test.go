@@ -1,16 +1,13 @@
 package legacy
 
-// This file answers two questions about certificate trust on Windows, which
-// decide how the CLI should configure its CA bundle there:
+// This file covers which certificates the embedded PHP trusts on Windows.
 //
-//  1. Does a CA bundle stop the embedded PHP from using the Windows
-//     certificate store? The store is where an organization installs the extra
-//     root certificate needed when it inspects TLS traffic. curl in the
-//     embedded PHP is built against Schannel, and its source suggests that
-//     passing any CA file makes it verify against that file alone.
-//
-//  2. Can a CA bundle which includes the store's certificates restore trust,
-//     and can the store be read from Go in the first place?
+// It matters because an organization that inspects TLS traffic installs an
+// extra root certificate in the Windows certificate store, and curl in the
+// embedded PHP is built against Schannel, which can read that store. Passing
+// curl a CA file makes it verify against that file alone, so the settings the
+// wrapper chooses decide whether such certificates are seen at all. See
+// https://github.com/upsun/cli/issues/110.
 //
 // The test installs a throwaway CA in the machine's root store, so it needs
 // administrator rights and only runs when CLI_TEST_MODIFY_CERT_STORE is set.
@@ -25,6 +22,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"math/big"
 	"net"
 	"net/http"
@@ -95,17 +93,20 @@ func TestWindowsCertStoreTrust(t *testing.T) {
 		wantTrust bool
 	}{
 		{
-			name:      "no CA file, so the Windows certificate store is used",
+			name:      "no CA file, so the store is used",
 			args:      nil,
 			wantTrust: true,
 		},
 		{
-			name:      "the bundled CA file replaces the store, as the wrapper configures today",
+			// The wrapper passes this setting today, which is why an
+			// organization's certificate is not seen. Expect this
+			// expectation to change along with that.
+			name:      "a CA file is used instead of the store",
 			args:      []string{"-d", iniSetting("openssl.cafile", bundledCAFile)},
 			wantTrust: false,
 		},
 		{
-			name:      "a CA file including the store's certificate restores trust",
+			name:      "a CA file which includes the store's certificate",
 			args:      []string{"-d", iniSetting("openssl.cafile", mergedCAFile)},
 			wantTrust: true,
 		},
@@ -224,13 +225,13 @@ func removeCertFromRootStore(t *testing.T, certDER []byte) {
 		assert.NoError(t, windows.CertCloseStore(store, 0))
 	}()
 
-	found := eachCertInStore(t, store, func(context *windows.CertContext, encoded []byte) bool {
+	found := eachCertInStore(t, store, func(certContext *windows.CertContext, encoded []byte) bool {
 		if !bytes.Equal(encoded, certDER) {
 			return false
 		}
 		// CertDeleteCertificateFromStore frees the context, so the
 		// enumeration must stop here.
-		assert.NoError(t, windows.CertDeleteCertificateFromStore(context))
+		assert.NoError(t, windows.CertDeleteCertificateFromStore(certContext))
 		return true
 	})
 	assert.True(t, found, "expected to find the test CA in order to remove it")
@@ -284,25 +285,25 @@ func withoutHanging(t *testing.T, description string, fn func() error) {
 }
 
 // eachCertInStore calls fn for each certificate until it returns true.
-func eachCertInStore(t *testing.T, store windows.Handle, fn func(context *windows.CertContext, encoded []byte) bool) bool {
+func eachCertInStore(t *testing.T, store windows.Handle, fn func(certContext *windows.CertContext, encoded []byte) bool) bool {
 	t.Helper()
 
 	var count int
-	var context *windows.CertContext
+	var certContext *windows.CertContext
 	for {
 		var err error
-		context, err = windows.CertEnumCertificatesInStore(store, context)
-		if context == nil {
-			if err != nil && err != windows.Errno(windows.CRYPT_E_NOT_FOUND) {
+		certContext, err = windows.CertEnumCertificatesInStore(store, certContext)
+		if certContext == nil {
+			if err != nil && !errors.Is(err, windows.Errno(windows.CRYPT_E_NOT_FOUND)) {
 				t.Logf("stopped reading the store: %s", err)
 			}
-			t.Logf("read %d certificates from the ROOT store", count)
+			t.Logf("read %d certificates from the store", count)
 			return false
 		}
 		count++
-		encoded := unsafe.Slice(context.EncodedCert, context.Length)
-		if fn(context, encoded) {
-			t.Logf("matched a certificate after reading %d from the ROOT store", count)
+		encoded := unsafe.Slice(certContext.EncodedCert, certContext.Length)
+		if fn(certContext, encoded) {
+			t.Logf("matched a certificate after reading %d from the store", count)
 			return true
 		}
 	}

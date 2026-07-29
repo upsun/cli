@@ -140,7 +140,7 @@ jobs:
       - name: Run integration tests
         run: make integration-test
 
-  # Spike: check how the embedded PHP treats the Windows certificate store.
+  # The only Windows coverage: which certificates the embedded PHP trusts.
   windows-cert-store:
     runs-on: windows-latest
 
