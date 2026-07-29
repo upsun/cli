@@ -85,7 +85,9 @@ func TestWindowsCertStoreTrust(t *testing.T) {
 	mergedCAFile := filepath.Join(cacheDir, "merged.pem")
 	bundled, err := os.ReadFile(bundledCAFile)
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(mergedCAFile, append(bundled, ca.certPEM...), 0o600))
+	merged := append(bytes.TrimRight(bundled, "\n"), '\n')
+	merged = append(merged, ca.certPEM...)
+	require.NoError(t, os.WriteFile(mergedCAFile, merged, 0o600))
 
 	cases := []struct {
 		name      string
@@ -102,7 +104,7 @@ func TestWindowsCertStoreTrust(t *testing.T) {
 			// organization's certificate is not seen. Expect this
 			// expectation to change along with that.
 			name:      "a CA file is used instead of the store",
-			args:      []string{"-d", iniSetting("openssl.cafile", bundledCAFile)},
+			args:      settingArgs(manager.settings()),
 			wantTrust: false,
 		},
 		{
@@ -309,11 +311,13 @@ func eachCertInStore(t *testing.T, store windows.Handle, fn func(certContext *wi
 	}
 }
 
-// iniSetting quotes the value of a PHP setting. PHP reads ini values as
-// expressions in which characters such as "~" are operators, and Windows short
-// paths contain them, for example C:\Users\RUNNER~1\AppData.
-func iniSetting(key, value string) string {
-	return key + `="` + value + `"`
+// settingArgs turns PHP settings into options, as makeCmd does.
+func settingArgs(settings []string) []string {
+	args := make([]string, 0, len(settings)*2)
+	for _, s := range settings {
+		args = append(args, "-d", s)
+	}
+	return args
 }
 
 func runPHPRequest(t *testing.T, phpBin, url string, extraArgs ...string) string {

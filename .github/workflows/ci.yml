@@ -164,8 +164,8 @@ jobs:
           # Only needed so that the package builds.
           touch internal/legacy/archives/platform.phar
 
-      - name: Run certificate store tests
+      - name: Run Windows tests
         shell: bash
         env:
           CLI_TEST_MODIFY_CERT_STORE: '1'
-        run: GOEXPERIMENT=jsonv2 go test -v -count=1 -timeout 3m -run TestWindowsCertStoreTrust ./internal/legacy/
+        run: GOEXPERIMENT=jsonv2 go test -v -count=1 -timeout 3m -run TestWindows ./internal/legacy/

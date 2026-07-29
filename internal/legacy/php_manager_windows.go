@@ -3,6 +3,7 @@ package legacy
 import (
 	_ "embed"
 	"path/filepath"
+	"strings"
 
 	"github.com/upsun/cli/internal/file"
 )
@@ -27,6 +28,17 @@ func (m *phpManagerPerOS) binPath() string {
 
 func (m *phpManagerPerOS) settings() []string {
 	return []string{
-		"openssl.cafile=" + filepath.Join(m.cacheDir, "cacert.pem"),
+		iniSetting("openssl.cafile", filepath.Join(m.cacheDir, "cacert.pem")),
 	}
+}
+
+// iniSetting formats a PHP setting for the -d option.
+//
+// PHP reads ini values as expressions, in which characters such as "~" are
+// operators, so a value has to be quoted. Windows short paths contain them,
+// for example C:\Users\RUNNER~1\AppData. Inside quotes a backslash escapes the
+// next character, so the backslashes have to be doubled.
+func iniSetting(key, value string) string {
+	escaped := strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(value)
+	return key + `="` + escaped + `"`
 }
