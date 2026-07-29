@@ -12,8 +12,9 @@ package legacy
 //  2. Can a CA bundle which includes the store's certificates restore trust,
 //     and can the store be read from Go in the first place?
 //
-// The test installs a throwaway CA in the current user's root store, so it
-// only runs when CLI_TEST_MODIFY_CERT_STORE is set. It cleans up afterwards.
+// The test installs a throwaway CA in the machine's root store, so it needs
+// administrator rights and only runs when CLI_TEST_MODIFY_CERT_STORE is set.
+// It removes the certificate again afterwards.
 
 import (
 	"bytes"
@@ -53,7 +54,7 @@ const curlPeerFailedVerification = "ERR:60:"
 
 func TestWindowsCertStoreTrust(t *testing.T) {
 	if os.Getenv("CLI_TEST_MODIFY_CERT_STORE") != "1" {
-		t.Skip("set CLI_TEST_MODIFY_CERT_STORE=1 to let this test add a certificate to the user's root store")
+		t.Skip("set CLI_TEST_MODIFY_CERT_STORE=1, and run as administrator, to let this test add a certificate to the root store")
 	}
 
 	ca := generateTestCA(t)
@@ -65,7 +66,7 @@ func TestWindowsCertStoreTrust(t *testing.T) {
 	server.StartTLS()
 	defer server.Close()
 
-	installCAInUserRootStore(t, ca.certDER)
+	installCAInRootStore(t, ca.certDER)
 
 	// Lay out the PHP binary and its bundled CA file the way the CLI does.
 	cacheDir := t.TempDir()
@@ -118,7 +119,7 @@ func TestWindowsCertStoreTrust(t *testing.T) {
 	}
 
 	t.Run("the root store can be read from Go", func(t *testing.T) {
-		assert.True(t, userRootStoreContains(t, ca.certDER),
+		assert.True(t, rootStoreContains(t, ca.certDER),
 			"expected to find the installed certificate by enumerating the ROOT store")
 	})
 }
@@ -177,15 +178,16 @@ func generateTestCA(t *testing.T) testCA {
 	}
 }
 
-// installCAInUserRootStore trusts a certificate for the current user only,
-// which needs no elevation, and removes it when the test ends.
+// installCAInRootStore trusts a certificate and removes it when the test ends.
 //
-// This uses the store API rather than "certutil -addstore", which asks the
-// user to confirm and so cannot run unattended.
-func installCAInUserRootStore(t *testing.T, certDER []byte) {
+// It writes to the machine store, which needs administrator rights but no
+// confirmation. Adding to the current user's store instead makes Windows ask
+// the user to confirm, whether that is done through certutil or through the
+// store API, so it cannot run unattended.
+func installCAInRootStore(t *testing.T, certDER []byte) {
 	t.Helper()
 
-	store := openUserRootStore(t)
+	store := openMachineRootStore(t)
 	defer func() {
 		assert.NoError(t, windows.CertCloseStore(store, 0))
 	}()
@@ -196,19 +198,23 @@ func installCAInUserRootStore(t *testing.T, certDER []byte) {
 		assert.NoError(t, windows.CertFreeCertificateContext(certContext))
 	}()
 
-	require.NoError(t, windows.CertAddCertificateContextToStore(store, certContext, windows.CERT_STORE_ADD_REPLACE_EXISTING, nil))
-	t.Log("installed the test CA in the user's root store")
+	// Guard against the confirmation prompt: if one appears the call never
+	// returns, and without this the whole test binary would time out.
+	withoutHanging(t, "adding the certificate to the machine root store", func() error {
+		return windows.CertAddCertificateContextToStore(store, certContext, windows.CERT_STORE_ADD_REPLACE_EXISTING, nil)
+	})
+	t.Log("installed the test CA in the machine root store")
 
 	t.Cleanup(func() {
-		removeCertFromUserRootStore(t, certDER)
+		removeCertFromRootStore(t, certDER)
 	})
 }
 
-// removeCertFromUserRootStore deletes a certificate installed by the test.
-func removeCertFromUserRootStore(t *testing.T, certDER []byte) {
+// removeCertFromRootStore deletes a certificate installed by the test.
+func removeCertFromRootStore(t *testing.T, certDER []byte) {
 	t.Helper()
 
-	store := openUserRootStore(t)
+	store := openMachineRootStore(t)
 	defer func() {
 		assert.NoError(t, windows.CertCloseStore(store, 0))
 	}()
@@ -225,7 +231,27 @@ func removeCertFromUserRootStore(t *testing.T, certDER []byte) {
 	assert.True(t, found, "expected to find the test CA in order to remove it")
 }
 
-func openUserRootStore(t *testing.T) windows.Handle {
+// openMachineRootStore opens the machine's trusted root store for writing.
+func openMachineRootStore(t *testing.T) windows.Handle {
+	t.Helper()
+
+	name, err := windows.UTF16PtrFromString("ROOT")
+	require.NoError(t, err)
+	store, err := windows.CertOpenStore(
+		windows.CERT_STORE_PROV_SYSTEM,
+		0,
+		0,
+		windows.CERT_SYSTEM_STORE_LOCAL_MACHINE,
+		uintptr(unsafe.Pointer(name)),
+	)
+	require.NoError(t, err, "opening the machine root store needs administrator rights")
+
+	return store
+}
+
+// openRootStore opens the trusted roots as a program verifying a certificate
+// would see them, which includes both the machine and user stores.
+func openRootStore(t *testing.T) windows.Handle {
 	t.Helper()
 
 	name, err := windows.UTF16PtrFromString("ROOT")
@@ -234,6 +260,22 @@ func openUserRootStore(t *testing.T) windows.Handle {
 	require.NoError(t, err)
 
 	return store
+}
+
+// withoutHanging fails the test if fn does not return in time.
+func withoutHanging(t *testing.T, description string, fn func() error) {
+	t.Helper()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- fn()
+	}()
+	select {
+	case err := <-done:
+		require.NoError(t, err, description)
+	case <-time.After(30 * time.Second):
+		require.FailNow(t, "timed out "+description, "Windows may be waiting for confirmation, which cannot be given here")
+	}
 }
 
 // eachCertInStore calls fn for each certificate until it returns true.
@@ -277,12 +319,12 @@ func runPHPRequest(t *testing.T, phpBin, url string, extraArgs ...string) string
 	return strings.TrimSpace(string(output))
 }
 
-// userRootStoreContains reports whether the ROOT store holds a certificate,
-// using the same API a merged CA bundle would need to read it.
-func userRootStoreContains(t *testing.T, certDER []byte) bool {
+// rootStoreContains reports whether the trusted roots hold a certificate,
+// using the same API a merged CA bundle would need to read them.
+func rootStoreContains(t *testing.T, certDER []byte) bool {
 	t.Helper()
 
-	store := openUserRootStore(t)
+	store := openRootStore(t)
 	defer func() {
 		assert.NoError(t, windows.CertCloseStore(store, 0))
 	}()
