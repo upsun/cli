@@ -20,11 +20,9 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha1" //nolint:gosec // Windows identifies certificates by SHA-1 thumbprint.
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/hex"
 	"encoding/pem"
 	"math/big"
 	"net"
@@ -34,13 +32,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/windows"
 )
 
 // phpRequestScript makes one HTTPS request and reports the curl result.
@@ -181,28 +179,86 @@ func generateTestCA(t *testing.T) testCA {
 
 // installCAInUserRootStore trusts a certificate for the current user only,
 // which needs no elevation, and removes it when the test ends.
+//
+// This uses the store API rather than "certutil -addstore", which asks the
+// user to confirm and so cannot run unattended.
 func installCAInUserRootStore(t *testing.T, certDER []byte) {
 	t.Helper()
 
-	certFile := filepath.Join(t.TempDir(), "test-ca.cer")
-	require.NoError(t, os.WriteFile(certFile, certDER, 0o600))
-	runCertutil(t, "-user", "-f", "-addstore", "Root", certFile)
+	store := openUserRootStore(t)
+	defer func() {
+		assert.NoError(t, windows.CertCloseStore(store, 0))
+	}()
 
-	sum := sha1.Sum(certDER) //nolint:gosec // Windows identifies certificates by SHA-1 thumbprint.
-	thumbprint := strings.ToUpper(hex.EncodeToString(sum[:]))
+	certContext, err := windows.CertCreateCertificateContext(windows.X509_ASN_ENCODING, &certDER[0], uint32(len(certDER)))
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, windows.CertFreeCertificateContext(certContext))
+	}()
+
+	require.NoError(t, windows.CertAddCertificateContextToStore(store, certContext, windows.CERT_STORE_ADD_REPLACE_EXISTING, nil))
+	t.Log("installed the test CA in the user's root store")
+
 	t.Cleanup(func() {
-		runCertutil(t, "-user", "-f", "-delstore", "Root", thumbprint)
+		removeCertFromUserRootStore(t, certDER)
 	})
 }
 
-func runCertutil(t *testing.T, args ...string) {
+// removeCertFromUserRootStore deletes a certificate installed by the test.
+func removeCertFromUserRootStore(t *testing.T, certDER []byte) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	output, err := exec.CommandContext(ctx, "certutil", args...).CombinedOutput()
-	require.NoError(t, err, "certutil %v failed: %s", args, output)
-	t.Logf("certutil %v -> %s", args, strings.TrimSpace(string(output)))
+	store := openUserRootStore(t)
+	defer func() {
+		assert.NoError(t, windows.CertCloseStore(store, 0))
+	}()
+
+	found := eachCertInStore(t, store, func(context *windows.CertContext, encoded []byte) bool {
+		if !bytes.Equal(encoded, certDER) {
+			return false
+		}
+		// CertDeleteCertificateFromStore frees the context, so the
+		// enumeration must stop here.
+		assert.NoError(t, windows.CertDeleteCertificateFromStore(context))
+		return true
+	})
+	assert.True(t, found, "expected to find the test CA in order to remove it")
+}
+
+func openUserRootStore(t *testing.T) windows.Handle {
+	t.Helper()
+
+	name, err := windows.UTF16PtrFromString("ROOT")
+	require.NoError(t, err)
+	store, err := windows.CertOpenSystemStore(0, name)
+	require.NoError(t, err)
+
+	return store
+}
+
+// eachCertInStore calls fn for each certificate until it returns true.
+func eachCertInStore(t *testing.T, store windows.Handle, fn func(context *windows.CertContext, encoded []byte) bool) bool {
+	t.Helper()
+
+	var count int
+	var context *windows.CertContext
+	for {
+		var err error
+		context, err = windows.CertEnumCertificatesInStore(store, context)
+		if context == nil {
+			if err != nil && err != windows.Errno(windows.CRYPT_E_NOT_FOUND) {
+				t.Logf("stopped reading the store: %s", err)
+			}
+			t.Logf("read %d certificates from the ROOT store", count)
+			return false
+		}
+		count++
+		encoded := unsafe.Slice(context.EncodedCert, context.Length)
+		if fn(context, encoded) {
+			t.Logf("matched a certificate after reading %d from the ROOT store", count)
+			return true
+		}
+	}
 }
 
 func runPHPRequest(t *testing.T, phpBin, url string, extraArgs ...string) string {
@@ -226,27 +282,12 @@ func runPHPRequest(t *testing.T, phpBin, url string, extraArgs ...string) string
 func userRootStoreContains(t *testing.T, certDER []byte) bool {
 	t.Helper()
 
-	name, err := syscall.UTF16PtrFromString("ROOT")
-	require.NoError(t, err)
-	store, err := syscall.CertOpenSystemStore(0, name)
-	require.NoError(t, err)
+	store := openUserRootStore(t)
 	defer func() {
-		assert.NoError(t, syscall.CertCloseStore(store, 0))
+		assert.NoError(t, windows.CertCloseStore(store, 0))
 	}()
 
-	var count int
-	var context *syscall.CertContext
-	for {
-		context, err = syscall.CertEnumCertificatesInStore(store, context)
-		if err != nil || context == nil {
-			t.Logf("read %d certificates from the ROOT store", count)
-			return false
-		}
-		count++
-		encoded := unsafe.Slice(context.EncodedCert, context.Length)
-		if bytes.Equal(encoded, certDER) {
-			t.Logf("found the installed certificate after reading %d from the ROOT store", count)
-			return true
-		}
-	}
+	return eachCertInStore(t, store, func(_ *windows.CertContext, encoded []byte) bool {
+		return bytes.Equal(encoded, certDER)
+	})
 }
