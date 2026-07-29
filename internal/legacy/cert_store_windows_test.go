@@ -43,8 +43,13 @@ import (
 )
 
 // phpRequestScript makes one HTTPS request and reports the curl result.
+//
+// Revocation checks are turned off because the test CA publishes no
+// revocation list, which Schannel otherwise treats as a failure. This test is
+// about which certificates are trusted, not about revocation.
 const phpRequestScript = `$ch = curl_init(getenv('TEST_URL'));
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NO_REVOKE);
 $body = curl_exec($ch);
 echo curl_errno($ch) === 0 ? 'OK:' . $body : 'ERR:' . curl_errno($ch) . ':' . curl_error($ch);`
 
@@ -96,12 +101,12 @@ func TestWindowsCertStoreTrust(t *testing.T) {
 		},
 		{
 			name:      "the bundled CA file replaces the store, as the wrapper configures today",
-			args:      []string{"-d", "openssl.cafile=" + bundledCAFile},
+			args:      []string{"-d", iniSetting("openssl.cafile", bundledCAFile)},
 			wantTrust: false,
 		},
 		{
 			name:      "a CA file including the store's certificate restores trust",
-			args:      []string{"-d", "openssl.cafile=" + mergedCAFile},
+			args:      []string{"-d", iniSetting("openssl.cafile", mergedCAFile)},
 			wantTrust: true,
 		},
 	}
@@ -301,6 +306,13 @@ func eachCertInStore(t *testing.T, store windows.Handle, fn func(context *window
 			return true
 		}
 	}
+}
+
+// iniSetting quotes the value of a PHP setting. PHP reads ini values as
+// expressions in which characters such as "~" are operators, and Windows short
+// paths contain them, for example C:\Users\RUNNER~1\AppData.
+func iniSetting(key, value string) string {
+	return key + `="` + value + `"`
 }
 
 func runPHPRequest(t *testing.T, phpBin, url string, extraArgs ...string) string {
