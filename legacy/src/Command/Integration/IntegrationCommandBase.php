@@ -623,14 +623,7 @@ abstract class IntegrationCommandBase extends CommandBase
                 'avoidQuestion' => true,
             ]),
             'redaction' => new BooleanField('Redaction', [
-                'conditions' => ['type' => [
-                    'httplog',
-                    'newrelic',
-                    'splunk',
-                    'sumologic',
-                    'syslog',
-                    'otlplog',
-                ]],
+                'conditions' => ['type' => $logForwardingTypes],
                 'description' => 'Whether to enable built-in PII redaction (e.g. email addresses) before forwarding log lines',
                 'questionLine' => 'Should built-in PII redaction be enabled',
                 'default' => false,
