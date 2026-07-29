@@ -125,4 +125,25 @@ class ConfigTest extends TestCase
         $home = $config->getHomeDirectory();
         $this->assertEquals($home . DIRECTORY_SEPARATOR . 'mock-cli-user-config', $config->getWritableUserDir());
     }
+
+    /**
+     * Test finding the hosts which should not be proxied.
+     */
+    public function testGetNoProxy(): void
+    {
+        $config = new Config([], $this->configFile);
+        try {
+            $this->assertEquals([], $config->getNoProxy());
+
+            putenv('no_proxy=example.com, .example.net,');
+            $this->assertEquals(['example.com', '.example.net'], $config->getNoProxy());
+            putenv('no_proxy');
+
+            putenv('NO_PROXY=example.org');
+            $this->assertEquals(['example.org'], $config->getNoProxy());
+        } finally {
+            putenv('no_proxy');
+            putenv('NO_PROXY');
+        }
+    }
 }

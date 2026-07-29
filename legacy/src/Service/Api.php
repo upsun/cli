@@ -485,11 +485,11 @@ class Api
     /**
      * Returns proxy config in the format expected by Guzzle.
      *
-     * @return string[]
+     * @return array<string, string|string[]>
      */
     private function guzzleProxyConfig(): array
     {
-        return array_map(function ($proxyUrl) {
+        $config = array_map(function ($proxyUrl) {
             // If Guzzle is going to use PHP's built-in HTTP streams,
             // rather than curl, then transform the proxy scheme.
             if (!\extension_loaded('curl') && \ini_get('allow_url_fopen')) {
@@ -497,6 +497,14 @@ class Api
             }
             return $proxyUrl;
         }, $this->config->getProxies());
+
+        // Guzzle only reads the no_proxy environment variable itself when no
+        // proxy has been configured explicitly, so pass the hosts on.
+        if ($noProxy = $this->config->getNoProxy()) {
+            $config['no'] = $noProxy;
+        }
+
+        return $config;
     }
 
     /**
