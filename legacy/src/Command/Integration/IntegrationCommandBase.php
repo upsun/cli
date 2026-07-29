@@ -210,8 +210,13 @@ abstract class IntegrationCommandBase extends CommandBase
             'health.pagerduty',
             'health.slack',
             'health.webhook',
+            'httplog',
             'script',
-            ...$logForwardingTypes,
+            'newrelic',
+            'splunk',
+            'sumologic',
+            'syslog',
+            'otlplog',
         ];
 
         return [
