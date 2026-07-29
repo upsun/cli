@@ -32,6 +32,15 @@ class OrganizationUserDeleteCommand extends OrganizationCommandBase
         // The 'create-member' link shows the user has the ability to read/write members.
         $organization = $this->selector->selectOrganization($input, 'create-member');
 
+        // The selector only checks the link when it picks an organization
+        // itself: with an explicit --org it returns the organization as is, so
+        // the check has to happen here, or the command fails later on a raw API
+        // error.
+        if (!$organization->hasLink('members')) {
+            $this->stdErr->writeln('You do not have permission to delete users from the organization ' . $this->api->getOrganizationLabel($organization, 'comment') . '.');
+            return 1;
+        }
+
         $email = $input->getArgument('email');
 
         $member = $this->api->loadMemberByEmail($organization, $email);
