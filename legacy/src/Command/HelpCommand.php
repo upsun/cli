@@ -13,8 +13,11 @@ use Platformsh\Cli\Console\CustomJsonDescriptor;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Console\CustomMarkdownDescriptor;
 use Platformsh\Cli\Console\CustomTextDescriptor;
+use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Exception\CommandNotFoundException;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
+use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputInterface;
@@ -63,6 +66,11 @@ class HelpCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $application = $this->getApplication();
+        if ($application !== null && ($namespace = $this->describableNamespace($application, $input)) !== null) {
+            return $this->listNamespace($application, $namespace, $input, $output);
+        }
+
         $command = $this->command ?: $this->getApplication()->find($input->getArgument('command_name'));
 
         $format = $input->getOption('format');
@@ -90,5 +98,42 @@ class HelpCommand extends CommandBase
         }
 
         throw new InvalidArgumentException(sprintf('Unsupported format "%s".', $format));
+    }
+
+    /**
+     * Returns the namespace to describe, if help was asked for one instead of a command.
+     *
+     * Without this, asking for help on a namespace only reports that the name is
+     * ambiguous, and the suggestions it lists include hidden commands.
+     */
+    private function describableNamespace(Application $application, InputInterface $input): ?string
+    {
+        $name = $input->getArgument('command_name');
+        if ($this->command !== null || !is_string($name) || $name === '' || $application->has($name)) {
+            return null;
+        }
+
+        try {
+            return $application->findNamespace($name);
+        } catch (CommandNotFoundException) {
+            // Neither a command nor a namespace: let the caller report the error.
+            return null;
+        }
+    }
+
+    /**
+     * Lists the commands of a namespace, as the list command does.
+     */
+    private function listNamespace(Application $application, string $namespace, InputInterface $input, OutputInterface $output): int
+    {
+        $listInput = new ArrayInput([
+            'command' => 'list',
+            'namespace' => $namespace,
+            '--format' => $input->getOption('format'),
+            '--raw' => $input->getOption('raw'),
+        ]);
+        $listInput->setInteractive(false);
+
+        return $application->get('list')->run($listInput, $output);
     }
 }
