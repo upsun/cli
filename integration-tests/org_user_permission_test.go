@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -33,10 +34,11 @@ func TestOrgUserNoPermission(t *testing.T) {
 	apiHandler.SetOrgs([]*mockapi.Org{makeOrg(orgID, orgName, "No Perms Org", "another-user-id", "flexible")})
 
 	// The members endpoint is what the commands used to reach anyway, bypassing
-	// the links: it must not be requested at all.
-	membersRequested := false
+	// the links: it must not be requested at all. The flag is atomic because the
+	// handler runs on the test server's goroutine.
+	var membersRequested atomic.Bool
 	apiHandler.Get("/organizations/"+orgID+"/members", func(w http.ResponseWriter, _ *http.Request) {
-		membersRequested = true
+		membersRequested.Store(true)
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"status":403,"title":"Forbidden",` +
 			`"detail":"You do not have access to view this organization's members."}`))
@@ -110,7 +112,7 @@ func TestOrgUserNoPermission(t *testing.T) {
 		assert.NotContains(t, stderr, "Permission denied. Check your permissions")
 	})
 
-	assert.False(t, membersRequested, "the members endpoint must not be requested without the link")
+	assert.False(t, membersRequested.Load(), "the members endpoint must not be requested without the link")
 }
 
 // TestOrgUserWithPermission is the counterpart: with the links present, the
