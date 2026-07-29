@@ -10,6 +10,7 @@ use Platformsh\Cli\Service\Api;
 use Symfony\Contracts\Service\Attribute\Required;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Console\ProgressMessage;
+use Platformsh\Cli\Util\PaginationUtil;
 use Platformsh\Client\Model\Organization\Member;
 use Platformsh\Client\Model\Organization\Organization;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
@@ -90,11 +91,15 @@ class OrganizationCommandBase extends CommandBase
         $progress = new ProgressMessage($this->stdErr);
         $progress->showIfOutputDecorated('Loading users...');
         try {
-            do {
+            while (true) {
                 $result = Member::getCollectionWithParent($url, $httpClient, $options);
                 $members = array_merge($members, $result['items']);
-                $url = $result['collection']->getNextPageUrl();
-            } while (!empty($url));
+                $nextPage = PaginationUtil::nextPage($result['collection']->getNextPageUrl(), $url, $options['query']);
+                if ($nextPage === null) {
+                    break;
+                }
+                [$url, $options['query']] = $nextPage;
+            }
         } finally {
             $progress->done();
         }

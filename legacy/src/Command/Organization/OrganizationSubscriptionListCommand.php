@@ -9,6 +9,7 @@ use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Cli\Service\Table;
+use Platformsh\Cli\Util\PaginationUtil;
 use Platformsh\Client\Model\Subscription;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
@@ -18,6 +19,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'organization:subscription:list', description: 'List subscriptions within an organization', aliases: ['org:subs'])]
 class OrganizationSubscriptionListCommand extends OrganizationCommandBase
 {
+    /** The maximum page size allowed by the API. */
+    public const MAX_COUNT = 100;
+
     /** @var array<string, string> */
     private array $tableHeader = [
         'id' => 'Subscription ID',
@@ -40,7 +44,7 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
     {
         $this->setHiddenAliases(['organization:subscriptions'])
             ->addOption('page', null, InputOption::VALUE_REQUIRED, 'Page number. This enables pagination, despite configuration or --count.')
-            ->addOption('count', 'c', InputOption::VALUE_REQUIRED, 'The number of items to display per page. Use 0 to disable pagination. Ignored if --page is specified.');
+            ->addOption('count', 'c', InputOption::VALUE_REQUIRED, 'The number of items to display per page (max: ' . self::MAX_COUNT . '). Use 0 to disable pagination.');
         $this->selector->addOrganizationOptions($this->getDefinition(), true);
         $this->addCompleter($this->selector);
         Table::configureInput($this->getDefinition(), $this->tableHeader, $this->defaultColumns);
@@ -59,48 +63,58 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
         $count = $input->getOption('count');
         $itemsPerPage = $this->config->getInt('pagination.count');
         if ($count !== null && $count !== '0') {
-            if (!\is_numeric($count) || $count > 50) {
-                $this->stdErr->writeln('The --count must be a number between 1 and 50, or 0 to disable pagination.');
+            if (!\is_numeric($count) || $count < 1 || $count > self::MAX_COUNT) {
+                $this->stdErr->writeln('The --count must be a number between 1 and ' . self::MAX_COUNT . ', or 0 to disable pagination.');
                 return 1;
             }
-            $itemsPerPage = $count;
+            $itemsPerPage = (int) $count;
         }
-        $options['query']['range'] = $itemsPerPage;
 
         $fetchAllPages = !$this->config->getBool('pagination.enabled');
         if ($count === '0') {
             $fetchAllPages = true;
+            $itemsPerPage = self::MAX_COUNT;
         }
+        $options['query']['page[size]'] = $itemsPerPage;
 
-        $pageNumber = $input->getOption('page');
-        if ($pageNumber === null) {
-            $pageNumber = 1;
-        } else {
+        $requestedPage = 1;
+        if (($pageOption = $input->getOption('page')) !== null) {
+            if (!\is_numeric($pageOption) || $pageOption < 1) {
+                $this->stdErr->writeln('The --page must be a number greater than 0.');
+                return 1;
+            }
+            $requestedPage = (int) $pageOption;
             $fetchAllPages = false;
         }
-        $options['query']['page'] = $pageNumber;
 
         $organization = $this->selector->selectOrganization($input);
 
         $httpClient = $this->api->getHttpClient();
         $subscriptions = [];
         $url = $organization->getUri() . '/subscriptions';
+        $pageNumber = 1;
+        $hasNextPage = false;
         $progress = new ProgressMessage($output);
         while (true) {
             $progress->showIfOutputDecorated(\sprintf('Loading subscriptions (page %d)...', $pageNumber));
             $collection = Subscription::getPagedCollection($url, $httpClient, $options);
             $progress->done();
-            $subscriptions = \array_merge($subscriptions, $collection['items']);
-            if ($fetchAllPages && count($collection['items']) > 0 && isset($collection['next']) && $collection['next'] !== $url) {
-                $url = $collection['next'];
-                $pageNumber++;
-                continue;
+            // The API paginates with a cursor, so pages before the requested
+            // one have to be fetched, and discarded, to reach it.
+            if ($pageNumber >= $requestedPage) {
+                $subscriptions = \array_merge($subscriptions, $collection['items']);
             }
-            break;
+            $nextPage = PaginationUtil::nextPage($collection['next'], $url, $options['query']);
+            $hasNextPage = $nextPage !== null;
+            if (!$hasNextPage || (!$fetchAllPages && $pageNumber >= $requestedPage)) {
+                break;
+            }
+            [$url, $options['query']] = $nextPage;
+            $pageNumber++;
         }
 
         if (empty($subscriptions)) {
-            if ($pageNumber > 1) {
+            if ($requestedPage > 1) {
                 $this->stdErr->writeln('No subscriptions were found on this page.');
                 return 0;
             }
@@ -116,7 +130,7 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
 
         if (!$this->table->formatIsMachineReadable()) {
             $title = \sprintf('Subscriptions belonging to the organization <info>%s</info>', $this->api->getOrganizationLabel($organization));
-            if (($pageNumber > 1 || isset($collection['next'])) && !$fetchAllPages) {
+            if (($pageNumber > 1 || $hasNextPage) && !$fetchAllPages) {
                 $title .= \sprintf(' (page %d)', $pageNumber);
             }
             $this->stdErr->writeln($title);
@@ -124,7 +138,7 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
 
         $this->table->render($rows, $this->tableHeader, $this->defaultColumns);
 
-        if (!$this->table->formatIsMachineReadable() && isset($collection['next'])) {
+        if (!$this->table->formatIsMachineReadable() && $hasNextPage) {
             $this->stdErr->writeln(\sprintf('More subscriptions are available on the next page (<info>--page %d</info>)', $pageNumber + 1));
             $this->stdErr->writeln('List all items with: <info>--count 0</info> (<info>-c0</info>)');
         }
