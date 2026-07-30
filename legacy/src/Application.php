@@ -278,8 +278,19 @@ class Application extends ParentApplication
         }
 
         $name = $this->getCommandName($input);
-        if ($name === null || $name === '' || $this->has($name)) {
+        if ($name === null || $name === '') {
             return null;
+        }
+
+        try {
+            // A command, or an abbreviation of one: nothing to describe. This is
+            // checked before findNamespace(), which resolves every command to
+            // collect the namespaces, and so must stay off the ordinary path.
+            $this->find($name);
+
+            return null;
+        } catch (CommandNotFoundException) {
+            // Not a command. It may still be a namespace.
         }
 
         try {

@@ -109,8 +109,19 @@ class HelpCommand extends CommandBase
     private function describableNamespace(Application $application, InputInterface $input): ?string
     {
         $name = $input->getArgument('command_name');
-        if ($this->command !== null || !is_string($name) || $name === '' || $application->has($name)) {
+        if ($this->command !== null || !is_string($name) || $name === '') {
             return null;
+        }
+
+        try {
+            // A command, or an abbreviation of one: describe that, as before.
+            // This is checked before findNamespace(), which resolves every
+            // command to collect the namespaces.
+            $application->find($name);
+
+            return null;
+        } catch (CommandNotFoundException) {
+            // Not a command. It may still be a namespace.
         }
 
         try {
