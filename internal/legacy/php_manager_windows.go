@@ -18,17 +18,30 @@ func (m *phpManagerPerOS) copy() error {
 	if err := file.WriteIfNeeded(m.binPath(), phpCLI, 0o755); err != nil {
 		return err
 	}
-	// Write cacert.pem for OpenSSL CA bundle (Windows needs this explicitly).
-	return file.WriteIfNeeded(filepath.Join(m.cacheDir, "cacert.pem"), caCert, 0o644)
+	return m.writeCAFile()
 }
 
 func (m *phpManagerPerOS) binPath() string {
 	return filepath.Join(m.cacheDir, "php.exe")
 }
 
+// writeCAFile writes the CA bundle, which Windows needs to be given
+// explicitly, and which depends on the machine's certificate store.
+func (m *phpManagerPerOS) writeCAFile() error {
+	bundle, err := caBundle()
+	if err != nil {
+		return err
+	}
+	return file.WriteIfNeeded(m.caFilePath(), bundle, 0o644)
+}
+
+func (m *phpManagerPerOS) caFilePath() string {
+	return filepath.Join(m.cacheDir, "cacert.pem")
+}
+
 func (m *phpManagerPerOS) settings() []string {
 	return []string{
-		iniSetting("openssl.cafile", filepath.Join(m.cacheDir, "cacert.pem")),
+		iniSetting("openssl.cafile", m.caFilePath()),
 	}
 }
 

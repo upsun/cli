@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -71,23 +72,16 @@ func TestWindowsCertStoreTrust(t *testing.T) {
 
 	installCAInRootStore(t, ca.certDER)
 
-	// Lay out the PHP binary and its bundled CA file the way the CLI does.
+	// Lay out the PHP binary and its CA file the way the CLI does. The CA file
+	// is written after the certificate is installed, so it includes it.
 	cacheDir := t.TempDir()
 	manager := newPHPManager(cacheDir)
 	require.NoError(t, manager.copy())
 	phpBin := manager.binPath()
-	bundledCAFile := filepath.Join(cacheDir, "cacert.pem")
-	require.FileExists(t, bundledCAFile)
 
-	// A bundle holding both the shipped certificates and the one from the
-	// store: what the wrapper would have to generate to keep organization
-	// certificates working.
-	mergedCAFile := filepath.Join(cacheDir, "merged.pem")
-	bundled, err := os.ReadFile(bundledCAFile)
-	require.NoError(t, err)
-	merged := append(bytes.TrimRight(bundled, "\n"), '\n')
-	merged = append(merged, ca.certPEM...)
-	require.NoError(t, os.WriteFile(mergedCAFile, merged, 0o600))
+	// The certificates shipped with the CLI, without those from the store.
+	shippedCAFile := filepath.Join(cacheDir, "shipped.pem")
+	require.NoError(t, os.WriteFile(shippedCAFile, caCert, 0o600))
 
 	cases := []struct {
 		name      string
@@ -100,17 +94,16 @@ func TestWindowsCertStoreTrust(t *testing.T) {
 			wantTrust: true,
 		},
 		{
-			// The wrapper passes this setting today, which is why an
-			// organization's certificate is not seen. Expect this
-			// expectation to change along with that.
-			name:      "a CA file is used instead of the store",
+			name:      "the settings the wrapper passes",
 			args:      settingArgs(manager.settings()),
-			wantTrust: false,
+			wantTrust: true,
 		},
 		{
-			name:      "a CA file which includes the store's certificate",
-			args:      []string{"-d", iniSetting("openssl.cafile", mergedCAFile)},
-			wantTrust: true,
+			// Setting a CA file stops curl reading the store, so this is what
+			// the wrapper used to do, and what issue #110 reported.
+			name:      "only the shipped certificates",
+			args:      []string{"-d", iniSetting("openssl.cafile", shippedCAFile)},
+			wantTrust: false,
 		},
 	}
 
@@ -126,9 +119,14 @@ func TestWindowsCertStoreTrust(t *testing.T) {
 		})
 	}
 
-	t.Run("the root store can be read from Go", func(t *testing.T) {
-		assert.True(t, rootStoreContains(t, ca.certDER),
-			"expected to find the installed certificate by enumerating the ROOT store")
+	t.Run("the installed certificate is in the bundle", func(t *testing.T) {
+		bundle, err := caBundle()
+		require.NoError(t, err)
+		fingerprints, err := certFingerprints(bundle)
+		require.NoError(t, err)
+		assert.True(t, fingerprints[sha256.Sum256(ca.certDER)],
+			"expected the installed certificate to be added to the bundle")
+		t.Logf("%d certificates in the bundle, %d bytes", len(fingerprints), len(bundle))
 	})
 }
 
@@ -334,19 +332,4 @@ func runPHPRequest(t *testing.T, phpBin, url string, extraArgs ...string) string
 	require.NoError(t, err, "PHP exited with an error: %s", output)
 
 	return strings.TrimSpace(string(output))
-}
-
-// rootStoreContains reports whether the trusted roots hold a certificate,
-// using the same API a merged CA bundle would need to read them.
-func rootStoreContains(t *testing.T, certDER []byte) bool {
-	t.Helper()
-
-	store := openRootStore(t)
-	defer func() {
-		assert.NoError(t, windows.CertCloseStore(store, 0))
-	}()
-
-	return eachCertInStore(t, store, func(_ *windows.CertContext, encoded []byte) bool {
-		return bytes.Equal(encoded, certDER)
-	})
 }

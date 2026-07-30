@@ -169,3 +169,9 @@ jobs:
         env:
           CLI_TEST_MODIFY_CERT_STORE: '1'
         run: GOEXPERIMENT=jsonv2 go test -v -count=1 -timeout 3m -run TestWindows ./internal/legacy/
+
+      # Reading the certificate store happens before every legacy command.
+      - name: Measure building the CA bundle
+        if: always()
+        shell: bash
+        run: GOEXPERIMENT=jsonv2 go test -run '^$' -bench BenchmarkWindows -benchmem ./internal/legacy/
