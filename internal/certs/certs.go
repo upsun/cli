@@ -55,6 +55,8 @@ func useCertFile(transport *http.Transport, path string) error {
 		return fmt.Errorf("no certificates found in %s: %s", EnvVar, path)
 	}
 	if transport.TLSClientConfig == nil {
+		// TLS 1.2 is the minimum Go uses for a client anyway, so this sets no
+		// policy of its own.
 		transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12}
 	}
 	transport.TLSClientConfig.RootCAs = pool
