@@ -54,7 +54,7 @@ func BenchmarkWindowsCABundle(b *testing.B) {
 // BenchmarkWindowsCAFile measures the whole of what a command pays: building
 // the bundle, and finding the cached file already up to date.
 func BenchmarkWindowsCAFile(b *testing.B) {
-	manager := &phpManagerPerOS{b.TempDir()}
+	manager := &phpManagerPerOS{cacheDir: b.TempDir()}
 	require.NoError(b, manager.writeCAFile())
 
 	for b.Loop() {

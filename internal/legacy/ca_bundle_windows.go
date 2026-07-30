@@ -16,6 +16,10 @@ import (
 // caBundle returns the certificates the legacy CLI should trust: those shipped
 // with it, plus the trusted roots from the Windows certificate store.
 //
+// If the store cannot be read it returns the shipped certificates and the
+// reason: they are what the CLI trusted before, so they are still usable, and
+// the caller decides what to do about the rest.
+//
 // An organization which inspects TLS traffic installs its own root certificate
 // in that store, and every other program on the machine then trusts it. The
 // embedded PHP has to be given a CA file, because its openssl extension cannot
@@ -27,7 +31,7 @@ import (
 func caBundle() ([]byte, error) {
 	roots, err := systemRootsPEM()
 	if err != nil {
-		return nil, err
+		return caCert, err
 	}
 
 	bundle := make([]byte, 0, len(caCert)+len(roots)+1)
@@ -38,6 +42,10 @@ func caBundle() ([]byte, error) {
 
 // systemRootsPEM returns the trusted roots from the Windows certificate store
 // which the shipped certificates do not already cover.
+//
+// The ROOT store merges the machine's roots with the current user's, which is
+// what the operating system, and so every other program on it, trusts. That
+// includes anything the user has added themselves.
 func systemRootsPEM() ([]byte, error) {
 	shipped, err := certFingerprints(caCert)
 	if err != nil {

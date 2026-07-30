@@ -30,7 +30,10 @@ func (m *phpManagerPerOS) binPath() string {
 func (m *phpManagerPerOS) writeCAFile() error {
 	bundle, err := caBundle()
 	if err != nil {
-		return err
+		// The shipped certificates are still written, so everything except an
+		// organization's own certificates keeps working. That is what the CLI
+		// trusted before it read the store, and better than running nothing.
+		m.copyWarnings = append(m.copyWarnings, err.Error())
 	}
 	return file.WriteIfNeeded(m.caFilePath(), bundle, 0o644)
 }
