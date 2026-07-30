@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -118,9 +119,15 @@ func TestWindowsCertStoreTrust(t *testing.T) {
 		})
 	}
 
-	t.Run("the root store can be read from Go", func(t *testing.T) {
-		assert.True(t, rootStoreContains(t, ca.certDER),
-			"expected to find the installed certificate by enumerating the ROOT store")
+	t.Run("the installed certificate is one of the locally trusted roots", func(t *testing.T) {
+		// It is not in Microsoft's root program, so it must be picked up.
+		local, err := localRootsPEM()
+		require.NoError(t, err)
+		fingerprints, err := certFingerprints(local)
+		require.NoError(t, err)
+		assert.True(t, fingerprints[sha256.Sum256(ca.certDER)],
+			"expected the installed certificate to be added to the bundle")
+		t.Logf("%d locally trusted roots in %d bytes", len(fingerprints), len(local))
 	})
 }
 
@@ -326,19 +333,4 @@ func runPHPRequest(t *testing.T, phpBin, url string, extraArgs ...string) string
 	require.NoError(t, err, "PHP exited with an error: %s", output)
 
 	return strings.TrimSpace(string(output))
-}
-
-// rootStoreContains reports whether the trusted roots hold a certificate,
-// using the same API a merged CA bundle would need to read them.
-func rootStoreContains(t *testing.T, certDER []byte) bool {
-	t.Helper()
-
-	store := openRootStore(t)
-	defer func() {
-		assert.NoError(t, windows.CertCloseStore(store, 0))
-	}()
-
-	return eachCertInStore(t, store, func(_ *windows.CertContext, encoded []byte) bool {
-		return bytes.Equal(encoded, certDER)
-	})
 }
