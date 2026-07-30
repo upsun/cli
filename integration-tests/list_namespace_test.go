@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -68,6 +69,24 @@ func TestListNamespace(t *testing.T) {
 	assert.Equal(t, commandNames(namespaceListing), commandNames(viaHelp),
 		"'help <namespace>' must list the same commands as the namespace itself")
 	assert.NotContains(t, viaHelp, "is ambiguous")
+
+	// The options of the help command are passed on to the listing. --raw lists
+	// the commands unindented and without the headings, so it is checked by
+	// content rather than with commandNames().
+	viaHelpRaw, _, err := f.RunCombinedOutput("help", "project", "--raw")
+	require.NoError(t, err)
+	assert.Contains(t, viaHelpRaw, "project:list")
+	assert.NotContains(t, viaHelpRaw, "Available commands", "--raw omits the headings")
+	assert.NotContains(t, viaHelpRaw, "project:curl", "hidden commands stay hidden")
+
+	viaHelpJSON, _, err := f.RunCombinedOutput("help", "project", "--format=json")
+	require.NoError(t, err)
+	var described struct {
+		Commands map[string]any `json:"commands"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(viaHelpJSON), &described))
+	assert.Contains(t, described.Commands, "project:list")
+	assert.NotContains(t, described.Commands, "project:curl", "hidden commands stay hidden")
 
 	// Hidden commands stay hidden: project:curl, and the deprecated
 	// project:variable:* commands, are only listed by 'list --all'.

@@ -246,10 +246,8 @@ class Application extends ParentApplication
     public function doRun(InputInterface $input, OutputInterface $output): int
     {
         if (($namespace = $this->getDescribableNamespace($input)) !== null) {
-            $listInput = new ArrayInput(['command' => 'list', 'namespace' => $namespace]);
-            $listInput->setInteractive(false);
-            $this->get('list')->run(
-                $listInput,
+            $this->listNamespace(
+                $namespace,
                 $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output,
             );
 
@@ -257,6 +255,59 @@ class Application extends ParentApplication
         }
 
         return parent::doRun($input, $output);
+    }
+
+    /**
+     * Returns the namespace a name refers to, if it does not name a command.
+     *
+     * @see HelpCommand
+     */
+    public function findDescribableNamespace(string $name): ?string
+    {
+        if ($name === '') {
+            return null;
+        }
+
+        try {
+            // A command, or an abbreviation of one: nothing to describe. This is
+            // checked before findNamespace(), which resolves every command to
+            // collect the namespaces, and so must stay off the ordinary path.
+            $this->find($name);
+
+            return null;
+        } catch (CommandNotFoundException) {
+            // Not a command. It may still be a namespace.
+        }
+
+        try {
+            return $this->findNamespace($name);
+        } catch (CommandNotFoundException) {
+            // Not a namespace either.
+            return null;
+        }
+    }
+
+    /**
+     * Lists the commands of a namespace, by running the list command.
+     *
+     * Options are only passed on when they are set, as SubCommandRunner does.
+     *
+     * @see HelpCommand
+     */
+    public function listNamespace(string $namespace, OutputInterface $output, ?string $format = null, bool $raw = false): int
+    {
+        $args = ['command' => 'list', 'namespace' => $namespace];
+        if ($format !== null) {
+            $args['--format'] = $format;
+        }
+        if ($raw) {
+            $args['--raw'] = true;
+        }
+
+        $listInput = new ArrayInput($args);
+        $listInput->setInteractive(false);
+
+        return $this->get('list')->run($listInput, $output);
     }
 
     /**
@@ -278,27 +329,8 @@ class Application extends ParentApplication
         }
 
         $name = $this->getCommandName($input);
-        if ($name === null || $name === '') {
-            return null;
-        }
 
-        try {
-            // A command, or an abbreviation of one: nothing to describe. This is
-            // checked before findNamespace(), which resolves every command to
-            // collect the namespaces, and so must stay off the ordinary path.
-            $this->find($name);
-
-            return null;
-        } catch (CommandNotFoundException) {
-            // Not a command. It may still be a namespace.
-        }
-
-        try {
-            return $this->findNamespace($name);
-        } catch (CommandNotFoundException) {
-            // Not a namespace either: let the parent report the error.
-            return null;
-        }
+        return $name === null ? null : $this->findDescribableNamespace($name);
     }
 
     /**
