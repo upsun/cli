@@ -9,8 +9,10 @@ use GuzzleHttp\Utils;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Model\Variable;
 use Platformsh\Cli\Selector\Selector;
+use Platformsh\Cli\Service\ActivityMonitor;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
+use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Client\Exception\ApiResponseException;
 use Platformsh\Client\Model\Activity;
 use Platformsh\Client\Model\Result;
@@ -23,7 +25,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'task:run', description: 'Execute a task on an environment')]
 class TaskRunCommand extends CommandBase
 {
-    public function __construct(private readonly Api $api, private readonly Config $config, private readonly Selector $selector)
+    public function __construct(private readonly ActivityMonitor $activityMonitor, private readonly Api $api, private readonly Config $config, private readonly QuestionHelper $questionHelper, private readonly Selector $selector)
     {
         parent::__construct();
     }
@@ -32,7 +34,9 @@ class TaskRunCommand extends CommandBase
     {
         $this
             ->addArgument('task', InputArgument::REQUIRED, 'The name of the task to execute')
-            ->addOption('variable', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'A variable to set when running the task, in the format <info>type:name=value</info>');
+            ->addOption('variable', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'A variable to set when running the task, in the format <info>type:name=value</info>')
+            // Tasks can run for a long time, so waiting is opt-in rather than the default.
+            ->addOption('wait', null, InputOption::VALUE_NONE, 'Wait for the task to complete');
 
         $this->selector->addProjectOption($this->getDefinition());
         $this->selector->addEnvironmentOption($this->getDefinition());
@@ -48,7 +52,15 @@ class TaskRunCommand extends CommandBase
         $environment = $selection->getEnvironment();
 
         $taskName = $input->getArgument('task');
-        $variables = $this->parseVariables($input->getOption('variable'));
+        $variables = (new Variable())->parseMultiple($input->getOption('variable'));
+
+        if ($environment->type === 'production' && !$this->questionHelper->confirm(sprintf(
+            'Are you sure you want to run the task <comment>%s</comment> on the production environment %s?',
+            $taskName,
+            $this->api->getEnvironmentLabel($environment, 'comment'),
+        ))) {
+            return 1;
+        }
 
         $this->stdErr->writeln(sprintf(
             'Executing task <info>%s</info> on the environment %s',
@@ -74,6 +86,12 @@ class TaskRunCommand extends CommandBase
         $this->stdErr->writeln('');
         $this->stdErr->writeln('The task has been triggered.');
 
+        // Waiting is opt-in so the exit code can reflect a failed activity, e.g. in CI.
+        if ($input->getOption('wait') && $activities !== []) {
+            $success = $this->activityMonitor->waitMultiple($activities, $selection->getProject());
+            return $success ? 0 : 1;
+        }
+
         $executable = $this->config->getStr('application.executable');
         if ($activities !== []) {
             // Reference the exact activity ID so the log can be followed even
@@ -93,24 +111,5 @@ class TaskRunCommand extends CommandBase
         }
 
         return 0;
-    }
-
-    /**
-     * Parses variables in the format type:name=value into a nested array.
-     *
-     * @param string[] $variables
-     *
-     * @return array<string, array<string, string>>
-     */
-    private function parseVariables(array $variables): array
-    {
-        $map = [];
-        $variable = new Variable();
-        foreach ($variables as $var) {
-            [$type, $name, $value] = $variable->parse($var);
-            $map[$type][$name] = $value;
-        }
-
-        return $map;
     }
 }
