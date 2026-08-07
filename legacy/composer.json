@@ -7,7 +7,7 @@
         "doctrine/cache": "~1.5",
         "guzzlehttp/guzzle": "^7",
         "platformsh/console-form": "^1@beta",
-        "platformsh/client": "^3@beta",
+        "platformsh/client": "3.x-dev as 3.0.0-beta5",
         "symfony/console": "^7",
         "symfony/yaml": "^7",
         "symfony/finder": "^7",
