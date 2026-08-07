@@ -152,8 +152,12 @@ class ResourcesUtil
         if ($input->hasOption('type') && ($requestedTypes = ArrayArgument::getOption($input, 'type'))) {
             $byType = [];
             foreach ($services as $name => $service) {
+                // Tasks are sizing-only in a deployment and expose no type.
+                if ($service instanceof Task) {
+                    continue;
+                }
                 $type = $service->type;
-                [$prefix] = explode(':', $service->type, 2);
+                [$prefix] = explode(':', $type, 2);
                 $byType[$type][] = $name;
                 $byType[$prefix][] = $name;
             }
