@@ -8,7 +8,7 @@ This repository hosts the source code and releases of the CLI.
 
 ## Install
 
-To install the CLI, use either [Homebrew](https://brew.sh/) (on Linux, macOS, or the Windows Subsystem for Linux) or [Scoop](https://scoop.sh/) (on Windows):
+To install the CLI, use [Homebrew](https://brew.sh/) (on macOS), [Scoop](https://scoop.sh/) (on Windows), or the bash installer (on Linux, macOS, or the Windows Subsystem for Linux):
 
 ### HomeBrew
 
