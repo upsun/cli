@@ -7,7 +7,7 @@
         "doctrine/cache": "~1.5",
         "guzzlehttp/guzzle": "^7",
         "platformsh/console-form": "^1@beta",
-        "platformsh/client": "dev-add-task-deployment-model as 3.0.0-beta5",
+        "platformsh/client": "3.x-dev as 3.0.0-beta5",
         "symfony/console": "^7",
         "symfony/yaml": "^7",
         "symfony/finder": "^7",
@@ -31,11 +31,6 @@
         {
             "type": "vcs",
             "url": "https://github.com/pjcdawkins/humbug_get_contents"
-        },
-        {
-            "type": "vcs",
-            "url": "https://github.com/platformsh/platformsh-client-php.git",
-            "no-api": true
         }
     ],
     "suggest": {

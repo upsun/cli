@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "0f5045a8499f3e8c39aa3d332df47772",
+    "content-hash": "26136587641513bab720b8bd7f1b2c0e",
     "packages": [
         {
             "name": "cocur/slugify",
@@ -923,16 +923,16 @@
         },
         {
             "name": "platformsh/client",
-            "version": "dev-add-task-deployment-model",
+            "version": "3.x-dev",
             "source": {
                 "type": "git",
                 "url": "https://github.com/platformsh/platformsh-client-php.git",
-                "reference": "8b737080273375651aeb4095bc81e2be7e321689"
+                "reference": "ae46040164a44efaeec15758ec4220e3cbf3e3fd"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/platformsh/platformsh-client-php/zipball/8b737080273375651aeb4095bc81e2be7e321689",
-                "reference": "8b737080273375651aeb4095bc81e2be7e321689",
+                "url": "https://api.github.com/repos/platformsh/platformsh-client-php/zipball/ae46040164a44efaeec15758ec4220e3cbf3e3fd",
+                "reference": "ae46040164a44efaeec15758ec4220e3cbf3e3fd",
                 "shasum": ""
             },
             "require": {
@@ -947,17 +947,14 @@
                 "phpunit/phpunit": "^11",
                 "symplify/easy-coding-standard": "^12.3"
             },
+            "default-branch": true,
             "type": "library",
             "autoload": {
                 "psr-4": {
                     "Platformsh\\Client\\": "src"
                 }
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "Platformsh\\Client\\Tests\\": "tests"
-                }
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
@@ -967,7 +964,11 @@
                 }
             ],
             "description": "Platform.sh API client",
-            "time": "2026-06-23T13:46:20+00:00"
+            "support": {
+                "issues": "https://github.com/platformsh/platformsh-client-php/issues",
+                "source": "https://github.com/platformsh/platformsh-client-php/tree/3.x"
+            },
+            "time": "2026-08-07T13:05:25+00:00"
         },
         {
             "name": "platformsh/console-form",
@@ -6318,7 +6319,7 @@
         },
         {
             "package": "platformsh/client",
-            "version": "dev-add-task-deployment-model",
+            "version": "3.9999999.9999999.9999999-dev",
             "alias": "3.0.0-beta5",
             "alias_normalized": "3.0.0.0-beta5"
         }
