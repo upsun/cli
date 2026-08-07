@@ -42,6 +42,7 @@ class EnvironmentLogCommand extends CommandBase
         $this->selector->addProjectOption($this->getDefinition());
         $this->selector->addEnvironmentOption($this->getDefinition());
         $this->selector->addRemoteContainerOptions($this->getDefinition());
+        $this->selector->addTaskOption($this->getDefinition());
         $this->addCompleter($this->selector);
         $this->setHiddenAliases(['logs']);
         $this->addExample('Display a choice of logs that can be read');

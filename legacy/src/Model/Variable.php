@@ -29,6 +29,25 @@ class Variable
     }
 
     /**
+     * Parses multiple type:name=value definitions into a nested array.
+     *
+     * @param string[] $variables
+     *
+     * @return array<string, array<string, string>>
+     *   Values keyed by type and then by name.
+     */
+    public function parseMultiple(array $variables): array
+    {
+        $map = [];
+        foreach ($variables as $var) {
+            [$type, $name, $value] = $this->parse($var);
+            $map[$type][$name] = $value;
+        }
+
+        return $map;
+    }
+
+    /**
      * Validates the variable type (AKA namespace).
      *
      * @param string $type

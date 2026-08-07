@@ -201,6 +201,7 @@ readonly class ActivityLoader
             'environment.source-operation',
             'environment.subscription.update',
             'environment.synchronize',
+            'environment.task',
             'environment.update.http_access',
             'environment.update.restrict_robots',
             'environment.update.smtp',

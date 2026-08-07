@@ -8,6 +8,7 @@ use Platformsh\Cli\Console\CompleterInterface;
 use Platformsh\Cli\Local\ApplicationFinder;
 use Platformsh\Cli\Model\Host\LocalHost;
 use Platformsh\Cli\Model\RemoteContainer\BrokenEnv;
+use Platformsh\Cli\Model\RemoteContainer\Task;
 use Platformsh\Cli\Model\RemoteContainer\Worker;
 use Platformsh\Cli\Model\RemoteContainer\App;
 use GuzzleHttp\Exception\BadResponseException;
@@ -25,6 +26,7 @@ use Platformsh\Cli\Service\HostFactory;
 use Platformsh\Cli\Service\Identifier;
 use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Client\Exception\EnvironmentStateException;
+use Platformsh\Client\Model\Activity;
 use Platformsh\Client\Model\BasicProjectInfo;
 use Platformsh\Client\Model\Deployment\WebApp;
 use Platformsh\Client\Model\Environment;
@@ -700,6 +702,25 @@ class Selector implements CompleterInterface
     }
 
     /**
+     * Adds the --task option, to target a running task container.
+     *
+     * The option is resolved in selectRemoteContainer(). Only commands that
+     * operate over a plain SSH connection (e.g. ssh, log, scp) should add this:
+     * commands that need the container's deployment configuration (mounts, app
+     * type, runtime operations) cannot support ephemeral task containers.
+     */
+    public function addTaskOption(InputDefinition $definition): static
+    {
+        if (!$definition->hasOption('task')) {
+            $definition->addOption(new InputOption('task', null, InputOption::VALUE_REQUIRED, 'The name of a running task (instead of an app or worker)'));
+        }
+        if (!$definition->hasOption('activity')) {
+            $definition->addOption(new InputOption('activity', null, InputOption::VALUE_REQUIRED, 'The ID of the task run to target (with --task), when multiple runs are in progress'));
+        }
+        return $this;
+    }
+
+    /**
      * Find what app or worker container the user wants to select.
      *
      * Needs the --app and --worker options, as applicable.
@@ -714,6 +735,19 @@ class Selector implements CompleterInterface
      */
     private function selectRemoteContainer(Environment $environment, InputInterface $input, ?string $appName): RemoteContainerInterface
     {
+        // A running task container is selected from its in-progress activity,
+        // not from the deployment, so handle it before loading the deployment.
+        $taskOption = $input->hasOption('task') ? $input->getOption('task') : null;
+        if ($taskOption !== null && $taskOption !== '') {
+            foreach (['app', 'worker', 'instance'] as $conflicting) {
+                $value = $input->hasOption($conflicting) ? $input->getOption($conflicting) : null;
+                if ($value !== null && $value !== '') {
+                    throw new InvalidArgumentException(sprintf('The --%s option cannot be used together with --task.', $conflicting));
+                }
+            }
+            return $this->selectTaskContainer($environment, (string) $taskOption, $input);
+        }
+
         $includeWorkers = $input->hasOption('worker');
         try {
             $deployment = $this->api->getCurrentDeployment(
@@ -857,6 +891,138 @@ class Selector implements CompleterInterface
         $this->stdErr->writeln(sprintf('Selected app: <info>%s</info>', $choice), OutputInterface::VERBOSITY_VERBOSE);
 
         return new App($deployment->getWebApp($choice), $environment);
+    }
+
+    /**
+     * Selects the running task container for the --task option.
+     *
+     * A task container is ephemeral: it only exists while an environment.task
+     * activity is in progress. This finds the in-progress activity for the
+     * named task and builds a container from its ID.
+     *
+     * @throws InvalidArgumentException if no single running instance is found.
+     */
+    private function selectTaskContainer(Environment $environment, string $taskName, InputInterface $input): RemoteContainerInterface
+    {
+        $running = array_values(array_filter(
+            $environment->getActivities(0, ['environment.task'], null, [Activity::STATE_IN_PROGRESS, Activity::STATE_PENDING]),
+            fn(Activity $activity): bool => ($activity->parameters['task'] ?? null) === $taskName,
+        ));
+
+        if (count($running) === 0) {
+            throw new InvalidArgumentException($this->noRunningTaskMessage($environment, $taskName));
+        }
+
+        // An explicit activity ID disambiguates parallel runs without a prompt.
+        $activityId = $input->hasOption('activity') ? $input->getOption('activity') : null;
+        if ($activityId !== null && $activityId !== '') {
+            $activity = $this->matchTaskActivity($running, $taskName, (string) $activityId);
+        } elseif (count($running) === 1) {
+            $activity = reset($running);
+        } else {
+            $activity = $this->chooseTaskActivity($running, $taskName, $input);
+        }
+
+        $this->stdErr->writeln(
+            sprintf('Selected task: <info>%s</info> (activity: %s)', $taskName, $activity->id),
+            OutputInterface::VERBOSITY_VERBOSE,
+        );
+
+        return new Task($environment, $taskName, $activity->id, $this->api->getHttpClient());
+    }
+
+    /**
+     * Asks the user which running instance of a task to connect to.
+     *
+     * @param Activity[] $activities
+     *
+     * @throws InvalidArgumentException in non-interactive mode.
+     */
+    private function chooseTaskActivity(array $activities, string $taskName, InputInterface $input): Activity
+    {
+        $choices = $byId = [];
+        foreach ($activities as $activity) {
+            $choices[$activity->id] = $activity->created_at !== ''
+                ? sprintf('%s (started %s)', $activity->id, $activity->created_at)
+                : $activity->id;
+            $byId[$activity->id] = $activity;
+        }
+        if (!$input->isInteractive()) {
+            throw new InvalidArgumentException(sprintf(
+                'Multiple instances of the task "%s" are running. Use --activity <id> to choose one, or run interactively. Activity IDs: %s',
+                $taskName,
+                implode(', ', array_keys($byId)),
+            ));
+        }
+        $id = $this->questionHelper->choose($choices, sprintf('Enter a number to choose which run of "%s" to connect to:', $taskName));
+
+        return $byId[$id];
+    }
+
+    /**
+     * Matches a running task activity by its ID (exact, or a unique prefix).
+     *
+     * @param Activity[] $running
+     *
+     * @throws InvalidArgumentException if the ID matches no, or more than one, running activity.
+     */
+    private function matchTaskActivity(array $running, string $taskName, string $activityId): Activity
+    {
+        $matches = array_values(array_filter(
+            $running,
+            fn(Activity $activity): bool => str_starts_with($activity->id, $activityId),
+        ));
+        if (count($matches) === 1) {
+            return $matches[0];
+        }
+
+        $ids = implode(', ', array_map(fn(Activity $activity): string => $activity->id, $running));
+
+        if (count($matches) > 1) {
+            throw new InvalidArgumentException(sprintf(
+                'The activity ID "%s" is ambiguous for task "%s". Matching running activity IDs: %s',
+                $activityId,
+                $taskName,
+                implode(', ', array_map(fn(Activity $activity): string => $activity->id, $matches)),
+            ));
+        }
+
+        throw new InvalidArgumentException(sprintf(
+            'No running instance of the task "%s" matches the activity ID "%s". Running activity IDs: %s',
+            $taskName,
+            $activityId,
+            $ids,
+        ));
+    }
+
+    /**
+     * Builds a helpful message for when a task has no running instance.
+     */
+    private function noRunningTaskMessage(Environment $environment, string $taskName): string
+    {
+        // The activities API returns the most recent activities first.
+        $recent = array_values(array_filter(
+            $environment->getActivities(10, ['environment.task']),
+            fn(Activity $activity): bool => ($activity->parameters['task'] ?? null) === $taskName,
+        ));
+        if ($recent === []) {
+            return sprintf('The task "%s" has no running instance. SSH is only possible while a task is running.', $taskName);
+        }
+        $last = reset($recent);
+        if ($last->completed_at !== '') {
+            $when = ', finished ' . $last->completed_at;
+        } elseif ($last->created_at !== '') {
+            $when = ', started ' . $last->created_at;
+        } else {
+            $when = '';
+        }
+
+        return sprintf(
+            'The task "%s" has no running instance (last run: activity %s%s). SSH is only possible while a task is running.',
+            $taskName,
+            $last->id,
+            $when,
+        );
     }
 
     /**

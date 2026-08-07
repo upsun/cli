@@ -191,6 +191,15 @@ abstract class IntegrationCommandBase extends CommandBase
      */
     private function getFields(): array
     {
+        $logForwardingTypes = [
+            'httplog',
+            'newrelic',
+            'splunk',
+            'sumologic',
+            'syslog',
+            'otlplog',
+        ];
+
         $allSupportedTypes = [
             'bitbucket',
             'bitbucket_server',
@@ -606,17 +615,18 @@ abstract class IntegrationCommandBase extends CommandBase
                 'required' => false,
             ]),
             'tls_verify' => new BooleanField('Verify TLS', [
-                'conditions' => ['type' => [
-                    'httplog',
-                    'newrelic',
-                    'splunk',
-                    'sumologic',
-                    'syslog',
-                    'otlplog',
-                ]],
+                'conditions' => ['type' => $logForwardingTypes],
                 'description' => 'Whether HTTPS certificate verification should be enabled (recommended)',
                 'questionLine' => 'Should HTTPS certificate verification be enabled (recommended)',
                 'default' => true,
+                'required' => false,
+                'avoidQuestion' => true,
+            ]),
+            'redaction' => new BooleanField('Redaction', [
+                'conditions' => ['type' => $logForwardingTypes],
+                'description' => 'Whether to enable built-in PII redaction (e.g. email addresses) before forwarding log lines',
+                'questionLine' => 'Should built-in PII redaction be enabled',
+                'default' => false,
                 'required' => false,
                 'avoidQuestion' => true,
             ]),
@@ -649,6 +659,14 @@ abstract class IntegrationCommandBase extends CommandBase
                     }
                     return true;
                 },
+            ]),
+            'excluded_services' => new ArrayField('Excluded services', [
+                'optionName' => 'excluded-services',
+                'conditions' => ['type' => $logForwardingTypes],
+                'default' => [],
+                'description' => 'A list of services to exclude from the log forwarding.',
+                'required' => false,
+                'avoidQuestion' => true,
             ]),
         ];
     }
