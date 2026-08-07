@@ -45,7 +45,7 @@ class RunCommand extends CommandBase
     {
         $selection = $this->selector->getSelection($input);
 
-        $variables = $this->parseVariables($input->getOption('variable'));
+        $variables = (new Variable())->parseMultiple($input->getOption('variable'));
         $this->io->debug('Parsed variables: ' . json_encode($variables));
 
         $environment = $selection->getEnvironment();
@@ -103,22 +103,5 @@ class RunCommand extends CommandBase
         }
 
         return $success ? 0 : 1;
-    }
-
-    /**
-     * @param string[] $variables
-     *
-     * @return array<string, array<string, string>>
-     */
-    private function parseVariables(array $variables): array
-    {
-        $map = [];
-        $variable = new Variable();
-        foreach ($variables as $var) {
-            [$type, $name, $value] = $variable->parse($var);
-            $map[$type][$name] = $value;
-        }
-
-        return $map;
     }
 }
