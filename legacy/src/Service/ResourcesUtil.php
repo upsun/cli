@@ -152,11 +152,13 @@ class ResourcesUtil
         if ($input->hasOption('type') && ($requestedTypes = ArrayArgument::getOption($input, 'type'))) {
             $byType = [];
             foreach ($services as $name => $service) {
-                // Tasks are sizing-only in a deployment and expose no type.
-                if ($service instanceof Task) {
+                // Read the type from properties: a service without one (e.g. a
+                // task whose deployment has no resolved type) is skipped, not fatal.
+                $properties = $service->getProperties();
+                if (!isset($properties['type']) || !is_string($properties['type'])) {
                     continue;
                 }
-                $type = $service->type;
+                $type = $properties['type'];
                 [$prefix] = explode(':', $type, 2);
                 $byType[$type][] = $name;
                 $byType[$prefix][] = $name;

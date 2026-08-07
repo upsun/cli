@@ -142,8 +142,9 @@ class ResourcesGetCommand extends ResourcesCommandBase
                 'memory' => $empty,
             ];
 
-            if ($containerProfile !== null && isset($containerProfiles[$containerProfile][$properties['resources']['profile_size']])) {
-                $profileInfo = $containerProfiles[$containerProfile][$properties['resources']['profile_size']];
+            $profileSize = $properties['resources']['profile_size'] ?? null;
+            if ($containerProfile !== null && $profileSize !== null && isset($containerProfiles[$containerProfile][$profileSize])) {
+                $profileInfo = $containerProfiles[$containerProfile][$profileSize];
                 if ($cpuTypeOption != "" && isset($profileInfo['cpu_type']) && $profileInfo['cpu_type'] != $cpuTypeOption) {
                     continue;
                 }
