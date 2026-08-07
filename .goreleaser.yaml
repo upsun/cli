@@ -172,9 +172,6 @@ homebrew_casks:
     description: Platform.sh CLI
     license: MIT
 
-    dependencies:
-      - formula: git
-
     binaries:
       - platform
     generate_completions_from_executable:
@@ -201,9 +198,6 @@ homebrew_casks:
     homepage: https://docs.upsun.com/anchors/cli/
     description: Upsun CLI
     license: MIT
-
-    dependencies:
-      - formula: git
 
     binaries:
       - upsun
