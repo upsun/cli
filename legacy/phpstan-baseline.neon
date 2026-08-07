@@ -201,7 +201,7 @@ parameters:
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
-			message: "#^Access to an undefined property Platformsh\\\\Client\\\\Model\\\\Deployment\\\\Service\\|Platformsh\\\\Client\\\\Model\\\\Deployment\\\\WebApp\\|Platformsh\\\\Client\\\\Model\\\\Deployment\\\\Worker\\:\\:\\$container_profile\\.$#"
+			message: "#^Access to an undefined property Platformsh\\\\Client\\\\Model\\\\Deployment\\\\Service\\|Platformsh\\\\Client\\\\Model\\\\Deployment\\\\Task\\|Platformsh\\\\Client\\\\Model\\\\Deployment\\\\WebApp\\|Platformsh\\\\Client\\\\Model\\\\Deployment\\\\Worker\\:\\:\\$container_profile\\.$#"
 			count: 3
 			path: src/Command/Resources/ResourcesSizeListCommand.php
 
