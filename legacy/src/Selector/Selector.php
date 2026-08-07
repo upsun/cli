@@ -739,6 +739,12 @@ class Selector implements CompleterInterface
         // not from the deployment, so handle it before loading the deployment.
         $taskOption = $input->hasOption('task') ? $input->getOption('task') : null;
         if ($taskOption !== null && $taskOption !== '') {
+            foreach (['app', 'worker', 'instance'] as $conflicting) {
+                $value = $input->hasOption($conflicting) ? $input->getOption($conflicting) : null;
+                if ($value !== null && $value !== '') {
+                    throw new InvalidArgumentException(sprintf('The --%s option cannot be used together with --task.', $conflicting));
+                }
+            }
             return $this->selectTaskContainer($environment, (string) $taskOption, $input);
         }
 
@@ -1000,7 +1006,7 @@ class Selector implements CompleterInterface
             fn(Activity $activity): bool => ($activity->parameters['task'] ?? null) === $taskName,
         ));
         if ($recent === []) {
-            return sprintf('No task named "%s" has run on the environment %s.', $taskName, $environment->id);
+            return sprintf('The task "%s" has no running instance. SSH is only possible while a task is running.', $taskName, $environment->id);
         }
         $last = reset($recent);
         $when = $last->completed_at ?: $last->created_at;
