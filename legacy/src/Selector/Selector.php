@@ -964,12 +964,23 @@ class Selector implements CompleterInterface
     {
         $matches = array_values(array_filter(
             $running,
-            fn(Activity $activity): bool => $activity->id === $activityId,
+            fn(Activity $activity): bool => str_starts_with($activity->id, $activityId),
         ));
         if (count($matches) === 1) {
             return $matches[0];
         }
+
         $ids = implode(', ', array_map(fn(Activity $activity): string => $activity->id, $running));
+
+        if (count($matches) > 1) {
+            throw new InvalidArgumentException(sprintf(
+                'The activity ID "%s" is ambiguous for task "%s". Matching running activity IDs: %s',
+                $activityId,
+                $taskName,
+                implode(', ', array_map(fn(Activity $activity): string => $activity->id, $matches)),
+            ));
+        }
+
         throw new InvalidArgumentException(sprintf(
             'No running instance of the task "%s" matches the activity ID "%s". Running activity IDs: %s',
             $taskName,
