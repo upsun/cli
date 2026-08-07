@@ -12,6 +12,7 @@ use Symfony\Contracts\Service\Attribute\Required;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Cli\Exception\NoOrganizationsException;
+use Platformsh\Cli\Util\PaginationUtil;
 use Platformsh\Client\Model\Organization\Organization;
 use Platformsh\Client\Model\Team\Team;
 use Platformsh\Client\Model\Team\TeamProjectAccess;
@@ -168,16 +169,20 @@ class TeamCommandBase extends CommandBase
         $teams = [];
         $progress = new ProgressMessage($this->stdErr);
         $pageNumber = 1;
-        do {
+        while (true) {
             if ($pageNumber > 1) {
                 $progress->showIfOutputDecorated(sprintf('Loading teams (page %d)...', $pageNumber));
             }
             $result = Team::getCollectionWithParent($url, $httpClient, $options);
             $progress->done();
             $teams = array_merge($teams, $result['items']);
-            $url = $result['collection']->getNextPageUrl();
+            $nextPage = PaginationUtil::nextPage($result['collection']->getNextPageUrl(), $url, $options['query']);
+            if ($nextPage === null || !$fetchAllPages) {
+                break;
+            }
+            [$url, $options['query']] = $nextPage;
             $pageNumber++;
-        } while ($url && $fetchAllPages);
+        }
         return $teams;
     }
 
@@ -215,14 +220,18 @@ class TeamCommandBase extends CommandBase
         $url = $team->getUri() . '/project-access';
         $progress = new ProgressMessage($this->stdErr);
         $pageNumber = 1;
-        while ($url !== null) {
+        while (true) {
             if ($pageNumber > 1) {
                 $progress->showIfOutputDecorated(sprintf('Loading team projects (page %d)...', $pageNumber));
             }
             $result = TeamProjectAccess::getCollectionWithParent($url, $httpClient, $options);
             $progress->done();
             $projects = \array_merge($projects, $result['items']);
-            $url = $result['collection']->getNextPageUrl();
+            $nextPage = PaginationUtil::nextPage($result['collection']->getNextPageUrl(), $url, $options['query']);
+            if ($nextPage === null) {
+                break;
+            }
+            [$url, $options['query']] = $nextPage;
             $pageNumber++;
         }
         return $projects;

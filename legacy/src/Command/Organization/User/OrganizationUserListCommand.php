@@ -11,6 +11,7 @@ use Platformsh\Cli\Command\Organization\OrganizationCommandBase;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
+use Platformsh\Cli\Util\PaginationUtil;
 use Platformsh\Client\Model\Organization\Member;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
@@ -97,11 +98,15 @@ class OrganizationUserListCommand extends OrganizationCommandBase
         $progress = new ProgressMessage($output);
         $progress->showIfOutputDecorated('Loading users...');
         try {
-            do {
+            while (true) {
                 $result = Member::getCollectionWithParent($url, $httpClient, $options);
                 $members = array_merge($members, $result['items']);
-                $url = $result['collection']->getNextPageUrl();
-            } while (!empty($url) && $fetchAllPages);
+                $nextPage = PaginationUtil::nextPage($result['collection']->getNextPageUrl(), $url, $options['query']);
+                if ($nextPage === null || !$fetchAllPages) {
+                    break;
+                }
+                [$url, $options['query']] = $nextPage;
+            }
         } finally {
             $progress->done();
         }

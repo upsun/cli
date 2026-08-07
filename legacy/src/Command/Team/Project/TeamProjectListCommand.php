@@ -12,6 +12,7 @@ use Platformsh\Cli\Console\AdaptiveTableCell;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
+use Platformsh\Cli\Util\PaginationUtil;
 use Platformsh\Client\Model\Team\TeamProjectAccess;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
@@ -58,18 +59,19 @@ class TeamProjectListCommand extends TeamCommandBase
         $count = $input->getOption('count');
         $itemsPerPage = $this->config->getInt('pagination.count');
         if ($count !== null && $count !== '0') {
-            if (!\is_numeric($count) || $count > self::MAX_COUNT) {
+            if (!\is_numeric($count) || $count < 1 || $count > self::MAX_COUNT) {
                 $this->stdErr->writeln('The --count must be a number between 1 and ' . self::MAX_COUNT . ', or 0 to disable pagination.');
                 return 1;
             }
-            $itemsPerPage = $count;
+            $itemsPerPage = (int) $count;
         }
-        $options['query']['range'] = $itemsPerPage;
 
         $fetchAllPages = !$this->config->getBool('pagination.enabled');
         if ($count === '0') {
             $fetchAllPages = true;
+            $itemsPerPage = self::MAX_COUNT;
         }
+        $options['query']['page[size]'] = $itemsPerPage;
 
         $team = $this->validateTeamInput($input);
         if (!$team) {
@@ -82,16 +84,20 @@ class TeamProjectListCommand extends TeamCommandBase
         $url = $team->getUri() . '/project-access';
         $progress = new ProgressMessage($output);
         $pageNumber = 1;
-        do {
+        while (true) {
             if ($pageNumber > 1) {
                 $progress->showIfOutputDecorated(sprintf('Loading projects (page %d)...', $pageNumber));
             }
             $result = TeamProjectAccess::getCollectionWithParent($url, $httpClient, $options);
             $progress->done();
             $projects = \array_merge($projects, $result['items']);
-            $url = $result['collection']->getNextPageUrl();
+            $nextPage = PaginationUtil::nextPage($result['collection']->getNextPageUrl(), $url, $options['query']);
+            if ($nextPage === null || !$fetchAllPages) {
+                break;
+            }
+            [$url, $options['query']] = $nextPage;
             $pageNumber++;
-        } while ($url && $fetchAllPages);
+        }
 
         if (empty($projects)) {
             $this->stdErr->writeln(\sprintf('No projects were found in the team %s.', $this->getTeamLabel($team)));
