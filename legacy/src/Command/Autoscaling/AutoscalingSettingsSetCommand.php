@@ -13,6 +13,7 @@ use Platformsh\Cli\Service\SubCommandRunner;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Client\Exception\EnvironmentStateException;
 use Platformsh\Client\Model\Deployment\Service;
+use Platformsh\Client\Model\Deployment\Task;
 use Platformsh\Client\Model\Deployment\WebApp;
 use Platformsh\Client\Model\Deployment\Worker;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
@@ -94,6 +95,8 @@ class AutoscalingSettingsSetCommand extends CommandBase
         $autoscalingSettings = $autoscalingSettings->getData();
 
         $services = $this->resourcesUtil->allServices($deployment);
+        // Autoscaling does not apply to tasks.
+        $services = array_filter($services, static fn($service): bool => !$service instanceof Task);
         if (empty($services)) {
             $this->stdErr->writeln('No apps, workers, or services found.');
             return 1;
