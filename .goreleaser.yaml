@@ -181,6 +181,9 @@ homebrew_casks:
       shells:
         - bash
         - zsh
+    hooks:
+      post:
+        install: "xattr -dr com.apple.quarantine #{staged_path}"
 
   - name: upsun-cli
     skip_upload: '{{ envOrDefault "SKIP_UPLOAD_TAPS" "auto" }}'
@@ -208,6 +211,9 @@ homebrew_casks:
       shells:
         - bash
         - zsh
+    hooks:
+      post:
+        install: "xattr -dr com.apple.quarantine #{staged_path}"
 
 scoops:
   - name: platform
