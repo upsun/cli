@@ -154,7 +154,7 @@ archives:
       - upsun
       - upsun-macos
 
-brews:
+homebrew_casks:
   - name: platformsh-cli
     skip_upload: '{{ envOrDefault "SKIP_UPLOAD_TAPS" "auto" }}'
     repository:
@@ -163,9 +163,6 @@ brews:
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     ids:
       - platform
-
-    goarm: "7"
-    directory: Formula
 
     commit_author:
       name: Antonis Kalipetis
@@ -176,15 +173,17 @@ brews:
     license: MIT
 
     dependencies:
-      - name: git
-        type: optional
+      - formula: git
 
-    install: |
-      bin.install "platform"
-      generate_completions_from_executable(bin/"platform", "completion", shells: [:bash, :zsh])
-
-    test: |
-      system "#{bin}/platform --version"
+    binaries:
+      - platform
+    generate_completions_from_executable:
+      executable: "bin/platform"
+      args:
+        - completion
+      shells:
+        - bash
+        - zsh
 
   - name: upsun-cli
     skip_upload: '{{ envOrDefault "SKIP_UPLOAD_TAPS" "auto" }}'
@@ -195,9 +194,6 @@ brews:
     ids:
       - upsun
 
-    goarm: "7"
-    directory: Formula
-
     commit_author:
       name: Antonis Kalipetis
       email: antonis.kalipetis@upsun.com
@@ -207,15 +203,17 @@ brews:
     license: MIT
 
     dependencies:
-      - name: git
-        type: optional
+      - formula: git
 
-    install: |
-      bin.install "upsun"
-      generate_completions_from_executable(bin/"upsun", "completion", shells: [:bash, :zsh])
-
-    test: |
-      system "#{bin}/upsun --version"
+    binaries:
+      - upsun
+    generate_completions_from_executable:
+      executable: "bin/upsun"
+      args:
+        - completion
+      shells:
+        - bash
+        - zsh
 
 scoops:
   - name: platform
