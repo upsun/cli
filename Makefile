@@ -18,7 +18,7 @@ else
 endif
 
 # Tooling versions
-GORELEASER_VERSION=v2.12.0
+GORELEASER_VERSION=v2.15.4
 REPOGEN_VERSION=v1.0.4
 
 # PHP binaries are downloaded from cli-php-builds releases.
