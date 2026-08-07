@@ -139,7 +139,7 @@ PLATFORMIFY_SCHEMA_URL = https://raw.githubusercontent.com/platformsh/platformif
 
 .PHONY: lint-assets
 lint-assets: ## Refresh the embedded lint registry and schemas from upstream
-	cd internal/lint/registry && GOEXPERIMENT=jsonv2 go run gen.go
+	cd internal/lint/registry && go run gen.go
 	curl -sfSL $(PLATFORMIFY_SCHEMA_URL)/upsun.json -o internal/lint/schema/upsun-config-schema.json
 	curl -sfSL $(PLATFORMIFY_SCHEMA_URL)/platformsh.application.json -o internal/lint/schema/platformsh.application.json
 	curl -sfSL $(PLATFORMIFY_SCHEMA_URL)/platformsh.routes.json -o internal/lint/schema/platformsh.routes.json
