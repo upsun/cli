@@ -1006,16 +1006,22 @@ class Selector implements CompleterInterface
             fn(Activity $activity): bool => ($activity->parameters['task'] ?? null) === $taskName,
         ));
         if ($recent === []) {
-            return sprintf('The task "%s" has no running instance. SSH is only possible while a task is running.', $taskName, $environment->id);
+            return sprintf('The task "%s" has no running instance. SSH is only possible while a task is running.', $taskName);
         }
         $last = reset($recent);
-        $when = $last->completed_at ?: $last->created_at;
+        if ($last->completed_at !== '') {
+            $when = ', finished ' . $last->completed_at;
+        } elseif ($last->created_at !== '') {
+            $when = ', started ' . $last->created_at;
+        } else {
+            $when = '';
+        }
 
         return sprintf(
             'The task "%s" has no running instance (last run: activity %s%s). SSH is only possible while a task is running.',
             $taskName,
             $last->id,
-            $when !== '' ? ', finished ' . $when : '',
+            $when,
         );
     }
 
