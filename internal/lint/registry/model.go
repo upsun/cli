@@ -115,20 +115,3 @@ func (v VersionInfo) LatestVersion() string {
 	}
 	return v.Supported[0]
 }
-
-// ForTemplates returns a template-friendly representation of the registry
-// with latest_version as a direct field for easier Jinja template access.
-func (r Registry) ForTemplates() map[string]map[string]any {
-	result := make(map[string]map[string]any, len(r))
-	for key := range r {
-		img := r[key]
-		result[key] = map[string]any{
-			"name":           img.Name,
-			"type":           img.Type,
-			"is_runtime":     img.IsRuntime,
-			"latest_version": img.Versions.LatestVersion(),
-			"versions":       img.Versions,
-		}
-	}
-	return result
-}

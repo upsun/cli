@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/upsun/cli/internal/lint"
@@ -59,7 +60,7 @@ list:
 		},
 	}
 
-	schema := mockSchema()
+	schema := mockSchema(t)
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -76,8 +77,9 @@ list:
 	}
 }
 
-func mockSchema() *gojsonschema.Schema {
-	schema, _ := gojsonschema.NewSchema(gojsonschema.NewStringLoader(`
+func mockSchema(t *testing.T) *gojsonschema.Schema {
+	t.Helper()
+	schema, err := gojsonschema.NewSchema(gojsonschema.NewStringLoader(`
 	{
 		"$schema": "http://json-schema.org/draft-07/schema#",
 		"type": "object",
@@ -94,5 +96,6 @@ func mockSchema() *gojsonschema.Schema {
 		},
 		"required": ["key"]
 	}`))
+	require.NoError(t, err)
 	return schema
 }

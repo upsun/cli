@@ -67,7 +67,7 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 **Commands**: `commands/`
 - `root.go`: Root command that sets up the Cobra CLI and delegates to legacy CLI when needed
 - Native Go commands: init, list, version, config:install, project:convert, completion, lint
-- `lint.go`: Native config linter (aliases `validate`, `app:config-validate`). Validates Flex (`.upsun`) and Fixed (`.platform`) config in `internal/lint`, reporting all errors at once
+- `lint.go`: Native config linter, `lint` (also `validate`; registered under the namespaced name `app:config-validate`). Validates Flex (`.upsun`) and Fixed (`.platform`) config in `internal/lint`, reporting all errors at once
 - Unrecognized commands are passed to the legacy PHP CLI
 
 **Configuration**: `internal/config/`
