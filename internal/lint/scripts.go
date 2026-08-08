@@ -33,6 +33,12 @@ func CheckScripts(cfg *Config) *Result {
 			scripts[cronPrefix+"start"] = cron.Commands.Start
 			scripts[cronPrefix+"stop"] = cron.Commands.Stop
 		}
+		for workerName, worker := range app.Workers {
+			workerPrefix := keyPrefix + "workers." + workerName + ".commands."
+			scripts[workerPrefix+"pre_start"] = worker.Commands.PreStart
+			scripts[workerPrefix+"start"] = worker.Commands.Start
+			scripts[workerPrefix+"post_start"] = worker.Commands.PostStart
+		}
 	}
 
 	for k, v := range scripts {
