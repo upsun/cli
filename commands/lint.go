@@ -125,12 +125,21 @@ func stdinIsPiped() bool {
 	return err == nil && (stat.Mode()&os.ModeCharDevice) == 0
 }
 
+// issuesOrEmpty replaces a nil slice with an empty one, so that the JSON output
+// always contains arrays rather than null.
+func issuesOrEmpty(issues []lint.Issue) []lint.Issue {
+	if issues == nil {
+		return []lint.Issue{}
+	}
+	return issues
+}
+
 func printLintResult(cmd *cobra.Command, result *lint.Result, format string) error {
 	if format == "json" {
 		out := struct {
 			Errors   []lint.Issue `json:"errors"`
 			Warnings []lint.Issue `json:"warnings"`
-		}{Errors: result.Errors, Warnings: result.Warnings}
+		}{Errors: issuesOrEmpty(result.Errors), Warnings: issuesOrEmpty(result.Warnings)}
 		enc := json.NewEncoder(cmd.OutOrStdout())
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(out); err != nil {
