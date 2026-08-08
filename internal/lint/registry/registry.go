@@ -3,6 +3,7 @@ package registry
 import (
 	_ "embed"
 	"encoding/json"
+	"strings"
 	"sync"
 )
 
@@ -86,14 +87,38 @@ func clean(reg Registry) {
 	}
 	if _, ok := reg["valkey"]; !ok {
 		reg["valkey"] = Image{
-			Name:     "Valkey (ephemeral)",
+			Name:     "Valkey",
 			Type:     "valkey",
 			Versions: VersionInfo{Supported: []string{"8.0"}},
 		}
-		reg["valkey-persistent"] = Image{
-			Name:     "Valkey (persistent)",
-			Type:     "valkey-persistent",
-			Versions: VersionInfo{Supported: []string{"8.0"}},
+	}
+	if _, ok := reg["valkey-persistent"]; !ok {
+		// Treat "valkey-persistent" as a copy of "valkey".
+		if valkey, ok := reg["valkey"]; ok {
+			reg["valkey-persistent"] = Image{
+				Name:     "Valkey (persistent)",
+				Type:     "valkey-persistent",
+				Versions: valkey.Versions,
+			}
+			valkey.Name = "Valkey (ephemeral)"
+			reg["valkey"] = valkey
+		}
+	}
+
+	// Replica images are listed upstream without versions of their own, which
+	// would reject every value. They track the type they replicate.
+	for name := range reg {
+		base, isReplica := strings.CutSuffix(name, "-replica")
+		if !isReplica {
+			continue
+		}
+		replica := reg[name]
+		if len(replica.Versions.Supported) > 0 {
+			continue
+		}
+		if img, ok := reg[base]; ok {
+			replica.Versions = img.Versions
+			reg[name] = replica
 		}
 	}
 
