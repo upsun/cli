@@ -3,17 +3,19 @@ package lint
 import (
 	"fmt"
 	"io/fs"
-	"path/filepath"
+	"path"
 
 	"gopkg.in/yaml.v3"
 )
 
 // findFlexConfigFiles returns all *.yaml and *.yml files in the Flex config
-// directory (e.g. .upsun) of the given path. Flex files may have any name.
-func findFlexConfigFiles(fsys fs.FS, path, configDir string) ([]string, error) {
+// directory (e.g. .upsun) of the given directory. Flex files may have any name.
+func findFlexConfigFiles(fsys fs.FS, dir, configDir string) ([]string, error) {
+	// io/fs paths are always slash-separated, so path.Join is used here rather
+	// than filepath.Join, whose Windows separator would match nothing.
 	patterns := []string{
-		filepath.Join(path, configDir, "*.yaml"),
-		filepath.Join(path, configDir, "*.yml"),
+		path.Join(dir, configDir, "*.yaml"),
+		path.Join(dir, configDir, "*.yml"),
 	}
 
 	var allMatches []string
@@ -78,8 +80,8 @@ func mergeConfigFiles(fsys fs.FS, files []string) (string, error) {
 
 // getMergedConfigFiles merges all Flex config files in the given directory.
 // It is a convenience wrapper for findFlexConfigFiles + mergeConfigFiles.
-func getMergedConfigFiles(fsys fs.FS, path, configDir string) (string, error) {
-	files, err := findFlexConfigFiles(fsys, path, configDir)
+func getMergedConfigFiles(fsys fs.FS, dir, configDir string) (string, error) {
+	files, err := findFlexConfigFiles(fsys, dir, configDir)
 	if err != nil {
 		return "", err
 	}

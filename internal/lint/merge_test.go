@@ -19,6 +19,22 @@ func TestFindFlexConfigFiles(t *testing.T) {
 	require.ElementsMatch(t, []string{".upsun/a.yaml", ".upsun/b.yaml", ".upsun/c.yml"}, files)
 }
 
+// io/fs glob patterns are always slash-separated, on every platform. A nested
+// directory catches a pattern built with the OS separator, which would match
+// nothing on Windows.
+func TestFindFlexConfigFiles_NestedDir(t *testing.T) {
+	fsys := fstest.MapFS{
+		"sub/dir/.upsun/a.yaml": &fstest.MapFile{Data: []byte("{}")},
+		"sub/dir/.upsun/b.yml":  &fstest.MapFile{Data: []byte("{}")},
+	}
+	files, err := findFlexConfigFiles(fsys, "sub/dir", ".upsun")
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"sub/dir/.upsun/a.yaml", "sub/dir/.upsun/b.yml"}, files)
+
+	_, err = findFlexConfigFiles(fstest.MapFS{}, "sub/dir", ".upsun")
+	require.ErrorContains(t, err, "sub/dir/.upsun/*.yaml")
+}
+
 func TestMergeConfigFiles_Success(t *testing.T) {
 	fsys := fstest.MapFS{
 		"a.yaml": &fstest.MapFile{Data: []byte(`applications:
