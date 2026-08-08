@@ -17,15 +17,17 @@ func CheckRelationships(cfg *Config) *Result {
 		serviceNames[name] = source
 		return ""
 	}
+	// Worker names are scoped to their application, so they are tracked
+	// separately: two applications may each define a worker with the same name,
+	// and a worker may share a name with an application or service.
+	var workerNames = make(map[string]struct{})
 	for appName := range cfg.Applications {
 		app := cfg.Applications[appName]
 		if msg := addService(appName, "applications"); msg != "" {
 			result.AddError("applications."+appName, msg)
 		}
 		for name := range app.Workers {
-			if msg := addService(name, "applications."+appName+".workers."+name); msg != "" {
-				result.AddError("applications."+appName+".workers."+name, msg)
-			}
+			workerNames[name] = struct{}{}
 		}
 	}
 	for name := range cfg.Services {
@@ -55,7 +57,8 @@ func CheckRelationships(cfg *Config) *Result {
 				explicit = true
 			}
 
-			if _, exists := serviceNames[relationshipService]; exists {
+			_, isNamed := serviceNames[relationshipService]
+			if _, isWorker := workerNames[relationshipService]; isNamed || isWorker {
 				linkedServices[relationshipService] = struct{}{}
 			} else {
 				var msg string
