@@ -3,7 +3,6 @@ package registry
 import (
 	_ "embed"
 	"encoding/json"
-	"strings"
 	"sync"
 )
 
@@ -105,21 +104,22 @@ func clean(reg Registry) {
 		}
 	}
 
-	// Replica images are listed upstream without versions of their own, which
-	// would reject every value. They track the type they replicate.
-	for name := range reg {
-		base, isReplica := strings.CutSuffix(name, "-replica")
-		if !isReplica {
+	// Replica images are deployable but are not listed upstream, or are listed
+	// without versions of their own. They track the type they replicate.
+	for _, base := range []string{"mariadb", "postgresql"} {
+		img, ok := reg[base]
+		if !ok {
 			continue
 		}
+		name := base + "-replica"
 		replica := reg[name]
 		if len(replica.Versions.Supported) > 0 {
 			continue
 		}
-		if img, ok := reg[base]; ok {
-			replica.Versions = img.Versions
-			reg[name] = replica
-		}
+		replica.Name = img.Name + " (replica)"
+		replica.Type = name
+		replica.Versions = img.Versions
+		reg[name] = replica
 	}
 
 	// Treat "mysql" as an alias of "mariadb".
