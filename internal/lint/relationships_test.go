@@ -99,6 +99,46 @@ services:
 			expectErrorMessage: "linter errors:\n  - applications.bar.relationships.postgres: relationship 'postgres' in application 'bar' " + //nolint:lll
 				"does not match any service (or app)",
 		},
+		{
+			// Worker names are scoped to their application, so two applications
+			// may each define a worker with the same name.
+			name: "correct_duplicate_worker_names_across_apps",
+			content: `
+applications:
+  foo:
+    relationships:
+      database:
+    workers:
+      queue:
+        commands:
+          start: "node worker.js"
+  bar:
+    relationships:
+      database:
+    workers:
+      queue:
+        commands:
+          start: "node worker.js"
+services:
+  database:
+    type: mariadb:11.4`,
+		},
+		{
+			// A worker may share a name with a service without clashing.
+			name: "correct_worker_name_matching_service",
+			content: `
+applications:
+  foo:
+    relationships:
+      database:
+    workers:
+      database:
+        commands:
+          start: "node worker.js"
+services:
+  database:
+    type: mariadb:11.4`,
+		},
 	}
 
 	for _, c := range cases {
