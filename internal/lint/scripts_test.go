@@ -96,6 +96,41 @@ applications:
 				"c-style fors are a bash/zsh feature; tried parsing as posix",
 		},
 		{
+			name: "invalid worker start command",
+			yamlContent: `
+applications:
+  app1:
+    type: "nodejs:20"
+    web:
+      commands:
+        start: "node server.js"
+    workers:
+      queue:
+        commands:
+          start: "node worker.js | | grep output"
+`,
+			expectErrorMessage: "linter errors:\n  - applications.app1.workers.queue.commands.start: " +
+				"invalid syntax: 1:16: `|` must be followed by a statement",
+		},
+		{
+			name: "invalid worker pre_start command",
+			yamlContent: `
+applications:
+  app1:
+    type: "nodejs:20"
+    web:
+      commands:
+        start: "node server.js"
+    workers:
+      queue:
+        commands:
+          pre_start: "echo 'unterminated"
+          start: "node worker.js"
+`,
+			expectErrorMessage: "linter errors:\n  - applications.app1.workers.queue.commands.pre_start: " +
+				"invalid syntax: 1:6: reached EOF without closing quote `'`",
+		},
+		{
 			name: "empty YAML",
 			yamlContent: `
 applications: {}`,

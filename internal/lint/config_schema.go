@@ -41,6 +41,12 @@ type Config struct {
 
 		Workers map[string]struct {
 			Type string `yaml:"type,omitempty"`
+
+			Commands struct {
+				PreStart  string `yaml:"pre_start,omitempty"`
+				Start     string `yaml:"start,omitempty"`
+				PostStart string `yaml:"post_start,omitempty"` // Flex only.
+			} `yaml:"commands,omitempty"`
 		} `yaml:"workers,omitempty"`
 
 		Dependencies map[string]map[string]any `yaml:"dependencies,omitempty"`
