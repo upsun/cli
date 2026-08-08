@@ -7,6 +7,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/briandowns/spinner v1.23.2
+	github.com/dlclark/regexp2/v2 v2.2.1
 	github.com/fatih/color v1.19.0
 	github.com/go-chi/chi/v5 v5.3.1
 	github.com/go-playground/validator/v10 v10.30.3
@@ -20,12 +21,14 @@ require (
 	github.com/upsun/lib-sun v0.3.16
 	github.com/upsun/whatsun v0.2.0
 	github.com/wk8/go-ordered-map/v2 v2.1.8
+	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/crypto v0.54.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.22.0
 	golang.org/x/sys v0.47.0
 	golang.org/x/term v0.45.0
 	gopkg.in/yaml.v3 v3.0.1
+	mvdan.cc/sh/v3 v3.13.1
 )
 
 require (
@@ -57,7 +60,6 @@ require (
 	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/dlclark/regexp2/v2 v2.2.1 // indirect
 	github.com/dsnet/compress v0.0.2-0.20230904184137-39efe44ab707 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/fatih/semgroup v1.3.0 // indirect
@@ -125,7 +127,6 @@ require (
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
-	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/zricethezav/gitleaks/v8 v8.30.1 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect

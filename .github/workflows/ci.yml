@@ -49,6 +49,23 @@ jobs:
       - name: Check goreleaser config
         run: make goreleaser-check
 
+  # Checks that the embedded lint registry and schemas match upstream.
+  # Fails when upstream publishes changes; run `make lint-assets` to refresh.
+  lint-assets:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: ./go.mod
+
+      - name: Check embedded lint assets are up to date
+        run: make lint-assets-check
+
   legacy-php:
     runs-on: ubuntu-latest
 

@@ -63,6 +63,7 @@ type Config struct {
 		Name                string `validate:"required"`                                         // e.g. "Upsun"
 		EnvPrefix           string `validate:"required" yaml:"env_prefix"`                       // e.g. "PLATFORM_"
 		ProjectConfigDir    string `validate:"required" yaml:"project_config_dir"`               // e.g. ".platform"
+		AppConfigFile       string `validate:"omitempty" yaml:"app_config_file,omitempty"`       // e.g. ".platform.app.yaml" (Fixed only)
 		ProjectConfigFlavor string `validate:"omitempty" yaml:"project_config_flavor,omitempty"` // default: "platform"
 		ConsoleURL          string `validate:"omitempty,url" yaml:"console_url,omitempty"`       // e.g. "https://console.upsun.com"
 		DocsURL             string `validate:"omitempty,url" yaml:"docs_url,omitempty"`          // e.g. "https://docs.upsun.com"
