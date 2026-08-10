@@ -20,8 +20,11 @@ import (
 type Config struct {
 	// Fields only used by to the Go wrapper.
 	Wrapper struct {
-		HomebrewTap string `yaml:"homebrew_tap,omitempty"` // e.g. "upsun/tap/platformsh-cli"
-		GitHubRepo  string `yaml:"github_repo,omitempty"`  // e.g. "upsun/cli"
+		HomebrewTap   string `yaml:"homebrew_tap,omitempty"`   // e.g. "upsun/tap/platformsh-cli"
+		GitHubRepo    string `yaml:"github_repo,omitempty"`    // e.g. "upsun/cli"
+		NpmPackage    string `yaml:"npm_package,omitempty"`    // e.g. "upsun"
+		InstallerURL  string `yaml:"installer_url,omitempty"`  // e.g. "https://raw.githubusercontent.com/upsun/cli/main/installer.sh"
+		InstallMethod string `yaml:"install_method,omitempty"` // forces the detected install method (homebrew, scoop, npm, package, script)
 	} `yaml:"wrapper,omitempty"`
 
 	Application struct {
