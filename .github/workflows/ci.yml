@@ -139,3 +139,39 @@ jobs:
 
       - name: Run integration tests
         run: make integration-test
+
+  # The only Windows coverage: which certificates the embedded PHP trusts.
+  windows-cert-store:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: ./go.mod
+
+      - name: Download embedded PHP files
+        shell: bash
+        run: |
+          php_version=$(grep -m1 '^PHP_VERSION' Makefile | cut -d' ' -f3)
+          mkdir -p internal/legacy/archives
+          curl -fSL "https://github.com/upsun/cli-php-builds/releases/download/php-$php_version/php-$php_version-windows-amd64.exe" \
+            -o internal/legacy/archives/php_windows.exe
+          curl -fSL https://curl.se/ca/cacert.pem -o internal/legacy/archives/cacert.pem
+          # Only needed so that the package builds.
+          touch internal/legacy/archives/platform.phar
+
+      - name: Run Windows tests
+        shell: bash
+        env:
+          CLI_TEST_MODIFY_CERT_STORE: '1'
+        run: GOEXPERIMENT=jsonv2 go test -v -count=1 -timeout 3m -run TestWindows ./internal/legacy/
+
+      # Reading the certificate store happens before every legacy command.
+      - name: Measure building the CA bundle
+        if: always()
+        shell: bash
+        run: GOEXPERIMENT=jsonv2 go test -run '^$' -bench BenchmarkWindows -benchmem ./internal/legacy/

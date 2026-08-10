@@ -107,10 +107,15 @@ func (c *CLIWrapper) init() error {
 		return nil
 	})
 
-	g.Go(newPHPManager(cacheDir).copy)
+	phpMgr := newPHPManager(cacheDir)
+	g.Go(phpMgr.copy)
 
 	if err := g.Wait(); err != nil {
 		return err
+	}
+
+	for _, warning := range phpMgr.warnings() {
+		c.debug("%s", warning)
 	}
 
 	c.debug("Initialized PHP CLI (%s)", time.Since(preInit))
