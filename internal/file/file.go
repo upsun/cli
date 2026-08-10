@@ -22,11 +22,8 @@ func WriteIfNeeded(destFilename string, source []byte, perm os.FileMode) error {
 // contents already match. Unlike WriteIfNeeded, it is suitable for dynamic
 // data which can change without changing its size or final bytes.
 func WriteIfChanged(destFilename string, source []byte, perm os.FileMode) error {
-	existing, err := os.ReadFile(destFilename)
-	if err == nil && bytes.Equal(existing, source) {
-		return nil
-	}
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	matches, err := fullyMatches(destFilename, source)
+	if err != nil || matches {
 		return err
 	}
 	return Write(destFilename, source, perm)
@@ -40,6 +37,27 @@ func Write(path string, content []byte, fileMode fs.FileMode) error {
 	}
 
 	return os.Rename(tmpFile, path)
+}
+
+// fullyMatches checks if a file exists and its whole contents equal data. The
+// size is compared first, so a file which cannot match is not read.
+func fullyMatches(filename string, data []byte) (bool, error) {
+	fi, err := os.Stat(filename)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	if fi.Size() != int64(len(data)) {
+		return false, nil
+	}
+
+	existing, err := os.ReadFile(filename)
+	if err != nil {
+		return false, err
+	}
+	return bytes.Equal(existing, data), nil
 }
 
 // probablyMatches checks if a file exists and matches the end of source data (up to checkSize bytes).
