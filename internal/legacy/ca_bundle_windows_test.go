@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/pem"
 	"math/big"
 	"testing"
@@ -115,7 +116,7 @@ func TestWindowsCertificatePurposes(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			certContext := createTestCertContext(t, c.extension)
+			_, certContext := createTestCertContext(t, c.extension)
 			if len(c.property) > 0 {
 				setWindowsCertificatePurposes(t, certContext, c.property)
 			}
@@ -127,9 +128,26 @@ func TestWindowsCertificatePurposes(t *testing.T) {
 	}
 }
 
+func TestWindowsUsableTLSRoot(t *testing.T) {
+	der, certContext := createTestCertContext(t, nil)
+	usable, err := usableTLSRoot(certContext, der)
+	require.NoError(t, err)
+	assert.True(t, usable, "expected a valid certificate with no restriction to be a usable root")
+
+	// An EKU extension which cannot be decoded. Windows tolerates it, reporting
+	// the purposes it could read rather than an error, so what keeps such a
+	// certificate out of the bundle is Go refusing to parse it. The reason is
+	// not asserted, only that it is never trusted.
+	undecodable := pkix.Extension{Id: asn1.ObjectIdentifier{2, 5, 29, 37}, Value: []byte{0xff, 0xff}}
+	der, certContext = createTestCertContext(t, nil, undecodable)
+	usable, err = usableTLSRoot(certContext, der)
+	t.Logf("an undecodable EKU extension: usable=%t, err=%v", usable, err)
+	assert.False(t, usable, "expected a certificate with an undecodable EKU extension not to be trusted")
+}
+
 // createTestCertContext creates a context for a self-signed CA, which is given
-// an EKU extension only when usages are passed.
-func createTestCertContext(t *testing.T, usages []x509.ExtKeyUsage) *windows.CertContext {
+// an EKU extension only when usages are passed, and returns its encoding too.
+func createTestCertContext(t *testing.T, usages []x509.ExtKeyUsage, extra ...pkix.Extension) ([]byte, *windows.CertContext) {
 	t.Helper()
 
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -142,6 +160,7 @@ func createTestCertContext(t *testing.T, usages []x509.ExtKeyUsage) *windows.Cer
 		IsCA:                  true,
 		KeyUsage:              x509.KeyUsageCertSign,
 		ExtKeyUsage:           usages,
+		ExtraExtensions:       extra,
 		BasicConstraintsValid: true,
 	}
 	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
@@ -156,7 +175,7 @@ func createTestCertContext(t *testing.T, usages []x509.ExtKeyUsage) *windows.Cer
 	t.Cleanup(func() {
 		assert.NoError(t, windows.CertFreeCertificateContext(certContext))
 	})
-	return certContext
+	return der, certContext
 }
 
 // setWindowsCertificatePurposes replaces a certificate's EKU property, which is
