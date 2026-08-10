@@ -35,7 +35,7 @@ func (m *phpManagerPerOS) writeCAFile() error {
 		// trusted before it read the store, and better than running nothing.
 		m.copyWarnings = append(m.copyWarnings, err.Error())
 	}
-	return file.WriteIfNeeded(m.caFilePath(), bundle, 0o644)
+	return file.WriteIfChanged(m.caFilePath(), bundle, 0o644)
 }
 
 func (m *phpManagerPerOS) caFilePath() string {

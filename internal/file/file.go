@@ -18,6 +18,20 @@ func WriteIfNeeded(destFilename string, source []byte, perm os.FileMode) error {
 	return Write(destFilename, source, perm)
 }
 
+// WriteIfChanged writes data to a destination file unless its complete
+// contents already match. Unlike WriteIfNeeded, it is suitable for dynamic
+// data which can change without changing its size or final bytes.
+func WriteIfChanged(destFilename string, source []byte, perm os.FileMode) error {
+	existing, err := os.ReadFile(destFilename)
+	if err == nil && bytes.Equal(existing, source) {
+		return nil
+	}
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	return Write(destFilename, source, perm)
+}
+
 // Write creates or overwrites a file, somewhat atomically, using a temporary file next to it.
 func Write(path string, content []byte, fileMode fs.FileMode) error {
 	tmpFile := path + ".tmp"

@@ -79,3 +79,25 @@ func TestWriteIfNeeded(t *testing.T) {
 		})
 	}
 }
+
+func TestWriteIfChangedChecksTheWholeFile(t *testing.T) {
+	destFile := filepath.Join(t.TempDir(), "dynamic-file")
+	original := bytes.Repeat([]byte{'a'}, 64*1024)
+	updated := bytes.Clone(original)
+	updated[0] = 'b'
+
+	require.NoError(t, os.WriteFile(destFile, original, 0o600))
+	require.NoError(t, WriteIfChanged(destFile, updated, 0o600))
+	actual, err := os.ReadFile(destFile)
+	require.NoError(t, err)
+	assert.Equal(t, updated, actual,
+		"equal size and matching final 32 KB must not hide an earlier change")
+
+	before, err := os.Stat(destFile)
+	require.NoError(t, err)
+	time.Sleep(5 * time.Millisecond)
+	require.NoError(t, WriteIfChanged(destFile, updated, 0o600))
+	after, err := os.Stat(destFile)
+	require.NoError(t, err)
+	assert.Equal(t, before.ModTime(), after.ModTime(), "matching contents should not be rewritten")
+}
