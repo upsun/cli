@@ -22,7 +22,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/pem"
 	"errors"
 	"math/big"
 	"net"
@@ -131,7 +130,6 @@ func TestWindowsCertStoreTrust(t *testing.T) {
 }
 
 type testCA struct {
-	certPEM    []byte
 	certDER    []byte
 	serverCert tls.Certificate
 }
@@ -175,7 +173,6 @@ func generateTestCA(t *testing.T) testCA {
 	require.NoError(t, err)
 
 	return testCA{
-		certPEM: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER}),
 		certDER: caDER,
 		serverCert: tls.Certificate{
 			Certificate: [][]byte{serverDER, caDER},
