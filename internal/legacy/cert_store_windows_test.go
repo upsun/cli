@@ -3,10 +3,10 @@ package legacy
 // This file covers which certificates the embedded PHP trusts on Windows.
 //
 // It matters because an organization that inspects TLS traffic installs an
-// extra root certificate in the Windows certificate store, and curl in the
-// embedded PHP is built against Schannel, which can read that store. Passing
-// curl a CA file makes it verify against that file alone, so the settings the
-// wrapper chooses decide whether such certificates are seen at all. See
+// extra root certificate in the Windows certificate store. The embedded PHP
+// layer uses curl and OpenSSL streams, and the wrapper's CA-file settings
+// determine whether the PHP layer trusts only the shipped bundle or also the
+// certificates trusted by Windows (e.g. corporate TLS inspection roots). See
 // https://github.com/upsun/cli/issues/110.
 //
 // The test installs a throwaway CA in the machine's root store, so it needs
