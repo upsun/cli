@@ -255,18 +255,6 @@ func openMachineRootStore(t *testing.T) windows.Handle {
 	return store
 }
 
-// openRootStore opens the trusted roots as a program verifying a certificate
-// would see them, which includes both the machine and user stores.
-func openRootStore(t *testing.T) windows.Handle {
-	t.Helper()
-
-	name, err := windows.UTF16PtrFromString("ROOT")
-	require.NoError(t, err)
-	store, err := windows.CertOpenSystemStore(0, name)
-	require.NoError(t, err)
-
-	return store
-}
 
 // withoutHanging fails the test if fn does not return in time.
 func withoutHanging(t *testing.T, description string, fn func() error) {
