@@ -4,10 +4,14 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"testing"
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/windows"
 )
+
+var procCertAddEnhancedKeyUsageIdentifier = windows.NewLazySystemDLL("crypt32.dll").NewProc("CertAddEnhancedKeyUsageIdentifier")
 
 func TestWindowsCABundle(t *testing.T) {
 	bundle, err := caBundle()
@@ -39,6 +43,45 @@ func TestWindowsCABundle(t *testing.T) {
 		_, err := x509.ParseCertificate(block.Bytes)
 		require.NoError(t, err, "expected every certificate in the bundle to be readable")
 	}
+}
+
+func TestWindowsCertificatePurposes(t *testing.T) {
+	ca := generateTestCA(t)
+	certContext, err := windows.CertCreateCertificateContext(
+		windows.X509_ASN_ENCODING,
+		&ca.certDER[0],
+		uint32(len(ca.certDER)),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		assert.NoError(t, windows.CertFreeCertificateContext(certContext))
+	})
+
+	allowed, err := certAllowsServerAuth(certContext)
+	require.NoError(t, err)
+	assert.True(t, allowed, "a certificate without an EKU restriction is valid for every purpose")
+
+	addWindowsCertificatePurpose(t, certContext, "1.3.6.1.5.5.7.3.3") // Code Signing.
+	allowed, err = certAllowsServerAuth(certContext)
+	require.NoError(t, err)
+	assert.False(t, allowed, "a certificate restricted to code signing must not become a TLS root")
+
+	addWindowsCertificatePurpose(t, certContext, "1.3.6.1.5.5.7.3.1") // Server Authentication.
+	allowed, err = certAllowsServerAuth(certContext)
+	require.NoError(t, err)
+	assert.True(t, allowed, "a certificate which permits server authentication is a TLS root")
+}
+
+func addWindowsCertificatePurpose(t *testing.T, certContext *windows.CertContext, identifier string) {
+	t.Helper()
+
+	oid, err := windows.BytePtrFromString(identifier)
+	require.NoError(t, err)
+	result, _, callErr := procCertAddEnhancedKeyUsageIdentifier.Call(
+		uintptr(unsafe.Pointer(certContext)),
+		uintptr(unsafe.Pointer(oid)),
+	)
+	require.NotZero(t, result, "adding certificate purpose failed: %s", callErr)
 }
 
 // BenchmarkWindowsCABundle measures reading the store and building the bundle,

@@ -53,8 +53,15 @@ func systemRootsPEM() ([]byte, error) {
 	}
 
 	var out bytes.Buffer
-	err = eachStoreCert("ROOT", func(der []byte) error {
+	err = eachStoreCert("ROOT", func(certContext *windows.CertContext, der []byte) error {
 		if shipped[sha256.Sum256(der)] {
+			return nil
+		}
+		allowed, err := certAllowsServerAuth(certContext)
+		if err != nil {
+			return err
+		}
+		if !allowed {
 			return nil
 		}
 		cert, err := x509.ParseCertificate(der)
@@ -93,9 +100,62 @@ func certFingerprints(bundle []byte) (map[[32]byte]bool, error) {
 	return fingerprints, nil
 }
 
-// eachStoreCert calls fn with the encoded bytes of every certificate in a
-// Windows system store, as read by every program which verifies against it.
-func eachStoreCert(name string, fn func(der []byte) error) error {
+var procCertGetEnhancedKeyUsage = windows.NewLazySystemDLL("crypt32.dll").NewProc("CertGetEnhancedKeyUsage")
+
+// certAllowsServerAuth reports whether a certificate's effective Windows EKUs
+// allow it to authenticate a TLS server. Windows combines the EKU extension in
+// the encoded certificate with an EKU property held only in the store. The
+// property has to be checked before exporting the certificate to PEM, which
+// cannot preserve it.
+func certAllowsServerAuth(certContext *windows.CertContext) (bool, error) {
+	var size uint32
+	result, _, callErr := procCertGetEnhancedKeyUsage.Call(
+		uintptr(unsafe.Pointer(certContext)),
+		0,
+		0,
+		uintptr(unsafe.Pointer(&size)),
+	)
+	if result == 0 {
+		return false, fmt.Errorf("could not read certificate purposes: %w", callErr)
+	}
+	if size < uint32(unsafe.Sizeof(windows.CertEnhKeyUsage{})) {
+		return false, fmt.Errorf("could not read certificate purposes: unexpected data size %d", size)
+	}
+
+	wordSize := uint32(unsafe.Sizeof(uintptr(0)))
+	buffer := make([]uintptr, (size+wordSize-1)/wordSize)
+	usage := (*windows.CertEnhKeyUsage)(unsafe.Pointer(&buffer[0]))
+	result, _, callErr = procCertGetEnhancedKeyUsage.Call(
+		uintptr(unsafe.Pointer(certContext)),
+		0,
+		uintptr(unsafe.Pointer(usage)),
+		uintptr(unsafe.Pointer(&size)),
+	)
+	if result == 0 {
+		return false, fmt.Errorf("could not read certificate purposes: %w", callErr)
+	}
+	if usage.Length == 0 {
+		// CRYPT_E_NOT_FOUND means there is no restriction, while a zero last
+		// error means the certificate has explicitly been given no valid uses.
+		return errors.Is(callErr, windows.Errno(windows.CRYPT_E_NOT_FOUND)), nil
+	}
+
+	for _, identifier := range unsafe.Slice(usage.UsageIdentifiers, usage.Length) {
+		switch windows.BytePtrToString(identifier) {
+		case "1.3.6.1.5.5.7.3.1", // Server Authentication.
+			"1.3.6.1.4.1.311.10.3.3", // Microsoft Server Gated Crypto.
+			"2.16.840.1.113730.4.1",  // Netscape Server Gated Crypto.
+			"2.5.29.37.0":            // Any Extended Key Usage.
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// eachStoreCert calls fn with the context and encoded bytes of every
+// certificate in a Windows system store, as read by every program which
+// verifies against it. The context is needed for properties not held in DER.
+func eachStoreCert(name string, fn func(certContext *windows.CertContext, der []byte) error) error {
 	store, err := windows.CertOpenSystemStore(0, windows.StringToUTF16Ptr(name))
 	if err != nil {
 		return fmt.Errorf("could not open the %s certificate store: %w", name, err)
@@ -112,7 +172,7 @@ func eachStoreCert(name string, fn func(der []byte) error) error {
 			return nil
 		}
 		// The context belongs to the store, so the bytes are only borrowed.
-		if err := fn(unsafe.Slice(certContext.EncodedCert, certContext.Length)); err != nil {
+		if err := fn(certContext, unsafe.Slice(certContext.EncodedCert, certContext.Length)); err != nil {
 			windows.CertFreeCertificateContext(certContext) //nolint:errcheck
 			return err
 		}
