@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Command\Task;
 
 use GuzzleHttp\Exception\BadResponseException;
-use GuzzleHttp\Utils;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Model\Variable;
 use Platformsh\Cli\Selector\Selector;
@@ -33,7 +32,7 @@ class TaskRunCommand extends CommandBase
     protected function configure(): void
     {
         $this
-            ->addArgument('task', InputArgument::REQUIRED, 'The name of the task to execute')
+            ->addArgument('task', InputArgument::OPTIONAL, 'The name of the task to execute')
             ->addOption('variable', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'A variable to set when running the task, in the format <info>type:name=value</info>')
             // Tasks can run for a long time, so waiting is opt-in rather than the default.
             ->addOption('wait', null, InputOption::VALUE_NONE, 'Wait for the task to complete');
@@ -51,8 +50,48 @@ class TaskRunCommand extends CommandBase
         $selection = $this->selector->getSelection($input);
         $environment = $selection->getEnvironment();
 
-        $taskName = $input->getArgument('task');
         $variables = (new Variable())->parseMultiple($input->getOption('variable'));
+
+        $tasks = $this->api->getEnvironmentTasks($environment);
+        if ($tasks === []) {
+            $this->stdErr->writeln(sprintf(
+                'No tasks were found on the environment %s.',
+                $this->api->getEnvironmentLabel($environment, 'comment'),
+            ));
+
+            return 1;
+        }
+
+        $taskName = $input->getArgument('task');
+        if ($taskName === null) {
+            if (!$input->isInteractive()) {
+                $this->stdErr->writeln('The <error>task</error> argument is required in non-interactive mode.');
+
+                return 1;
+            }
+
+            $choices = [];
+            foreach ($tasks as $name => $task) {
+                $choices[$name] = isset($task['run']['command'])
+                    ? sprintf('%s (%s)', $name, $this->summarizeCommand((string) $task['run']['command']))
+                    : $name;
+            }
+            ksort($choices, SORT_NATURAL);
+            $taskName = $this->questionHelper->choose($choices, 'Enter a number to choose a task to run:', null, false);
+        } elseif (!isset($tasks[$taskName])) {
+            $this->stdErr->writeln(sprintf(
+                'The task <error>%s</error> was not found on the environment %s.',
+                $taskName,
+                $this->api->getEnvironmentLabel($environment, 'comment'),
+            ));
+            $this->stdErr->writeln('');
+            $this->stdErr->writeln(sprintf(
+                'To list tasks, run: <comment>%s tasks</comment>',
+                $this->config->getStr('application.executable'),
+            ));
+
+            return 1;
+        }
 
         if ($environment->type === 'production' && !$this->questionHelper->confirm(sprintf(
             'Are you sure you want to run the task <comment>%s</comment> on the production environment %s?',
@@ -76,7 +115,7 @@ class TaskRunCommand extends CommandBase
         }
 
         $result = new Result(
-            (array) Utils::jsonDecode((string) $response->getBody(), true),
+            (array) json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR),
             $environment->getUri(),
             $this->api->getHttpClient(),
             Activity::class,
@@ -111,5 +150,15 @@ class TaskRunCommand extends CommandBase
         }
 
         return 0;
+    }
+
+    /**
+     * Reduces a task command to a single line, for use in a list of choices.
+     */
+    private function summarizeCommand(string $command): string
+    {
+        $lines = (array) preg_split('/\r?\n/', trim($command));
+
+        return trim((string) $lines[0]) . (count($lines) > 1 ? ' …' : '');
     }
 }
