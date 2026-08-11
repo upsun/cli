@@ -24,7 +24,7 @@ class ResourcesGetCommand extends ResourcesCommandBase
 {
     /** @var array<string, string> */
     protected array $tableHeader = [
-        'service' => 'App or service',
+        'service' => 'Container',
         'type' => 'Type',
         'profile' => 'Profile',
         'profile_size' => 'Size',
