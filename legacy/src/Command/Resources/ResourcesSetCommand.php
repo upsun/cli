@@ -714,7 +714,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
             [$pattern, $value] = $parts;
             $givenServiceNames = Wildcard::select($serviceNames, [$pattern]);
             if (empty($givenServiceNames)) {
-                $errors[] = sprintf('App or service <error>%s</error> not found.', $pattern);
+                $errors[] = sprintf('Container <error>%s</error> not found.', $pattern);
                 continue;
             }
             foreach ($givenServiceNames as $name) {
