@@ -1826,6 +1826,28 @@ class Api
     }
 
     /**
+     * Returns the tasks defined on an environment, keyed by task name.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function getEnvironmentTasks(Environment $environment): array
+    {
+        try {
+            $response = $this->getHttpClient()->request('GET', $environment->getUri() . '/tasks');
+        } catch (BadResponseException $e) {
+            throw ApiResponseException::create($e->getRequest(), $e->getResponse(), $e);
+        }
+        $tasks = (array) json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        $byName = [];
+        foreach ($tasks as $key => $task) {
+            $byName[(string) ($task['name'] ?? $key)] = $task;
+        }
+
+        return $byName;
+    }
+
+    /**
      * Warn the user if a project is suspended.
      *
      * @param Project $project

@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Task;
 
-use GuzzleHttp\Exception\BadResponseException;
-use GuzzleHttp\Utils;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Table;
-use Platformsh\Client\Exception\ApiResponseException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -44,12 +41,7 @@ class TaskListCommand extends CommandBase
         $selection = $this->selector->getSelection($input);
         $environment = $selection->getEnvironment();
 
-        try {
-            $response = $this->api->getHttpClient()->request('GET', $environment->getUri() . '/tasks');
-        } catch (BadResponseException $e) {
-            throw ApiResponseException::create($e->getRequest(), $e->getResponse(), $e);
-        }
-        $tasks = (array) Utils::jsonDecode((string) $response->getBody(), true);
+        $tasks = $this->api->getEnvironmentTasks($environment);
 
         if ($tasks === []) {
             $this->stdErr->writeln(sprintf(
@@ -61,9 +53,9 @@ class TaskListCommand extends CommandBase
         }
 
         $rows = [];
-        foreach ($tasks as $task) {
+        foreach ($tasks as $name => $task) {
             $rows[] = [
-                'name' => $task['name'] ?? '',
+                'name' => $name,
                 'type' => $task['type'] ?? '',
                 'command' => isset($task['run']['command']) ? trim((string) $task['run']['command']) : '',
                 'timeout' => $task['run']['timeout'] ?? '',

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Command\Task;
 
 use GuzzleHttp\Exception\BadResponseException;
-use GuzzleHttp\Utils;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Model\Variable;
 use Platformsh\Cli\Selector\Selector;
@@ -54,6 +53,31 @@ class TaskRunCommand extends CommandBase
         $taskName = $input->getArgument('task');
         $variables = (new Variable())->parseMultiple($input->getOption('variable'));
 
+        $tasks = $this->api->getEnvironmentTasks($environment);
+        if (!isset($tasks[$taskName])) {
+            if ($tasks === []) {
+                $this->stdErr->writeln(sprintf(
+                    'No tasks were found on the environment %s.',
+                    $this->api->getEnvironmentLabel($environment, 'comment'),
+                ));
+
+                return 1;
+            }
+
+            $this->stdErr->writeln(sprintf(
+                'The task <error>%s</error> was not found on the environment %s.',
+                $taskName,
+                $this->api->getEnvironmentLabel($environment, 'comment'),
+            ));
+            $this->stdErr->writeln('');
+            $this->stdErr->writeln(sprintf(
+                'To list tasks, run: <comment>%s tasks</comment>',
+                $this->config->getStr('application.executable'),
+            ));
+
+            return 1;
+        }
+
         if ($environment->type === 'production' && !$this->questionHelper->confirm(sprintf(
             'Are you sure you want to run the task <comment>%s</comment> on the production environment %s?',
             $taskName,
@@ -76,7 +100,7 @@ class TaskRunCommand extends CommandBase
         }
 
         $result = new Result(
-            (array) Utils::jsonDecode((string) $response->getBody(), true),
+            (array) json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR),
             $environment->getUri(),
             $this->api->getHttpClient(),
             Activity::class,
