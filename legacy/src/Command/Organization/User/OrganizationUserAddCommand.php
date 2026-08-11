@@ -36,6 +36,20 @@ class OrganizationUserAddCommand extends OrganizationUserCommandBase
         $organization = $this->selector->selectOrganization($input, 'create-member');
 
         $update = get_called_class() === OrganizationUserUpdateCommand::class;
+
+        // The selector only checks the link when it picks an organization
+        // itself: with an explicit --org it returns the organization as is, so
+        // the check has to happen here, or the command fails later on a raw API
+        // error. Members are listed in both cases; adding a user also needs the
+        // 'invitations' link.
+        if (!$organization->hasLink('members') || (!$update && !$organization->hasLink('invitations'))) {
+            $orgLabel = $this->api->getOrganizationLabel($organization, 'comment');
+            $this->stdErr->writeln($update
+                ? 'You do not have permission to update users in the organization ' . $orgLabel . '.'
+                : 'You do not have permission to add users to the organization ' . $orgLabel . '.');
+            return 1;
+        }
+
         if ($update) {
             $email = $input->getArgument('email');
             if (!empty($email)) {
