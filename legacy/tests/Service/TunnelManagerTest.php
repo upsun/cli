@@ -10,19 +10,44 @@ use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Service\Relationships;
 use Platformsh\Cli\Service\TunnelManager;
+use Platformsh\Cli\Tests\HasTempDirTrait;
 use Platformsh\Cli\Tunnel\Tunnel;
 use Platformsh\Client\Model\Environment;
 use Platformsh\Client\Model\Project;
 
 class TunnelManagerTest extends TestCase
 {
-    private function createManager(): TunnelManager
+    use HasTempDirTrait;
+
+    public function setUp(): void
+    {
+        $this->tempDirSetUp();
+    }
+
+    private function createManager(?string $writableUserDir = null): TunnelManager
     {
         $config = $this->createMock(Config::class);
+        if ($writableUserDir !== null) {
+            $config->method('getWritableUserDir')->willReturn($writableUserDir);
+        }
         $io = $this->createMock(Io::class);
         $relationships = $this->createMock(Relationships::class);
 
         return new TunnelManager($config, $io, $relationships);
+    }
+
+    /**
+     * @param array<string, mixed> $entry
+     */
+    private function writeTunnelInfo(string $id, array $entry): string
+    {
+        assert($this->tempDir !== null);
+        $filename = $this->tempDir . '/tunnel-info.json';
+        if (file_put_contents($filename, (string) json_encode([$id => $entry + ['id' => $id]])) === false) {
+            throw new \RuntimeException('Failed to write: ' . $filename);
+        }
+
+        return $filename;
     }
 
     /**
@@ -145,5 +170,62 @@ class TunnelManagerTest extends TestCase
         $this->assertSame($tunnels1[0]->id, $tunnels2[0]->id);
         // Null appName becomes empty string in the ID.
         $this->assertSame('proj2--dev----db--0', $tunnels1[0]->id);
+    }
+
+    public function testIsOpenLoadsStateWhenNotAlreadyLoaded(): void
+    {
+        // create() with an explicit local port skips getPort(), which is the
+        // only other caller of getTunnels(), so isOpen() has to load the state
+        // itself. Regression test for CLI-169.
+        $id = 'proj1--main--app--database--0';
+        $metadata = [
+            'projectId' => 'proj1',
+            'environmentId' => 'main',
+            'appName' => 'app',
+            'relationship' => 'database',
+            'serviceKey' => 0,
+            'service' => ['scheme' => 'mysql', 'host' => 'database.internal', 'port' => 3306],
+        ];
+        $this->writeTunnelInfo($id, $metadata + [
+            'localPort' => 30000,
+            'remoteHost' => 'database.internal',
+            'remotePort' => 3306,
+            // Alive, so it survives the pruning in getTunnels().
+            'pid' => getmypid(),
+        ]);
+
+        $manager = $this->createManager($this->tempDir);
+
+        $result = $manager->isOpen(new Tunnel($id, 30000, 'database.internal', 3306, $metadata));
+
+        $this->assertInstanceOf(Tunnel::class, $result);
+        $this->assertSame(getmypid(), $result->pid);
+    }
+
+    public function testIsOpenPrunesTunnelWithoutPid(): void
+    {
+        // An entry with no PID is stale: getTunnels() drops it and rewrites the
+        // state file, which a caller passing an explicit port would otherwise
+        // skip, leaving isOpen() reporting a tunnel that is not there.
+        $id = 'proj2--dev----redis--0';
+        $metadata = [
+            'projectId' => 'proj2',
+            'environmentId' => 'dev',
+            'appName' => null,
+            'relationship' => 'redis',
+            'serviceKey' => 0,
+            'service' => ['scheme' => 'redis', 'host' => 'redis.internal', 'port' => 6379],
+        ];
+        $filename = $this->writeTunnelInfo($id, $metadata + [
+            'localPort' => 30002,
+            'remoteHost' => 'redis.internal',
+            'remotePort' => 6379,
+            'pid' => null,
+        ]);
+
+        $manager = $this->createManager($this->tempDir);
+
+        $this->assertFalse($manager->isOpen(new Tunnel($id, 30002, 'redis.internal', 6379, $metadata)));
+        $this->assertFileDoesNotExist($filename);
     }
 }
