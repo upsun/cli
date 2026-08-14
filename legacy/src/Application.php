@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli;
 
 use Doctrine\Common\Cache\CacheProvider;
+use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Command\HelpCommand;
 use Platformsh\Cli\Command\ListCommand;
 use Platformsh\Cli\Command\WelcomeCommand;
@@ -21,9 +22,13 @@ use Symfony\Component\Console\Application as ParentApplication;
 use Symfony\Component\Console\Command\Command as ConsoleCommand;
 use Symfony\Component\Console\Command\CompleteCommand;
 use Symfony\Component\Console\Command\DumpCompletionCommand;
+use Symfony\Component\Console\Command\LazyCommand;
 use Symfony\Component\Console\CommandLoader\CommandLoaderInterface;
 use Symfony\Component\Console\DependencyInjection\AddConsoleCommandPass;
+use Symfony\Component\Console\Exception\CommandNotFoundException;
+use Symfony\Component\Console\Exception\ExceptionInterface as ConsoleExceptionInterface;
 use Symfony\Component\Console\Input\ArgvInput;
+use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputDefinition;
 use Symfony\Component\Console\Input\InputInterface;
@@ -194,6 +199,138 @@ class Application extends ParentApplication
             new CompleteCommand(),
             new DumpCompletionCommand(),
         ];
+    }
+
+    /**
+     * @inheritdoc
+     *
+     * Resolves lazily-loaded commands, so that callers see each command's own
+     * hidden state. A LazyCommand reports the state of the AsCommand attribute
+     * it was built from, while this CLI decides on the command itself, from the
+     * configured hidden_commands and the command's stability.
+     *
+     * Without this, the parent lists hidden commands when describing a
+     * namespace, suggests them when completing a command name, and counts the
+     * namespaces they define. Resolving every command costs about 80ms.
+     *
+     * @see CommandBase::isHidden()
+     */
+    public function all(?string $namespace = null): array
+    {
+        $commands = parent::all($namespace);
+        foreach ($commands as $name => $command) {
+            if ($command instanceof LazyCommand) {
+                $commands[$name] = $command->getCommand();
+            }
+        }
+
+        return $commands;
+    }
+
+    /**
+     * @inheritdoc
+     *
+     * When the command name is a namespace rather than a command, the parent
+     * lists the namespace's commands using its own DescriptorHelper, which only
+     * knows the default descriptors. Those describe lazily-loaded commands
+     * without resolving them, so hidden commands (which this CLI decides on the
+     * command itself) and commands disabled by configuration are both listed.
+     *
+     * Run our own list command for the namespace instead, so that the output
+     * matches "list <namespace>". As in the parent, it is written to the error
+     * output and the exit code reports that no command was run.
+     *
+     * @see ListCommand
+     * @see \Platformsh\Cli\Console\DescriptorUtils::describeNamespaces()
+     */
+    public function doRun(InputInterface $input, OutputInterface $output): int
+    {
+        if (($namespace = $this->getDescribableNamespace($input)) !== null) {
+            $this->listNamespace(
+                $namespace,
+                $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output,
+            );
+
+            return 1;
+        }
+
+        return parent::doRun($input, $output);
+    }
+
+    /**
+     * Returns the namespace a name refers to, if it does not name a command.
+     *
+     * @see HelpCommand
+     */
+    public function findDescribableNamespace(string $name): ?string
+    {
+        if ($name === '') {
+            return null;
+        }
+
+        try {
+            // A command, or an abbreviation of one: nothing to describe. This is
+            // checked before findNamespace(), which resolves every command to
+            // collect the namespaces, and so must stay off the ordinary path.
+            $this->find($name);
+
+            return null;
+        } catch (CommandNotFoundException) {
+            // Not a command. It may still be a namespace.
+        }
+
+        try {
+            return $this->findNamespace($name);
+        } catch (CommandNotFoundException) {
+            // Not a namespace either.
+            return null;
+        }
+    }
+
+    /**
+     * Lists the commands of a namespace, by running the list command.
+     *
+     * Options are only passed on when they are set, as SubCommandRunner does.
+     *
+     * @see HelpCommand
+     */
+    public function listNamespace(string $namespace, OutputInterface $output, ?string $format = null, bool $raw = false): int
+    {
+        $args = ['command' => 'list', 'namespace' => $namespace];
+        if ($format !== null) {
+            $args['--format'] = $format;
+        }
+        if ($raw) {
+            $args['--raw'] = true;
+        }
+
+        $listInput = new ArrayInput($args);
+        $listInput->setInteractive(false);
+
+        return $this->get('list')->run($listInput, $output);
+    }
+
+    /**
+     * Returns the namespace to describe, if the input names one instead of a command.
+     */
+    private function getDescribableNamespace(InputInterface $input): ?string
+    {
+        if ($input->hasParameterOption(['--version', '-V'], true)) {
+            return null;
+        }
+
+        try {
+            // As in the parent method: this makes ArgvInput::getFirstArgument()
+            // able to tell an option from an argument. Errors are ignored
+            // because the command is not known yet.
+            $input->bind($this->getDefinition());
+        } catch (ConsoleExceptionInterface) {
+            // Ignored.
+        }
+
+        $name = $this->getCommandName($input);
+
+        return $name === null ? null : $this->findDescribableNamespace($name);
     }
 
     /**
