@@ -143,7 +143,7 @@ class TunnelManager
      */
     public function isOpen(Tunnel $tunnel): false|Tunnel
     {
-        foreach ($this->tunnels as $t) {
+        foreach ($this->getTunnels() as $t) {
             if ($t->id === $tunnel->id) {
                 if ($t->pid && function_exists('posix_kill') && !posix_kill($t->pid, 0)) {
                     $this->io->debug(sprintf(

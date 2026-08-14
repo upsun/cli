@@ -776,11 +776,6 @@ parameters:
 			path: src/Service/Ssh.php
 
 		-
-			message: "#^Argument of an invalid type array\\<Platformsh\\\\Cli\\\\Tunnel\\\\Tunnel\\>\\|null supplied for foreach, only iterables are supported\\.$#"
-			count: 1
-			path: src/Service/TunnelManager.php
-
-		-
 			message: "#^Method Platformsh\\\\Cli\\\\Service\\\\TunnelManager\\:\\:getTunnels\\(\\) should return array\\<Platformsh\\\\Cli\\\\Tunnel\\\\Tunnel\\> but returns array\\<Platformsh\\\\Cli\\\\Tunnel\\\\Tunnel\\>\\|null\\.$#"
 			count: 1
 			path: src/Service/TunnelManager.php
