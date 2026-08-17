@@ -21,17 +21,21 @@ class TunnelManager
     public function __construct(private readonly Config $config, private readonly Io $io, private readonly Relationships $relationships) {}
 
     /**
-     * @param array{projectId: string, environmentId: string, appName: ?string, relationship: string, serviceKey: string|int, service: array<string, mixed>} $metadata
-     * @return string
+     * Derives a tunnel ID from its metadata.
+     *
+     * The metadata may come from a state file written by an older version, so
+     * the parts are not assumed to be present or to be strings.
+     *
+     * @param array<string, mixed> $metadata
      */
     private function getId(array $metadata): string
     {
         return implode('--', [
-            $metadata['projectId'],
-            $metadata['environmentId'],
-            $metadata['appName'] ?? '',
-            $metadata['relationship'],
-            $metadata['serviceKey'],
+            (string) ($metadata['projectId'] ?? ''),
+            (string) ($metadata['environmentId'] ?? ''),
+            (string) ($metadata['appName'] ?? ''),
+            (string) ($metadata['relationship'] ?? ''),
+            (string) ($metadata['serviceKey'] ?? ''),
         ]);
     }
 
@@ -129,8 +133,8 @@ class TunnelManager
             if (!file_put_contents($filename, $this->serialize($this->tunnels))) {
                 throw new \RuntimeException('Failed to write tunnel info to: ' . $filename);
             }
-        } else {
-            unlink($filename);
+        } elseif (file_exists($filename) && !unlink($filename)) {
+            throw new \RuntimeException('Failed to delete tunnel info file: ' . $filename);
         }
     }
 
@@ -183,6 +187,23 @@ class TunnelManager
     }
 
     /**
+     * Reads a positive integer from state file data, or null if there isn't one.
+     *
+     * Ports and PIDs are rejected unless they are positive: a PID of 0 would
+     * make posix_kill() signal the CLI's whole process group. Non-int, non-string
+     * values are rejected before filtering, as true would otherwise pass as 1.
+     */
+    private function positiveInt(mixed $value): ?int
+    {
+        if (!is_int($value) && !is_string($value)) {
+            return null;
+        }
+        $int = filter_var($value, FILTER_VALIDATE_INT);
+
+        return is_int($int) && $int > 0 ? $int : null;
+    }
+
+    /**
      * @return Tunnel[]
      */
     private function unserialize(string $jsonData): array
@@ -190,11 +211,31 @@ class TunnelManager
         $tunnels = [];
         $data = (array) json_decode($jsonData, true);
         foreach ($data as $item) {
+            if (!is_array($item)) {
+                $this->io->debug('Ignoring malformed tunnel info entry');
+                continue;
+            }
+            // State files written by older versions can hold the ports as
+            // strings, but Tunnel expects ints.
+            $localPort = $this->positiveInt($item['localPort'] ?? null);
+            $remotePort = $this->positiveInt($item['remotePort'] ?? null);
+            if ($localPort === null || $remotePort === null || !isset($item['remoteHost'])) {
+                $this->io->debug('Ignoring tunnel info entry with a missing or invalid host or port');
+                continue;
+            }
+            /** @var array<string, mixed> $metadata */
             $metadata = $item;
             unset($metadata['id'], $metadata['localPort'], $metadata['remoteHost'], $metadata['remotePort'], $metadata['pid']);
             // Handle old-format tunnel data that lacks an 'id' field.
             $id = $item['id'] ?? $this->getId($metadata);
-            $tunnels[] = new Tunnel($id, $item['localPort'], $item['remoteHost'], $item['remotePort'], $metadata, $item['pid']);
+            $tunnels[] = new Tunnel(
+                (string) $id,
+                $localPort,
+                (string) $item['remoteHost'],
+                $remotePort,
+                $metadata,
+                $this->positiveInt($item['pid'] ?? null),
+            );
         }
         return $tunnels;
     }
@@ -219,6 +260,27 @@ class TunnelManager
                 'Failed to delete file: %s',
                 $pidFile,
             ));
+        }
+        $this->forget($tunnel);
+    }
+
+    /**
+     * Removes a tunnel from the saved state.
+     *
+     * Pruning in getTunnels() only runs where the posix extension is
+     * available, so a closed tunnel has to remove its own entry.
+     */
+    private function forget(Tunnel $tunnel): void
+    {
+        $found = false;
+        foreach ($this->getTunnels(false) as $key => $t) {
+            if ($t->id === $tunnel->id) {
+                unset($this->tunnels[$key]);
+                $found = true;
+            }
+        }
+        if ($found) {
+            $this->saveTunnelInfo();
         }
     }
 
