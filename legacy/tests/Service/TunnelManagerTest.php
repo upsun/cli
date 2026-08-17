@@ -41,13 +41,42 @@ class TunnelManagerTest extends TestCase
      */
     private function writeTunnelInfo(string $id, array $entry): string
     {
+        return $this->writeTunnelsInfo([$id => $entry]);
+    }
+
+    /**
+     * @param array<string, array<string, mixed>> $entries
+     */
+    private function writeTunnelsInfo(array $entries): string
+    {
         assert($this->tempDir !== null);
         $filename = $this->tempDir . '/tunnel-info.json';
-        if (file_put_contents($filename, (string) json_encode([$id => $entry + ['id' => $id]])) === false) {
+        $data = [];
+        foreach ($entries as $id => $entry) {
+            $data[$id] = $entry + ['id' => $id];
+        }
+        if (file_put_contents($filename, (string) json_encode($data)) === false) {
             throw new \RuntimeException('Failed to write: ' . $filename);
         }
 
         return $filename;
+    }
+
+    /**
+     * @return array{0: string, 1: array<string, mixed>}
+     */
+    private function metadata(string $project, string $relationship, string $host): array
+    {
+        $metadata = [
+            'projectId' => $project,
+            'environmentId' => 'main',
+            'appName' => 'app',
+            'relationship' => $relationship,
+            'serviceKey' => 0,
+            'service' => ['scheme' => 'pgsql', 'host' => $host, 'port' => 5432],
+        ];
+
+        return [sprintf('%s--main--app--%s--0', $project, $relationship), $metadata];
     }
 
     /**
@@ -146,6 +175,77 @@ class TunnelManagerTest extends TestCase
         $this->assertSame(30000, $tunnel->localPort);
     }
 
+    public function testUnserializeCastsPortsToInt(): void
+    {
+        // State files written before the create() cast (5.10.4 and earlier)
+        // hold the remote port as a string, which is the type Tunnel rejects.
+        $tunnels = $this->callUnserialize($this->createManager(), (string) json_encode([
+            'proj1--main--app--database--0' => [
+                'projectId' => 'proj1',
+                'environmentId' => 'main',
+                'appName' => 'app',
+                'relationship' => 'database',
+                'serviceKey' => 0,
+                'service' => ['scheme' => 'pgsql', 'host' => 'pg.internal', 'port' => '5432'],
+                'id' => 'proj1--main--app--database--0',
+                'localPort' => '30000',
+                'remoteHost' => 'pg.internal',
+                'remotePort' => '5432',
+                'pid' => '12345',
+            ],
+        ]));
+
+        $this->assertCount(1, $tunnels);
+        $this->assertSame(30000, $tunnels[0]->localPort);
+        $this->assertSame(5432, $tunnels[0]->remotePort);
+        $this->assertSame(12345, $tunnels[0]->pid);
+    }
+
+    public function testUnserializeSkipsInvalidEntries(): void
+    {
+        $tunnels = $this->callUnserialize($this->createManager(), (string) json_encode([
+            'not-an-array' => 'nonsense',
+            'missing-ports' => ['projectId' => 'proj1', 'environmentId' => 'main'],
+            'unusable-ports' => [
+                'localPort' => 'nonsense',
+                'remoteHost' => 'pg.internal',
+                'remotePort' => 5432,
+            ],
+            'zero-port' => [
+                'localPort' => 30000,
+                'remoteHost' => 'pg.internal',
+                'remotePort' => 0,
+            ],
+        ]));
+
+        $this->assertSame([], $tunnels);
+    }
+
+    public function testUnserializeTreatsUnusablePidAsAbsent(): void
+    {
+        // A PID of 0 would make posix_kill() signal the whole process group,
+        // so anything that is not a positive integer has to become null.
+        [$id, $metadata] = $this->metadata('proj1', 'database', 'pg.internal');
+        // true would otherwise pass FILTER_VALIDATE_INT as PID 1, which is the
+        // init process when the CLI runs as root in a container.
+        $cases = ['', 'nonsense', 0, -1, [], null, true, false, 12.5];
+        foreach ($cases as $pid) {
+            $tunnels = $this->callUnserialize($this->createManager(), (string) json_encode([
+                $id => $metadata + [
+                    'id' => $id,
+                    'localPort' => 30000,
+                    'remoteHost' => 'pg.internal',
+                    'remotePort' => 5432,
+                    'pid' => $pid,
+                ],
+            ]));
+
+            $message = 'PID ' . var_export($pid, true);
+            $this->assertCount(1, $tunnels, $message);
+            $this->assertNull($tunnels[0]->pid, $message);
+        }
+    }
+
     public function testUnserializeOldFormatDerivedIdIsStable(): void
     {
         $json = (string) json_encode([
@@ -200,6 +300,53 @@ class TunnelManagerTest extends TestCase
 
         $this->assertInstanceOf(Tunnel::class, $result);
         $this->assertSame(getmypid(), $result->pid);
+    }
+
+    public function testCloseRemovesTunnelFromState(): void
+    {
+        // close() has to rewrite the state file itself. Leaving that to the
+        // pruning in getTunnels() means the entry survives wherever the posix
+        // extension is unavailable, so the tunnel can never be closed.
+        [$id1, $metadata1] = $this->metadata('proj1', 'database', 'pg.internal');
+        [$id2, $metadata2] = $this->metadata('proj2', 'redis', 'redis.internal');
+        // A null PID keeps close() away from posix_kill().
+        $filename = $this->writeTunnelsInfo([
+            $id1 => $metadata1 + ['localPort' => 30000, 'remoteHost' => 'pg.internal', 'remotePort' => 5432, 'pid' => null],
+            $id2 => $metadata2 + ['localPort' => 30001, 'remoteHost' => 'redis.internal', 'remotePort' => 6379, 'pid' => null],
+        ]);
+
+        $manager = $this->createManager($this->tempDir);
+        $manager->close(new Tunnel($id1, 30000, 'pg.internal', 5432, $metadata1));
+
+        $data = (array) json_decode((string) file_get_contents($filename), true);
+        $this->assertSame([$id2], array_keys($data));
+    }
+
+    public function testCloseLastTunnelDeletesStateFile(): void
+    {
+        [$id, $metadata] = $this->metadata('proj1', 'database', 'pg.internal');
+        $filename = $this->writeTunnelInfo($id, $metadata + [
+            'localPort' => 30000,
+            'remoteHost' => 'pg.internal',
+            'remotePort' => 5432,
+            'pid' => null,
+        ]);
+
+        $manager = $this->createManager($this->tempDir);
+        $manager->close(new Tunnel($id, 30000, 'pg.internal', 5432, $metadata));
+
+        $this->assertFileDoesNotExist($filename);
+    }
+
+    public function testCloseWithoutStateFileDoesNothing(): void
+    {
+        [$id, $metadata] = $this->metadata('proj1', 'database', 'pg.internal');
+
+        $manager = $this->createManager($this->tempDir);
+        $manager->close(new Tunnel($id, 30000, 'pg.internal', 5432, $metadata));
+
+        assert($this->tempDir !== null);
+        $this->assertFileDoesNotExist($this->tempDir . '/tunnel-info.json');
     }
 
     public function testIsOpenPrunesTunnelWithoutPid(): void
