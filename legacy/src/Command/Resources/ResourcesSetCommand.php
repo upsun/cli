@@ -316,7 +316,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
                     if ($givenDiskSizes[$name] !== ($properties['disk'] ?? null)) {
                         $updates[$group][$name]['disk'] = $givenDiskSizes[$name];
                     }
-                } elseif ($showCompleteForm || (empty(($properties['disk'] ?? null)) && $input->isInteractive())) {
+                } elseif ($showCompleteForm || ($this->diskIsRequiredButUnset($properties) && $input->isInteractive())) {
                     $ensureHeader();
                     if (($properties['disk'] ?? null)) {
                         $default = $properties['disk'];
@@ -327,7 +327,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
                     if ($diskSize !== ($properties['disk'] ?? null)) {
                         $updates[$group][$name]['disk'] = $diskSize;
                     }
-                } elseif (empty(($properties['disk'] ?? null))) {
+                } elseif ($this->diskIsRequiredButUnset($properties)) {
                     $this->stdErr->writeln(sprintf('A disk size is required for the %s <comment>%s</comment>.', $type, $name));
                     $errored = true;
                 }
@@ -562,6 +562,20 @@ class ResourcesSetCommand extends ResourcesCommandBase
             throw new InvalidArgumentException(sprintf('The instance count <error>%d</error> exceeds the limit %d.', $count, $limit));
         }
         return $count;
+    }
+
+    /**
+     * Checks whether a container must be given a disk size before it can be configured.
+     *
+     * A zero minimum means a disk is allowed but optional, as on Upsun, so
+     * leaving it unset is a valid final state rather than something to fix.
+     *
+     * @param array<string, mixed> $properties
+     */
+    protected function diskIsRequiredButUnset(array $properties): bool
+    {
+        return !empty($properties['resources']['minimum']['disk'])
+            && empty($properties['disk'] ?? null);
     }
 
     /**

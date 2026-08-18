@@ -64,7 +64,10 @@ class ResourcesUtil
     }
 
     /**
-     * Checks whether a service needs a persistent disk.
+     * Checks whether a service can have a persistent disk.
+     *
+     * This does not mean one is required: a minimum of 0 allows a service to run
+     * without a disk.
      */
     public function supportsDisk(WebApp|Worker|Service|Task $service): bool
     {
