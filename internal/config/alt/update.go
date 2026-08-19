@@ -69,19 +69,16 @@ func Update(ctx context.Context, cnf *config.Config, debugLog func(fmt string, i
 		return nil
 	}
 	if newCnfStruct.Metadata.Version != "" {
-		// An unusable local version, including an absent one, cannot say whether the
-		// new config is newer, so treat the config as out of date and let the update
-		// below replace it. Returning an error instead would be permanent: it happens
-		// before the file is rewritten, so the unusable version would stay on disk
-		// and every later run would fail the same way.
+		// An unusable local version cannot say whether the new config is newer, so
+		// treat the config as out of date. Returning an error would be permanent: it
+		// happens before the file is rewritten, so the version stays unusable.
 		if !version.Validate(cnf.Metadata.Version) {
 			debugLog("Ignoring unusable local config version %q", cnf.Metadata.Version)
 		} else if cmp, err := version.Compare(
 			cnf.Metadata.Version, newCnfStruct.Metadata.Version,
 		); err != nil {
 			// Only the new version can fail to parse here, and FetchConfig validates
-			// it before this point. Keep the error rather than applying a config whose
-			// version cannot be compared.
+			// it first. Do not apply a config whose version cannot be compared.
 			return fmt.Errorf("could not compare config versions: %w", err)
 		} else if cmp >= 0 {
 			debugLog("Config is already up to date (version %s)", cnf.Metadata.Version)

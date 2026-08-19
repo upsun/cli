@@ -134,10 +134,8 @@ func TestShouldUpdate(t *testing.T) {
 	assert.False(t, alt.ShouldUpdate(cnf))
 }
 
-// testConfigWithMetadata returns a copy of the test config with a metadata
-// section appended. Copying matters: testConfig is embedded once and shared by
-// every test in this package, so appending to it directly risks writing into
-// its backing array.
+// testConfigWithMetadata copies the test config and appends a metadata section.
+// It copies because testConfig is shared by every test in the package.
 func testConfigWithMetadata(metadata string) []byte {
 	cnf := make([]byte, 0, len(testConfig)+len("\nmetadata: ")+len(metadata))
 	cnf = append(cnf, testConfig...)
@@ -145,11 +143,8 @@ func testConfigWithMetadata(metadata string) []byte {
 	return append(cnf, metadata...)
 }
 
-// TestUpdateWithUnusableLocalVersion covers configs whose local metadata has a
-// URL but no usable version: the update must still be applied. Returning an
-// error here would be permanent, because it happens before the file is
-// rewritten, so the unusable version would stay on disk and every later run
-// would fail identically.
+// TestUpdateWithUnusableLocalVersion checks that a config with a URL but no
+// usable version is still updated, which is what clears the bad version.
 func TestUpdateWithUnusableLocalVersion(t *testing.T) {
 	for _, localVersion := range []string{"", "invalid", "1.2.3.4"} {
 		t.Run("local version "+strconv.Quote(localVersion), func(t *testing.T) {
@@ -179,8 +174,7 @@ func TestUpdateWithUnusableLocalVersion(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Contains(t, lastLogged, "Automatically updated config file")
 
-			// The rewritten file carries the new version, so the next run compares
-			// cleanly instead of repeating this path.
+			// The new version is now on disk, so the next run compares cleanly.
 			b, err := os.ReadFile(testConfigFilename)
 			require.NoError(t, err)
 			updated, err := config.FromYAML(b)
@@ -190,10 +184,8 @@ func TestUpdateWithUnusableLocalVersion(t *testing.T) {
 	}
 }
 
-// TestUpdateWithUnusableNewVersion covers the other side of the comparison: a
-// served config whose version will not parse must never be applied. Validation
-// rejects it while it is being fetched, so Update reports that instead of
-// reaching the version comparison, and the local file is left alone.
+// TestUpdateWithUnusableNewVersion checks that a served config whose version
+// will not parse is rejected while fetching and never applied.
 func TestUpdateWithUnusableNewVersion(t *testing.T) {
 	tempDir := t.TempDir()
 	testConfigFilename := filepath.Join(tempDir, "config.yaml")
