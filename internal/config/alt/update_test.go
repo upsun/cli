@@ -134,6 +134,17 @@ func TestShouldUpdate(t *testing.T) {
 	assert.False(t, alt.ShouldUpdate(cnf))
 }
 
+// testConfigWithMetadata returns a copy of the test config with a metadata
+// section appended. Copying matters: testConfig is embedded once and shared by
+// every test in this package, so appending to it directly risks writing into
+// its backing array.
+func testConfigWithMetadata(metadata string) []byte {
+	cnf := make([]byte, 0, len(testConfig)+len("\nmetadata: ")+len(metadata))
+	cnf = append(cnf, testConfig...)
+	cnf = append(cnf, "\nmetadata: "...)
+	return append(cnf, metadata...)
+}
+
 // TestUpdateWithUnusableLocalVersion covers configs whose local metadata has a
 // URL but no usable version: the update must still be applied. Returning an
 // error here would be permanent, because it happens before the file is
@@ -152,7 +163,7 @@ func TestUpdateWithUnusableLocalVersion(t *testing.T) {
 			require.NoError(t, err)
 			t.Setenv(cnf.Application.EnvPrefix+"HOME", tempDir)
 
-			remoteConfig := append(testConfig, []byte("\nmetadata: {version: 1.0.1}")...)
+			remoteConfig := testConfigWithMetadata("{version: 1.0.1}")
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				_, _ = w.Write(remoteConfig)
 			}))
@@ -186,8 +197,7 @@ func TestUpdateWithUnusableLocalVersion(t *testing.T) {
 func TestUpdateWithUnusableNewVersion(t *testing.T) {
 	tempDir := t.TempDir()
 	testConfigFilename := filepath.Join(tempDir, "config.yaml")
-	localConfig := append([]byte{}, testConfig...)
-	localConfig = append(localConfig, []byte("\nmetadata: {version: 1.0.0}")...)
+	localConfig := testConfigWithMetadata("{version: 1.0.0}")
 	require.NoError(t, os.WriteFile(testConfigFilename, localConfig, 0o600))
 	hourAgo := time.Now().Add(-time.Hour)
 	require.NoError(t, os.Chtimes(testConfigFilename, hourAgo, hourAgo))
@@ -197,8 +207,7 @@ func TestUpdateWithUnusableNewVersion(t *testing.T) {
 	require.Equal(t, "1.0.0", cnf.Metadata.Version)
 	t.Setenv(cnf.Application.EnvPrefix+"HOME", tempDir)
 
-	remoteConfig := append([]byte{}, testConfig...)
-	remoteConfig = append(remoteConfig, []byte("\nmetadata: {version: not-a-version}")...)
+	remoteConfig := testConfigWithMetadata("{version: not-a-version}")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write(remoteConfig)
 	}))
