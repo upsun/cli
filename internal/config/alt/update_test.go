@@ -31,8 +31,7 @@ func TestUpdate(t *testing.T) {
 	require.NoError(t, err)
 
 	// Set up state so that it stays in a temporary directory.
-	err = os.Setenv(cnf.Application.EnvPrefix+"HOME", tempDir)
-	require.NoError(t, err)
+	t.Setenv(cnf.Application.EnvPrefix+"HOME", tempDir)
 
 	// Set up the config to be updated via a test HTTP server.
 	remoteConfig := testConfig
@@ -151,7 +150,7 @@ func TestUpdateWithUnusableLocalVersion(t *testing.T) {
 
 			cnf, err := config.FromYAML(testConfig)
 			require.NoError(t, err)
-			require.NoError(t, os.Setenv(cnf.Application.EnvPrefix+"HOME", tempDir))
+			t.Setenv(cnf.Application.EnvPrefix+"HOME", tempDir)
 
 			remoteConfig := append(testConfig, []byte("\nmetadata: {version: 1.0.1}")...)
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -178,4 +177,40 @@ func TestUpdateWithUnusableLocalVersion(t *testing.T) {
 			assert.Equal(t, "1.0.1", updated.Metadata.Version)
 		})
 	}
+}
+
+// TestUpdateWithUnusableNewVersion covers the other side of the comparison: a
+// served config whose version will not parse must never be applied. Validation
+// rejects it while it is being fetched, so Update reports that instead of
+// reaching the version comparison, and the local file is left alone.
+func TestUpdateWithUnusableNewVersion(t *testing.T) {
+	tempDir := t.TempDir()
+	testConfigFilename := filepath.Join(tempDir, "config.yaml")
+	localConfig := append([]byte{}, testConfig...)
+	localConfig = append(localConfig, []byte("\nmetadata: {version: 1.0.0}")...)
+	require.NoError(t, os.WriteFile(testConfigFilename, localConfig, 0o600))
+	hourAgo := time.Now().Add(-time.Hour)
+	require.NoError(t, os.Chtimes(testConfigFilename, hourAgo, hourAgo))
+
+	cnf, err := config.FromYAML(localConfig)
+	require.NoError(t, err)
+	require.Equal(t, "1.0.0", cnf.Metadata.Version)
+	t.Setenv(cnf.Application.EnvPrefix+"HOME", tempDir)
+
+	remoteConfig := append([]byte{}, testConfig...)
+	remoteConfig = append(remoteConfig, []byte("\nmetadata: {version: not-a-version}")...)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(remoteConfig)
+	}))
+	defer server.Close()
+
+	cnf.SourceFile = testConfigFilename
+	cnf.Metadata.URL = server.URL + "/config.yaml"
+
+	err = alt.Update(config.ToContext(context.Background(), cnf), cnf, func(string, ...any) {})
+	assert.ErrorContains(t, err, "invalid config")
+
+	b, err := os.ReadFile(testConfigFilename)
+	require.NoError(t, err)
+	assert.Equal(t, string(localConfig), string(b), "the local config must not be modified")
 }

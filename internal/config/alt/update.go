@@ -68,16 +68,21 @@ func Update(ctx context.Context, cnf *config.Config, debugLog func(fmt string, i
 		debugLog("Config is already up to date (updated at %v)", cnf.Metadata.UpdatedAt.Format(time.RFC3339))
 		return nil
 	}
-	if newCnfStruct.Metadata.Version != "" && cnf.Metadata.Version != "" {
-		// A local version that will not parse cannot say anything about whether the
-		// new config is newer, so treat it as out of date and let the update below
-		// replace it. Failing here instead would be permanent: the error returns
-		// before the file is rewritten, so the unusable version stays on disk and
-		// every subsequent run fails the same way.
-		cmp, err := version.Compare(cnf.Metadata.Version, newCnfStruct.Metadata.Version)
-		if err != nil {
-			debugLog("Could not compare config versions (local %q, new %q): %s",
-				cnf.Metadata.Version, newCnfStruct.Metadata.Version, err)
+	if newCnfStruct.Metadata.Version != "" {
+		// An unusable local version, including an absent one, cannot say whether the
+		// new config is newer, so treat the config as out of date and let the update
+		// below replace it. Returning an error instead would be permanent: it happens
+		// before the file is rewritten, so the unusable version would stay on disk
+		// and every later run would fail the same way.
+		if !version.Validate(cnf.Metadata.Version) {
+			debugLog("Ignoring unusable local config version %q", cnf.Metadata.Version)
+		} else if cmp, err := version.Compare(
+			cnf.Metadata.Version, newCnfStruct.Metadata.Version,
+		); err != nil {
+			// Only the new version can fail to parse here, and FetchConfig validates
+			// it before this point. Keep the error rather than applying a config whose
+			// version cannot be compared.
+			return fmt.Errorf("could not compare config versions: %w", err)
 		} else if cmp >= 0 {
 			debugLog("Config is already up to date (version %s)", cnf.Metadata.Version)
 			return nil
