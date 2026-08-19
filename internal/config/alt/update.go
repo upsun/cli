@@ -68,12 +68,17 @@ func Update(ctx context.Context, cnf *config.Config, debugLog func(fmt string, i
 		debugLog("Config is already up to date (updated at %v)", cnf.Metadata.UpdatedAt.Format(time.RFC3339))
 		return nil
 	}
-	if newCnfStruct.Metadata.Version != "" {
+	if newCnfStruct.Metadata.Version != "" && cnf.Metadata.Version != "" {
+		// A local version that will not parse cannot say anything about whether the
+		// new config is newer, so treat it as out of date and let the update below
+		// replace it. Failing here instead would be permanent: the error returns
+		// before the file is rewritten, so the unusable version stays on disk and
+		// every subsequent run fails the same way.
 		cmp, err := version.Compare(cnf.Metadata.Version, newCnfStruct.Metadata.Version)
 		if err != nil {
-			return fmt.Errorf("could not compare config versions: %w", err)
-		}
-		if cmp >= 0 {
+			debugLog("Could not compare config versions (local %q, new %q): %s",
+				cnf.Metadata.Version, newCnfStruct.Metadata.Version, err)
+		} else if cmp >= 0 {
 			debugLog("Config is already up to date (version %s)", cnf.Metadata.Version)
 			return nil
 		}

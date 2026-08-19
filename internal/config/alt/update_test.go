@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -86,9 +87,12 @@ func TestUpdate(t *testing.T) {
 	resetTimes()
 
 	remoteConfig = append(remoteConfig, []byte("\nmetadata: {version: 1.0.1}")...)
+	// A local version that cannot be parsed says nothing about whether the new
+	// config is newer, so the update proceeds rather than failing.
 	cnf.Metadata.Version = "invalid"
 	err = alt.Update(ctx, cnf, logger)
-	assert.ErrorContains(t, err, "could not compare config versions")
+	assert.NoError(t, err)
+	assert.Contains(t, lastLogged, "Automatically updated config file")
 	resetTimes()
 	cnf.Metadata.Version = "1.0.1"
 	err = alt.Update(ctx, cnf, logger)
@@ -129,4 +133,49 @@ func TestShouldUpdate(t *testing.T) {
 	cnf.SourceFile = testConfigFilename
 	cnf.Metadata.URL = ""
 	assert.False(t, alt.ShouldUpdate(cnf))
+}
+
+// TestUpdateWithUnusableLocalVersion covers configs whose local metadata has a
+// URL but no usable version: the update must still be applied. Returning an
+// error here would be permanent, because it happens before the file is
+// rewritten, so the unusable version would stay on disk and every later run
+// would fail identically.
+func TestUpdateWithUnusableLocalVersion(t *testing.T) {
+	for _, localVersion := range []string{"", "invalid", "1.2.3.4"} {
+		t.Run("local version "+strconv.Quote(localVersion), func(t *testing.T) {
+			tempDir := t.TempDir()
+			testConfigFilename := filepath.Join(tempDir, "config.yaml")
+			require.NoError(t, os.WriteFile(testConfigFilename, testConfig, 0o600))
+			hourAgo := time.Now().Add(-time.Hour)
+			require.NoError(t, os.Chtimes(testConfigFilename, hourAgo, hourAgo))
+
+			cnf, err := config.FromYAML(testConfig)
+			require.NoError(t, err)
+			require.NoError(t, os.Setenv(cnf.Application.EnvPrefix+"HOME", tempDir))
+
+			remoteConfig := append(testConfig, []byte("\nmetadata: {version: 1.0.1}")...)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write(remoteConfig)
+			}))
+			defer server.Close()
+
+			cnf.SourceFile = testConfigFilename
+			cnf.Metadata.URL = server.URL + "/config.yaml"
+			cnf.Metadata.Version = localVersion
+
+			var lastLogged string
+			err = alt.Update(config.ToContext(context.Background(), cnf), cnf,
+				func(msg string, args ...any) { lastLogged = fmt.Sprintf(msg, args...) })
+			assert.NoError(t, err)
+			assert.Contains(t, lastLogged, "Automatically updated config file")
+
+			// The rewritten file carries the new version, so the next run compares
+			// cleanly instead of repeating this path.
+			b, err := os.ReadFile(testConfigFilename)
+			require.NoError(t, err)
+			updated, err := config.FromYAML(b)
+			require.NoError(t, err)
+			assert.Equal(t, "1.0.1", updated.Metadata.Version)
+		})
+	}
 }
