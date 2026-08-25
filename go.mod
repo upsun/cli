@@ -8,14 +8,14 @@ require (
 	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/briandowns/spinner v1.23.2
 	github.com/fatih/color v1.19.0
-	github.com/go-chi/chi/v5 v5.3.1
+	github.com/go-chi/chi/v5 v5.3.2
 	github.com/go-playground/validator/v10 v10.30.3
 	github.com/gofrs/flock v0.13.0
 	github.com/oklog/ulid/v2 v2.1.2
 	github.com/platformsh/platformify v0.5.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
-	github.com/stretchr/testify v1.12.0
+	github.com/stretchr/testify v1.12.1
 	github.com/symfony-cli/terminal v1.0.9
 	github.com/upsun/lib-sun v0.3.16
 	github.com/upsun/whatsun v0.2.0
@@ -126,7 +126,7 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/zricethezav/gitleaks/v8 v8.30.1 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	go4.org v0.0.0-20260112195520-a5071408f32f // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
 	golang.org/x/mod v0.38.0 // indirect
