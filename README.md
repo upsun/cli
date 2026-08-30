@@ -160,6 +160,24 @@ sudo apt-get update && sudo apt-get upgrade upsun-cli
 sudo dnf upgrade -y upsun-cli
 ```
 
+### Update notifications
+
+When a newer release is available, the CLI prints a short notice with the
+upgrade command for the tool you installed it with. It detects the install
+method automatically and, for system package managers (apt, yum/dnf, apk), stays
+silent because those update the CLI through the OS.
+
+The notice is shown at most once a week and only in an interactive terminal. To
+control it:
+
+- `UPSUN_CLI_UPDATES_CHECK=0` disables update checks and notices entirely.
+- `UPSUN_CLI_INSTALL_METHOD=<method>` forces the detected install method, where
+  `<method>` is one of `homebrew`, `scoop`, `npm`, `package`, or `script`. Use
+  `package` to silence the notice when the OS manages updates.
+
+(For the `platform` command, the prefix is `PLATFORMSH_CLI_` instead of
+`UPSUN_CLI_`.)
+
 ## Building
 
 Build a single binary:

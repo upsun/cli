@@ -282,6 +282,14 @@ nfpms:
         dst: /etc/bash_completion.d/platform
       - src: completion/zsh/_platform
         dst: /usr/local/share/zsh/site-functions/_platform
+      # Marks the install as managed by a system package manager, so the CLI
+      # suppresses its update message. See internal/install.go. The dst must stay
+      # at <prefix>/share/<slug>/install-source, where <prefix> is the parent of
+      # the binary's dir (default bindir /usr/bin -> prefix /usr); changing the
+      # nfpm bindir would silently break suppression.
+      - src: packaging/install-source
+        dst: /usr/share/platformsh-cli/install-source
+        file_info: { mode: 0644 }
     apk:
       signature:
         key_file: "{{ with .Env.RSA_SIGNING_KEY_FILE }}{{ . }}{{ end }}"
@@ -309,6 +317,14 @@ nfpms:
         dst: /etc/bash_completion.d/upsun
       - src: completion/zsh/_upsun
         dst: /usr/local/share/zsh/site-functions/_upsun
+      # Marks the install as managed by a system package manager, so the CLI
+      # suppresses its update message. See internal/install.go. The dst must stay
+      # at <prefix>/share/<slug>/install-source, where <prefix> is the parent of
+      # the binary's dir (default bindir /usr/bin -> prefix /usr); changing the
+      # nfpm bindir would silently break suppression.
+      - src: packaging/install-source
+        dst: /usr/share/upsun/install-source
+        file_info: { mode: 0644 }
     apk:
       signature:
         key_file: "{{ with .Env.RSA_SIGNING_KEY_FILE }}{{ . }}{{ end }}"
