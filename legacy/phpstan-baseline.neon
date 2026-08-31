@@ -231,11 +231,6 @@ parameters:
 			path: src/Command/Server/ServerStartCommand.php
 
 		-
-			message: "#^Parameter \\#1 \\$items of method Platformsh\\\\Cli\\\\Service\\\\QuestionHelper\\:\\:choose\\(\\) expects array\\<string, string\\>, array\\<int\\|string, string\\> given\\.$#"
-			count: 1
-			path: src/Command/SshKey/SshKeyDeleteCommand.php
-
-		-
 			message: "#^Call to an undefined method GuzzleHttp\\\\ClientInterface\\:\\:post\\(\\)\\.$#"
 			count: 1
 			path: src/Command/Team/Project/TeamProjectAddCommand.php
