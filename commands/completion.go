@@ -2,7 +2,10 @@ package commands
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -81,7 +84,7 @@ func newCompleteCommand(cnf *config.Config) *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			c := makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), cmd.ErrOrStderr(), cmd.InOrStdin())
 			if err := c.Exec(cmd.Context(), append([]string{completeCommandName}, args...)...); err != nil {
-				exitWithError(err)
+				exitSilently(err)
 			}
 		},
 	}
@@ -98,4 +101,20 @@ func isCompletionRequest(cmd *cobra.Command) bool {
 	}
 
 	return false
+}
+
+// exitSilently ends a completion request, reporting the exit code of the
+// legacy CLI without writing anything. Unlike exitWithError it keeps quiet
+// even for a failure that is not an exit code: the bash completion script
+// captures stderr along with stdout, so the message would be offered as a
+// suggestion.
+func exitSilently(err error) {
+	debugLogf("%s failed: %s", completeCommandName, err)
+
+	var execErr *exec.ExitError
+	if errors.As(err, &execErr) {
+		os.Exit(execErr.ExitCode())
+	}
+
+	os.Exit(1)
 }
