@@ -51,6 +51,9 @@ class Application extends ParentApplication
 
     private bool $runningViaMulti = false;
 
+    /** @var array<string, string|null> */
+    private array $describableNamespaces = [];
+
     public function __construct(?Config $config = null)
     {
         // Initialize configuration (from config.yaml).
@@ -211,7 +214,14 @@ class Application extends ParentApplication
      *
      * Without this, the parent lists hidden commands when describing a
      * namespace, suggests them when completing a command name, and counts the
-     * namespaces they define. Resolving every command costs about 80ms.
+     * namespaces they define.
+     *
+     * Resolving every command costs about 80ms, but only the callers that
+     * enumerate commands pay it: completion, findNamespace() and the
+     * descriptors. Ordinary dispatch does not, as find() looks at the eagerly
+     * registered commands rather than all(). The cost is paid once per run:
+     * LazyCommand keeps the command it resolves, and the loader returns the
+     * same wrapper each time.
      *
      * @see CommandBase::isHidden()
      */
@@ -240,6 +250,12 @@ class Application extends ParentApplication
      * matches "list <namespace>". As in the parent, it is written to the error
      * output and the exit code reports that no command was run.
      *
+     * Unlike the parent this does not dispatch ConsoleEvents::ERROR before
+     * describing the namespace: naming one is not an error worth reporting,
+     * and the only listener rewrites API and connection exceptions, which a
+     * CommandNotFoundException is not.
+     *
+     * @see EventSubscriber::onError()
      * @see ListCommand
      * @see \Platformsh\Cli\Console\DescriptorUtils::describeNamespaces()
      */
@@ -268,6 +284,20 @@ class Application extends ParentApplication
             return null;
         }
 
+        // doRun() looks the name up before the parent does, and the help
+        // command looks it up again for the same name, so the answer is kept.
+        if (array_key_exists($name, $this->describableNamespaces)) {
+            return $this->describableNamespaces[$name];
+        }
+
+        return $this->describableNamespaces[$name] = $this->lookUpDescribableNamespace($name);
+    }
+
+    /**
+     * Works out the namespace a name refers to, if it does not name a command.
+     */
+    private function lookUpDescribableNamespace(string $name): ?string
+    {
         try {
             // A command, or an abbreviation of one: nothing to describe. This is
             // checked before findNamespace(), which resolves every command to
@@ -329,8 +359,17 @@ class Application extends ParentApplication
         }
 
         $name = $this->getCommandName($input);
+        if ($name === null) {
+            return null;
+        }
 
-        return $name === null ? null : $this->findDescribableNamespace($name);
+        try {
+            return $this->findDescribableNamespace($name);
+        } catch (\Throwable) {
+            // Anything unexpected is left to the parent, which reports it
+            // through the error event and the usual exception rendering.
+            return null;
+        }
     }
 
     /**
