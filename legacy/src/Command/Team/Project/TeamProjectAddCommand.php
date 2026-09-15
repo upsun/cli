@@ -11,6 +11,7 @@ use GuzzleHttp\Exception\BadResponseException;
 use Platformsh\Cli\Command\Team\TeamCommandBase;
 use Platformsh\Cli\Console\ArrayArgument;
 use Platformsh\Cli\Console\ProgressMessage;
+use Platformsh\Cli\Util\PaginationUtil;
 use Platformsh\Client\Exception\ApiResponseException;
 use Platformsh\Client\Model\Organization\Project as OrgProject;
 use Platformsh\Client\Model\Team\Team;
@@ -229,14 +230,18 @@ class TeamProjectAddCommand extends TeamCommandBase
         $options = [];
         $options['query']['filter[status][in]'] = 'active,suspended';
         $progress = new ProgressMessage($this->stdErr);
-        while ($url !== null) {
+        while (true) {
             if ($pageNumber > 1) {
                 $progress->showIfOutputDecorated(sprintf('Loading projects (page %d)...', $pageNumber));
             }
             $result = OrgProject::getCollectionWithParent($url, $httpClient, $options);
             $progress->done();
             $projects = array_merge($projects, $result['items']);
-            $url = $result['collection']->getNextPageUrl();
+            $nextPage = PaginationUtil::nextPage($result['collection']->getNextPageUrl(), $url, $options['query']);
+            if ($nextPage === null) {
+                break;
+            }
+            [$url, $options['query']] = $nextPage;
             $pageNumber++;
         }
         return $projects;
