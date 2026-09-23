@@ -213,10 +213,10 @@ class AllMetricsCommand extends MetricsCommandBase
             ),
         ];
         if ($this->storageMetricsEnabled()) {
-            $fields += $this->storageFields($bytes);
+            $fields += $this->storageFields($bytes, 'storage_inodes_');
         }
         $rows = $this->buildRows($values, $fields, $environment);
-        [$header, $defaultColumns] = $this->storageColumns(self::TABLE_HEADER, $this->defaultColumns, $values, 'storage_percent');
+        [$header, $defaultColumns] = $this->storageColumns(self::TABLE_HEADER, $this->defaultColumns, $values, ['storage_percent']);
 
         if (!$this->table->formatIsMachineReadable()) {
             $formatter = $this->propertyFormatter;
@@ -237,47 +237,5 @@ class AllMetricsCommand extends MetricsCommandBase
         }
 
         return 0;
-    }
-
-    /**
-     * @return array<string, Field>
-     */
-    private function storageFields(bool $bytes): array
-    {
-        $m = self::STORAGE_MOUNTPOINT;
-
-        return [
-            'storage_used' => new Field(
-                $bytes ? Format::Rounded : Format::Disk,
-                new SourceField(MetricKind::DiskUsed, Aggregation::Avg, $m),
-            ),
-            'storage_limit' => new Field(
-                $bytes ? Format::Rounded : Format::Disk,
-                new SourceField(MetricKind::DiskLimit, Aggregation::Max, $m),
-            ),
-            'storage_percent' => new Field(
-                Format::Percent,
-                new SourceFieldPercentage(
-                    new SourceField(MetricKind::DiskUsed, Aggregation::Avg, $m),
-                    new SourceField(MetricKind::DiskLimit, Aggregation::Max, $m)
-                ),
-            ),
-
-            'storage_inodes_used' => new Field(
-                Format::Rounded,
-                new SourceField(MetricKind::InodesUsed, Aggregation::Avg, $m),
-            ),
-            'storage_inodes_limit' => new Field(
-                Format::Rounded,
-                new SourceField(MetricKind::InodesLimit, Aggregation::Max, $m),
-            ),
-            'storage_inodes_percent' => new Field(
-                Format::Percent,
-                new SourceFieldPercentage(
-                    new SourceField(MetricKind::InodesUsed, Aggregation::Avg, $m),
-                    new SourceField(MetricKind::InodesLimit, Aggregation::Max, $m)
-                ),
-            ),
-        ];
     }
 }

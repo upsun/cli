@@ -21,7 +21,7 @@ func mountpointMetrics(diskUsed, diskLimit, inodesUsed, inodesLimit float64) map
 	}
 }
 
-func setupMetricsTest(t *testing.T) (f *cmdFactory, projectID string) {
+func setupMetricsTest(t *testing.T, withStorage bool) (f *cmdFactory, projectID string) {
 	authServer := mockapi.NewAuthServer(t)
 	t.Cleanup(authServer.Close)
 
@@ -67,6 +67,22 @@ func setupMetricsTest(t *testing.T) (f *cmdFactory, projectID string) {
 			}
 			return m
 		}
+		appMounts := map[string]any{
+			"/mnt": mountpointMetrics(100, 1000, 10, 1000),
+			"/tmp": mountpointMetrics(500, 1000, 40, 1000),
+		}
+		dbMounts := map[string]any{
+			"/mnt": mountpointMetrics(250, 1000, 5, 1000),
+			"/tmp": mountpointMetrics(10, 1000, 1, 1000),
+		}
+		if withStorage {
+			appMounts["storage"] = mountpointMetrics(920, 1000, 30, 100)
+			// Storage without inode metrics.
+			dbMounts["storage"] = map[string]any{
+				"disk_used":  map[string]any{"avg": 500},
+				"disk_limit": map[string]any{"max": 1000},
+			}
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"_grain": 60,
 			"_from":  1790189400,
@@ -74,15 +90,8 @@ func setupMetricsTest(t *testing.T) (f *cmdFactory, projectID string) {
 			"data": []any{map[string]any{
 				"timestamp": 1790190000,
 				"services": map[string]any{
-					"app": withMounts(map[string]any{
-						"/mnt":    mountpointMetrics(100, 1000, 10, 1000),
-						"/tmp":    mountpointMetrics(500, 1000, 40, 1000),
-						"storage": mountpointMetrics(920, 1000, 30, 100),
-					}),
-					"db": withMounts(map[string]any{
-						"/mnt": mountpointMetrics(250, 1000, 5, 1000),
-						"/tmp": mountpointMetrics(10, 1000, 1, 1000),
-					}),
+					"app": withMounts(appMounts),
+					"db":  withMounts(dbMounts),
 				},
 			}},
 		})
@@ -92,56 +101,81 @@ func setupMetricsTest(t *testing.T) (f *cmdFactory, projectID string) {
 }
 
 func TestMetricsStorage(t *testing.T) {
-	f, projectID := setupMetricsTest(t)
-
 	cases := []struct {
-		name string
-		args []string
-		want string
+		name        string
+		withStorage bool
+		env         []string
+		args        []string
+		want        string
+		notWant     string
 	}{
 		{
-			name: "all storage columns",
-			args: []string{"metrics:all", "-1", "--no-header",
+			name:        "all storage columns",
+			withStorage: true,
+			args: []string{"metrics:all", "-1", "--no-header", "--format", "plain",
 				"-c", "service,disk_percent,storage_percent,storage_inodes_percent"},
-			want: "app\t10.0%\t92.0%\t30.0%\ndb\t25.0%\t\t\n",
+			want: "app\t10.0%\t92.0%\t30.0%\ndb\t25.0%\t50.0%\t\n",
 		},
 		{
-			name: "all includes storage by default when present",
-			args: []string{"metrics:all", "-1"},
-			want: "Storage %",
+			name:        "all table shows storage when present",
+			withStorage: true,
+			args:        []string{"metrics:all", "-1"},
+			want:        "Storage %",
 		},
 		{
-			name: "disk-usage storage columns",
-			args: []string{"disk", "-1", "--no-header", "-B",
+			name:    "all table hides storage when absent",
+			args:    []string{"metrics:all", "-1"},
+			notWant: "Storage",
+		},
+		{
+			name: "all csv always includes storage",
+			args: []string{"metrics:all", "-1", "--format", "csv"},
+			want: "/tmp inodes %,Storage %\n",
+		},
+		{
+			name:        "disk-usage storage columns",
+			withStorage: true,
+			args: []string{"disk", "-1", "--no-header", "-B", "--format", "plain",
 				"-c", "service,storage_used,storage_limit,storage_percent,storage_ipercent"},
-			want: "app\t920\t1000\t92.0%\t30.0%\ndb\t\t\t\t\n",
+			want: "app\t920\t1000\t92.0%\t30.0%\ndb\t500\t1000\t50.0%\t\n",
 		},
 		{
-			name: "disk-usage --storage report",
-			args: []string{"disk", "-1", "--storage"},
-			want: "Storage used",
+			name:        "disk-usage table shows storage when present",
+			withStorage: true,
+			args:        []string{"disk", "-1"},
+			want:        "Storage used",
+		},
+		{
+			name:        "disabled",
+			withStorage: true,
+			env:         []string{"TEST_CLI_API_METRICS_STORAGE=0"},
+			args:        []string{"metrics:all", "-1", "--format", "csv"},
+			notWant:     "Storage",
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			f, projectID := setupMetricsTest(t, c.withStorage)
+			f.extraEnv = c.env
 			args := append([]string{}, c.args...)
-			args = append(args, "-p", projectID, "-e", "main", "--format", "plain")
+			args = append(args, "-p", projectID, "-e", "main")
 			stdout, stderr, err := f.RunCombinedOutput(args...)
 			require.NoError(t, err, "stderr: %s", stderr)
-			assert.Contains(t, stdout, c.want)
+			if c.want != "" {
+				assert.Contains(t, stdout, c.want)
+			}
+			if c.notWant != "" {
+				assert.NotContains(t, stdout, c.notWant)
+			}
 		})
 	}
 }
 
-func TestMetricsStorageDisabled(t *testing.T) {
-	f, projectID := setupMetricsTest(t)
+func TestMetricsStorageDisabledColumn(t *testing.T) {
+	f, projectID := setupMetricsTest(t, true)
 	f.extraEnv = []string{"TEST_CLI_API_METRICS_STORAGE=0"}
 
-	stdout, stderr, err := f.RunCombinedOutput("metrics:all", "-1", "-p", projectID, "-e", "main", "--format", "plain")
-	require.NoError(t, err, "stderr: %s", stderr)
-	assert.NotContains(t, stdout, "Storage")
-
-	_, stderr, err = f.RunCombinedOutput("disk", "-1", "--storage", "-p", projectID, "-e", "main", "--format", "plain")
+	_, stderr, err := f.RunCombinedOutput("disk", "-1", "-c", "storage_used", "-p", projectID, "-e", "main")
 	assert.Error(t, err)
 	assert.Contains(t, stderr, "Column not found: storage_used")
 }

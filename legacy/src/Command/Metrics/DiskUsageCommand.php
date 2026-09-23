@@ -50,8 +50,6 @@ class DiskUsageCommand extends MetricsCommandBase
     private array $defaultColumns = ['timestamp', 'service', 'used', 'limit', 'percent', 'ipercent', 'tmp_percent'];
     /** @var string[] */
     private array $tmpReportColumns = ['timestamp', 'service', 'tmp_used', 'tmp_limit', 'tmp_percent', 'tmp_ipercent'];
-    /** @var string[] */
-    private array $storageReportColumns = ['timestamp', 'service', 'storage_used', 'storage_limit', 'storage_percent', 'storage_ipercent'];
 
     public function __construct(
         private readonly PropertyFormatter $propertyFormatter,
@@ -64,8 +62,7 @@ class DiskUsageCommand extends MetricsCommandBase
     protected function configure(): void
     {
         $this->addOption('bytes', 'B', InputOption::VALUE_NONE, 'Show sizes in bytes')
-            ->addOption('tmp', null, InputOption::VALUE_NONE, 'Report temporary disk usage (shows columns: ' . implode(', ', $this->tmpReportColumns) . ')')
-            ->addOption('storage', null, InputOption::VALUE_NONE, 'Report network storage usage, if available (shows columns: ' . implode(', ', $this->storageReportColumns) . ')');
+            ->addOption('tmp', null, InputOption::VALUE_NONE, 'Report temporary disk usage (shows columns: ' . implode(', ', $this->tmpReportColumns) . ')');
         $this->addMetricsOptions();
         $this->selector->addProjectOption($this->getDefinition());
         $this->selector->addEnvironmentOption($this->getDefinition());
@@ -76,13 +73,8 @@ class DiskUsageCommand extends MetricsCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        if ($input->getOption('tmp') && $input->getOption('storage')) {
-            throw new \InvalidArgumentException('The --tmp and --storage options cannot be combined.');
-        }
         if ($input->getOption('tmp')) {
             $input->setOption('columns', $this->tmpReportColumns);
-        } elseif ($input->getOption('storage')) {
-            $input->setOption('columns', $this->storageReportColumns);
         }
         $this->table->removeDeprecatedColumns(['interval'], '', $input, $output);
 
@@ -156,16 +148,16 @@ class DiskUsageCommand extends MetricsCommandBase
             ),
         ];
         if ($this->storageMetricsEnabled()) {
-            $fields += $this->storageFields($bytes);
+            $fields += $this->storageFields($bytes, 'storage_i');
         }
         $rows = $this->buildRows($values, $fields, $environment);
-        [$header, $defaultColumns] = $this->storageColumns(self::TABLE_HEADER, $this->defaultColumns, $values, 'storage_percent');
+        [$header, $defaultColumns] = $this->storageColumns(self::TABLE_HEADER, $this->defaultColumns, $values, ['storage_used', 'storage_limit', 'storage_percent']);
 
         if (!$this->table->formatIsMachineReadable()) {
             $formatter = $this->propertyFormatter;
             $this->stdErr->writeln(\sprintf(
                 'Average %s at <info>%s</info> intervals from <info>%s</info> to <info>%s</info>:',
-                $input->getOption('tmp') ? 'temporary disk usage' : ($input->getOption('storage') ? 'storage usage' : 'disk usage'),
+                $input->getOption('tmp') ? 'temporary disk usage' : 'disk usage',
                 (new Duration())->humanize($values['_grain']),
                 $formatter->formatDate($values['_from']),
                 $formatter->formatDate($values['_to']),
@@ -175,47 +167,5 @@ class DiskUsageCommand extends MetricsCommandBase
         $this->table->render($rows, $header, $defaultColumns);
 
         return 0;
-    }
-
-    /**
-     * @return array<string, Field>
-     */
-    private function storageFields(bool $bytes): array
-    {
-        $m = self::STORAGE_MOUNTPOINT;
-
-        return [
-            'storage_used' => new Field(
-                $bytes ? Format::Rounded : Format::Disk,
-                new SourceField(MetricKind::DiskUsed, Aggregation::Avg, $m),
-            ),
-            'storage_limit' => new Field(
-                $bytes ? Format::Rounded : Format::Disk,
-                new SourceField(MetricKind::DiskLimit, Aggregation::Max, $m),
-            ),
-            'storage_percent' => new Field(
-                Format::Percent,
-                new SourceFieldPercentage(
-                    new SourceField(MetricKind::DiskUsed, Aggregation::Avg, $m),
-                    new SourceField(MetricKind::DiskLimit, Aggregation::Max, $m)
-                ),
-            ),
-
-            'storage_iused' => new Field(
-                Format::Rounded,
-                new SourceField(MetricKind::InodesUsed, Aggregation::Avg, $m),
-            ),
-            'storage_ilimit' => new Field(
-                Format::Rounded,
-                new SourceField(MetricKind::InodesLimit, Aggregation::Max, $m),
-            ),
-            'storage_ipercent' => new Field(
-                Format::Percent,
-                new SourceFieldPercentage(
-                    new SourceField(MetricKind::InodesUsed, Aggregation::Avg, $m),
-                    new SourceField(MetricKind::InodesLimit, Aggregation::Max, $m)
-                ),
-            ),
-        ];
     }
 }
