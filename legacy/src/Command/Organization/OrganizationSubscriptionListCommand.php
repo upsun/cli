@@ -61,7 +61,7 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
         $options['query']['filter']['status']['operator'] = 'IN';
 
         $count = $input->getOption('count');
-        $itemsPerPage = $this->config->getInt('pagination.count');
+        $itemsPerPage = min($this->config->getInt('pagination.count'), self::MAX_COUNT);
         if ($count !== null && $count !== '0') {
             if (!\is_numeric($count) || $count < 1 || $count > self::MAX_COUNT) {
                 $this->stdErr->writeln('The --count must be a number between 1 and ' . self::MAX_COUNT . ', or 0 to disable pagination.');

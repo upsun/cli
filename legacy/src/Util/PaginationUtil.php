@@ -36,7 +36,7 @@ class PaginationUtil
         $nextQuery = [];
         parse_str((string) parse_url($nextPageUrl, PHP_URL_QUERY), $nextQuery);
 
-        $merged = array_replace_recursive($currentQuery, $nextQuery);
+        $merged = self::merge($currentQuery, $nextQuery);
 
         // Avoid repeating the request that has just been made.
         if ($nextPageUrl === $url && $merged === $currentQuery) {
@@ -44,5 +44,24 @@ class PaginationUtil
         }
 
         return [$nextPageUrl, $merged];
+    }
+
+    /**
+     * Merges two queries recursively, replacing lists rather than merging them by index.
+     *
+     * @param array<mixed> $base
+     * @param array<mixed> $replacement
+     *
+     * @return array<mixed>
+     */
+    private static function merge(array $base, array $replacement): array
+    {
+        foreach ($replacement as $key => $value) {
+            if (\is_array($value) && !array_is_list($value) && isset($base[$key]) && \is_array($base[$key])) {
+                $value = self::merge($base[$key], $value);
+            }
+            $base[$key] = $value;
+        }
+        return $base;
     }
 }

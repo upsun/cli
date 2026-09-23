@@ -47,6 +47,17 @@ class PaginationUtilTest extends TestCase
                     ['sort' => 'project_title', 'page' => ['after' => $cursor]],
                 ],
             ],
+            // A list in the next page link replaces the current one, rather
+            // than being merged into it by index.
+            [
+                $url . '?filter%5Bstatus%5D%5Bvalue%5D%5B0%5D=suspended&page%5Bafter%5D=' . $cursor,
+                $url,
+                $filter,
+                [
+                    $url . '?filter%5Bstatus%5D%5Bvalue%5D%5B0%5D=suspended&page%5Bafter%5D=' . $cursor,
+                    ['filter' => ['status' => ['value' => ['suspended'], 'operator' => 'IN']], 'page' => ['after' => $cursor]],
+                ],
+            ],
             // There is no next page.
             [null, $url, $filter, null],
             ['', $url, $filter, null],
