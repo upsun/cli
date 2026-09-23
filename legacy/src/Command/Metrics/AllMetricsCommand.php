@@ -52,6 +52,14 @@ class AllMetricsCommand extends MetricsCommandBase
         'tmp_inodes_used' => '/tmp inodes used',
         'tmp_inodes_limit' => '/tmp inodes limit',
         'tmp_inodes_percent' => '/tmp inodes %',
+
+        'storage_used' => 'Storage used',
+        'storage_limit' => 'Storage limit',
+        'storage_percent' => 'Storage %',
+
+        'storage_inodes_used' => 'Storage inodes used',
+        'storage_inodes_limit' => 'Storage inodes limit',
+        'storage_inodes_percent' => 'Storage inodes %',
     ];
 
     /** @var string[] */
@@ -106,7 +114,7 @@ class AllMetricsCommand extends MetricsCommandBase
 
         $bytes = $input->getOption('bytes');
 
-        $rows = $this->buildRows($values, [
+        $fields = [
             'cpu_used' => new Field(
                 Format::Rounded2p,
                 new SourceField(MetricKind::CpuUsed, Aggregation::Avg),
@@ -203,7 +211,12 @@ class AllMetricsCommand extends MetricsCommandBase
                     new SourceField(MetricKind::InodesLimit, Aggregation::Max, '/tmp')
                 ),
             ),
-        ], $environment);
+        ];
+        if ($this->storageMetricsEnabled()) {
+            $fields += $this->storageFields($bytes);
+        }
+        $rows = $this->buildRows($values, $fields, $environment);
+        [$header, $defaultColumns] = $this->storageColumns(self::TABLE_HEADER, $this->defaultColumns, $values, 'storage_percent');
 
         if (!$this->table->formatIsMachineReadable()) {
             $formatter = $this->propertyFormatter;
@@ -215,7 +228,7 @@ class AllMetricsCommand extends MetricsCommandBase
             ));
         }
 
-        $this->table->render($rows, self::TABLE_HEADER, $this->defaultColumns);
+        $this->table->render($rows, $header, $defaultColumns);
 
         if (!$this->table->formatIsMachineReadable()) {
             $this->explainHighMemoryServices();
@@ -224,5 +237,47 @@ class AllMetricsCommand extends MetricsCommandBase
         }
 
         return 0;
+    }
+
+    /**
+     * @return array<string, Field>
+     */
+    private function storageFields(bool $bytes): array
+    {
+        $m = self::STORAGE_MOUNTPOINT;
+
+        return [
+            'storage_used' => new Field(
+                $bytes ? Format::Rounded : Format::Disk,
+                new SourceField(MetricKind::DiskUsed, Aggregation::Avg, $m),
+            ),
+            'storage_limit' => new Field(
+                $bytes ? Format::Rounded : Format::Disk,
+                new SourceField(MetricKind::DiskLimit, Aggregation::Max, $m),
+            ),
+            'storage_percent' => new Field(
+                Format::Percent,
+                new SourceFieldPercentage(
+                    new SourceField(MetricKind::DiskUsed, Aggregation::Avg, $m),
+                    new SourceField(MetricKind::DiskLimit, Aggregation::Max, $m)
+                ),
+            ),
+
+            'storage_inodes_used' => new Field(
+                Format::Rounded,
+                new SourceField(MetricKind::InodesUsed, Aggregation::Avg, $m),
+            ),
+            'storage_inodes_limit' => new Field(
+                Format::Rounded,
+                new SourceField(MetricKind::InodesLimit, Aggregation::Max, $m),
+            ),
+            'storage_inodes_percent' => new Field(
+                Format::Percent,
+                new SourceFieldPercentage(
+                    new SourceField(MetricKind::InodesUsed, Aggregation::Avg, $m),
+                    new SourceField(MetricKind::InodesLimit, Aggregation::Max, $m)
+                ),
+            ),
+        ];
     }
 }

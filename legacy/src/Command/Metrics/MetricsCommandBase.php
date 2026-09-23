@@ -42,6 +42,9 @@ abstract class MetricsCommandBase extends CommandBase
     public const MIN_RANGE = 300; // 5 minutes
     public const DEFAULT_RANGE = 600;
 
+    // The mountpoint key of the network storage volume (used by "storage" mounts).
+    public const STORAGE_MOUNTPOINT = 'storage';
+
     /**
      * @var bool whether services have been identified that use high memory
      */
@@ -248,6 +251,38 @@ abstract class MetricsCommandBase extends CommandBase
         }
 
         return $selectedServiceNames;
+    }
+
+    protected function storageMetricsEnabled(): bool
+    {
+        return $this->config->getBool('api.metrics_storage');
+    }
+
+    /**
+     * Adjusts the table header and default columns for storage metrics.
+     *
+     * Storage columns are removed if storage metrics are disabled. Otherwise,
+     * the $defaultColumn is shown by default if any service reports storage.
+     *
+     * @param array<string, string> $header
+     * @param string[] $defaultColumns
+     * @param array<mixed> $values
+     * @return array{array<string, string>, string[]}
+     */
+    protected function storageColumns(array $header, array $defaultColumns, array $values, string $defaultColumn): array
+    {
+        if (!$this->storageMetricsEnabled()) {
+            return [array_filter($header, fn($key): bool => !str_starts_with($key, 'storage_'), ARRAY_FILTER_USE_KEY), $defaultColumns];
+        }
+        foreach ($values['data'] as $point) {
+            foreach ($point['services'] ?? [] as $service) {
+                if (isset($service['mountpoints'][self::STORAGE_MOUNTPOINT])) {
+                    return [$header, array_merge($defaultColumns, [$defaultColumn])];
+                }
+            }
+        }
+
+        return [$header, $defaultColumns];
     }
 
     protected function getChooseEnvFilter(): ?callable
