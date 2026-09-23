@@ -2,6 +2,9 @@
 //
 // A TEST_CLI_PATH environment variable can be provided to override the path to a
 // CLI executable. It defaults to a built binary in the dist/ directory.
+//
+// Tests run in directories under INTEGRATION_TESTS_TMPDIR, which defaults to a
+// subdirectory of the user cache directory. It must not be inside a Git repository.
 package tests
 
 import (
