@@ -45,7 +45,8 @@ func TestMetricsLatest(t *testing.T) {
 		return map[string]any{"cpu_used": map[string]any{"avg": used}, "cpu_limit": map[string]any{"max": limit}}
 	}
 	// Timestamps are relative to now, as recent points are treated differently.
-	now := time.Now().UTC().Truncate(time.Minute)
+	// The point 1 minute ago stays recent for the CLI while the test runs for under a minute.
+	now := time.Now().UTC()
 	ts := func(minutesAgo int) time.Time { return now.Add(-time.Duration(minutesAgo) * time.Minute) }
 	point := func(minutesAgo int, services map[string]any) map[string]any {
 		p := map[string]any{"timestamp": ts(minutesAgo).Unix()}
