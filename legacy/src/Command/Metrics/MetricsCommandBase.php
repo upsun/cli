@@ -97,7 +97,7 @@ abstract class MetricsCommandBase extends CommandBase
             . "\n" . \sprintf('Minimum <comment>%s</comment>.', $duration->humanize(self::MIN_INTERVAL)),
         );
         $this->addOption('to', null, InputOption::VALUE_REQUIRED, 'The end time. Defaults to now.');
-        $this->addOption('latest', '1', InputOption::VALUE_NONE, 'Show only the latest single data point');
+        $this->addOption('latest', '1', InputOption::VALUE_NONE, 'Show only the latest data point that includes all services');
         $this->addOption('service', 's', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Filter by service or application name' . "\n" . Wildcard::HELP);
         $this->addOption('type', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Filter by service type (if --service is not provided). The version is not required.' . "\n" . Wildcard::HELP);
 
@@ -184,10 +184,12 @@ abstract class MetricsCommandBase extends CommandBase
             throw new \RuntimeException('No data points were found in the metrics response.');
         }
 
-        // Filter to only the latest timestamp if --latest is given.
+        // Filter to the latest complete data point if --latest is given.
+        // Recent points may lack services whose metrics have not arrived yet.
         if ($input->getOption('latest')) {
+            $maxServices = max([0, ...array_map(fn(array $item): int => \count($item['services'] ?? []), $items['data'])]);
             foreach (array_reverse($items['data']) as $item) {
-                if (isset($item['services'])) {
+                if ($maxServices > 0 && \count($item['services'] ?? []) === $maxServices) {
                     $items['data'] = [$item];
                     break;
                 }
@@ -298,7 +300,7 @@ abstract class MetricsCommandBase extends CommandBase
             $interval = (int) (new Duration())->toSeconds($intervalString);
 
             if (empty($interval)) {
-                $this->stdErr->writeln('Invalid --range: <error>' . $intervalString . '</error>');
+                $this->stdErr->writeln('Invalid --interval: <error>' . $intervalString . '</error>');
 
                 return false;
             }
