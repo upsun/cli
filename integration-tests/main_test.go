@@ -26,7 +26,8 @@ func run(m *testing.M) int {
 		}
 		parent = filepath.Join(cacheDir, "platform-test-cli-integration")
 	}
-	if err := os.MkdirAll(parent, 0o700); err != nil {
+	parent, err := filepath.Abs(parent)
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
@@ -34,6 +35,10 @@ func run(m *testing.M) int {
 	if found := findProjectMarker(parent); found != "" {
 		fmt.Fprintf(os.Stderr, "Cannot isolate tests: found %s above %s\n"+
 			"Set INTEGRATION_TESTS_TMPDIR to a directory outside any Git repository.\n", found, parent)
+		return 1
+	}
+	if err := os.MkdirAll(parent, 0o700); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
 	base, err := os.MkdirTemp(parent, "run-")
