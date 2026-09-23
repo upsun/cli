@@ -499,7 +499,7 @@ abstract class MetricsCommandBase extends CommandBase
             $value = $this->extractValue($point, $fieldDefinition->value);
             $limit = $this->extractValue($point, $fieldDefinition->limit);
 
-            return $limit > 0 ? $value / $limit * 100 : null;
+            return $value !== null && $limit > 0 ? $value / $limit * 100 : null;
         }
 
         return $this->extractValue($point, $fieldDefinition);

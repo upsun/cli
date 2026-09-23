@@ -77,10 +77,11 @@ func setupMetricsTest(t *testing.T, withStorage bool) (f *cmdFactory, projectID 
 		}
 		if withStorage {
 			appMounts["storage"] = mountpointMetrics(920, 1000, 30, 100)
-			// Storage without inode metrics.
+			// Storage with a partial set of inode metrics.
 			dbMounts["storage"] = map[string]any{
-				"disk_used":  map[string]any{"avg": 500},
-				"disk_limit": map[string]any{"max": 1000},
+				"disk_used":    map[string]any{"avg": 500},
+				"disk_limit":   map[string]any{"max": 1000},
+				"inodes_limit": map[string]any{"max": 100},
 			}
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
