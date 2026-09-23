@@ -78,8 +78,7 @@ Timestamp	Service	Used	Limit	Used %
 	assert.Contains(t, f.Run("metrics:cpu", "-p", projectID, "-e", "main", "--format", "tsv"),
 		"2026-09-23T19:03:00+00:00\tdb\t0.4\t1\t40.0%")
 
-	// After a service stops reporting, --latest moves on once the older points are
-	// no longer among the most recent.
+	// A service that stopped reporting before the last settled point is ignored.
 	mu.Lock()
 	data = []map[string]any{
 		{"timestamp": 1790190060, "services": map[string]any{"app": cpu(0.1, 1), "db": cpu(0.1, 1)}},

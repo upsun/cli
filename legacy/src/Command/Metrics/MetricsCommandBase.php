@@ -42,8 +42,8 @@ abstract class MetricsCommandBase extends CommandBase
     public const MIN_RANGE = 300; // 5 minutes
     public const DEFAULT_RANGE = 600;
 
-    // The number of recent data points that --latest compares.
-    private const LATEST_CANDIDATES = 3;
+    // Data points ending within this many seconds of the query end may still be missing services.
+    private const LATEST_SETTLE_TIME = 120;
 
     /**
      * @var bool whether services have been identified that use high memory
@@ -100,7 +100,7 @@ abstract class MetricsCommandBase extends CommandBase
             . "\n" . \sprintf('Minimum <comment>%s</comment>.', $duration->humanize(self::MIN_INTERVAL)),
         );
         $this->addOption('to', null, InputOption::VALUE_REQUIRED, 'The end time. Defaults to now.');
-        $this->addOption('latest', '1', InputOption::VALUE_NONE, 'Show only the latest data point, skipping up to two newer points that are missing services');
+        $this->addOption('latest', '1', InputOption::VALUE_NONE, 'Show only the latest single data point' . "\n" . 'Points from the last 2 minutes are skipped if they have fewer services than an older point.');
         $this->addOption('service', 's', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Filter by service or application name' . "\n" . Wildcard::HELP);
         $this->addOption('type', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Filter by service type (if --service is not provided). The version is not required.' . "\n" . Wildcard::HELP);
 
@@ -188,14 +188,21 @@ abstract class MetricsCommandBase extends CommandBase
         }
 
         // Filter to the latest complete data point if --latest is given.
-        // The newest points may lack services whose metrics have not arrived
-        // yet, so pick the one with the most services among the last few.
+        // Services' metrics can take a minute or two to arrive, so a recent
+        // point is skipped if an older one has more services, stopping at the
+        // first point that has settled.
         if ($input->getOption('latest')) {
-            $recent = \array_slice(array_values(array_filter($items['data'], fn(array $item): bool => !empty($item['services']))), -self::LATEST_CANDIDATES);
+            $settledBefore = (int) ($items['_to'] ?? time()) - self::LATEST_SETTLE_TIME;
             $latest = null;
-            foreach ($recent as $item) {
-                if ($latest === null || \count($item['services']) >= \count($latest['services'])) {
+            foreach (array_reverse($items['data']) as $item) {
+                if (empty($item['services'])) {
+                    continue;
+                }
+                if ($latest === null || \count($item['services']) > \count($latest['services'])) {
                     $latest = $item;
+                }
+                if ((int) $item['timestamp'] + (int) ($items['_grain'] ?? 0) <= $settledBefore) {
+                    break;
                 }
             }
             if ($latest !== null) {
