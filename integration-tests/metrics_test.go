@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -44,20 +45,24 @@ func TestMetricsLatest(t *testing.T) {
 	}
 	// Modeled on the API: recent points lack services that have not reported yet,
 	// and the in-progress point has no "services" key at all.
+	var mu sync.Mutex
+	data := []map[string]any{
+		{"timestamp": 1790190060, "services": map[string]any{
+			"app": cpu(0.1, 1), "db": cpu(0.1, 1), "router": cpu(0.01, 0.1)}},
+		{"timestamp": 1790190120, "services": map[string]any{
+			"app": cpu(0.2, 1), "db": cpu(0.3, 1), "router": cpu(0.02, 0.1)}},
+		{"timestamp": 1790190180, "services": map[string]any{
+			"db": cpu(0.4, 1)}},
+		{"timestamp": 1790190240},
+	}
 	apiHandler.Get(envPath+"/observability/resources/overview", func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"_grain": 60,
 			"_from":  1790190000,
 			"_to":    1790190300,
-			"data": []map[string]any{
-				{"timestamp": 1790190060, "services": map[string]any{
-					"app": cpu(0.1, 1), "db": cpu(0.1, 1), "router": cpu(0.01, 0.1)}},
-				{"timestamp": 1790190120, "services": map[string]any{
-					"app": cpu(0.2, 1), "db": cpu(0.3, 1), "router": cpu(0.02, 0.1)}},
-				{"timestamp": 1790190180, "services": map[string]any{
-					"db": cpu(0.4, 1)}},
-				{"timestamp": 1790190240},
-			},
+			"data":   data,
 		})
 	})
 
@@ -72,4 +77,19 @@ Timestamp	Service	Used	Limit	Used %
 
 	assert.Contains(t, f.Run("metrics:cpu", "-p", projectID, "-e", "main", "--format", "tsv"),
 		"2026-09-23T19:03:00+00:00\tdb\t0.4\t1\t40.0%")
+
+	// After a service stops reporting, --latest moves on once the older points are
+	// no longer among the most recent.
+	mu.Lock()
+	data = []map[string]any{
+		{"timestamp": 1790190060, "services": map[string]any{"app": cpu(0.1, 1), "db": cpu(0.1, 1)}},
+		{"timestamp": 1790190120, "services": map[string]any{"app": cpu(0.2, 1)}},
+		{"timestamp": 1790190180, "services": map[string]any{"app": cpu(0.3, 1)}},
+		{"timestamp": 1790190240, "services": map[string]any{"app": cpu(0.4, 1)}},
+	}
+	mu.Unlock()
+	assertTrimmed(t, `
+Timestamp	Service	Used	Limit	Used %
+2026-09-23T19:04:00+00:00	app	0.4	1	40.0%
+`, f.Run("metrics:cpu", "-p", projectID, "-e", "main", "--latest", "--format", "tsv"))
 }
