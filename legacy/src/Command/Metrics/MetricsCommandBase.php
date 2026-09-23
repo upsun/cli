@@ -42,7 +42,7 @@ abstract class MetricsCommandBase extends CommandBase
     public const MIN_RANGE = 300; // 5 minutes
     public const DEFAULT_RANGE = 600;
 
-    // Data points ending within this many seconds of the query end may still be missing services.
+    // Data points that started within this many seconds of now may still be missing services.
     private const LATEST_SETTLE_TIME = 120;
 
     /**
@@ -100,7 +100,7 @@ abstract class MetricsCommandBase extends CommandBase
             . "\n" . \sprintf('Minimum <comment>%s</comment>.', $duration->humanize(self::MIN_INTERVAL)),
         );
         $this->addOption('to', null, InputOption::VALUE_REQUIRED, 'The end time. Defaults to now.');
-        $this->addOption('latest', '1', InputOption::VALUE_NONE, 'Show only the latest single data point' . "\n" . 'Points from the last 2 minutes are skipped if they have fewer services than an older point.');
+        $this->addOption('latest', '1', InputOption::VALUE_NONE, 'Show only the latest single data point' . "\n" . 'Points that started in the last 2 minutes are skipped if they have fewer services than an older point.');
         $this->addOption('service', 's', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Filter by service or application name' . "\n" . Wildcard::HELP);
         $this->addOption('type', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Filter by service type (if --service is not provided). The version is not required.' . "\n" . Wildcard::HELP);
 
@@ -188,11 +188,10 @@ abstract class MetricsCommandBase extends CommandBase
         }
 
         // Filter to the latest complete data point if --latest is given.
-        // Services' metrics can take a minute or two to arrive, so a recent
-        // point is skipped if an older one has more services, stopping at the
-        // first point that has settled.
+        // Services' metrics can take a minute or two to arrive, so a point
+        // that started recently is skipped if an older one has more services.
         if ($input->getOption('latest')) {
-            $settledBefore = (int) ($items['_to'] ?? time()) - self::LATEST_SETTLE_TIME;
+            $settledBefore = time() - self::LATEST_SETTLE_TIME;
             $latest = null;
             foreach (array_reverse($items['data']) as $item) {
                 if (empty($item['services'])) {
@@ -201,7 +200,7 @@ abstract class MetricsCommandBase extends CommandBase
                 if ($latest === null || \count($item['services']) > \count($latest['services'])) {
                     $latest = $item;
                 }
-                if ((int) $item['timestamp'] + (int) ($items['_grain'] ?? 0) <= $settledBefore) {
+                if ((int) $item['timestamp'] <= $settledBefore) {
                     break;
                 }
             }

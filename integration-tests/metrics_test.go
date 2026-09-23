@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -43,52 +44,70 @@ func TestMetricsLatest(t *testing.T) {
 	cpu := func(used, limit float64) map[string]any {
 		return map[string]any{"cpu_used": map[string]any{"avg": used}, "cpu_limit": map[string]any{"max": limit}}
 	}
+	// Timestamps are relative to now, as recent points are treated differently.
+	now := time.Now().UTC().Truncate(time.Minute)
+	ts := func(minutesAgo int) time.Time { return now.Add(-time.Duration(minutesAgo) * time.Minute) }
+	point := func(minutesAgo int, services map[string]any) map[string]any {
+		p := map[string]any{"timestamp": ts(minutesAgo).Unix()}
+		if services != nil {
+			p["services"] = services
+		}
+		return p
+	}
+	row := func(minutesAgo int, rest string) string {
+		return ts(minutesAgo).Format("2006-01-02T15:04:05+00:00") + "\t" + rest
+	}
+
 	// Modeled on the API: recent points lack services that have not reported yet,
 	// and the in-progress point has no "services" key at all.
 	var mu sync.Mutex
 	data := []map[string]any{
-		{"timestamp": 1790190060, "services": map[string]any{
-			"app": cpu(0.1, 1), "db": cpu(0.1, 1), "router": cpu(0.01, 0.1)}},
-		{"timestamp": 1790190120, "services": map[string]any{
-			"app": cpu(0.2, 1), "db": cpu(0.3, 1), "router": cpu(0.02, 0.1)}},
-		{"timestamp": 1790190180, "services": map[string]any{
-			"db": cpu(0.4, 1)}},
-		{"timestamp": 1790190240},
+		point(3, map[string]any{"app": cpu(0.1, 1), "db": cpu(0.1, 1), "router": cpu(0.01, 0.1)}),
+		point(2, map[string]any{"app": cpu(0.2, 1), "db": cpu(0.3, 1), "router": cpu(0.02, 0.1)}),
+		point(1, map[string]any{"db": cpu(0.4, 1)}),
+		point(0, nil),
+	}
+	setData := func(d []map[string]any) {
+		mu.Lock()
+		defer mu.Unlock()
+		data = d
 	}
 	apiHandler.Get(envPath+"/observability/resources/overview", func(w http.ResponseWriter, _ *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"_grain": 60,
-			"_from":  1790190000,
-			"_to":    1790190300,
+			"_from":  ts(10).Unix(),
+			"_to":    now.Unix(),
 			"data":   data,
 		})
 	})
 
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	latest := func() string {
+		return f.Run("metrics:cpu", "-p", projectID, "-e", "main", "--latest", "--format", "tsv", "--no-header")
+	}
 
-	assertTrimmed(t, `
-Timestamp	Service	Used	Limit	Used %
-2026-09-23T19:02:00+00:00	app	0.2	1	20.0%
-2026-09-23T19:02:00+00:00	db	0.3	1	30.0%
-2026-09-23T19:02:00+00:00	router	0.02	0.1	20.0%
-`, f.Run("metrics:cpu", "-p", projectID, "-e", "main", "--latest", "--format", "tsv"))
+	assertTrimmed(t, row(2, "app\t0.2\t1\t20.0%")+"\n"+
+		row(2, "db\t0.3\t1\t30.0%")+"\n"+
+		row(2, "router\t0.02\t0.1\t20.0%"), latest())
 
 	assert.Contains(t, f.Run("metrics:cpu", "-p", projectID, "-e", "main", "--format", "tsv"),
-		"2026-09-23T19:03:00+00:00\tdb\t0.4\t1\t40.0%")
+		row(1, "db\t0.4\t1\t40.0%"))
 
-	// A service that stopped reporting before the last settled point is ignored.
-	mu.Lock()
-	data = []map[string]any{
-		{"timestamp": 1790190060, "services": map[string]any{"app": cpu(0.1, 1), "db": cpu(0.1, 1)}},
-		{"timestamp": 1790190120, "services": map[string]any{"app": cpu(0.2, 1)}},
-		{"timestamp": 1790190180, "services": map[string]any{"app": cpu(0.3, 1)}},
-		{"timestamp": 1790190240, "services": map[string]any{"app": cpu(0.4, 1)}},
-	}
-	mu.Unlock()
-	assertTrimmed(t, `
-Timestamp	Service	Used	Limit	Used %
-2026-09-23T19:04:00+00:00	app	0.4	1	40.0%
-`, f.Run("metrics:cpu", "-p", projectID, "-e", "main", "--latest", "--format", "tsv"))
+	// A service that stopped reporting before the recent points is ignored.
+	setData([]map[string]any{
+		point(4, map[string]any{"app": cpu(0.1, 1), "db": cpu(0.1, 1)}),
+		point(3, map[string]any{"app": cpu(0.2, 1)}),
+		point(2, map[string]any{"app": cpu(0.3, 1)}),
+		point(1, map[string]any{"app": cpu(0.4, 1)}),
+	})
+	assertTrimmed(t, row(1, "app\t0.4\t1\t40.0%"), latest())
+
+	// Older points are not skipped.
+	setData([]map[string]any{
+		point(61, map[string]any{"app": cpu(0.1, 1), "db": cpu(0.1, 1)}),
+		point(60, map[string]any{"app": cpu(0.2, 1)}),
+	})
+	assertTrimmed(t, row(60, "app\t0.2\t1\t20.0%"), latest())
 }
