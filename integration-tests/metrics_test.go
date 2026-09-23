@@ -119,10 +119,10 @@ func TestMetricsLatest(t *testing.T) {
 	// Older points are not skipped.
 	setData(func() []map[string]any {
 		return []map[string]any{
-			point(61, map[string]any{"app": cpu(0.1, 1), "db": cpu(0.1, 1)}),
-			point(60, map[string]any{"app": cpu(0.2, 1)}),
+			point(4, map[string]any{"app": cpu(0.1, 1), "db": cpu(0.1, 1)}),
+			point(3, map[string]any{"app": cpu(0.2, 1)}),
 		}
 	})
 	out = latest()
-	assertTrimmed(t, row(60, "app\t0.2\t1\t20.0%"), out)
+	assertTrimmed(t, row(3, "app\t0.2\t1\t20.0%"), out)
 }
