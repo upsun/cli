@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Backup;
 
-use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
@@ -61,7 +60,7 @@ class BackupListCommand extends CommandBase
 
         $environment = $selection->getEnvironment();
 
-        $backups = $environment->getBackups(Option::intOrNull($input, 'limit') ?? 0);
+        $backups = $environment->getBackups();
         if (!$backups) {
             $this->stdErr->writeln('No backups found');
             return 1;

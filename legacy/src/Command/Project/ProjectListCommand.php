@@ -66,7 +66,7 @@ class ProjectListCommand extends CommandBase
             ->addHiddenOption('host', null, InputOption::VALUE_REQUIRED, 'Deprecated: replaced by --region')
             ->addOption('title', null, InputOption::VALUE_REQUIRED, 'Filter by title (case-insensitive search)')
             ->addOption('my', null, InputOption::VALUE_NONE, 'Display only the projects you own' . ($organizationsEnabled ? ' (through organizations you own)' : ''))
-            ->addOption('refresh', null, InputOption::VALUE_REQUIRED, 'Whether to refresh the list', 1)
+            ->addOption('refresh', null, InputOption::VALUE_REQUIRED, 'Whether to refresh the list', '1')
             ->addOption('sort', null, InputOption::VALUE_REQUIRED, 'A property to sort by', 'title')
             ->addOption('reverse', null, InputOption::VALUE_NONE, 'Sort in reverse (descending) order')
             ->addOption('page', null, InputOption::VALUE_REQUIRED, 'Page number. This enables pagination, despite configuration or --count. Ignored if --pipe is specified.')
@@ -87,7 +87,7 @@ class ProjectListCommand extends CommandBase
     {
         $this->io->warnAboutDeprecatedOptions(['host'], 'The option --host is deprecated and replaced by --region. It will be removed in a future version.');
 
-        $refresh = $input->hasOption('refresh') && Option::int($input, 'refresh') > 0;
+        $refresh = $input->hasOption('refresh') && Option::string($input, 'refresh');
         $pageOption = Option::intOrNull($input, 'page');
         $countOption = Option::intOrNull($input, 'count');
 
