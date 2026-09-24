@@ -71,6 +71,31 @@ class InputUtilTest extends TestCase
         $fn($input);
     }
 
+    public function testStringArrayValues(): void
+    {
+        $input = new ArrayInput(['arr' => ['a', 'b'], '--arr' => ['c']], new InputDefinition([
+            new InputArgument('arr', InputArgument::IS_ARRAY),
+            new InputOption('arr', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY),
+        ]));
+        $this->assertSame(['a', 'b'], InputUtil::getStringArrayArgument($input, 'arr'));
+        $this->assertSame(['c'], InputUtil::getStringArrayOption($input, 'arr'));
+    }
+
+    public function testStringArrayInvalid(): void
+    {
+        $this->expectException(\LogicException::class);
+        InputUtil::getStringArrayOption(self::input(['--opt' => 'a']), 'opt');
+    }
+
+    public function testStringArrayInvalidItem(): void
+    {
+        $input = new ArrayInput(['--arr' => ['a', 1]], new InputDefinition([
+            new InputOption('arr', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY),
+        ]));
+        $this->expectException(\LogicException::class);
+        InputUtil::getStringArrayOption($input, 'arr');
+    }
+
     public function testIntOption(): void
     {
         $this->assertSame(5, InputUtil::getIntOption(self::input(['--opt' => '5']), 'opt'));
