@@ -42,6 +42,9 @@ abstract class MetricsCommandBase extends CommandBase
     public const MIN_RANGE = 300; // 5 minutes
     public const DEFAULT_RANGE = 600;
 
+    // Data points that started within this many seconds of now may still be missing services.
+    private const LATEST_SETTLE_TIME = 120;
+
     /**
      * @var bool whether services have been identified that use high memory
      */
@@ -97,7 +100,7 @@ abstract class MetricsCommandBase extends CommandBase
             . "\n" . \sprintf('Minimum <comment>%s</comment>.', $duration->humanize(self::MIN_INTERVAL)),
         );
         $this->addOption('to', null, InputOption::VALUE_REQUIRED, 'The end time. Defaults to now.');
-        $this->addOption('latest', '1', InputOption::VALUE_NONE, 'Show only the latest single data point');
+        $this->addOption('latest', '1', InputOption::VALUE_NONE, 'Show only the latest single data point' . "\n" . 'Points that started in the last 2 minutes are skipped if they have fewer services than an older point.');
         $this->addOption('service', 's', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Filter by service or application name' . "\n" . Wildcard::HELP);
         $this->addOption('type', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Filter by service type (if --service is not provided). The version is not required.' . "\n" . Wildcard::HELP);
 
@@ -201,13 +204,25 @@ abstract class MetricsCommandBase extends CommandBase
             throw new \RuntimeException('No data points were found in the metrics response.');
         }
 
-        // Filter to only the latest timestamp if --latest is given.
+        // Filter to the latest complete data point if --latest is given.
+        // Services' metrics can take a minute or two to arrive, so a point
+        // that started recently is skipped if an older one has more services.
         if ($input->getOption('latest')) {
+            $settledBefore = time() - self::LATEST_SETTLE_TIME;
+            $latest = null;
             foreach (array_reverse($items['data']) as $item) {
-                if (isset($item['services'])) {
-                    $items['data'] = [$item];
+                if (empty($item['services'])) {
+                    continue;
+                }
+                if ($latest === null || \count($item['services']) > \count($latest['services'])) {
+                    $latest = $item;
+                }
+                if ((int) $item['timestamp'] <= $settledBefore) {
                     break;
                 }
+            }
+            if ($latest !== null) {
+                $items['data'] = [$latest];
             }
         }
 
@@ -315,7 +330,7 @@ abstract class MetricsCommandBase extends CommandBase
             $interval = (int) (new Duration())->toSeconds($intervalString);
 
             if (empty($interval)) {
-                $this->stdErr->writeln('Invalid --range: <error>' . $intervalString . '</error>');
+                $this->stdErr->writeln('Invalid --interval: <error>' . $intervalString . '</error>');
 
                 return false;
             }
