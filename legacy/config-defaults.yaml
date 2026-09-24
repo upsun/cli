@@ -155,6 +155,9 @@ service:
   # Optional URL to help about managing resources.
   resources_help_url: null
 
+  # Optional URL to docs for Fixed organizations.
+  fixed_docs_url: null
+
 # Configuration relating to API calls.
 # This can be overridden in the user config file.
 api:

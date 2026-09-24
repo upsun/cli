@@ -12,6 +12,7 @@ service:
   env_prefix: 'PLATFORM_'
   project_config_dir: '.platform'
   console_url: 'https://console.cli-tests.example.com'
+  fixed_docs_url: 'https://docs.cli-tests.example.com/fixed/'
 
 api:
   # Placeholder URLs which can be replaced during tests.
