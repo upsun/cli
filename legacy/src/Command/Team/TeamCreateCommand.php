@@ -65,6 +65,10 @@ class TeamCreateCommand extends TeamCommandBase
 
         $label = $input->getOption('label');
         if ($label === null) {
+            if (!$existingTeam && !$input->isInteractive()) {
+                $this->stdErr->writeln('The <error>--label</error> option is required in non-interactive mode.');
+                return 1;
+            }
             $label = $this->questionHelper->askInput("Enter the team's label", $existingTeam ? $existingTeam->label : null, [], function ($value) {
                 if (empty($value)) {
                     throw new InvalidArgumentException('The label cannot be empty');
