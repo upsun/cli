@@ -678,7 +678,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
             if ($value == $sizeName) {
                 if (isset($resources['minimum']['cpu'], $sizeInfo['cpu']) && $sizeInfo['cpu'] < $resources['minimum']['cpu']) {
                     throw new InvalidArgumentException(sprintf(
-                        'Invalid profile size <error>%s</error>: its CPU amount %d is below the minimum for this %s, %d',
+                        'Invalid profile size <error>%s</error>: its CPU amount %s is below the minimum for this %s, %s',
                         $sizeName,
                         $sizeInfo['cpu'],
                         $this->typeName($service),

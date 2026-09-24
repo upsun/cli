@@ -132,3 +132,44 @@ func TestResourcesSet_CurrentSizeMissingFromContainerProfiles(t *testing.T) {
 	// The summary should at least mention the new value.
 	assert.Contains(t, stderr+stdout, "CPU")
 }
+
+// TestResourcesSet_SizeBelowMinimumCPU checks that a fractional minimum CPU
+// is shown in the error for a profile size below it.
+func TestResourcesSet_SizeBelowMinimumCPU(t *testing.T) {
+	apiHandler := mockapi.NewHandler(t)
+	projectID := setUpResourcesSetOrg(apiHandler, "org-min-cpu")
+	// Replace the deployment with one whose app has a minimum CPU.
+	nextPath := "/projects/" + projectID + "/environments/main/deployments/next"
+	apiHandler.Get(nextPath, func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"webapps": map[string]any{
+				"app": map[string]any{
+					"name":              "app",
+					"type":              "golang:1.23",
+					"container_profile": "BALANCED",
+					"resources": map[string]any{
+						"profile_size": "0.5",
+						"minimum":      map[string]any{"cpu": 0.25, "memory": 64},
+					},
+					"instance_count": 1,
+					"disk":           512,
+				},
+			},
+			"services":     map[string]any{},
+			"workers":      map[string]any{},
+			"routes":       map[string]any{},
+			"project_info": map[string]any{"settings": map[string]any{}, "capabilities": map[string]any{}},
+			"container_profiles": map[string]any{
+				"BALANCED": map[string]any{
+					"0.1": map[string]any{"cpu": 0.1, "memory": 64, "cpu_type": "shared"},
+					"0.5": map[string]any{"cpu": 0.5, "memory": 128, "cpu_type": "shared"},
+				},
+			},
+		})
+	})
+
+	_, stderr, err := runResourcesSet(t, apiHandler, projectID, "app:0.1")
+
+	assert.Error(t, err)
+	assert.Contains(t, stderr, "its CPU amount 0.1 is below the minimum for this app, 0.25")
+}
