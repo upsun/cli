@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\RuntimeOperation;
 
-use Platformsh\Cli\Console\ArrayArgument;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\ActivityMonitor;
@@ -40,9 +39,9 @@ class RunCommand extends CommandBase
         $this->selector->addAppOption($this->getDefinition());
         $this->addCompleter($this->selector);
         $this->addOption('worker', null, InputOption::VALUE_REQUIRED, 'A worker name');
-        $this->addOption('parameter', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'A parameter for the operation. ' . ArrayArgument::SPLIT_HELP);
+        $this->addOption('parameter', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'A parameter to pass to the operation, one per option, in order');
         $this->activityMonitor->addWaitOptions($this->getDefinition());
-        $this->addExample('Run the "clear-cache" operation with parameters', 'clear-cache --app myapp --parameter param1 --parameter param2');
+        $this->addExample('Run the "migrate" operation with parameters', 'migrate --app app --parameter=--force --parameter "my value"');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -126,8 +125,7 @@ class RunCommand extends CommandBase
         }
 
         try {
-            $parameters = ArrayArgument::getOption($input, 'parameter');
-            $result = $deployment->execRuntimeOperation($operationName, $appName, $parameters);
+            $result = $deployment->execRuntimeOperation($operationName, $appName, $input->getOption('parameter'));
         } catch (OperationUnavailableException) {
             throw new ApiFeatureMissingException('This project does not support runtime operations.');
         }
