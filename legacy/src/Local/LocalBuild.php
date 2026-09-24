@@ -559,7 +559,7 @@ class LocalBuild
         // Sort files by modified time (descending).
         usort(
             $files,
-            fn(string $a, string $b): int => filemtime($a) <=> filemtime($b),
+            fn(string $a, string $b): int => filemtime($b) <=> filemtime($a),
         );
         $now = time();
         $numDeleted = 0;
