@@ -40,3 +40,15 @@ func TestUpgradeCommandForMissingConfigFallsBack(t *testing.T) {
 	assert.Empty(t, upgradeCommandFor(cnf, internal.InstallNpm, "/usr/local/bin/upsun"))
 	assert.Empty(t, upgradeCommandFor(cnf, internal.InstallScript, "/usr/local/bin/upsun"))
 }
+
+func TestShellQuote(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"/usr/local/bin", "/usr/local/bin"},
+		{"/home/Jane Doe/.local/bin", "'/home/Jane Doe/.local/bin'"},
+		{"/tmp/it's", `'/tmp/it'\''s'`},
+		{"/tmp/$(id)", "'/tmp/$(id)'"},
+	}
+	for _, c := range cases {
+		assert.Equal(t, c.want, shellQuote(c.in))
+	}
+}

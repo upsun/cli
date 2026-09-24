@@ -54,7 +54,8 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 				// Completions must be fast and quiet.
 				return
 			}
-			if viper.GetBool("quiet") && !viper.GetBool("debug") && !viper.GetBool("verbose") {
+			quiet := viper.GetBool("quiet") && !viper.GetBool("debug") && !viper.GetBool("verbose")
+			if quiet {
 				viper.Set("no-interaction", true)
 				cmd.SetErr(io.Discard)
 			} else {
@@ -76,8 +77,9 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 			if cnf.Wrapper.GitHubRepo != "" {
 				// Show any update found by a previous run, before the command's
 				// output. The check itself runs in the background (below) and
-				// caches its result for the next invocation.
-				if rel := internal.PendingNotification(cnf, config.Version); rel != nil {
+				// caches its result for the next invocation. In quiet mode the
+				// notice would be discarded, so it is left for a later run.
+				if rel := internal.PendingNotification(cnf, config.Version); rel != nil && !quiet {
 					printUpdateMessage(cmd.ErrOrStderr(), rel, cnf)
 					internal.MarkNotified(cnf)
 				}
@@ -254,10 +256,20 @@ func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod, exe st
 		// INSTALL_DIR replaces the binary in place and forces the installer's raw
 		// method, which it might not otherwise choose (e.g. apt on Debian).
 		if cnf.Wrapper.InstallerURL != "" && exe != "" {
-			return "curl -fsSL " + cnf.Wrapper.InstallerURL + " | INSTALL_DIR=" + filepath.Dir(exe) + " sh"
+			return "curl -fsSL " + cnf.Wrapper.InstallerURL + " | INSTALL_DIR=" + shellQuote(filepath.Dir(exe)) + " sh"
 		}
 	}
 	return ""
+}
+
+var shellSafe = regexp.MustCompile(`^[A-Za-z0-9_./-]+$`)
+
+// shellQuote quotes s for a POSIX shell, if needed.
+func shellQuote(s string) string {
+	if shellSafe.MatchString(s) {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 func debugLogf(format string, v ...any) {
