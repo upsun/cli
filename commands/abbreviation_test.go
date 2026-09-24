@@ -11,6 +11,9 @@ import (
 
 func TestExpandAbbreviation(t *testing.T) {
 	root := &cobra.Command{Use: "upsun"}
+	root.PersistentFlags().BoolP("verbose", "v", false, "")
+	root.PersistentFlags().BoolP("yes", "y", false, "")
+	root.PersistentFlags().String("context", "", "")
 	root.AddCommand(
 		&cobra.Command{Use: "init", Aliases: []string{"project:init", "ify"}},
 		&cobra.Command{Use: "project:convert", Aliases: []string{"convert"}},
@@ -38,7 +41,11 @@ func TestExpandAbbreviation(t *testing.T) {
 		{"namespace abbreviation", []string{"p:init"}, []string{"init"}},
 		{"both parts abbreviated", []string{"pro:ini", "--yes"}, []string{"init", "--yes"}},
 		{"case-insensitive fallback", []string{"P:Init"}, []string{"init"}},
-		{"after flags", []string{"-v", "p:conv"}, []string{"-v", "project:convert"}},
+		{"after flags", []string{"-v", "--yes", "-vy", "p:conv"}, []string{"-v", "--yes", "-vy", "project:convert"}},
+		{"after a flag with a value", []string{"--context", "p:init", "init"}, nil},
+		{"after a flag with a separate value", []string{"--context", "foo", "p:init"}, nil},
+		{"after an unknown flag", []string{"--foo", "p:init"}, nil},
+		{"after a shorthand with a value", []string{"-vc", "p:init"}, nil},
 		{"multi-word part", []string{"a:config-v"}, []string{"app:config-validate"}},
 		{"unique abbreviation", []string{"p:con"}, []string{"project:convert"}},
 		{"hidden legacy namespace ignored", []string{"ver"}, []string{"version"}},

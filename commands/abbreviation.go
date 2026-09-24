@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/upsun/cli/internal/legacy"
 )
@@ -27,8 +28,9 @@ func expandAbbreviation(
 	loadLegacyCmds func() ([]legacy.Command, error),
 	args []string,
 ) (expanded []string, ok bool, err error) {
-	pos := slices.IndexFunc(args, func(a string) bool { return !strings.HasPrefix(a, "-") })
-	if pos == -1 || slices.Contains(args[:pos], "--") {
+	// Only boolean root flags may precede the command, so that a flag's value is not mistaken for it.
+	pos := slices.IndexFunc(args, func(a string) bool { return !isRootBoolFlag(root, a) })
+	if pos == -1 || strings.HasPrefix(args[pos], "-") {
 		return nil, false, nil
 	}
 	name := args[pos]
@@ -69,6 +71,25 @@ func expandAbbreviation(
 	expanded = slices.Clone(args)
 	expanded[pos] = target.names[0]
 	return expanded, true, nil
+}
+
+// isRootBoolFlag tests if arg consists of boolean root flags, e.g. "--yes" or "-vq".
+func isRootBoolFlag(root *cobra.Command, arg string) bool {
+	isBool := func(f *pflag.Flag) bool { return f != nil && f.Value.Type() == "bool" }
+	if name, ok := strings.CutPrefix(arg, "--"); ok {
+		name, _, _ = strings.Cut(name, "=")
+		return isBool(root.PersistentFlags().Lookup(name))
+	}
+	shorthands, ok := strings.CutPrefix(arg, "-")
+	if !ok || shorthands == "" {
+		return false
+	}
+	for _, c := range shorthands {
+		if !isBool(root.PersistentFlags().ShorthandLookup(string(c))) {
+			return false
+		}
+	}
+	return true
 }
 
 // resolveAbbreviation follows Symfony Console's rules to find the command abbreviated by name, if it is unique.
