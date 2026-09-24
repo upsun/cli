@@ -164,6 +164,11 @@ class QuestionHelper extends BaseQuestionHelper
         if ($newLine) {
             $this->output->writeln('');
         }
+        // PHP converts integer-like keys to ints, so ChoiceQuestion treats the
+        // list as non-associative and returns the value instead of the key.
+        if (array_filter(array_keys($items), 'is_string') === []) {
+            return (string) array_search($choice, $items, true);
+        }
         return $choice;
     }
 

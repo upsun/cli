@@ -258,7 +258,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
                     if (isset($properties['resources']['profile_size'])
                         && $profileSize == $properties['resources']['profile_size']) {
                         $description .= ' <question>(current)</question>';
-                    } elseif ($defaultOption !== null && $defaultOption === $profileSize) {
+                    } elseif ($defaultOption !== null && $defaultOption === (string) $profileSize) {
                         $description .= ' <question>(default)</question>';
                     }
 
