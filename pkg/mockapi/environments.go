@@ -1,6 +1,7 @@
 package mockapi
 
 import (
+	"cmp"
 	"crypto/rand"
 	"encoding/json"
 	"net/http"
@@ -22,6 +23,8 @@ func (h *Handler) handleListEnvironments(w http.ResponseWriter, req *http.Reques
 			envs = append(envs, e)
 		}
 	}
+	// Sort for a deterministic order.
+	slices.SortFunc(envs, func(a, b *Environment) int { return cmp.Compare(a.ID, b.ID) })
 	_ = json.NewEncoder(w).Encode(envs)
 }
 
