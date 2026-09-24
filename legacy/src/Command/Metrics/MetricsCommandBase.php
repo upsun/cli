@@ -341,7 +341,7 @@ abstract class MetricsCommandBase extends CommandBase
      *
      * Storage columns are removed if storage metrics are disabled. Otherwise,
      * the $storageColumns are shown by default in machine-readable formats
-     * (for stable output), or in tables if any service reports storage.
+     * (for stable output), or in tables if the environment uses storage.
      *
      * @param array<string, string> $header
      * @param string[] $defaultColumns
@@ -349,23 +349,42 @@ abstract class MetricsCommandBase extends CommandBase
      * @param string[] $storageColumns
      * @return array{array<string, string>, string[]}
      */
-    protected function storageColumns(array $header, array $defaultColumns, array $values, array $storageColumns): array
+    protected function storageColumns(array $header, array $defaultColumns, array $values, array $storageColumns, Environment $environment): array
     {
         if (!$this->storageMetricsEnabled()) {
             return [array_filter($header, fn($key): bool => !str_starts_with($key, 'storage_'), ARRAY_FILTER_USE_KEY), $defaultColumns];
         }
-        if ($this->table->formatIsMachineReadable()) {
+        if ($this->table->formatIsMachineReadable() || $this->usesStorage($values, $environment)) {
             return [$header, array_merge($defaultColumns, $storageColumns)];
+        }
+
+        return [$header, $defaultColumns];
+    }
+
+    /**
+     * Checks if the deployment has storage mounts, or if any service reports storage.
+     *
+     * @param array<mixed> $values
+     */
+    private function usesStorage(array $values, Environment $environment): bool
+    {
+        $deployment = $this->api->getCurrentDeployment($environment);
+        foreach (array_merge($deployment->webapps, $deployment->workers) as $app) {
+            foreach ($app->mounts as $mount) {
+                if (($mount['source'] ?? null) === 'storage') {
+                    return true;
+                }
+            }
         }
         foreach ($values['data'] as $point) {
             foreach ($point['services'] ?? [] as $service) {
                 if (isset($service['mountpoints'][self::STORAGE_MOUNTPOINT])) {
-                    return [$header, array_merge($defaultColumns, $storageColumns)];
+                    return true;
                 }
             }
         }
 
-        return [$header, $defaultColumns];
+        return false;
     }
 
     protected function getChooseEnvFilter(): ?callable

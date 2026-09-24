@@ -21,7 +21,7 @@ func mountpointMetrics(diskUsed, diskLimit, inodesUsed, inodesLimit float64) map
 	}
 }
 
-func setupMetricsTest(t *testing.T, withStorage bool) (f *cmdFactory, projectID string) {
+func setupMetricsTest(t *testing.T, withStorage, withStorageMount bool) (f *cmdFactory, projectID string) {
 	authServer := mockapi.NewAuthServer(t)
 	t.Cleanup(authServer.Close)
 
@@ -39,9 +39,13 @@ func setupMetricsTest(t *testing.T, withStorage bool) (f *cmdFactory, projectID 
 
 	main := makeEnv(projectID, "main", "production", "active", nil)
 	obsPath := "/projects/" + projectID + "/environments/main/observability"
+	app := mockapi.App{Name: "app", Type: "php:8.4", Size: "AUTO"}
+	if withStorageMount {
+		app.Mounts = map[string]mockapi.Mount{"/files": {Source: "storage", SourcePath: "files"}}
+	}
 	main.SetCurrentDeployment(&mockapi.Deployment{
 		WebApps: map[string]mockapi.App{
-			"app": {Name: "app", Type: "php:8.4", Size: "AUTO"},
+			"app": app,
 		},
 		Services: map[string]mockapi.App{
 			"db": {Name: "db", Type: "mariadb:11.4", Size: "AUTO"},
@@ -107,12 +111,13 @@ func setupMetricsTest(t *testing.T, withStorage bool) (f *cmdFactory, projectID 
 
 func TestMetricsStorage(t *testing.T) {
 	cases := []struct {
-		name        string
-		withStorage bool
-		env         []string
-		args        []string
-		want        string
-		notWant     string
+		name             string
+		withStorage      bool
+		withStorageMount bool
+		env              []string
+		args             []string
+		want             string
+		notWant          string
 	}{
 		{
 			name:        "all storage columns",
@@ -131,6 +136,12 @@ func TestMetricsStorage(t *testing.T) {
 			name:    "all table hides storage when absent",
 			args:    []string{"metrics:all", "-1"},
 			notWant: "Storage",
+		},
+		{
+			name:             "all table shows storage when the deployment has storage mounts",
+			withStorageMount: true,
+			args:             []string{"metrics:all", "-1"},
+			want:             "Storage %",
 		},
 		{
 			name: "all csv always includes storage",
@@ -165,7 +176,7 @@ func TestMetricsStorage(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			f, projectID := setupMetricsTest(t, c.withStorage)
+			f, projectID := setupMetricsTest(t, c.withStorage, c.withStorageMount)
 			f.extraEnv = c.env
 			args := append([]string{}, c.args...)
 			args = append(args, "-p", projectID, "-e", "main")
@@ -182,7 +193,7 @@ func TestMetricsStorage(t *testing.T) {
 }
 
 func TestMetricsStorageDisabledColumn(t *testing.T) {
-	f, projectID := setupMetricsTest(t, true)
+	f, projectID := setupMetricsTest(t, true, false)
 	f.extraEnv = []string{"TEST_CLI_API_METRICS_STORAGE=0"}
 
 	_, stderr, err := f.RunCombinedOutput("disk", "-1", "-c", "storage_used", "-p", projectID, "-e", "main")

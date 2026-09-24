@@ -151,7 +151,7 @@ class DiskUsageCommand extends MetricsCommandBase
             $fields += $this->storageFields($bytes, 'storage_i');
         }
         $rows = $this->buildRows($values, $fields, $environment);
-        [$header, $defaultColumns] = $this->storageColumns(self::TABLE_HEADER, $this->defaultColumns, $values, ['storage_used', 'storage_limit', 'storage_percent', 'storage_ipercent']);
+        [$header, $defaultColumns] = $this->storageColumns(self::TABLE_HEADER, $this->defaultColumns, $values, ['storage_used', 'storage_limit', 'storage_percent', 'storage_ipercent'], $environment);
 
         if (!$this->table->formatIsMachineReadable()) {
             $formatter = $this->propertyFormatter;
