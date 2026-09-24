@@ -38,6 +38,7 @@ cmd_shasum=""
 cmd_sudo=""
 dir_bin="/usr/bin"
 footer_notes=""
+completion_note=""
 has_sudo=""
 kernel=""
 machine=""
@@ -192,6 +193,9 @@ outro() {
     output "\nWhat's next?" "heading"
 
     output "  To use the CLI, run: $run_cmd" "output"
+    if [ ! -z "$completion_note" ]; then
+        output "$completion_note"
+    fi
 
     output "\nUseful links:" "heading"
     output "  CLI introduction: $docs_url/get-started/introduction.html#cli"
@@ -651,6 +655,41 @@ install_raw() {
 
     output "  Installing the binary under ${dir_bin}"
     call_try_user "mv '${tmp_dir}/$binary' '${dir_bin}/${binary}'" "Failed to move the binary ${binary}"
+
+    install_completion "${tmp_dir}/completion"
+}
+
+# Copy a completion file into a directory that the shell loads by itself.
+# Arguments: shell, source file, destination directory, destination file name
+copy_completion() {
+    if [ ! -f "$2" ] || ! command -v "$1" >/dev/null 2>&1; then
+        return
+    fi
+    if mkdir -p "$3" && cp "$2" "$3/$4"; then
+        output "  Installed $1 completion in $3/$4"
+    else
+        output "  Could not install $1 completion in $3" "warning"
+    fi
+}
+
+# Set up shell completion for the current user, without editing shell config files.
+install_completion() {
+    if is_ci; then
+        return
+    fi
+
+    output "\nSetting up shell completion" "heading"
+
+    # Loaded on demand by bash-completion 2.
+    copy_completion bash "$1/bash/${binary}.bash" \
+        "${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions" "${binary}"
+    copy_completion fish "$1/fish/${binary}.fish" \
+        "${XDG_CONFIG_HOME:-$HOME/.config}/fish/completions" "${binary}.fish"
+
+    # zsh has no user directory in fpath by default.
+    if echo "${SHELL:-}" | grep '/zsh' > /dev/null; then
+        completion_note='  To enable shell completion, add this line to ~/.zshrc (after compinit):\n    eval "$('"${run_cmd}"' completion zsh)"'
+    fi
 }
 
 install() {
