@@ -39,6 +39,12 @@ class DiskUsageCommand extends MetricsCommandBase
         'tmp_iused' => '/tmp inodes used',
         'tmp_ilimit' => '/tmp inodes limit',
         'tmp_ipercent' => '/tmp inodes %',
+        'storage_used' => 'Storage used',
+        'storage_limit' => 'Storage limit',
+        'storage_percent' => 'Storage %',
+        'storage_iused' => 'Storage inodes used',
+        'storage_ilimit' => 'Storage inodes limit',
+        'storage_ipercent' => 'Storage inodes %',
     ];
     /** @var string[] */
     private array $defaultColumns = ['timestamp', 'service', 'used', 'limit', 'percent', 'ipercent', 'tmp_percent'];
@@ -76,7 +82,7 @@ class DiskUsageCommand extends MetricsCommandBase
 
         $bytes = $input->getOption('bytes');
 
-        $rows = $this->buildRows($values, [
+        $fields = [
             'used' => new Field(
                 $bytes ? Format::Rounded : Format::Disk,
                 new SourceField(MetricKind::DiskUsed, Aggregation::Avg, '/mnt'),
@@ -140,7 +146,12 @@ class DiskUsageCommand extends MetricsCommandBase
                     new SourceField(MetricKind::InodesLimit, Aggregation::Max, '/tmp')
                 ),
             ),
-        ], $environment);
+        ];
+        if ($this->storageMetricsEnabled()) {
+            $fields += $this->storageFields($bytes, 'storage_i');
+        }
+        $rows = $this->buildRows($values, $fields, $environment);
+        [$header, $defaultColumns] = $this->storageColumns(self::TABLE_HEADER, $this->defaultColumns, $values, ['storage_used', 'storage_limit', 'storage_percent', 'storage_ipercent'], $environment);
 
         if (!$this->table->formatIsMachineReadable()) {
             $formatter = $this->propertyFormatter;
@@ -153,7 +164,7 @@ class DiskUsageCommand extends MetricsCommandBase
             ));
         }
 
-        $this->table->render($rows, self::TABLE_HEADER, $this->defaultColumns);
+        $this->table->render($rows, $header, $defaultColumns);
 
         return 0;
     }

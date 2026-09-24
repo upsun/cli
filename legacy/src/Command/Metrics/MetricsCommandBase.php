@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Metrics;
 
+use Platformsh\Cli\Model\Metrics\Aggregation;
 use Platformsh\Cli\Model\Metrics\Field;
+use Platformsh\Cli\Model\Metrics\Format;
+use Platformsh\Cli\Model\Metrics\MetricKind;
 use Platformsh\Cli\Model\Metrics\SourceField;
 use Platformsh\Cli\Model\Metrics\SourceFieldPercentage;
 use Platformsh\Cli\Selector\Selector;
@@ -41,6 +44,9 @@ abstract class MetricsCommandBase extends CommandBase
 
     public const MIN_RANGE = 300; // 5 minutes
     public const DEFAULT_RANGE = 600;
+
+    // The mountpoint key of the network storage volume (used by "storage" mounts).
+    public const STORAGE_MOUNTPOINT = 'storage';
 
     // Data points that started within this many seconds of now may still be missing services.
     private const LATEST_SETTLE_TIME = 120;
@@ -282,6 +288,110 @@ abstract class MetricsCommandBase extends CommandBase
         return $selectedServiceNames;
     }
 
+    protected function storageMetricsEnabled(): bool
+    {
+        return $this->config->getBool('api.metrics_storage');
+    }
+
+    /**
+     * Returns fields for the storage volume, with inode fields keyed by $inodesPrefix.
+     *
+     * @return array<string, Field>
+     */
+    protected function storageFields(bool $bytes, string $inodesPrefix): array
+    {
+        $m = self::STORAGE_MOUNTPOINT;
+
+        return [
+            'storage_used' => new Field(
+                $bytes ? Format::Rounded : Format::Disk,
+                new SourceField(MetricKind::DiskUsed, Aggregation::Avg, $m),
+            ),
+            'storage_limit' => new Field(
+                $bytes ? Format::Rounded : Format::Disk,
+                new SourceField(MetricKind::DiskLimit, Aggregation::Max, $m),
+            ),
+            'storage_percent' => new Field(
+                Format::Percent,
+                new SourceFieldPercentage(
+                    new SourceField(MetricKind::DiskUsed, Aggregation::Avg, $m),
+                    new SourceField(MetricKind::DiskLimit, Aggregation::Max, $m)
+                ),
+            ),
+            $inodesPrefix . 'used' => new Field(
+                Format::Rounded,
+                new SourceField(MetricKind::InodesUsed, Aggregation::Avg, $m),
+            ),
+            $inodesPrefix . 'limit' => new Field(
+                Format::Rounded,
+                new SourceField(MetricKind::InodesLimit, Aggregation::Max, $m),
+            ),
+            $inodesPrefix . 'percent' => new Field(
+                Format::Percent,
+                new SourceFieldPercentage(
+                    new SourceField(MetricKind::InodesUsed, Aggregation::Avg, $m),
+                    new SourceField(MetricKind::InodesLimit, Aggregation::Max, $m)
+                ),
+            ),
+        ];
+    }
+
+    /**
+     * Adjusts the table header and default columns for storage metrics.
+     *
+     * Storage columns are removed if storage metrics are disabled. Otherwise,
+     * the $storageColumns are shown by default in machine-readable formats
+     * (for stable output), or in tables if the environment uses storage.
+     *
+     * @param array<string, string> $header
+     * @param string[] $defaultColumns
+     * @param array<mixed> $values
+     * @param string[] $storageColumns
+     * @return array{array<string, string>, string[]}
+     */
+    protected function storageColumns(array $header, array $defaultColumns, array $values, array $storageColumns, Environment $environment): array
+    {
+        if (!$this->storageMetricsEnabled()) {
+            return [array_filter($header, fn($key): bool => !str_starts_with($key, 'storage_'), ARRAY_FILTER_USE_KEY), $defaultColumns];
+        }
+        if ($this->table->formatIsMachineReadable() || $this->usesStorage($values, $environment)) {
+            return [$header, array_merge($defaultColumns, $storageColumns)];
+        }
+
+        return [$header, $defaultColumns];
+    }
+
+    /**
+     * Checks if any of the returned services reports storage or has storage mounts.
+     *
+     * @param array<mixed> $values
+     */
+    private function usesStorage(array $values, Environment $environment): bool
+    {
+        $serviceNames = [];
+        foreach ($values['data'] as $point) {
+            foreach ($point['services'] ?? [] as $name => $service) {
+                if (isset($service['mountpoints'][self::STORAGE_MOUNTPOINT])) {
+                    return true;
+                }
+                $serviceNames[$name] = true;
+            }
+        }
+        $deployment = $this->api->getCurrentDeployment($environment);
+        foreach (array_merge($deployment->webapps, $deployment->workers) as $name => $app) {
+            if (!isset($serviceNames[$name])) {
+                continue;
+            }
+            foreach ($app->getProperty('mounts', false) ?: [] as $mount) {
+                if (($mount['source'] ?? null) === 'storage') {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     protected function getChooseEnvFilter(): ?callable
     {
         return null;
@@ -445,7 +555,7 @@ abstract class MetricsCommandBase extends CommandBase
             $value = $this->extractValue($point, $fieldDefinition->value);
             $limit = $this->extractValue($point, $fieldDefinition->limit);
 
-            return $limit > 0 ? $value / $limit * 100 : null;
+            return $value !== null && $limit > 0 ? $value / $limit * 100 : null;
         }
 
         return $this->extractValue($point, $fieldDefinition);
@@ -461,6 +571,10 @@ abstract class MetricsCommandBase extends CommandBase
         if (isset($sourceField->mountpoint)) {
             if (!isset($point['mountpoints'][$sourceField->mountpoint])) {
                 return null;
+            }
+            // The storage volume may not report every metric.
+            if ($sourceField->mountpoint === self::STORAGE_MOUNTPOINT) {
+                return $point['mountpoints'][$sourceField->mountpoint][$sourceField->source->value][$sourceField->aggregation->value] ?? null;
             }
             if (!isset($point['mountpoints'][$sourceField->mountpoint][$sourceField->source->value])) {
                 throw new \RuntimeException(\sprintf('Source "%s" not found in the mountpoint "%s".', $sourceField->source->value, $sourceField->mountpoint));
