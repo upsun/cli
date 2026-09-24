@@ -10,13 +10,6 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// activityResponse returns a standard activity-embedded response.
-func activityResponse() map[string]any {
-	return map[string]any{
-		"_embedded": map[string]any{"activities": []Activity{}},
-	}
-}
-
 func (h *Handler) handleListProjectVariables(w http.ResponseWriter, req *http.Request) {
 	h.RLock()
 	defer h.RUnlock()

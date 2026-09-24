@@ -112,60 +112,21 @@ func (h *Handler) handleSetEnvironmentSettings(w http.ResponseWriter, req *http.
 	})
 }
 
-func (h *Handler) handleDeployEnvironment(w http.ResponseWriter, req *http.Request) {
+// handleEnvironmentAction handles environment operations that return activities (deploy, pause, etc.).
+func (h *Handler) handleEnvironmentAction(w http.ResponseWriter, req *http.Request) {
 	env := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
 	if env == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"_embedded": map[string]any{"activities": []Activity{}},
-	})
+	_ = json.NewEncoder(w).Encode(activityResponse())
 }
 
-func (h *Handler) handleActivateEnvironment(w http.ResponseWriter, req *http.Request) {
-	env := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
-	if env == nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	_ = json.NewEncoder(w).Encode(map[string]any{
+// activityResponse returns a response with an empty list of embedded activities.
+func activityResponse() map[string]any {
+	return map[string]any{
 		"_embedded": map[string]any{"activities": []Activity{}},
-	})
-}
-
-func (h *Handler) handlePauseEnvironment(w http.ResponseWriter, req *http.Request) {
-	env := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
-	if env == nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
 	}
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"_embedded": map[string]any{"activities": []Activity{}},
-	})
-}
-
-func (h *Handler) handleResumeEnvironment(w http.ResponseWriter, req *http.Request) {
-	env := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
-	if env == nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"_embedded": map[string]any{"activities": []Activity{}},
-	})
-}
-
-func (h *Handler) handleRedeployEnvironment(w http.ResponseWriter, req *http.Request) {
-	env := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
-	if env == nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"_embedded": map[string]any{"activities": []Activity{}},
-	})
 }
 
 func (h *Handler) handleGetCurrentDeployment(w http.ResponseWriter, req *http.Request) {
