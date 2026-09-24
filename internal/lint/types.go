@@ -25,8 +25,11 @@ func CheckTypes(cfg *Config, reg registry.Registry) *Result {
 		if err := check(app.Type, true); err != nil {
 			result.AddError("applications."+appName+".type", err.Error())
 		}
-		if strings.HasPrefix(app.Type, "composable") && isStackEmpty(app.Stack) {
+		isComposable := strings.HasPrefix(app.Type, "composable")
+		if isComposable && isStackEmpty(app.Stack) {
 			result.AddWarning("applications."+appName, "'stack' should be specified when using a composable image")
+		} else if !isComposable && !isStackEmpty(app.Stack) {
+			result.AddWarning("applications."+appName+".stack", "'stack' is only used with a composable image type")
 		}
 	}
 	for appName := range cfg.Applications {

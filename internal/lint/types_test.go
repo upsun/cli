@@ -98,6 +98,16 @@ applications:
 			expectErrorMessage: `linter warnings:
   - applications.foo: 'stack' should be specified when using a composable image`,
 		},
+		{
+			name: "stack_with_non_composable_type",
+			content: `
+applications:
+  foo:
+    type: php:8.4
+    stack: ["php@8.4"]`,
+			expectErrorMessage: `linter warnings:
+  - applications.foo.stack: 'stack' is only used with a composable image type`,
+		},
 	}
 
 	for _, c := range cases {
