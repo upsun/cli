@@ -13,6 +13,7 @@ use Platformsh\Cli\Console\CustomTextDescriptor;
 use Platformsh\Cli\Service\Config;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Command\LazyCommand;
+use Symfony\Component\Console\Exception\CommandNotFoundException;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\NullOutput;
@@ -82,6 +83,21 @@ class HiddenAliasesTest extends TestCase
         $this->assertIsArray($data);
         $this->assertSame(['backups'], $data['aliases']);
         $this->assertSame(['snapshots', 'snapshot:list'], $data['hidden_aliases']);
+    }
+
+    public function testHiddenAliasesDoNotDefineNamespaces(): void
+    {
+        $this->assertSame('db', $this->app->findDescribableNamespace('db'));
+        foreach (['snapshot', 'int', 'i'] as $name) {
+            $this->assertNull($this->app->findDescribableNamespace($name), $name);
+        }
+    }
+
+    public function testHiddenAliasesAreNotAbbreviated(): void
+    {
+        $this->assertSame('db:dump', $this->app->find('sql-dump')->getName());
+        $this->expectException(CommandNotFoundException::class);
+        $this->app->find('sql-dum');
     }
 
     private function load(Command $command): Command

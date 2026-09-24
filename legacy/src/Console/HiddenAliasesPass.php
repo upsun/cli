@@ -10,6 +10,9 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 /**
  * Registers hidden aliases so that lazily-loaded commands can be found by them.
  *
+ * It also lists all hidden aliases in a container parameter, for
+ * HiddenAliasesCommandLoader.
+ *
  * This must run before Symfony's AddConsoleCommandPass, which reads extra
  * "console.command" tags as aliases.
  *
@@ -17,8 +20,11 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
  */
 final class HiddenAliasesPass implements CompilerPassInterface
 {
+    public const PARAMETER = 'cli.hidden_aliases';
+
     public function process(ContainerBuilder $container): void
     {
+        $all = [];
         foreach (array_keys($container->findTaggedServiceIds('console.command')) as $id) {
             $definition = $container->getDefinition($id);
             $class = $definition->getClass();
@@ -29,7 +35,9 @@ final class HiddenAliasesPass implements CompilerPassInterface
             }
             foreach ($attribute->newInstance()->aliases as $alias) {
                 $definition->addTag('console.command', ['command' => $alias]);
+                $all[] = $alias;
             }
         }
+        $container->setParameter(self::PARAMETER, $all);
     }
 }

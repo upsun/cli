@@ -11,6 +11,7 @@ use Platformsh\Cli\Command\ListCommand;
 use Platformsh\Cli\Command\WelcomeCommand;
 use Platformsh\Cli\Command\MultiAwareInterface;
 use Platformsh\Cli\Console\EventSubscriber;
+use Platformsh\Cli\Console\HiddenAliasesCommandLoader;
 use Platformsh\Cli\Console\HiddenAliasesPass;
 use Platformsh\Cli\Console\HiddenInputOption;
 use Platformsh\Cli\Service\Config;
@@ -55,6 +56,11 @@ class Application extends ParentApplication
 
     private bool $runningViaMulti = false;
 
+    /** @var string[] */
+    private array $hiddenAliases = [];
+
+    private ?CommandLoaderInterface $commandLoader = null;
+
     public function __construct(?Config $config = null)
     {
         // Initialize configuration (from config.yaml).
@@ -76,7 +82,11 @@ class Application extends ParentApplication
         // services tagged with "console.command").
         /** @var CommandLoaderInterface $loader */
         $loader = $this->container()->get('console.command_loader');
-        $this->setCommandLoader($loader);
+        /** @var string[] $hiddenAliases */
+        $hiddenAliases = $this->container()->getParameter(HiddenAliasesPass::PARAMETER);
+        $this->hiddenAliases = $hiddenAliases;
+        $this->commandLoader = new HiddenAliasesCommandLoader($loader, $hiddenAliases);
+        $this->setCommandLoader($this->commandLoader);
 
         // Set "welcome" as the default command.
         $this->setDefaultCommand(WelcomeCommand::getDefaultName());
@@ -120,6 +130,37 @@ class Application extends ParentApplication
         }
 
         return parent::add($command);
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * Hidden aliases are removed, so that they are not used for abbreviations
+     * or namespaces.
+     *
+     * @see self::find()
+     */
+    public function addCommand(callable|ConsoleCommand $command): ?ConsoleCommand
+    {
+        if ($command instanceof ConsoleCommand && array_intersect($command->getAliases(), $this->hiddenAliases)) {
+            $command->setAliases(array_values(array_diff($command->getAliases(), $this->hiddenAliases)));
+        }
+
+        return parent::addCommand($command);
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * Finds commands by their hidden aliases, which only work in full.
+     */
+    public function find(string $name): ConsoleCommand
+    {
+        if (in_array($name, $this->hiddenAliases, true) && $this->commandLoader?->has($name)) {
+            return $this->get($this->commandLoader->get($name)->getName() ?? $name);
+        }
+
+        return parent::find($name);
     }
 
     /**
