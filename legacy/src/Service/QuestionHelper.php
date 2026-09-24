@@ -137,7 +137,7 @@ class QuestionHelper extends BaseQuestionHelper
     /**
      * Provides an interactive choice question preserving the array keys.
      *
-     * @param array<string, string> $items     An associative array of choices.
+     * @param array<array-key, string> $items An associative array of choices.
      * @param string $text      Some text to precede the choices.
      * @param string|null  $default   A default (as a key in $items).
      * @param bool $skipOnOne Whether to skip the choice if there is only one
@@ -160,23 +160,25 @@ class QuestionHelper extends BaseQuestionHelper
         }
         $question = new ChoiceQuestion($text, $items, $default);
         $question->setMaxAttempts(5);
-        // PHP converts integer-like keys to ints, so ChoiceQuestion may treat
-        // the items as a list and return a value instead of a key.
-        $validator = $question->getValidator() ?? fn($answer) => $answer;
-        // Like Symfony, a typed value takes precedence over a key.
-        $question->setValidator(fn($answer) => is_string($answer) && array_key_exists($answer, $items) && !in_array($answer, $items, true) ? $answer : $validator($answer));
+        // PHP converts integer-like keys to ints, which makes ChoiceQuestion
+        // treat the items as a list and return values, so resolve answers to
+        // keys here. A key takes precedence over an identical value.
+        $question->setValidator(function (mixed $answer) use ($items): string {
+            $answer = is_scalar($answer) ? trim((string) $answer) : '';
+            if (array_key_exists($answer, $items)) {
+                return $answer;
+            }
+            $keys = array_keys($items, $answer, true);
+            if (count($keys) !== 1) {
+                throw new \InvalidArgumentException(sprintf('Value "%s" is invalid', $answer));
+            }
+            return (string) $keys[0];
+        });
         $choice = $this->ask($this->input, $this->output, $question);
         if ($newLine) {
             $this->output->writeln('');
         }
-        if (is_scalar($choice) && array_key_exists((string) $choice, $items)) {
-            return (string) $choice;
-        }
-        $choiceKey = array_search($choice, $items, true);
-        if ($choiceKey === false) {
-            throw new \RuntimeException('Invalid value: ' . (is_scalar($choice) ? $choice : get_debug_type($choice)));
-        }
-        return (string) $choiceKey;
+        return is_string($choice) ? $choice : throw new \LogicException('Unexpected choice type: ' . get_debug_type($choice));
     }
 
     /**

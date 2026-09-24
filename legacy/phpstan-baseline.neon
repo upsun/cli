@@ -3217,12 +3217,6 @@ parameters:
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
-			message: '#^Parameter \#1 \$items of method Platformsh\\Cli\\Service\\QuestionHelper\:\:chooseAssoc\(\) expects array\<string, string\>, array\<string\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
 			message: '#^Parameter \#1 \$previousValue of method Platformsh\\Cli\\Service\\ResourcesUtil\:\:formatChange\(\) expects float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 3
