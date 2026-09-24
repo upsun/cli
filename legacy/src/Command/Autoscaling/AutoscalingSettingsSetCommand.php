@@ -132,7 +132,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
 
         // Validate the --*-up options.
         $thresholdUp = $input->getOption('threshold-up');
-        if ($thresholdUp !== null) {
+        if (is_string($thresholdUp)) {
             $thresholdUp = $this->validateThreshold($thresholdUp, 'threshold-up');
         }
         $durationUp = $input->getOption('duration-up');
@@ -146,7 +146,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
 
         // Validate the --*-down options.
         $thresholdDown = $input->getOption('threshold-down');
-        if ($thresholdDown !== null) {
+        if (is_string($thresholdDown)) {
             $thresholdDown = $this->validateThreshold($thresholdDown, 'threshold-down');
         }
         $durationDown = $input->getOption('duration-down');
@@ -839,15 +839,22 @@ class AutoscalingSettingsSetCommand extends CommandBase
     /**
      * Validates a given threshold.
      *
-     * @param float|int $value
+     * @param string $value
      * @param string $context
      *
      * @throws InvalidArgumentException
      *
      * @return float
      */
-    protected function validateThreshold(float|int $value, string $context = ''): float
+    protected function validateThreshold(string $value, string $context = ''): float
     {
+        if (!is_numeric($value)) {
+            $message = sprintf('Invalid threshold <error>%s</error>: must be a number', $value);
+            if ($context) {
+                $message .= sprintf(' for %s', $context);
+            }
+            throw new InvalidArgumentException($message);
+        }
         $threshold = (float) $value;
         if ($threshold < 0) {
             $message = sprintf('Invalid threshold <error>%s</error>: must be 0 or greater', $value);
