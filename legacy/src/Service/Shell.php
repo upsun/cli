@@ -213,9 +213,14 @@ class Shell
                     $output->write(preg_replace('/(^|[\n\r]+)(.)/', '$1  $2', $buffer));
                 }
             });
-        } catch (ProcessFailedException) {
+        } catch (ProcessFailedException $e) {
             if (!$mustRun) {
-                return $process->getExitCode();
+                // The exit code is null if the process failed to start.
+                return $process->getExitCode() ?? 1;
+            }
+            // A process that failed to start has no output to report.
+            if (!$process->isStarted()) {
+                throw $e;
             }
             // The default for Symfony's ProcessFailedException is to print the
             // entire STDOUT and STDERR. But if $quiet is disabled, then the user
@@ -278,6 +283,10 @@ class Shell
     public function exceptionMeansCommandDoesNotExist(ProcessFailedException $e): bool
     {
         $process = $e->getProcess();
+        // A process that failed to start has no exit code or output to check.
+        if (!$process->isStarted()) {
+            return false;
+        }
         if ($process->getExitCode() === 127) {
             return true;
         }

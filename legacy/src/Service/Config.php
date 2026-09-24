@@ -547,7 +547,7 @@ class Config
             return $this->version;
         }
         $version = $this->getWithDefault('application.version', '@version-placeholder@');
-        if (str_starts_with((string) $version, '@') && str_ends_with((string) $version, '@')) {
+        if (str_starts_with((string) $version, '@') && str_ends_with((string) $version, '@') && !str_starts_with(CLI_ROOT, 'phar://')) {
             // Silently try getting the version from Git.
             $tag = (new Shell())->execute(['git', 'describe', '--tags'], CLI_ROOT);
             if (is_string($tag) && str_starts_with($tag, 'v')) {

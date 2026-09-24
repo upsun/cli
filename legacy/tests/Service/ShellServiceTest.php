@@ -7,9 +7,13 @@ namespace Platformsh\Cli\Tests\Service;
 use PHPUnit\Framework\TestCase;
 use Platformsh\Cli\Exception\ProcessFailedException;
 use Platformsh\Cli\Service\Shell;
+use Platformsh\Cli\Tests\HasTempDirTrait;
+use Symfony\Component\Process\Exception\ProcessStartFailedException;
 
 class ShellServiceTest extends TestCase
 {
+    use HasTempDirTrait;
+
     /**
      * Test Shell::execute().
      */
@@ -46,5 +50,28 @@ class ShellServiceTest extends TestCase
         $this->assertNotEmpty($shell->mustExecute($workingCommand));
         $this->expectException(ProcessFailedException::class);
         $shell->mustExecute(['which', 'nonexistent']);
+    }
+
+    /**
+     * Test Shell::execute() when the process cannot start, so has no exit code.
+     */
+    public function testExecuteStartFailure(): void
+    {
+        $this->tempDirSetUp();
+        assert($this->tempDir !== null);
+
+        // A phar:// directory passes is_dir() but cannot be used by proc_open().
+        $archive = new \PharData($this->tempDir . '/test.tar');
+        $archive->addFromString('dir/file.txt', 'test');
+        $dir = 'phar://' . $this->tempDir . '/test.tar/dir';
+
+        $shell = new Shell();
+        $this->assertFalse($shell->execute(['pwd'], $dir));
+        try {
+            $shell->mustExecute(['pwd'], $dir);
+            $this->fail('Expected a ProcessStartFailedException');
+        } catch (ProcessStartFailedException $e) {
+            $this->assertFalse($shell->exceptionMeansCommandDoesNotExist($e));
+        }
     }
 }
