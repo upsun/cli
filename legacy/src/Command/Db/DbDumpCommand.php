@@ -23,8 +23,10 @@ use Symfony\Component\Console\Helper\Helper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'db:dump', description: 'Create a local dump of the remote database')]
+#[HiddenAliases(['sql-dump', 'environment:sql-dump'])]
 class DbDumpCommand extends CommandBase
 {
     public function __construct(private readonly Api $api, private readonly Config $config, private readonly Filesystem $filesystem, private readonly Git $git, private readonly QuestionHelper $questionHelper, private readonly Relationships $relationships, private readonly Selector $selector)
@@ -50,7 +52,6 @@ class DbDumpCommand extends CommandBase
         $this->addCompleter($this->selector);
         Relationships::configureInput($this->getDefinition());
         Ssh::configureInput($this->getDefinition());
-        $this->setHiddenAliases(['sql-dump', 'environment:sql-dump']);
         $this->addExample('Create an SQL dump file');
         $this->addExample('Create a gzipped SQL dump file named "dump.sql.gz"', '--gzip -f dump.sql.gz');
     }

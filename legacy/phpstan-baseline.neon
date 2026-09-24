@@ -283,12 +283,6 @@ parameters:
 			path: src/Application.php
 
 		-
-			message: '#^Parameter \#1 \$value of class Symfony\\Component\\Console\\Completion\\Suggestion constructor expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Application.php
-
-		-
 			message: '#^Access to an undefined property Platformsh\\Client\\Model\\ApiResourceBase\:\:\$created_at\.$#'
 			identifier: property.notFound
 			count: 1
@@ -1053,24 +1047,6 @@ parameters:
 		-
 			message: '#^Method Platformsh\\Cli\\Command\\CommandBase\:\:getPreferredName\(\) should return string but returns string\|null\.$#'
 			identifier: return.type
-			count: 1
-			path: src/Command/CommandBase.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Command\\CommandBase\:\:getVisibleAliases\(\) should return array\<string\> but returns array\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Command/CommandBase.php
-
-		-
-			message: '#^Parameter \#1 \$aliases of method Symfony\\Component\\Console\\Command\\Command\:\:setAliases\(\) expects iterable\<string\>, array given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/CommandBase.php
-
-		-
-			message: '#^Parameter \#1 \$array of function array_diff expects an array of values castable to string, array given\.$#'
-			identifier: argument.type
 			count: 1
 			path: src/Command/CommandBase.php
 
@@ -4717,12 +4693,6 @@ parameters:
 			path: src/Console/CustomMarkdownDescriptor.php
 
 		-
-			message: '#^Parameter \#2 \$array of function implode expects array\<string\>, array given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Console/CustomMarkdownDescriptor.php
-
-		-
 			message: '#^Parameter \#2 \$namespace of method Platformsh\\Cli\\Console\\DescriptorUtils\:\:describeNamespaces\(\) expects string\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -4821,7 +4791,7 @@ parameters:
 		-
 			message: '#^Parameter \#2 \$array of function implode expects array\<string\>, array given\.$#'
 			identifier: argument.type
-			count: 2
+			count: 1
 			path: src/Console/CustomTextDescriptor.php
 
 		-

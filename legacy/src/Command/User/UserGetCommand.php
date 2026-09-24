@@ -22,8 +22,10 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'user:get', description: "View a user's role(s)")]
+#[HiddenAliases(['user:role'])]
 class UserGetCommand extends CommandBase
 {
     public function __construct(private readonly AccessApi $accessApi, private readonly ActivityMonitor $activityMonitor, private readonly Io $io, private readonly QuestionHelper $questionHelper, private readonly Selector $selector, private readonly SubCommandRunner $subCommandRunner)
@@ -43,7 +45,6 @@ class UserGetCommand extends CommandBase
         $this->activityMonitor->addWaitOptions($this->getDefinition());
 
         // Backwards compatibility.
-        $this->setHiddenAliases(['user:role']);
         $this->addOption('role', 'r', InputOption::VALUE_REQUIRED, "[Deprecated: use user:update to change a user's role(s)]");
 
         $this->addExample("View Alice's role on the project", 'alice@example.com');

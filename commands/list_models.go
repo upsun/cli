@@ -213,14 +213,15 @@ type Application struct {
 }
 
 type Command struct {
-	Name        CommandName `json:"name"`
-	Usage       []string    `json:"usage"`
-	Aliases     []string    `json:"aliases"`
-	Description CleanString `json:"description"`
-	Help        CleanString `json:"help"`
-	Examples    []Example   `json:"examples"`
-	Definition  Definition  `json:"definition"`
-	Hidden      bool        `json:"hidden"`
+	Name          CommandName `json:"name"`
+	Usage         []string    `json:"usage"`
+	Aliases       []string    `json:"aliases"`
+	HiddenAliases []string    `json:"hidden_aliases,omitempty"`
+	Description   CleanString `json:"description"`
+	Help          CleanString `json:"help"`
+	Examples      []Example   `json:"examples"`
+	Definition    Definition  `json:"definition"`
+	Hidden        bool        `json:"hidden"`
 }
 
 // indentLines adds a number of spaces to each line of the given text.

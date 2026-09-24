@@ -22,8 +22,10 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'environment:info', description: 'Read or set properties for an environment')]
+#[HiddenAliases(['environment:metadata'])]
 class EnvironmentInfoCommand extends CommandBase
 {
     public function __construct(private readonly ActivityMonitor $activityMonitor, private readonly Api $api, private readonly Config $config, private readonly PropertyFormatter $propertyFormatter, private readonly Selector $selector, private readonly Table $table)
@@ -50,7 +52,6 @@ class EnvironmentInfoCommand extends CommandBase
              ->addExample('Change the environment title', 'title "New feature"')
              ->addExample("Change the environment's parent branch", 'parent sprint-2')
              ->addExample("Unset the environment's parent branch", 'parent -');
-        $this->setHiddenAliases(['environment:metadata']);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int

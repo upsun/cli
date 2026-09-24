@@ -12,8 +12,10 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'self:update', description: 'Update the CLI to the latest version', aliases: ['update', 'up'])]
+#[HiddenAliases(['self-update'])]
 class SelfUpdateCommand extends CommandBase
 {
     public function __construct(private readonly Config $config, private readonly SelfUpdater $selfUpdater)
@@ -23,7 +25,6 @@ class SelfUpdateCommand extends CommandBase
     protected function configure(): void
     {
         $this
-            ->setHiddenAliases(['self-update'])
             ->addOption('no-major', null, InputOption::VALUE_NONE, 'Only update between minor or patch versions')
             ->addOption('unstable', null, InputOption::VALUE_NONE, 'Update to a new unstable version, if available')
             ->addOption('manifest', null, InputOption::VALUE_REQUIRED, 'Override the manifest file location')

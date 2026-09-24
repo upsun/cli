@@ -15,11 +15,13 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 /**
  * @deprecated Use variable:get and variable:list instead
  */
 #[AsCommand(name: 'project:variable:get', description: 'View variable(s) for a project', aliases: ['project-variables', 'pvget'])]
+#[HiddenAliases(['project:variable:list'])]
 class ProjectVariableGetCommand extends CommandBase
 {
     protected bool $hiddenInList = true;
@@ -41,7 +43,6 @@ class ProjectVariableGetCommand extends CommandBase
         Table::configureInput($this->getDefinition());
         $this->selector->addProjectOption($this->getDefinition());
         $this->addCompleter($this->selector);
-        $this->setHiddenAliases(['project:variable:list']);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int

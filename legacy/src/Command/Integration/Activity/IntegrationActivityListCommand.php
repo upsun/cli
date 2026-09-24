@@ -23,8 +23,10 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'integration:activity:list', description: 'Get a list of activities for an integration', aliases: ['integration:activities'])]
+#[HiddenAliases(['int:act', 'i:act'])]
 class IntegrationActivityListCommand extends IntegrationCommandBase
 {
     /** @var array<string, string> */
@@ -52,7 +54,6 @@ class IntegrationActivityListCommand extends IntegrationCommandBase
     protected function configure(): void
     {
         $this
-            ->setHiddenAliases(['int:act', 'i:act'])
             ->addArgument('id', InputArgument::OPTIONAL, 'An integration ID. Leave blank to choose from a list.')
             ->addOption(
                 'type',

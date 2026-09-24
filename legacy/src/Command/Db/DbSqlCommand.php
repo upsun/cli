@@ -22,8 +22,10 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'db:sql', description: 'Run SQL on the remote database', aliases: ['sql'])]
+#[HiddenAliases(['environment:sql'])]
 class DbSqlCommand extends CommandBase
 {
     public function __construct(private readonly Api $api, private readonly Io $io, private readonly QuestionHelper $questionHelper, private readonly Relationships $relationships, private readonly Selector $selector)
@@ -45,7 +47,6 @@ class DbSqlCommand extends CommandBase
         $this->addExample('Open an SQL console on the remote database');
         $this->addExample('View tables on the remote database', "'SHOW TABLES'");
         $this->addExample('Import a dump file into the remote database', '< dump.sql');
-        $this->setHiddenAliases(['environment:sql']);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
