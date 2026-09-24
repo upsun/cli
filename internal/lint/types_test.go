@@ -145,3 +145,27 @@ applications:
 	assert.Equal(t, `linter warnings:
   - applications.foo.type: version '1.25' of type 'golang' is retired; use one of: 1.27, 1.26`, result.Error())
 }
+
+func TestCheckTypes_NoSupportedVersions(t *testing.T) {
+	reg := registry.Registry{
+		"elasticsearch": {Type: "elasticsearch", Versions: registry.VersionInfo{Retired: []string{"7.2"}}},
+	}
+	cfg, err := lint.DecodeConfig(`
+applications:
+  app:
+    type: golang:1.26
+services:
+  retired:
+    type: elasticsearch:7.2
+  unknown:
+    type: elasticsearch:9.0`)
+	require.NoError(t, err)
+
+	result := lint.CheckTypes(cfg, reg)
+	assert.Contains(t, result.Warnings, lint.Issue{
+		Path: "services.retired.type", Message: "version '7.2' of type 'elasticsearch' is retired",
+	})
+	assert.Contains(t, result.Errors, lint.Issue{
+		Path: "services.unknown.type", Message: "version '9.0' is not supported for type 'elasticsearch'",
+	})
+}

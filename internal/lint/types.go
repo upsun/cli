@@ -74,23 +74,26 @@ func checkType(t string, reg registry.Registry, runtime bool) (string, error) {
 			return "", fmt.Errorf("type '%s' is a service type, not a runtime type", imageType)
 		}
 
-		supported := strings.Join(img.Versions.Supported, ", ")
+		// Suggest supported versions, if there are any.
+		var useOneOf, mustBeOneOf string
+		if len(img.Versions.Supported) > 0 {
+			supported := strings.Join(img.Versions.Supported, ", ")
+			useOneOf = "; use one of: " + supported
+			mustBeOneOf = "; it must be exactly one of: " + supported
+		}
 		if slices.Contains(img.Versions.Retired, version) {
-			return fmt.Sprintf("version '%s' of type '%s' is retired; use one of: %s",
-				version, imageType, supported), nil
+			return fmt.Sprintf("version '%s' of type '%s' is retired%s", version, imageType, useOneOf), nil
 		}
 
 		// Allow supported or legacy versions, but only mention supported ones in the error.
 		allVersions := slices.Concat(img.Versions.Supported, img.Versions.Legacy, img.Versions.Retired)
 		if !slices.Contains(allVersions, version) {
 			if hasMajorVersion(allVersions, version) {
-				return "", fmt.Errorf(
-					"version '%s' is not precise enough for type '%s'; it must be exactly one of: %s",
-					version, imageType, supported)
+				return "", fmt.Errorf("version '%s' is not precise enough for type '%s'%s",
+					version, imageType, mustBeOneOf)
 			}
-			return "", fmt.Errorf(
-				"version '%s' is not supported for type '%s'; it must be exactly one of: %s",
-				version, imageType, supported)
+			return "", fmt.Errorf("version '%s' is not supported for type '%s'%s",
+				version, imageType, mustBeOneOf)
 		}
 		return "", nil
 	}
