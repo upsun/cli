@@ -213,7 +213,8 @@ class ResourcesSetCommand extends ResourcesCommandBase
             $current[$group][$name]['resources']['profile_size'] = $properties['resources']['profile_size'] ?? null;
             $current[$group][$name]['instance_count'] = $properties['instance_count'] ?? null;
             $current[$group][$name]['disk'] = $properties['disk'] ?? null;
-            $current[$group][$name]['sizes'] = $containerProfiles[$containerProfile] ?? [];
+            // Unfiltered, so that usage is also known for a current size that is no longer offered.
+            $current[$group][$name]['sizes'] = $nextDeployment->container_profiles[$containerProfile] ?? [];
 
             $header = '<options=bold>' . ucfirst($type) . ': </><options=bold,underscore>' . $name . '</>';
             $headerShown = false;

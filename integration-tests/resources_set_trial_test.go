@@ -16,6 +16,11 @@ import (
 // setUpResourcesSetOrg configures an org, project, environment and deployment,
 // ready for a resources:set --size change from the current 0.5.
 func setUpResourcesSetOrg(apiHandler *mockapi.Handler, orgID string) (projectID string) {
+	return setUpResourcesSetOrgWithSize(apiHandler, orgID, "0.5")
+}
+
+// setUpResourcesSetOrgWithSize is setUpResourcesSetOrg with the app's current profile size.
+func setUpResourcesSetOrgWithSize(apiHandler *mockapi.Handler, orgID, currentSize string) (projectID string) {
 	myUserID := "my-user-id"
 	apiHandler.SetMyUser(&mockapi.User{ID: myUserID})
 	apiHandler.SetOrgs([]*mockapi.Org{{
@@ -60,7 +65,7 @@ func setUpResourcesSetOrg(apiHandler *mockapi.Handler, orgID string) (projectID 
 					"type":              "golang:1.23",
 					"container_profile": "BALANCED",
 					"resources": map[string]any{
-						"profile_size": "0.5",
+						"profile_size": currentSize,
 					},
 					"instance_count": 1,
 					"disk":           512,
@@ -89,6 +94,12 @@ func setUpResourcesSetOrg(apiHandler *mockapi.Handler, orgID string) (projectID 
 						"cpu":      "1",
 						"memory":   "256",
 						"cpu_type": "shared",
+					},
+					// Filtered out: the project does not support guaranteed CPU.
+					"2": map[string]any{
+						"cpu":      "2",
+						"memory":   "512",
+						"cpu_type": "guaranteed",
 					},
 				},
 			},
@@ -290,4 +301,21 @@ func TestResourcesSet_TrialWithoutSizeChange(t *testing.T) {
 	assert.Error(t, err)
 	assert.NotContains(t, stderr, "Warning")
 	assert.Contains(t, stderr, "trial CPU limit")
+}
+
+// TestResourcesSet_TrialFromUnsupportedGuaranteedSize checks that the trial
+// limits count the current size even if it is a guaranteed CPU size that the
+// project no longer offers.
+func TestResourcesSet_TrialFromUnsupportedGuaranteedSize(t *testing.T) {
+	apiHandler := mockapi.NewHandler(t)
+	orgID := "org-trial-guaranteed"
+	projectID := setUpResourcesSetOrgWithSize(apiHandler, orgID, "2")
+	// The CPU limit is used up, but going from 2 CPU to 1 reduces usage.
+	setTrial(apiHandler, orgID, activeTrial(2, 12, 20))
+	setUsage(apiHandler, orgID, 2, 0.5, 0.5)
+
+	stdout, stderr, err := runResourcesSet(t, apiHandler, projectID, "app:1")
+
+	require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
+	assert.NotContains(t, stderr, "trial CPU limit")
 }
