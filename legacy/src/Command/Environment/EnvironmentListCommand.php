@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\InputUtil;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -181,8 +182,8 @@ class EnvironmentListCommand extends CommandBase
         }
         $this->filterEnvironments($environments, $filters);
 
-        if ($input->getOption('sort')) {
-            $this->api->sortResources($environments, $input->getOption('sort'));
+        if ($sort = InputUtil::getNullableStringOption($input, 'sort')) {
+            $this->api->sortResources($environments, $sort);
         }
         if ($input->getOption('reverse')) {
             $environments = array_reverse($environments, true);

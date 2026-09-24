@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\InputUtil;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -62,7 +63,7 @@ class EnvironmentDrushCommand extends CommandBase
     {
         $selection = $this->selector->getSelection($input);
 
-        $drushCommand = (array) $input->getArgument('cmd');
+        $drushCommand = InputUtil::getStringArrayArgument($input, 'cmd');
         if (count($drushCommand) === 1) {
             $drushCommand = reset($drushCommand);
         } else {
@@ -71,11 +72,11 @@ class EnvironmentDrushCommand extends CommandBase
 
         // Pass through options that the CLI shares with Drush.
         foreach (['yes', 'no', 'quiet'] as $option) {
-            if ($input->getOption($option) && !preg_match('/\b' . preg_quote($option) . '\b/', (string) $drushCommand)) {
+            if ($input->getOption($option) && !preg_match('/\b' . preg_quote($option) . '\b/', $drushCommand)) {
                 $drushCommand .= " --$option";
             }
         }
-        if (!preg_match('/\b((verbose|debug|quiet)\b|-v)/', (string) $drushCommand)) {
+        if (!preg_match('/\b((verbose|debug|quiet)\b|-v)/', $drushCommand)) {
             if ($output->getVerbosity() >= OutputInterface::VERBOSITY_DEBUG) {
                 $drushCommand .= " --debug";
             } elseif ($output->getVerbosity() >= OutputInterface::VERBOSITY_VERY_VERBOSE) {

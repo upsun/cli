@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\InputUtil;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
@@ -60,13 +61,13 @@ class EnvironmentInfoCommand extends CommandBase
             $environment->refresh();
         }
 
-        $property = $input->getArgument('property');
+        $property = InputUtil::getNullableStringArgument($input, 'property');
 
         if (!$property) {
             return $this->listProperties($environment);
         }
 
-        $value = $input->getArgument('value');
+        $value = InputUtil::getNullableStringArgument($input, 'value');
         if ($value !== null) {
             return $this->setProperty($property, $value, $environment, $selection->getProject(), !$this->activityMonitor->shouldWait($input));
         }

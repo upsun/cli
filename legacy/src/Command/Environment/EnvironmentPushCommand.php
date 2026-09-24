@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\InputUtil;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Service\ProjectSshInfo;
@@ -129,11 +130,11 @@ class EnvironmentPushCommand extends CommandBase
         $gitUrl = $project->getGitUrl();
 
         // Validate the source argument.
-        $source = $input->getArgument('source');
+        $source = InputUtil::getStringArgument($input, 'source');
         if ($source === '') {
             $this->stdErr->writeln('The <error><source></error> argument cannot be specified as an empty string.');
             return 1;
-        } elseif (str_contains((string) $source, ':')
+        } elseif (str_contains($source, ':')
             || !($sourceRevision = $this->git->execute(['rev-parse', '--verify', $source]))) {
             $this->stdErr->writeln(sprintf('Invalid source ref: <error>%s</error>', $source));
             return 1;
@@ -143,8 +144,8 @@ class EnvironmentPushCommand extends CommandBase
 
         // Find the target branch name (--target, the name of the current
         // environment, or the Git branch name).
-        if ($input->getOption('target')) {
-            $target = $input->getOption('target');
+        if ($targetOption = InputUtil::getNullableStringOption($input, 'target')) {
+            $target = $targetOption;
         } elseif ($selection->hasEnvironment()) {
             $target = $selection->getEnvironment()->id;
         } else {
@@ -170,10 +171,10 @@ class EnvironmentPushCommand extends CommandBase
         $activateRequested = $this->determineShouldActivate($input, $project, $target, $targetEnvironment);
 
         // Determine the parent and type for the environment, which may be not specified.
-        $parentId = $input->getOption('parent');
-        $type = $input->getOption('type');
+        $parentId = InputUtil::getNullableStringOption($input, 'parent');
+        $type = InputUtil::getNullableStringOption($input, 'type');
 
-        $strategy = $input->getOption('deploy-strategy');
+        $strategy = InputUtil::getNullableStringOption($input, 'deploy-strategy');
         if ($strategy !== null && $strategy !== 'rolling' && $strategy !== 'stopstart') {
             $this->stdErr->writeln(sprintf('Invalid deploy strategy <error>%s</error>, should be "rolling" or "stopstart"', $strategy));
             return 1;
@@ -317,13 +318,13 @@ class EnvironmentPushCommand extends CommandBase
                 $this->stdErr->writeln('The push completed but resources must be configured before deployment can succeed.');
                 if ($this->config->isCommandEnabled('resources:set')) {
                     $cmd = 'resources:set';
-                    if ($input->getOption('project')) {
-                        $cmd .= ' -p ' . OsUtil::escapeShellArg($input->getOption('project'));
+                    if ($projectOption = InputUtil::getNullableStringOption($input, 'project')) {
+                        $cmd .= ' -p ' . OsUtil::escapeShellArg($projectOption);
                     }
-                    if ($input->getOption('target')) {
-                        $cmd .= ' -e ' . OsUtil::escapeShellArg($input->getOption('target'));
-                    } elseif ($input->getOption('environment')) {
-                        $cmd .= ' -e ' . OsUtil::escapeShellArg($input->getOption('environment'));
+                    if ($targetOption = InputUtil::getNullableStringOption($input, 'target')) {
+                        $cmd .= ' -e ' . OsUtil::escapeShellArg($targetOption);
+                    } elseif ($environmentOption = InputUtil::getNullableStringOption($input, 'environment')) {
+                        $cmd .= ' -e ' . OsUtil::escapeShellArg($environmentOption);
                     }
                     $this->stdErr->writeln('');
                     $this->stdErr->writeln(sprintf(

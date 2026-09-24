@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Mount;
 
+use Platformsh\Cli\Console\InputUtil;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -54,7 +55,7 @@ class MountUploadCommand extends CommandBase
         $selection = $this->selector->getSelection($input, new SelectorConfig(chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
         $container = $selection->getRemoteContainer();
         $mounts = $this->mount->mountsFromConfig($container->getConfig());
-        $sshUrl = $container->getSshUrl($input->getOption('instance'));
+        $sshUrl = $container->getSshUrl(InputUtil::getNullableStringOption($input, 'instance') ?? '');
 
         if (empty($mounts)) {
             $this->stdErr->writeln(sprintf('No mounts found on host: <info>%s</info>', $sshUrl));

@@ -283,40 +283,10 @@ parameters:
 			path: src/Command/Activity/ActivityCancelCommand.php
 
 		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:matchPartialId\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Client\\Model\\Project\:\:getActivity\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
 			message: '#^Parameter \#1 \$values of method Symfony\\Component\\Console\\Completion\\CompletionSuggestions\:\:suggestValues\(\) expects list\<string\|Symfony\\Component\\Console\\Completion\\Suggestion\>, array\<string\> given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Activity/ActivityCommandBase.php
-
-		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:matchPartialId\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Activity/ActivityGetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Client\\Model\\Project\:\:getActivity\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Activity/ActivityGetCommand.php
-
-		-
-			message: '#^Parameter \#3 \$property of method Platformsh\\Cli\\Service\\PropertyFormatter\:\:displayData\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Activity/ActivityGetCommand.php
 
 		-
 			message: '#^Cannot access offset ''build''\|''deploy''\|''execute''\|''wait'' on mixed\.$#'
@@ -325,40 +295,10 @@ parameters:
 			path: src/Command/Activity/ActivityListCommand.php
 
 		-
-			message: '#^Cannot cast mixed to int\.$#'
-			identifier: cast.int
-			count: 1
-			path: src/Command/Activity/ActivityListCommand.php
-
-		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
 			count: 1
 			path: src/Command/Activity/ActivityListCommand.php
-
-		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:matchPartialId\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Activity/ActivityLogCommand.php
-
-		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Client\\Model\\Project\:\:getActivity\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Activity/ActivityLogCommand.php
-
-		-
-			message: '#^Parameter \#2 \$timestamps of method Platformsh\\Cli\\Service\\ActivityMonitor\:\:formatLog\(\) expects bool\|string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Activity/ActivityLogCommand.php
-
-		-
-			message: '#^Parameter \#3 \$timestamps of method Platformsh\\Cli\\Service\\ActivityMonitor\:\:waitAndLog\(\) expects bool\|string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Activity/ActivityLogCommand.php
 
 		-
 			message: '#^Parameter \#1 \$config of class Platformsh\\Cli\\Model\\AppConfig constructor expects array\<string, mixed\>, array\<mixed, mixed\> given\.$#'
@@ -1399,188 +1339,8 @@ parameters:
 			path: src/Command/Domain/DomainUpdateCommand.php
 
 		-
-			message: '#^Parameter \#1 \$array of function array_diff expects array, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentActivateCommand.php
-
-		-
-			message: '#^Parameter \#1 \$array of function array_flip expects array\<int\|string\>, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentActivateCommand.php
-
-		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getEnvironment\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentActivateCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentActivateCommand.php
-
-		-
-			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentActivateCommand.php
-
-		-
-			message: '#^Part \$notFoundId \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: src/Command/Environment/EnvironmentActivateCommand.php
-
-		-
-			message: '#^Binary operation "\." between '' \(type\: \<info\>'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Environment/EnvironmentBranchCommand.php
-
-		-
-			message: '#^Binary operation "\." between ''\<info\>'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 2
-			path: src/Command/Environment/EnvironmentBranchCommand.php
-
-		-
-			message: '#^Binary operation "\." between ''Failed to check out…'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Environment/EnvironmentBranchCommand.php
-
-		-
-			message: '#^Binary operation "\." between ''Failed to create…'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Environment/EnvironmentBranchCommand.php
-
-		-
-			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 2
-			path: src/Command/Environment/EnvironmentBranchCommand.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 1
-			path: src/Command/Environment/EnvironmentBranchCommand.php
-
-		-
-			message: '#^Parameter \#1 \$branchName of method Platformsh\\Cli\\Service\\Git\:\:branchExists\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentBranchCommand.php
-
-		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getEnvironment\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentBranchCommand.php
-
-		-
-			message: '#^Parameter \#1 \$name of method Platformsh\\Cli\\Service\\Git\:\:checkOut\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentBranchCommand.php
-
-		-
-			message: '#^Parameter \#1 \$name of method Platformsh\\Cli\\Service\\Git\:\:checkOutNew\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentBranchCommand.php
-
-		-
-			message: '#^Parameter \#2 \$branch of method Platformsh\\Cli\\Service\\Git\:\:fetch\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentBranchCommand.php
-
-		-
-			message: '#^Parameter \#2 \$branch of method Platformsh\\Cli\\Service\\Git\:\:setUpstream\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentBranchCommand.php
-
-		-
-			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentBranchCommand.php
-
-		-
-			message: '#^Part \$branchName \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 4
-			path: src/Command/Environment/EnvironmentBranchCommand.php
-
-		-
 			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
 			identifier: foreach.nonIterable
-			count: 1
-			path: src/Command/Environment/EnvironmentCheckoutCommand.php
-
-		-
-			message: '#^Binary operation "\." between ''Branch not found\: …'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Environment/EnvironmentCheckoutCommand.php
-
-		-
-			message: '#^Binary operation "\." between ''Checking out \<info\>'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Environment/EnvironmentCheckoutCommand.php
-
-		-
-			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Environment/EnvironmentCheckoutCommand.php
-
-		-
-			message: '#^Parameter \#1 \$branchName of method Platformsh\\Cli\\Service\\Git\:\:branchExists\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentCheckoutCommand.php
-
-		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getEnvironment\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentCheckoutCommand.php
-
-		-
-			message: '#^Parameter \#1 \$name of method Platformsh\\Cli\\Service\\Git\:\:checkOut\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentCheckoutCommand.php
-
-		-
-			message: '#^Parameter \#1 \$name of method Platformsh\\Cli\\Service\\Git\:\:checkOutNew\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentCheckoutCommand.php
-
-		-
-			message: '#^Parameter \#2 \$branch of method Platformsh\\Cli\\Service\\Git\:\:fetch\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentCheckoutCommand.php
-
-		-
-			message: '#^Parameter \#2 \$branchName of method Platformsh\\Cli\\Service\\Git\:\:remoteBranchExists\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentCheckoutCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
 			count: 1
 			path: src/Command/Environment/EnvironmentCheckoutCommand.php
 
@@ -1615,70 +1375,10 @@ parameters:
 			path: src/Command/Environment/EnvironmentDeleteCommand.php
 
 		-
-			message: '#^Parameter \#2 \$wildcards of static method Platformsh\\Cli\\Util\\Wildcard\:\:select\(\) expects array\<string\>, array\<mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentDeleteCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentDeployTypeCommand.php
-
-		-
-			message: '#^Binary operation "\." between '' '' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Environment/EnvironmentDrushCommand.php
-
-		-
-			message: '#^Binary operation "\.\=" between mixed and '' \-\-debug'' results in an error\.$#'
-			identifier: assignOp.invalid
-			count: 1
-			path: src/Command/Environment/EnvironmentDrushCommand.php
-
-		-
-			message: '#^Binary operation "\.\=" between mixed and '' \-\-no''\|'' \-\-quiet''\|'' \-\-yes'' results in an error\.$#'
-			identifier: assignOp.invalid
-			count: 1
-			path: src/Command/Environment/EnvironmentDrushCommand.php
-
-		-
-			message: '#^Binary operation "\.\=" between mixed and '' \-\-quiet'' results in an error\.$#'
-			identifier: assignOp.invalid
-			count: 1
-			path: src/Command/Environment/EnvironmentDrushCommand.php
-
-		-
-			message: '#^Binary operation "\.\=" between mixed and '' \-\-verbose'' results in an error\.$#'
-			identifier: assignOp.invalid
-			count: 2
-			path: src/Command/Environment/EnvironmentDrushCommand.php
-
-		-
 			message: '#^Call to preg_quote\(\) is missing delimiter / to be effective\.$#'
 			identifier: argument.invalidPregQuote
 			count: 1
 			path: src/Command/Environment/EnvironmentDrushCommand.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 2
-			path: src/Command/Environment/EnvironmentDrushCommand.php
-
-		-
-			message: '#^Parameter \#1 \$callback of function array_map expects \(callable\(mixed\)\: mixed\)\|null, Closure\(string\)\: string given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentDrushCommand.php
-
-		-
-			message: '#^Parameter \#1 \$array of function array_filter expects array, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Environment/EnvironmentHttpAccessCommand.php
 
 		-
 			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
@@ -1693,60 +1393,6 @@ parameters:
 			path: src/Command/Environment/EnvironmentInfoCommand.php
 
 		-
-			message: '#^Parameter \#1 \$property of method Platformsh\\Cli\\Command\\Environment\\EnvironmentInfoCommand\:\:setProperty\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentInfoCommand.php
-
-		-
-			message: '#^Parameter \#2 \$property of method Platformsh\\Cli\\Service\\PropertyFormatter\:\:format\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentInfoCommand.php
-
-		-
-			message: '#^Parameter \#2 \$propertyPath of method Platformsh\\Cli\\Service\\Api\:\:getNestedProperty\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentInfoCommand.php
-
-		-
-			message: '#^Parameter \#2 \$value of method Platformsh\\Cli\\Command\\Environment\\EnvironmentInfoCommand\:\:setProperty\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentInfoCommand.php
-
-		-
-			message: '#^Binary operation "\." between '' with profile \<info\>'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Environment/EnvironmentInitCommand.php
-
-		-
-			message: '#^Binary operation "\." between '' with repository …'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Environment/EnvironmentInitCommand.php
-
-		-
-			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Environment/EnvironmentInitCommand.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 2
-			path: src/Command/Environment/EnvironmentInitCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentInitCommand.php
-
-		-
 			message: '#^Parameter \#1 \$environments of method Platformsh\\Cli\\Command\\Environment\\EnvironmentListCommand\:\:buildEnvironmentTree\(\) expects array\<Platformsh\\Client\\Model\\Environment\>, array\<Platformsh\\Client\\Model\\ApiResourceBase\> given\.$#'
 			identifier: argument.type
 			count: 1
@@ -1759,40 +1405,10 @@ parameters:
 			path: src/Command/Environment/EnvironmentListCommand.php
 
 		-
-			message: '#^Parameter \#2 \$propertyPath of method Platformsh\\Cli\\Service\\Api\:\:sortResources\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentListCommand.php
-
-		-
 			message: '#^Property Platformsh\\Cli\\Command\\Environment\\EnvironmentListCommand\:\:\$mapping \(array\<string, string\>\) does not accept mixed\.$#'
 			identifier: assign.propertyType
 			count: 1
 			path: src/Command/Environment/EnvironmentListCommand.php
-
-		-
-			message: '#^Binary operation "\." between mixed and ''\.log'' results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Environment/EnvironmentLogCommand.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 3
-			path: src/Command/Environment/EnvironmentLogCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentLogCommand.php
-
-		-
-			message: '#^Binary operation "\." between ''\-\-push\-option…'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 2
-			path: src/Command/Environment/EnvironmentPushCommand.php
 
 		-
 			message: '#^Binary operation "\." between ''\<comment\>'' and mixed results in an error\.$#'
@@ -1813,12 +1429,6 @@ parameters:
 			path: src/Command/Environment/EnvironmentPushCommand.php
 
 		-
-			message: '#^Binary operation "\." between mixed and ''\:refs/heads/'' results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Environment/EnvironmentPushCommand.php
-
-		-
 			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
 			count: 1
@@ -1827,7 +1437,7 @@ parameters:
 		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 2
+			count: 1
 			path: src/Command/Environment/EnvironmentPushCommand.php
 
 		-
@@ -1837,49 +1447,19 @@ parameters:
 			path: src/Command/Environment/EnvironmentPushCommand.php
 
 		-
-			message: '#^Parameter \#1 \$args of method Platformsh\\Cli\\Service\\Git\:\:execute\(\) expects array\<string\>, array\<int, mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentPushCommand.php
-
-		-
-			message: '#^Parameter \#1 \$argument of static method Platformsh\\Cli\\Util\\OsUtil\:\:escapeShellArg\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 3
-			path: src/Command/Environment/EnvironmentPushCommand.php
-
-		-
 			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getEnvironment\(\) expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 2
 			path: src/Command/Environment/EnvironmentPushCommand.php
 
 		-
-			message: '#^Parameter \#2 \$parentId of method Platformsh\\Cli\\Command\\Environment\\EnvironmentPushCommand\:\:ensureActive\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentPushCommand.php
-
-		-
 			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
-			count: 5
+			count: 1
 			path: src/Command/Environment/EnvironmentPushCommand.php
 
 		-
 			message: '#^Parameter \#3 \$target of method Platformsh\\Cli\\Command\\Environment\\EnvironmentPushCommand\:\:determineShouldActivate\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentPushCommand.php
-
-		-
-			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentPushCommand.php
-
-		-
-			message: '#^Parameter \#4 \$type of method Platformsh\\Cli\\Command\\Environment\\EnvironmentPushCommand\:\:ensureActive\(\) expects string\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Environment/EnvironmentPushCommand.php
@@ -1915,96 +1495,6 @@ parameters:
 			path: src/Command/Environment/EnvironmentRelationshipsCommand.php
 
 		-
-			message: '#^Parameter \#3 \$property of method Platformsh\\Cli\\Service\\PropertyFormatter\:\:displayData\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentRelationshipsCommand.php
-
-		-
-			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 1
-			path: src/Command/Environment/EnvironmentScpCommand.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 3
-			path: src/Command/Environment/EnvironmentScpCommand.php
-
-		-
-			message: '#^Parameter \#1 \$instance of method Platformsh\\Cli\\Model\\RemoteContainer\\RemoteContainerInterface\:\:getSshUrl\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentScpCommand.php
-
-		-
-			message: '#^Parameter \#1 \$branch of method Platformsh\\Cli\\Service\\Git\:\:getUpstream\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentSetRemoteCommand.php
-
-		-
-			message: '#^Parameter \#1 \$branchName of method Platformsh\\Cli\\Service\\Git\:\:branchExists\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Environment/EnvironmentSetRemoteCommand.php
-
-		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getEnvironment\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentSetRemoteCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 3
-			path: src/Command/Environment/EnvironmentSetRemoteCommand.php
-
-		-
-			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentSetRemoteCommand.php
-
-		-
-			message: '#^Part \$specifiedBranch \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: src/Command/Environment/EnvironmentSetRemoteCommand.php
-
-		-
-			message: '#^Part \$specifiedEnvironmentId \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 2
-			path: src/Command/Environment/EnvironmentSetRemoteCommand.php
-
-		-
-			message: '#^Parameter \#1 \$instance of method Platformsh\\Cli\\Model\\RemoteContainer\\RemoteContainerInterface\:\:getSshUrl\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentSshCommand.php
-
-		-
-			message: '#^Parameter \#2 \$extraOptions of method Platformsh\\Cli\\Service\\Ssh\:\:getSshCommand\(\) expects array\<string\>, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentSshCommand.php
-
-		-
-			message: '#^Parameter \#3 \$remoteCommand of method Platformsh\\Cli\\Service\\Ssh\:\:getSshCommand\(\) expects array\<string\>\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentSshCommand.php
-
-		-
-			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 1
-			path: src/Command/Environment/EnvironmentSynchronizeCommand.php
-
-		-
 			message: '#^Binary operation "\." between ''\<error\>Error\:\<…'' and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
 			count: 1
@@ -2017,25 +1507,7 @@ parameters:
 			path: src/Command/Environment/EnvironmentSynchronizeCommand.php
 
 		-
-			message: '#^Parameter \#1 \$array of function array_unique expects an array of values castable to string, list\<mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentSynchronizeCommand.php
-
-		-
 			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getEnvironment\(\) expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentSynchronizeCommand.php
-
-		-
-			message: '#^Parameter \#1 \$items of static method Platformsh\\Cli\\Util\\StringUtil\:\:formatItemList\(\) expects array\<string\>, array\<int\<0, max\>, mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentSynchronizeCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Environment/EnvironmentSynchronizeCommand.php
@@ -2053,12 +1525,6 @@ parameters:
 			path: src/Command/Environment/EnvironmentUrlCommand.php
 
 		-
-			message: '#^Binary operation "\." between ''127\.0\.0\.1\:'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Environment/EnvironmentXdebugCommand.php
-
-		-
 			message: '#^Cannot access offset ''idekey'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -2073,12 +1539,6 @@ parameters:
 		-
 			message: '#^Method Platformsh\\Cli\\Command\\Environment\\EnvironmentXdebugCommand\:\:execute\(\) should return int but returns int\|null\.$#'
 			identifier: return.type
-			count: 1
-			path: src/Command/Environment/EnvironmentXdebugCommand.php
-
-		-
-			message: '#^Parameter \#1 \$instance of method Platformsh\\Cli\\Model\\RemoteContainer\\RemoteContainerInterface\:\:getSshUrl\(\) expects string, mixed given\.$#'
-			identifier: argument.type
 			count: 1
 			path: src/Command/Environment/EnvironmentXdebugCommand.php
 
@@ -2101,38 +1561,8 @@ parameters:
 			path: src/Command/HelpCommand.php
 
 		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:matchPartialId\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Integration/Activity/IntegrationActivityGetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Client\\Model\\Project\:\:getActivity\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Integration/Activity/IntegrationActivityGetCommand.php
-
-		-
-			message: '#^Parameter \#2 \$id of method Platformsh\\Cli\\Command\\Integration\\IntegrationCommandBase\:\:selectIntegration\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Integration/Activity/IntegrationActivityGetCommand.php
-
-		-
-			message: '#^Parameter \#3 \$property of method Platformsh\\Cli\\Service\\PropertyFormatter\:\:displayData\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Integration/Activity/IntegrationActivityGetCommand.php
-
-		-
 			message: '#^Cannot access offset ''build''\|''deploy''\|''execute''\|''wait'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Integration/Activity/IntegrationActivityListCommand.php
-
-		-
-			message: '#^Cannot cast mixed to int\.$#'
-			identifier: cast.int
 			count: 1
 			path: src/Command/Integration/Activity/IntegrationActivityListCommand.php
 
@@ -2141,42 +1571,6 @@ parameters:
 			identifier: cast.string
 			count: 1
 			path: src/Command/Integration/Activity/IntegrationActivityListCommand.php
-
-		-
-			message: '#^Parameter \#2 \$id of method Platformsh\\Cli\\Command\\Integration\\IntegrationCommandBase\:\:selectIntegration\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Integration/Activity/IntegrationActivityListCommand.php
-
-		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:matchPartialId\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Integration/Activity/IntegrationActivityLogCommand.php
-
-		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Client\\Model\\Project\:\:getActivity\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Integration/Activity/IntegrationActivityLogCommand.php
-
-		-
-			message: '#^Parameter \#2 \$id of method Platformsh\\Cli\\Command\\Integration\\IntegrationCommandBase\:\:selectIntegration\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Integration/Activity/IntegrationActivityLogCommand.php
-
-		-
-			message: '#^Parameter \#2 \$timestamps of method Platformsh\\Cli\\Service\\ActivityMonitor\:\:formatLog\(\) expects bool\|string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Integration/Activity/IntegrationActivityLogCommand.php
-
-		-
-			message: '#^Parameter \#3 \$timestamps of method Platformsh\\Cli\\Service\\ActivityMonitor\:\:waitAndLog\(\) expects bool\|string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Integration/Activity/IntegrationActivityLogCommand.php
 
 		-
 			message: '#^Binary operation "\." between ''\<comment\>Warning\:\<…'' and mixed results in an error\.$#'
@@ -2785,12 +2179,6 @@ parameters:
 			path: src/Command/Mount/MountDownloadCommand.php
 
 		-
-			message: '#^Parameter \#1 \$instance of method Platformsh\\Cli\\Model\\RemoteContainer\\RemoteContainerInterface\:\:getSshUrl\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Mount/MountDownloadCommand.php
-
-		-
 			message: '#^Parameter \#1 \$path of method Platformsh\\Cli\\Service\\Filesystem\:\:formatPathForDisplay\(\) expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 2
@@ -2846,12 +2234,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$directory of method Platformsh\\Cli\\Service\\Filesystem\:\:validateDirectory\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Mount/MountUploadCommand.php
-
-		-
-			message: '#^Parameter \#1 \$instance of method Platformsh\\Cli\\Model\\RemoteContainer\\RemoteContainerInterface\:\:getSshUrl\(\) expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Mount/MountUploadCommand.php

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\InputUtil;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\ProjectSshInfo;
 use Platformsh\Cli\Selector\Selector;
@@ -95,8 +96,8 @@ class EnvironmentDeleteCommand extends CommandBase
 
         // Add the environment(s) specified in the arguments or options.
         $specifiedEnvironmentIds = ArrayArgument::getArgument($input, 'environment');
-        if ($input->getOption('environment')) {
-            $specifiedEnvironmentIds = array_merge([$input->getOption('environment')], $specifiedEnvironmentIds);
+        if ($environmentOption = InputUtil::getNullableStringOption($input, 'environment')) {
+            $specifiedEnvironmentIds = array_merge([$environmentOption], $specifiedEnvironmentIds);
         }
         if ($specifiedEnvironmentIds) {
             $anythingSpecified = true;

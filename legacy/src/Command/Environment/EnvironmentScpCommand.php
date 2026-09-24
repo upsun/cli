@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\InputUtil;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Shell;
@@ -45,7 +46,7 @@ class EnvironmentScpCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $files = $input->getArgument('files');
+        $files = InputUtil::getStringArrayArgument($input, 'files');
         if (!$files) {
             throw new InvalidArgumentException('No files specified');
         }
@@ -53,7 +54,7 @@ class EnvironmentScpCommand extends CommandBase
         $selection = $this->selector->getSelection($input, new SelectorConfig(chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
         $container = $selection->getRemoteContainer();
 
-        $sshUrl = $container->getSshUrl($input->getOption('instance'));
+        $sshUrl = $container->getSshUrl(InputUtil::getNullableStringOption($input, 'instance') ?? '');
         $command = 'scp';
 
         if ($sshArgs = $this->ssh->getSshArgs($sshUrl)) {
@@ -72,11 +73,11 @@ class EnvironmentScpCommand extends CommandBase
 
         $remoteUsed = false;
         foreach ($files as $file) {
-            if (str_starts_with((string) $file, 'remote:')) {
-                $command .= ' ' . escapeshellarg($sshUrl . ':' . substr((string) $file, 7));
+            if (str_starts_with($file, 'remote:')) {
+                $command .= ' ' . escapeshellarg($sshUrl . ':' . substr($file, 7));
                 $remoteUsed = true;
             } else {
-                $command .= ' ' . escapeshellarg((string) $file);
+                $command .= ' ' . escapeshellarg($file);
             }
         }
 

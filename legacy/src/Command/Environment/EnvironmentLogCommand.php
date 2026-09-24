@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\InputUtil;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -58,6 +59,7 @@ class EnvironmentLogCommand extends CommandBase
         if ($input->getOption('tail') && $this->runningViaMulti) {
             throw new InvalidArgumentException('The --tail option cannot be used with "multi"');
         }
+        $lines = InputUtil::getIntOption($input, 'lines');
 
         $host = $this->selector->getHostFromSelection($input, $selection);
 
@@ -71,10 +73,10 @@ class EnvironmentLogCommand extends CommandBase
         }
 
         // Select the log file that the user specified.
-        if ($logType = $input->getArgument('type')) {
+        if ($logType = InputUtil::getNullableStringArgument($input, 'type')) {
             // @todo this might need to be cleverer
-            if (str_ends_with((string) $logType, '.log')) {
-                $logType = substr((string) $logType, 0, strlen((string) $logType) - 4);
+            if (str_ends_with($logType, '.log')) {
+                $logType = substr($logType, 0, strlen($logType) - 4);
             }
             $logFilename = $logDir . '/' . OsUtil::escapePosixShellArg($logType . '.log');
         } elseif (!$input->isInteractive()) {
@@ -107,7 +109,7 @@ class EnvironmentLogCommand extends CommandBase
             $logFilename = $this->questionHelper->choose($files, 'Enter a number to choose a log: ');
         }
 
-        $command = sprintf('tail -n %1$d %2$s', $input->getOption('lines'), $logFilename);
+        $command = sprintf('tail -n %1$d %2$s', $lines, $logFilename);
         if ($input->getOption('tail')) {
             $command .= ' -f';
         }

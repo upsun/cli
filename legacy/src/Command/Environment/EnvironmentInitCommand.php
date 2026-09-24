@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\InputUtil;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
@@ -49,10 +50,10 @@ class EnvironmentInitCommand extends CommandBase
 
         $environment = $selection->getEnvironment();
 
-        $url = $input->getArgument('url');
-        $profile = $input->getOption('profile') ?: basename((string) $url);
+        $url = InputUtil::getStringArgument($input, 'url');
+        $profile = InputUtil::getNullableStringOption($input, 'profile') ?: basename($url);
 
-        if (parse_url((string) $url) === false) {
+        if (parse_url($url) === false) {
             $this->stdErr->writeln(sprintf('Invalid repository URL: <error>%s</error>', $url));
 
             return 1;

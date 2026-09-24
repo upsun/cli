@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\InputUtil;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\ResourcesUtil;
 use Platformsh\Cli\Selector\Selector;
@@ -61,7 +62,7 @@ class EnvironmentActivateCommand extends CommandBase
             $toActivate = [$selection->getEnvironment()];
         } else {
             $environments = $this->api->getEnvironments($selection->getProject());
-            $environmentIds = $input->getArgument('environment');
+            $environmentIds = InputUtil::getStringArrayArgument($input, 'environment');
             $toActivate = array_intersect_key($environments, array_flip($environmentIds));
             $notFound = array_diff($environmentIds, array_keys($environments));
             foreach ($notFound as $notFoundId) {
@@ -79,7 +80,7 @@ class EnvironmentActivateCommand extends CommandBase
      */
     protected function activateMultiple(array $environments, Project $project, InputInterface $input, OutputInterface $output): bool
     {
-        $parentId = $input->getOption('parent');
+        $parentId = InputUtil::getNullableStringOption($input, 'parent');
         if ($parentId && !$this->api->getEnvironment($parentId, $project)) {
             $this->stdErr->writeln(sprintf('Parent environment not found: <error>%s</error>', $parentId));
             return false;

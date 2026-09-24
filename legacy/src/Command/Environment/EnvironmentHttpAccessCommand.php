@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\InputUtil;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
 use Platformsh\Cli\Service\Api;
@@ -161,8 +162,8 @@ class EnvironmentHttpAccessCommand extends CommandBase
     {
         $selection = $this->selector->getSelection($input);
 
-        $auth = $input->getOption('auth');
-        $access = $input->getOption('access');
+        $auth = InputUtil::getStringArrayOption($input, 'auth');
+        $access = InputUtil::getStringArrayOption($input, 'access');
 
         $accessOpts = [];
         $change = false;
