@@ -24,6 +24,7 @@ use Khill\Duration\Duration;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Console\AdaptiveTableCell;
 use Platformsh\Cli\Console\ArrayArgument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Model\Metrics\Query;
 use Platformsh\Cli\Model\Metrics\TimeSpec;
 use Platformsh\Cli\Util\Wildcard;
@@ -213,7 +214,7 @@ abstract class MetricsCommandBase extends CommandBase
         // Filter to the latest complete data point if --latest is given.
         // Services' metrics can take a minute or two to arrive, so a point
         // that started recently is skipped if an older one has more services.
-        if ($input->getOption('latest')) {
+        if (Option::bool($input, 'latest')) {
             $settledBefore = time() - self::LATEST_SETTLE_TIME;
             $latest = null;
             foreach (array_reverse($items['data']) as $item) {
@@ -407,8 +408,8 @@ abstract class MetricsCommandBase extends CommandBase
      */
     protected function validateTimeInput(InputInterface $input): false|TimeSpec
     {
-        if ($to = $input->getOption('to')) {
-            $endTime = \strtotime((string) $to);
+        if ($to = Option::stringOrNull($input, 'to')) {
+            $endTime = \strtotime($to);
             if (!$endTime) {
                 $this->stdErr->writeln('Failed to parse --to time: ' . $to);
 
@@ -417,7 +418,7 @@ abstract class MetricsCommandBase extends CommandBase
         } else {
             $endTime = time();
         }
-        if ($rangeStr = $input->getOption('range')) {
+        if ($rangeStr = Option::stringOrNull($input, 'range')) {
             $rangeSeconds = (new Duration())->toSeconds($rangeStr);
             if (empty($rangeSeconds)) {
                 $this->stdErr->writeln('Invalid --range: <error>' . $rangeStr . '</error>');
@@ -436,7 +437,7 @@ abstract class MetricsCommandBase extends CommandBase
         $startTime = $endTime - $rangeSeconds;
         $interval = null;
 
-        if ($intervalString = $input->getOption('interval')) {
+        if ($intervalString = Option::stringOrNull($input, 'interval')) {
             $interval = (int) (new Duration())->toSeconds($intervalString);
 
             if (empty($interval)) {

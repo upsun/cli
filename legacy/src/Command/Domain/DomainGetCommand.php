@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Domain;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
@@ -46,11 +48,11 @@ class DomainGetCommand extends DomainCommandBase
     {
         $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: false));
         $project = $selection->getProject();
-        $forEnvironment = $input->getOption('environment') !== null;
+        $forEnvironment = Option::stringOrNull($input, 'environment') !== null;
         $environment = $forEnvironment ? $selection->getEnvironment() : null;
         $httpClient = $this->api->getHttpClient();
 
-        $domainName = $input->getArgument('name');
+        $domainName = Argument::stringOrNull($input, 'name');
         if (!empty($domainName)) {
             $domain = $forEnvironment
                 ? EnvironmentDomain::get($domainName, $environment->getLink('#domains'), $httpClient)
@@ -74,7 +76,7 @@ class DomainGetCommand extends DomainCommandBase
             $domain = $byName[$domainName];
         }
 
-        if ($property = $input->getOption('property')) {
+        if ($property = Option::stringOrNull($input, 'property')) {
             $value = $this->api->getNestedProperty($domain, $property);
             $output->writeln($this->propertyFormatter->format($value, $property));
 

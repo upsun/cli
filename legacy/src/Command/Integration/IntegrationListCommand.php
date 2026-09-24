@@ -7,6 +7,7 @@ namespace Platformsh\Cli\Command\Integration;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Console\AdaptiveTableCell;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Table;
 use Platformsh\Client\Model\Integration;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -45,7 +46,7 @@ class IntegrationListCommand extends IntegrationCommandBase
             return 1;
         }
 
-        if ($type = $input->getOption('type')) {
+        if ($type = Option::stringOrNull($input, 'type')) {
             $integrations = array_filter($integrations, fn(Integration $i): bool => $i->type === $type);
         }
         $rows = [];

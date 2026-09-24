@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selection;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
@@ -38,7 +39,7 @@ class WebConsoleCommand extends CommandBase
             $environmentId = $selection->hasEnvironment() ? $selection->getEnvironment()->id : null;
         } catch (\Exception $e) {
             // If a project has been specified but is not found, then error out.
-            if ($input->getOption('project')) {
+            if (Option::stringOrNull($input, 'project')) {
                 throw $e;
             }
             $selection = new Selection();
@@ -46,7 +47,7 @@ class WebConsoleCommand extends CommandBase
             // If an environment ID has been specified but not found, then use
             // the specified ID anyway. This allows building a URL when an
             // environment doesn't yet exist.
-            $environmentId = $input->getOption('environment');
+            $environmentId = Option::stringOrNull($input, 'environment');
         }
 
         if ($selection->hasProject()) {

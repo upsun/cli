@@ -10,6 +10,7 @@ use Platformsh\Cli\Service\Filesystem;
 use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Service\Shell;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Option;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Helper\FormatterHelper;
 use Symfony\Component\Console\Input\InputInterface;
@@ -48,13 +49,13 @@ class SelfBuildCommand extends CommandBase
             return 1;
         }
 
-        $outputFilename = $input->getOption('output');
+        $outputFilename = Option::string($input, 'output');
         if ($outputFilename && !$this->filesystem->canWrite($outputFilename)) {
             $this->stdErr->writeln("Not writable: <error>$outputFilename</error>");
             return 1;
         }
 
-        $keyFilename = $input->getOption('key');
+        $keyFilename = Option::stringOrNull($input, 'key');
         if ($keyFilename && !file_exists($keyFilename)) {
             $this->stdErr->writeln("File not found: <error>$keyFilename</error>");
             return 1;
@@ -63,8 +64,8 @@ class SelfBuildCommand extends CommandBase
         $boxConfig = [];
 
         $version = $this->config->getVersion();
-        if ($input->getOption('replace-version')) {
-            $version = $input->getOption('replace-version');
+        if ($replaceVersion = Option::stringOrNull($input, 'replace-version')) {
+            $version = $replaceVersion;
         } else {
             $tag = $this->shell->execute(['git', 'describe', '--tags'], CLI_ROOT);
             if ($tag !== false) {
@@ -95,7 +96,7 @@ class SelfBuildCommand extends CommandBase
             }
         }
 
-        if (!$input->getOption('no-composer-rebuild')) {
+        if (!Option::bool($input, 'no-composer-rebuild')) {
             $this->stdErr->writeln('Ensuring correct composer dependencies.');
             $this->stdErr->writeln('If this fails, you may need to run "composer install" manually.');
 

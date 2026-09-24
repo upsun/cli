@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\SourceOperation;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -63,7 +64,7 @@ class ListCommand extends CommandBase
             $row = [];
             $row[] = new AdaptiveTableCell($sourceOp->operation, ['wrap' => false]);
             $row[] = $sourceOp->app;
-            $row[] = $input->getOption('full') ? $sourceOp->command : $this->truncateCommand($sourceOp->command);
+            $row[] = Option::bool($input, 'full') ? $sourceOp->command : $this->truncateCommand($sourceOp->command);
             $rows[] = $row;
         }
 

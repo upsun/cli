@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Service\MongoDB;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\QuestionHelper;
@@ -43,7 +44,9 @@ class MongoExportCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        if ($input->getOption('type') === 'csv' && !$input->getOption('fields')) {
+        $type = Option::stringOrNull($input, 'type');
+        $fields = Option::stringArray($input, 'fields');
+        if ($type === 'csv' && !$fields) {
             throw new InvalidArgumentException(
                 'CSV mode requires a field list.'
                 . "\n" . 'Use --fields (-f) to specify field(s) to export.',
@@ -60,7 +63,7 @@ class MongoExportCommand extends CommandBase
             return 1;
         }
 
-        if (!$collection = $input->getOption('collection')) {
+        if (!$collection = Option::stringOrNull($input, 'collection')) {
             if (!$input->isInteractive()) {
                 throw new InvalidArgumentException('No collection specified. Use the --collection (-c) option to specify one.');
             }
@@ -75,14 +78,14 @@ class MongoExportCommand extends CommandBase
         $command = 'mongoexport ' . $this->relationships->getDbCommandArgs('mongoexport', $service);
         $command .= ' --collection ' . OsUtil::escapePosixShellArg($collection);
 
-        if ($input->getOption('type')) {
-            $command .= ' --type ' . OsUtil::escapePosixShellArg($input->getOption('type'));
+        if ($type) {
+            $command .= ' --type ' . OsUtil::escapePosixShellArg($type);
         }
-        if ($input->getOption('jsonArray')) {
+        if (Option::bool($input, 'jsonArray')) {
             $command .= ' --jsonArray';
         }
-        if ($input->getOption('fields')) {
-            $command .= ' --fields ' . OsUtil::escapePosixShellArg(implode(',', $input->getOption('fields')));
+        if ($fields) {
+            $command .= ' --fields ' . OsUtil::escapePosixShellArg(implode(',', $fields));
         }
 
         if (!$output->isVerbose()) {

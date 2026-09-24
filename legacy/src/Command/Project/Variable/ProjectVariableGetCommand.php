@@ -7,6 +7,8 @@ namespace Platformsh\Cli\Command\Project\Variable;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\SubCommandRunner;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Table;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
@@ -47,12 +49,12 @@ class ProjectVariableGetCommand extends CommandBase
         $selection = $this->selector->getSelection($input);
 
         return $this->subCommandRunner->run('variable:get', [
-            'name' => $input->getArgument('name'),
+            'name' => Argument::stringOrNull($input, 'name'),
             '--level' => 'project',
             '--project' => $selection->getProject()->id,
         ] + array_filter([
-            '--format' => $input->getOption('format'),
-            '--pipe' => $input->getOption('pipe'),
+            '--format' => Option::string($input, 'format'),
+            '--pipe' => Option::bool($input, 'pipe'),
         ]));
     }
 }

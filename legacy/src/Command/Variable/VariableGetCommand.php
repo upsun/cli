@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Command\Variable;
 
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selection;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
@@ -60,7 +62,7 @@ class VariableGetCommand extends CommandBase
         $level = $this->variableCommandUtil->getRequestedLevel($input);
         $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: $level !== VariableCommandUtil::LEVEL_PROJECT));
 
-        $name = $input->getArgument('name');
+        $name = Argument::stringOrNull($input, 'name');
         if ($name) {
             $variable = $this->variableCommandUtil->getExistingVariable($name, $selection, $level);
             if (!$variable) {
@@ -77,7 +79,7 @@ class VariableGetCommand extends CommandBase
                 '--level' => $level,
                 '--project' => $selection->getProject()->id,
                 '--environment' => $selection->hasEnvironment() ? $selection->getEnvironment()->id : null,
-                '--format' => $input->getOption('format'),
+                '--format' => Option::string($input, 'format'),
             ]));
         }
 
@@ -90,7 +92,7 @@ class VariableGetCommand extends CommandBase
             ));
         }
 
-        if ($input->getOption('pipe')) {
+        if (Option::bool($input, 'pipe')) {
             if (!$variable->hasProperty('value')) {
                 if ($variable->is_sensitive) {
                     $this->stdErr->writeln('The variable is sensitive, so its value cannot be read.');
@@ -107,7 +109,7 @@ class VariableGetCommand extends CommandBase
         $properties = $variable->getProperties();
         $properties['level'] = $this->variableCommandUtil->getVariableLevel($variable);
 
-        if ($property = $input->getOption('property')) {
+        if ($property = Option::stringOrNull($input, 'property')) {
             if ($property === 'value' && !isset($properties['value']) && $variable->is_sensitive) {
                 $this->stdErr->writeln('The variable is sensitive, so its value cannot be read.');
                 return 1;

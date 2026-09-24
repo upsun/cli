@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Service;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Util\OsUtil;
 use Symfony\Component\Console\Input\InputDefinition;
 use Symfony\Component\Console\Input\InputInterface;
@@ -49,7 +50,7 @@ class Url implements InputConfiguringInterface
     public function canOpenUrls(): bool
     {
         return $this->hasDisplay()
-            && $this->getBrowser($this->input->hasOption('browser') ? $this->input->getOption('browser') : null) !== false;
+            && $this->getBrowser($this->input->hasOption('browser') ? Option::stringOrNull($this->input, 'browser') : null) !== false;
     }
 
     /**
@@ -59,12 +60,12 @@ class Url implements InputConfiguringInterface
      */
     public function openUrl(string $url, bool $print = true): bool
     {
-        $browserOption = $this->input->hasOption('browser') ? $this->input->getOption('browser') : null;
+        $browserOption = $this->input->hasOption('browser') ? Option::stringOrNull($this->input, 'browser') : null;
         $open = true;
         $success = false;
 
         // If the user wants to pipe the output to another command, stop here.
-        if ($this->input->hasOption('pipe') && $this->input->getOption('pipe')) {
+        if ($this->input->hasOption('pipe') && Option::bool($this->input, 'pipe')) {
             $open = false;
             $print = true;
         }

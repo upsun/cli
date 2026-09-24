@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Commit;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
@@ -57,7 +59,7 @@ class CommitListCommand extends CommandBase
         $selection = $this->selector->getSelection($input, new SelectorConfig(selectDefaultEnv: true));
         $environment = $selection->getEnvironment();
 
-        $startSha = $input->getArgument('commit');
+        $startSha = Argument::stringOrNull($input, 'commit');
         $startCommit = $this->gitDataApi->getCommit($environment, $startSha);
         if (!$startCommit) {
             if ($startSha) {
@@ -77,7 +79,7 @@ class CommitListCommand extends CommandBase
             ));
         }
 
-        $commits = $this->loadCommitList($environment, $startCommit, $this->getIntOption($input, 'limit'));
+        $commits = $this->loadCommitList($environment, $startCommit, Option::int($input, 'limit'));
 
         $rows = [];
         foreach ($commits as $commit) {

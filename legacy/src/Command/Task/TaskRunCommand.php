@@ -6,6 +6,8 @@ namespace Platformsh\Cli\Command\Task;
 
 use GuzzleHttp\Exception\BadResponseException;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Model\Variable;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
@@ -50,7 +52,7 @@ class TaskRunCommand extends CommandBase
         $selection = $this->selector->getSelection($input);
         $environment = $selection->getEnvironment();
 
-        $variables = (new Variable())->parseMultiple($input->getOption('variable'));
+        $variables = (new Variable())->parseMultiple(Option::stringArray($input, 'variable'));
 
         $tasks = $this->api->getEnvironmentTasks($environment);
         if ($tasks === []) {
@@ -62,7 +64,7 @@ class TaskRunCommand extends CommandBase
             return 1;
         }
 
-        $taskName = $input->getArgument('task');
+        $taskName = Argument::stringOrNull($input, 'task');
         if ($taskName === null) {
             if (!$input->isInteractive()) {
                 $this->stdErr->writeln('The <error>task</error> argument is required in non-interactive mode.');
@@ -126,7 +128,7 @@ class TaskRunCommand extends CommandBase
         $this->stdErr->writeln('The task has been triggered.');
 
         // Waiting is opt-in so the exit code can reflect a failed activity, e.g. in CI.
-        if ($input->getOption('wait') && $activities !== []) {
+        if (Option::bool($input, 'wait') && $activities !== []) {
             $success = $this->activityMonitor->waitMultiple($activities, $selection->getProject());
             return $success ? 0 : 1;
         }

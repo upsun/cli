@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Command\User;
 
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\AccessApi;
 use Platformsh\Cli\Service\ActivityMonitor;
@@ -43,7 +44,7 @@ class UserDeleteCommand extends CommandBase
     {
         $selection = $this->selector->getSelection($input);
         $project = $selection->getProject();
-        $email = $input->getArgument('email');
+        $email = Argument::string($input, 'email');
 
         $selection = $this->accessApi->loadProjectUser($project, $email);
         if (!$selection) {

@@ -9,6 +9,7 @@ use Platformsh\Cli\Service\Api;
 use GuzzleHttp\Exception\BadResponseException;
 use Platformsh\Cli\Command\Organization\OrganizationCommandBase;
 use Platformsh\Cli\Console\AdaptiveTableCell;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
 use Platformsh\Client\Model\Organization\Profile;
@@ -39,7 +40,7 @@ class OrganizationProfileCommand extends OrganizationCommandBase
         $org = $this->selector->selectOrganization($input, 'orders');
         $profile = $org->getProfile();
 
-        $property = $input->getArgument('property');
+        $property = Argument::stringOrNull($input, 'property');
         if ($property === null) {
             $headings = [];
             $values = [];
@@ -63,7 +64,7 @@ class OrganizationProfileCommand extends OrganizationCommandBase
             return 0;
         }
 
-        $value = $input->getArgument('value');
+        $value = Argument::stringOrNull($input, 'value');
         if ($value === null) {
             $this->propertyFormatter->displayData($output, $profile->getProperties(), $property);
             return 0;

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Activity;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
@@ -74,15 +76,15 @@ class ActivityGetCommand extends ActivityCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: !($input->getOption('all') || $input->getArgument('id'))));
+        $id = Argument::stringOrNull($input, 'id');
+        $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: !(Option::bool($input, 'all') || $id)));
 
-        if ($selection->hasEnvironment() && !$input->getOption('all')) {
+        if ($selection->hasEnvironment() && !Option::bool($input, 'all')) {
             $apiResource = $selection->getEnvironment();
         } else {
             $apiResource = $selection->getProject();
         }
 
-        $id = $input->getArgument('id');
         if ($id) {
             $activity = $selection->getProject()
                 ->getActivity($id);
@@ -102,7 +104,8 @@ class ActivityGetCommand extends ActivityCommandBase
         /** @var Activity $activity */
         $properties = $activity->getProperties();
 
-        if (!$input->getOption('property') && !$this->table->formatIsMachineReadable()) {
+        $property = Option::stringOrNull($input, 'property');
+        if (!$property && !$this->table->formatIsMachineReadable()) {
             $properties['description'] = ActivityMonitor::getFormattedDescription($activity);
         } else {
             $properties['description'] = $activity->description;
@@ -113,7 +116,7 @@ class ActivityGetCommand extends ActivityCommandBase
             $properties['duration'] = (new \Platformsh\Cli\Model\Activity())->getDuration($activity);
         }
 
-        if ($property = $input->getOption('property')) {
+        if ($property) {
             $this->propertyFormatter->displayData($output, $properties, $property);
             return 0;
         }

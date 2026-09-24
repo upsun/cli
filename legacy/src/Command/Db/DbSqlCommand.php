@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Db;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
@@ -48,7 +50,8 @@ class DbSqlCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        if (!$input->getArgument('query') && $this->runningViaMulti) {
+        $query = Argument::stringOrNull($input, 'query');
+        if (!$query && $this->runningViaMulti) {
             throw new InvalidArgumentException('The query argument is required when running via "multi"');
         }
 
@@ -68,7 +71,7 @@ class DbSqlCommand extends CommandBase
             return 1;
         }
 
-        $schema = $input->getOption('schema');
+        $schema = Option::stringOrNull($input, 'schema');
         if ($schema === null) {
             if ($selection->hasEnvironment()) {
                 // Get information about the deployed service associated with the
@@ -114,13 +117,11 @@ class DbSqlCommand extends CommandBase
             }
         }
 
-        $query = $input->getArgument('query');
-
         switch ($database['scheme']) {
             case 'pgsql':
                 $sqlCommand = 'psql ' . $this->relationships->getDbCommandArgs('psql', $database, $schema);
                 if ($query) {
-                    if ($input->getOption('raw')) {
+                    if (Option::bool($input, 'raw')) {
                         $sqlCommand .= ' -t';
                     }
                     $sqlCommand .= ' -c ' . OsUtil::escapePosixShellArg($query);
@@ -132,7 +133,7 @@ class DbSqlCommand extends CommandBase
                 $cmdInvocation = $this->relationships->mariaDbCommandWithFallback($cmdName);
                 $sqlCommand = $cmdInvocation . ' --no-auto-rehash ' . $this->relationships->getDbCommandArgs($cmdName, $database, $schema);
                 if ($query) {
-                    if ($input->getOption('raw')) {
+                    if (Option::bool($input, 'raw')) {
                         $sqlCommand .= ' --batch --raw';
                     }
                     $sqlCommand .= ' --execute ' . OsUtil::escapePosixShellArg($query);
@@ -141,7 +142,7 @@ class DbSqlCommand extends CommandBase
         }
 
         // Enable tabular output when the input is a terminal.
-        if (!$input->getOption('raw') && $host instanceof RemoteHost && $this->io->isTerminal(STDIN)) {
+        if (!Option::bool($input, 'raw') && $host instanceof RemoteHost && $this->io->isTerminal(STDIN)) {
             $host->setExtraSshOptions(['RequestTTY yes']);
         }
 

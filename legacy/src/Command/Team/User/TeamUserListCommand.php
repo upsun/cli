@@ -9,6 +9,7 @@ use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Command\Team\TeamCommandBase;
 use Platformsh\Cli\Console\AdaptiveTableCell;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
@@ -52,7 +53,7 @@ class TeamUserListCommand extends TeamCommandBase
     {
         $options = [];
 
-        $count = $input->getOption('count');
+        $count = Option::stringOrNull($input, 'count');
         $itemsPerPage = $this->config->getInt('pagination.count');
         if ($count !== null && $count !== '0') {
             if (!\is_numeric($count) || $count > 50) {

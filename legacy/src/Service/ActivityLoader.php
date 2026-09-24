@@ -6,6 +6,7 @@ namespace Platformsh\Cli\Service;
 
 use DateTime;
 use Platformsh\Cli\Console\ArrayArgument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Util\Wildcard;
 use Platformsh\Client\Model\Activities\HasActivitiesInterface;
 use Platformsh\Client\Model\Activity;
@@ -47,7 +48,7 @@ readonly class ActivityLoader
     {
         if ($state === [] && $input->hasOption('state')) {
             $state = ArrayArgument::getOption($input, 'state');
-            if ($input->hasOption('incomplete') && $input->getOption('incomplete')) {
+            if ($input->hasOption('incomplete') && Option::bool($input, 'incomplete')) {
                 if ($state && $state != [Activity::STATE_IN_PROGRESS, Activity::STATE_PENDING]) {
                     $this->stdErr->writeln('The <comment>--incomplete</comment> option implies <comment>--state in_progress,pending</comment>');
                 }
@@ -55,7 +56,7 @@ readonly class ActivityLoader
             }
         }
         if ($limit === null) {
-            $limit = $input->hasOption('limit') ? (int) $input->getOption('limit') : null;
+            $limit = $input->hasOption('limit') ? Option::int($input, 'limit') : null;
         }
         $availableTypes = self::getAvailableTypes();
         $requestedIncludeTypes = $input->hasOption('type') ? ArrayArgument::getOption($input, 'type') : [];
@@ -91,10 +92,10 @@ readonly class ActivityLoader
         if (!empty($typesFilter) && $this->stdErr->isDebug()) {
             $this->stdErr->writeln('<options=reverse>DEBUG</> Selected activity type(s): ' . implode(',', $typesFilter));
         }
-        $result = $input->hasOption('result') ? $input->getOption('result') : null;
+        $result = $input->hasOption('result') ? Option::stringOrNull($input, 'result') : null;
         $startsAt = null;
-        if ($input->hasOption('start') && $input->getOption('start')) {
-            $startsAt = new DateTime($input->getOption('start'));
+        if ($input->hasOption('start') && ($start = Option::stringOrNull($input, 'start'))) {
+            $startsAt = new DateTime($start);
         }
         $activities = $this->load($apiResource, $limit, $typesFilter, $startsAt, $state, $result);
         if ($withOperation) {

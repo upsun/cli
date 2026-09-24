@@ -12,6 +12,8 @@ use Platformsh\Cli\Service\Shell;
 use GuzzleHttp\Client;
 use GuzzleHttp\Utils;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Util\VersionUtil;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
@@ -60,14 +62,14 @@ class SelfReleaseCommand extends CommandBase
     {
         $this->git->setDefaultRepositoryDir(CLI_ROOT);
 
-        $releaseBranch = $input->getOption('release-branch');
+        $releaseBranch = Option::string($input, 'release-branch');
         if ($this->git->getCurrentBranch(CLI_ROOT, true) !== $releaseBranch) {
             $this->stdErr->writeln('You must be on the ' . $releaseBranch . ' branch to make a release.');
 
             return 1;
         }
 
-        if (!$input->getOption('no-check-changes')) {
+        if (!Option::bool($input, 'no-check-changes')) {
             $gitStatus = $this->git->execute(['status', '--porcelain'], CLI_ROOT, true);
             if (is_string($gitStatus) && !empty($gitStatus)) {
                 foreach (explode("\n", $gitStatus) as $statusLine) {
@@ -97,8 +99,8 @@ class SelfReleaseCommand extends CommandBase
         }
 
         // Find the previous version number.
-        if ($input->getOption('last-version')) {
-            $lastVersion = ltrim((string) $input->getOption('last-version'), 'v');
+        if ($lastVersion = Option::stringOrNull($input, 'last-version')) {
+            $lastVersion = ltrim($lastVersion, 'v');
             $lastTag = 'v' . $lastVersion;
 
             $this->stdErr->writeln('Last version number: <info>' . $lastVersion . '</info>');
@@ -108,13 +110,13 @@ class SelfReleaseCommand extends CommandBase
             $this->stdErr->writeln('Last version number (from latest Git tag): <info>' . $lastVersion . '</info>');
         }
 
-        if (!$input->getOption('no-check-changes') && !$this->hasGitDifferences($lastTag)) {
+        if (!Option::bool($input, 'no-check-changes') && !$this->hasGitDifferences($lastTag)) {
             $this->stdErr->writeln('There are no changes since the last version.');
 
             return 1;
         }
 
-        $allowLower = (bool) $input->getOption('allow-lower');
+        $allowLower = Option::bool($input, 'allow-lower');
         $validateNewVersion = function ($next) use ($lastVersion, $allowLower) {
             if ($next === null) {
                 throw new \InvalidArgumentException('The new version is required.');
@@ -131,7 +133,7 @@ class SelfReleaseCommand extends CommandBase
 
         $versionUtil = new VersionUtil();
 
-        $newVersion = $input->getArgument('version');
+        $newVersion = Argument::stringOrNull($input, 'version');
         if ($newVersion !== null) {
             $validateNewVersion($newVersion);
         } else {
@@ -153,8 +155,8 @@ class SelfReleaseCommand extends CommandBase
 
         // Set up GitHub API connection details.
         $http = new Client();
-        $repo = $input->getOption('repo') ?: $this->config->getStr('application.github_repo');
-        $repoUrl = implode('/', array_map('rawurlencode', explode('/', (string) $repo)));
+        $repo = Option::string($input, 'repo') ?: $this->config->getStr('application.github_repo');
+        $repoUrl = implode('/', array_map('rawurlencode', explode('/', $repo)));
         $repoApiUrl = 'https://api.github.com/repos/' . $repoUrl;
         $repoGitUrl = 'git@github.com:' . $repo . '.git';
 
@@ -181,7 +183,7 @@ class SelfReleaseCommand extends CommandBase
         }
 
         // Validate the --phar option.
-        $pharFilename = $input->getOption('phar');
+        $pharFilename = Option::stringOrNull($input, 'phar');
         if ($pharFilename && !file_exists($pharFilename)) {
             $this->stdErr->writeln('File not found: <error>' . $pharFilename . '</error>');
 
@@ -189,7 +191,7 @@ class SelfReleaseCommand extends CommandBase
         }
 
         // Check the manifest file for the right item to update.
-        $manifestFile = $input->getOption('manifest') ?: CLI_ROOT . '/dist/manifest.json';
+        $manifestFile = Option::stringOrNull($input, 'manifest') ?: CLI_ROOT . '/dist/manifest.json';
         $contents = file_get_contents($manifestFile);
         if ($contents === false) {
             throw new \RuntimeException('Manifest file not readable: ' . $manifestFile);
@@ -215,7 +217,7 @@ class SelfReleaseCommand extends CommandBase
             }
         }
         $manifestItem = null;
-        switch ($input->getOption('manifest-mode')) {
+        switch (Option::string($input, 'manifest-mode')) {
             case 'update-latest':
                 $manifestItem = &$latestItem;
                 break;
@@ -228,7 +230,7 @@ class SelfReleaseCommand extends CommandBase
                 break;
 
             default:
-                throw new \RuntimeException('Unrecognised --manifest-mode: ' . $input->getOption('manifest-mode'));
+                throw new \RuntimeException('Unrecognised --manifest-mode: ' . Option::string($input, 'manifest-mode'));
         }
         if ($manifestItem === null) {
             array_unshift($manifest, []);
@@ -260,17 +262,15 @@ class SelfReleaseCommand extends CommandBase
         }
 
         // Validate that the Phar file has the right version number.
-        if ($pharFilename) {
-            $versionInPhar = $this->shell->mustExecute([
-                (new PhpExecutableFinder())->find() ?: PHP_BINARY,
-                $pharFilename,
-                '--version',
-            ]);
-            if (!str_contains($versionInPhar, (string) $newVersion)) {
-                $this->stdErr->writeln('The file ' . $pharFilename . ' reports a different version: "' . $versionInPhar . '"');
+        $versionInPhar = $this->shell->mustExecute([
+            (new PhpExecutableFinder())->find() ?: PHP_BINARY,
+            $pharFilename,
+            '--version',
+        ]);
+        if (!str_contains($versionInPhar, (string) $newVersion)) {
+            $this->stdErr->writeln('The file ' . $pharFilename . ' reports a different version: "' . $versionInPhar . '"');
 
-                return 1;
-            }
+            return 1;
         }
 
         // Construct the download URL (the public location of the Phar file).

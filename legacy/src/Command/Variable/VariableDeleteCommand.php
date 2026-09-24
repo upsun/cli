@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Command\Variable;
 
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
@@ -46,7 +47,7 @@ class VariableDeleteCommand extends CommandBase
         $level = $this->variableCommandUtil->getRequestedLevel($input);
         $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: $level !== VariableCommandUtil::LEVEL_PROJECT));
 
-        $variableName = $input->getArgument('name');
+        $variableName = Argument::string($input, 'name');
 
         $variable = $this->variableCommandUtil->getExistingVariable($variableName, $selection, $level);
         if (!$variable) {

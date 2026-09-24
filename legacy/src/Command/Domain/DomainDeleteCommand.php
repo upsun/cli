@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Domain;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
@@ -42,8 +44,8 @@ class DomainDeleteCommand extends DomainCommandBase
     {
         $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: false));
 
-        $forEnvironment = $input->getOption('environment') !== null;
-        $name = $input->getArgument('name');
+        $forEnvironment = Option::stringOrNull($input, 'environment') !== null;
+        $name = Argument::string($input, 'name');
         $project = $selection->getProject();
 
         if ($forEnvironment) {

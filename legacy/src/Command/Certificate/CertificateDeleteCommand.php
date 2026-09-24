@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Certificate;
 
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
 use Platformsh\Cli\Service\Api;
@@ -40,7 +41,7 @@ class CertificateDeleteCommand extends CommandBase
     {
         $selection = $this->selector->getSelection($input);
 
-        $id = $input->getArgument('id');
+        $id = Argument::string($input, 'id');
         $project = $selection->getProject();
 
         $certificate = $project->getCertificate($id);

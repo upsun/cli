@@ -9,6 +9,7 @@ use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\Api;
 use Symfony\Contracts\Service\Attribute\Required;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Cli\Util\PaginationUtil;
 use Platformsh\Client\Model\Organization\Member;
@@ -66,8 +67,8 @@ class OrganizationCommandBase extends CommandBase
             $this->config->getStr('application.executable'),
             $commandName,
         ];
-        if ($input->hasOption('org') && $input->getOption('org')) {
-            $args[] = '--org ' . $input->getOption('org');
+        if ($input->hasOption('org') && ($org = Option::stringOrNull($input, 'org'))) {
+            $args[] = '--org ' . $org;
         }
         if ($otherArgs !== '') {
             $args[] = $otherArgs;

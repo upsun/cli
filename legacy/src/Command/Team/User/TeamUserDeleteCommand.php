@@ -9,6 +9,7 @@ use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\QuestionHelper;
 use GuzzleHttp\Exception\BadResponseException;
 use Platformsh\Cli\Command\Team\TeamCommandBase;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Client\Exception\ApiResponseException;
 use Platformsh\Client\Model\Team\Team;
@@ -44,9 +45,9 @@ class TeamUserDeleteCommand extends TeamCommandBase
             return 1;
         }
 
-        $identifier = $input->getArgument('user');
+        $identifier = Argument::stringOrNull($input, 'user');
         if ($identifier) {
-            if (str_contains((string) $identifier, '@')) {
+            if (str_contains($identifier, '@')) {
                 $orgMember = $this->api->loadMemberByEmail($organization, $identifier);
                 if (!$orgMember) {
                     $this->stdErr->writeln(sprintf('The user with email address <error>%s</error> was not found in the organization %s', $identifier, $this->api->getOrganizationLabel($organization, 'error')));

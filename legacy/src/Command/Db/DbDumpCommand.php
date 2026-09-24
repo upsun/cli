@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Db;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Api;
@@ -67,11 +68,12 @@ class DbDumpCommand extends CommandBase
         $selection = $this->selector->getSelection($input, $selectorConfig);
         $host = $this->selector->getHostFromSelection($input, $selection);
 
-        $timestamp = $input->getOption('timestamp') ? date('Ymd-His-T') : null;
-        $gzip = $input->getOption('gzip');
-        $includedTables = $input->getOption('table');
-        $excludedTables = $input->getOption('exclude-table');
-        $schemaOnly = $input->getOption('schema-only');
+        $timestamp = Option::bool($input, 'timestamp') ? date('Ymd-His-T') : null;
+        $gzip = Option::bool($input, 'gzip');
+        $includedTables = Option::stringArray($input, 'table');
+        $excludedTables = Option::stringArray($input, 'exclude-table');
+        $schemaOnly = Option::bool($input, 'schema-only');
+        $charset = Option::stringOrNull($input, 'charset');
         $projectRoot = $this->selector->getProjectRoot();
 
         $database = $this->relationships->chooseDatabase($host, $input, $output);
@@ -87,7 +89,7 @@ class DbDumpCommand extends CommandBase
             $service = isset($database['service']) ? $deployment->getService($database['service']) : false;
         }
 
-        $schema = $input->getOption('schema');
+        $schema = Option::stringOrNull($input, 'schema');
         if (empty($schema)) {
             // Get a list of schemas (database names) from the service configuration.
             $schemas = $service ? $this->relationships->getServiceSchemas($service) : [];
@@ -130,16 +132,16 @@ class DbDumpCommand extends CommandBase
         }
 
         $dumpFile = null;
-        if (!$input->getOption('stdout')) {
+        if (!Option::bool($input, 'stdout')) {
             // Process the user --file option.
-            if ($fileOption = $input->getOption('file')) {
+            if ($fileOption = Option::stringOrNull($input, 'file')) {
                 if (is_dir($fileOption)) {
                     $this->stdErr->writeln(sprintf('Filename is a directory: <error>%s</error>', $fileOption));
                     $this->stdErr->writeln('Use the --directory option to specify a directory.');
 
                     return 1;
                 }
-                $dumpFile = rtrim((string) $fileOption, '/');
+                $dumpFile = rtrim($fileOption, '/');
                 if (!$gzip && preg_match('/\.gz$/i', $dumpFile)) {
                     $this->stdErr->writeln('Warning: the filename ends with ".gz", but the dump will be plain-text.');
                     $this->stdErr->writeln('Use <comment>--gzip</comment> to create a compressed dump.');
@@ -159,13 +161,13 @@ class DbDumpCommand extends CommandBase
             }
 
             // Process the user --directory option.
-            if ($directoryOption = $input->getOption('directory')) {
+            if ($directoryOption = Option::stringOrNull($input, 'directory')) {
                 if (!is_dir($directoryOption)) {
                     $this->stdErr->writeln(sprintf('Directory not found: <error>%s</error>', $directoryOption));
 
                     return 1;
                 }
-                $dumpFile = rtrim((string) $directoryOption, '/') . '/' . basename($dumpFile);
+                $dumpFile = rtrim($directoryOption, '/') . '/' . basename($dumpFile);
             }
 
             // Insert a timestamp into the filename, before the
@@ -210,8 +212,8 @@ class DbDumpCommand extends CommandBase
                 foreach ($excludedTables as $table) {
                     $dumpCommand .= ' ' . OsUtil::escapePosixShellArg('--exclude-table=' . $table);
                 }
-                if ($input->getOption('charset') !== null) {
-                    $dumpCommand .= ' ' . OsUtil::escapePosixShellArg('--encoding=' . $input->getOption('charset'));
+                if ($charset !== null) {
+                    $dumpCommand .= ' ' . OsUtil::escapePosixShellArg('--encoding=' . $charset);
                 }
                 if ($output->isVeryVerbose()) {
                     $dumpCommand .= ' --verbose';
@@ -243,8 +245,8 @@ class DbDumpCommand extends CommandBase
                 if (!empty($service->configuration['properties']['max_allowed_packet'])) {
                     $dumpCommand .= ' --max_allowed_packet=' . $service->configuration['properties']['max_allowed_packet'] . 'MB';
                 }
-                if ($input->getOption('charset') !== null) {
-                    $dumpCommand .= ' ' . OsUtil::escapePosixShellArg('--default-character-set=' . $input->getOption('charset'));
+                if ($charset !== null) {
+                    $dumpCommand .= ' ' . OsUtil::escapePosixShellArg('--default-character-set=' . $charset);
                 }
                 if ($output->isVeryVerbose()) {
                     $dumpCommand .= ' --verbose';

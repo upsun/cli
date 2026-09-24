@@ -8,6 +8,8 @@ use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Table;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
@@ -38,13 +40,13 @@ class AuthInfoCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        if ($input->getOption('no-auto-login') && !$this->api->isLoggedIn()) {
+        if (Option::bool($input, 'no-auto-login') && !$this->api->isLoggedIn()) {
             $this->stdErr->writeln('Not logged in', OutputInterface::VERBOSITY_VERBOSE);
             return 0;
         }
 
-        $property = $input->getArgument('property');
-        if ($input->getOption('property')) {
+        $property = Argument::stringOrNull($input, 'property');
+        if ($propertyOption = Option::stringOrNull($input, 'property')) {
             if ($property) {
                 throw new InvalidArgumentException(
                     sprintf(
@@ -54,17 +56,17 @@ class AuthInfoCommand extends CommandBase
                     ),
                 );
             }
-            $property = $input->getOption('property');
+            $property = $propertyOption;
         }
 
         // Exit early if it's the user ID.
         if ($property === 'id') {
-            $userId = $this->api->getMyUserId($input->getOption('refresh'));
+            $userId = $this->api->getMyUserId(Option::bool($input, 'refresh'));
             $output->writeln($userId);
             return 0;
         }
 
-        $info = $this->api->getMyAccount($input->getOption('refresh'));
+        $info = $this->api->getMyAccount(Option::bool($input, 'refresh'));
 
         $propertiesToDisplay = ['id', 'first_name', 'last_name', 'username', 'email', 'phone_number_verified'];
         $info = array_intersect_key($info, array_flip($propertiesToDisplay));

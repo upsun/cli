@@ -9,6 +9,7 @@ use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Service\SshConfig;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -47,7 +48,7 @@ class SessionSwitchCommand extends CommandBase
             return 1;
         }
 
-        $newId = $input->getArgument('id');
+        $newId = Argument::stringOrNull($input, 'id');
         if ($newId === null) {
             if (!$input->isInteractive()) {
                 $this->stdErr->writeln('The new session ID is required');

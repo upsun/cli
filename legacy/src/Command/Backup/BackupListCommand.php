@@ -9,6 +9,7 @@ use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Console\AdaptiveTableCell;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -60,7 +61,7 @@ class BackupListCommand extends CommandBase
 
         $environment = $selection->getEnvironment();
 
-        $backups = $environment->getBackups((int) $input->getOption('limit'));
+        $backups = $environment->getBackups(Option::intOrNull($input, 'limit') ?? 0);
         if (!$backups) {
             $this->stdErr->writeln('No backups found');
             return 1;

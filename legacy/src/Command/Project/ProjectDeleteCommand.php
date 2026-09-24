@@ -10,6 +10,8 @@ use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\QuestionHelper;
 use GuzzleHttp\Exception\ClientException;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Exception\InvalidArgumentException as ConsoleInvalidArgumentException;
 use Symfony\Component\Console\Input\InputArgument;
@@ -33,8 +35,8 @@ class ProjectDeleteCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        if ($projectId = $input->getArgument('project')) {
-            if ($input->getOption('project')) {
+        if ($projectId = Argument::stringOrNull($input, 'project')) {
+            if (Option::stringOrNull($input, 'project')) {
                 throw new ConsoleInvalidArgumentException(
                     'You cannot use both the <project> argument and the --project option',
                 );

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Activity;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityLoader;
@@ -100,11 +101,11 @@ class ActivityListCommand extends ActivityCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: !$input->getOption('all')));
+        $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: !Option::bool($input, 'all')));
 
         $project = $selection->getProject();
 
-        if ($selection->hasEnvironment() && !$input->getOption('all')) {
+        if ($selection->hasEnvironment() && !Option::bool($input, 'all')) {
             $environmentSpecific = true;
             $apiResource = $selection->getEnvironment();
         } else {
@@ -167,7 +168,7 @@ class ActivityListCommand extends ActivityCommandBase
             $executable = $this->config->getStr('application.executable');
 
             // TODO make this more deterministic by fetching limit+1 activities
-            $max = ((int) $input->getOption('limit') ?: self::DEFAULT_LIST_LIMIT);
+            $max = Option::int($input, 'limit') ?: self::DEFAULT_LIST_LIMIT;
             $maybeMoreAvailable = count($activities) === $max;
             if ($maybeMoreAvailable) {
                 $this->stdErr->writeln('');

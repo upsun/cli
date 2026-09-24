@@ -8,6 +8,8 @@ use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Command\Organization\OrganizationCommandBase;
 use Platformsh\Cli\Console\AdaptiveTableCell;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
 use Platformsh\Cli\Util\OsUtil;
@@ -44,7 +46,7 @@ class OrganizationUserGetCommand extends OrganizationCommandBase
             return 1;
         }
 
-        $email = $input->getArgument('email');
+        $email = Argument::stringOrNull($input, 'email');
         if (!empty($email)) {
             $member = $this->api->loadMemberByEmail($organization, $email);
             if (!$member) {
@@ -67,8 +69,8 @@ class OrganizationUserGetCommand extends OrganizationCommandBase
             unset($data['ref:users']);
         }
 
-        if ($input->getOption('property')) {
-            $this->propertyFormatter->displayData($output, $data, $input->getOption('property'));
+        if ($property = Option::stringOrNull($input, 'property')) {
+            $this->propertyFormatter->displayData($output, $data, $property);
             return 0;
         }
 

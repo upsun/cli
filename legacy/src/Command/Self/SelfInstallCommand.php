@@ -11,6 +11,7 @@ use Platformsh\Cli\Service\Filesystem;
 use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Service\Shell;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\CredentialHelper\Manager;
 use Platformsh\Cli\Util\OsUtil;
 use Platformsh\Cli\Util\Snippeter;
@@ -105,7 +106,7 @@ class SelfInstallCommand extends CommandBase
             $this->stdErr->writeln('');
         }
 
-        $shellType = $input->getOption('shell-type');
+        $shellType = Option::stringOrNull($input, 'shell-type');
         if ($shellType === null && getenv('SHELL') !== false) {
             $shellType = str_replace('.exe', '', basename(getenv('SHELL')));
             $this->io->debug('Detected shell type: ' . $shellType);

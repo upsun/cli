@@ -20,11 +20,7 @@ class ArrayArgument
      */
     public static function getArgument(InputInterface $input, string $argName): array
     {
-        $value = $input->getArgument($argName);
-        if (!\is_array($value)) {
-            throw new \BadMethodCallException(\sprintf('The value of argument %s is not an array', $argName));
-        }
-        return self::split($value);
+        return self::split(Argument::stringArray($input, $argName));
     }
 
     /**
@@ -37,11 +33,7 @@ class ArrayArgument
      */
     public static function getOption(InputInterface $input, string $optionName): array
     {
-        $value = $input->getOption($optionName);
-        if (!\is_array($value)) {
-            throw new \BadMethodCallException(\sprintf('The value of option --%s is not an array', $optionName));
-        }
-        return self::split($value);
+        return self::split(Option::stringArray($input, $optionName));
     }
 
     /**

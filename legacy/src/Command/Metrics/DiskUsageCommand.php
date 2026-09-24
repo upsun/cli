@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Metrics;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Model\Metrics\Aggregation;
 use Platformsh\Cli\Model\Metrics\Field;
 use Platformsh\Cli\Model\Metrics\Format;
@@ -73,14 +74,14 @@ class DiskUsageCommand extends MetricsCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        if ($input->getOption('tmp')) {
+        if (Option::bool($input, 'tmp')) {
             $input->setOption('columns', $this->tmpReportColumns);
         }
         $this->table->removeDeprecatedColumns(['interval'], '', $input, $output);
 
         [$values, $environment] = $this->processQuery($input, [MetricKind::API_TYPE_DISK, MetricKind::API_TYPE_INODES], [MetricKind::API_AGG_AVG]);
 
-        $bytes = $input->getOption('bytes');
+        $bytes = Option::bool($input, 'bytes');
 
         $fields = [
             'used' => new Field(
@@ -157,7 +158,7 @@ class DiskUsageCommand extends MetricsCommandBase
             $formatter = $this->propertyFormatter;
             $this->stdErr->writeln(\sprintf(
                 'Average %s at <info>%s</info> intervals from <info>%s</info> to <info>%s</info>:',
-                $input->getOption('tmp') ? 'temporary disk usage' : 'disk usage',
+                Option::bool($input, 'tmp') ? 'temporary disk usage' : 'disk usage',
                 (new Duration())->humanize($values['_grain']),
                 $formatter->formatDate($values['_from']),
                 $formatter->formatDate($values['_to']),

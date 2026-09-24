@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Organization;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\CountryService;
 use Platformsh\Cli\Service\SubCommandRunner;
 use Platformsh\Cli\Service\Api;
@@ -87,8 +88,8 @@ class OrganizationCreateCommand extends OrganizationCommandBase
         // Ensure login before presenting the form.
         $client = $this->api->getClient();
         $form = $this->getForm();
-        if (($name = $input->getOption('name')) && $input->getOption('label') === null) {
-            $form->getField('label')->set('default', \ucfirst((string) $name));
+        if (($name = Option::stringOrNull($input, 'name')) && Option::stringOrNull($input, 'label') === null) {
+            $form->getField('label')->set('default', \ucfirst($name));
         }
         $values = $form->resolveOptions($input, $output, $this->questionHelper);
 

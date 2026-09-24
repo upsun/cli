@@ -14,6 +14,8 @@ use GuzzleHttp\Exception\BadResponseException;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Utils;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Util\SslUtil;
 use Platformsh\Client\Model\Project;
 use Symfony\Component\Console\Input\InputArgument;
@@ -46,23 +48,23 @@ abstract class DomainCommandBase extends CommandBase
 
     protected function isForEnvironment(InputInterface $input): bool
     {
-        return ($input->hasOption('environment') && $input->getOption('environment') !== null)
-            || ($input->hasOption('attach') && $input->getOption('attach') !== null)
-            || ($input->hasOption('replace') && $input->getOption('replace') !== null);
+        return ($input->hasOption('environment') && Option::stringOrNull($input, 'environment') !== null)
+            || ($input->hasOption('attach') && Option::stringOrNull($input, 'attach') !== null)
+            || ($input->hasOption('replace') && Option::stringOrNull($input, 'replace') !== null);
     }
 
     protected function validateDomainInput(InputInterface $input, Selection $selection): bool
     {
-        $this->domainName = $input->getArgument('name');
+        $this->domainName = Argument::string($input, 'name');
         if (!$this->validDomain($this->domainName)) {
             $this->stdErr->writeln("You must specify a <error>valid domain name</error>");
 
             return false;
         }
 
-        $certPath = $input->getOption('cert');
-        $keyPath = $input->getOption('key');
-        $chainPaths = $input->getOption('chain');
+        $certPath = Option::stringOrNull($input, 'cert');
+        $keyPath = Option::stringOrNull($input, 'key');
+        $chainPaths = Option::stringArray($input, 'chain');
         if ($certPath || $keyPath || $chainPaths) {
             if (!isset($certPath, $keyPath)) {
                 $this->stdErr->writeln("Both the --cert and the --key are required for SSL certificates");
@@ -101,7 +103,7 @@ abstract class DomainCommandBase extends CommandBase
             }
 
             if ($input->hasOption('attach')) {
-                $this->attach = $input->getOption('attach') ?: $input->getOption('replace');
+                $this->attach = Option::stringOrNull($input, 'attach') ?: Option::stringOrNull($input, 'replace');
                 if ($this->environmentIsProduction && $this->attach !== null) {
                     $this->stdErr->writeln('The <error>--attach</error> option is only valid for non-production environment domains.');
                     return false;

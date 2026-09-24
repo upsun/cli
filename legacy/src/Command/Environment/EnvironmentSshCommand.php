@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Api;
@@ -57,7 +59,7 @@ class EnvironmentSshCommand extends CommandBase
             $selection = $this->selector->getSelection($input, new SelectorConfig(chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
             $environment = $selection->getEnvironment();
 
-            if ($input->getOption('all')) {
+            if (Option::bool($input, 'all')) {
                 $output->writeln(array_values($environment->getSshUrls()));
 
                 return 0;
@@ -65,7 +67,7 @@ class EnvironmentSshCommand extends CommandBase
 
             $container = $selection->getRemoteContainer();
 
-            $sshUrl = $container->getSshUrl($input->getOption('instance'));
+            $sshUrl = $container->getSshUrl(Option::stringOrNull($input, 'instance') ?? '');
         } catch (EnvironmentStateException $e) {
             $environment = $e->getEnvironment();
             switch ($environment->status) {
@@ -91,16 +93,16 @@ class EnvironmentSshCommand extends CommandBase
             throw $e instanceof InvalidArgumentException ? $e : new InvalidArgumentException($e->getMessage());
         }
 
-        if ($input->getOption('pipe')) {
+        if (Option::bool($input, 'pipe')) {
             $output->write($sshUrl);
             return 0;
         }
 
-        $remoteCommand = $input->getArgument('cmd');
+        $remoteCommand = Argument::stringArray($input, 'cmd');
         if (empty($remoteCommand) && $this->runningViaMulti) {
             throw new InvalidArgumentException('The cmd argument is required when running via "multi"');
         }
-        $command = $this->ssh->getSshCommand($sshUrl, $input->getOption('option'), $remoteCommand);
+        $command = $this->ssh->getSshCommand($sshUrl, Option::stringArray($input, 'option'), $remoteCommand);
 
         $start = \time();
 

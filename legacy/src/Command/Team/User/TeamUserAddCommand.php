@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Team\User;
 
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -44,7 +45,7 @@ class TeamUserAddCommand extends TeamCommandBase
             return 1;
         }
 
-        $identifier = $input->getArgument('user');
+        $identifier = Argument::stringOrNull($input, 'user');
         if (!$identifier) {
             if (!$input->isInteractive()) {
                 $this->stdErr->writeln('A user must be specified (in non-interactive mode).');

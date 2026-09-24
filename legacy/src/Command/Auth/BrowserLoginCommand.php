@@ -15,6 +15,7 @@ use GuzzleHttp\Utils;
 use League\OAuth2\Client\Token\AccessToken;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Console\ArrayArgument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Filesystem;
 use Platformsh\Cli\Service\Url;
 use Platformsh\Cli\Util\PortUtil;
@@ -56,6 +57,7 @@ class BrowserLoginCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $maxAge = Option::intOrNull($input, 'max-age');
         if ($this->api->hasApiToken(false)) {
             $this->stdErr->writeln('Cannot log in via the browser, because an API token is set via config.');
             return 1;
@@ -73,8 +75,8 @@ class BrowserLoginCommand extends CommandBase
             $this->stdErr->writeln('');
         }
         $connector = $this->api->getClient(false)->getConnector();
-        $force = $input->getOption('force');
-        if (!$force && $input->getOption('method') === [] && $input->getOption('max-age') === null && $connector->isLoggedIn()) {
+        $force = Option::bool($input, 'force');
+        if (!$force && Option::stringArray($input, 'method') === [] && $maxAge === null && $connector->isLoggedIn()) {
             // Get account information, simultaneously checking whether the API
             // login is still valid. If the request works, then do not log in
             // again (unless --force is used). If the request fails, proceed
@@ -161,7 +163,7 @@ class BrowserLoginCommand extends CommandBase
             'CLI_OAUTH_SCOPE' => 'offline_access',
             'CLI_OAUTH_FILE' => $responseFile,
             'CLI_OAUTH_METHODS' => implode(' ', ArrayArgument::getOption($input, 'method')),
-            'CLI_OAUTH_MAX_AGE' => $input->getOption('max-age'),
+            'CLI_OAUTH_MAX_AGE' => (string) $maxAge,
         ] + getenv());
         $process->setTimeout(null);
         $this->stdErr->writeln('Starting local web server with command: <info>' . $process->getCommandLine() . '</info>', OutputInterface::VERBOSITY_VERY_VERBOSE);

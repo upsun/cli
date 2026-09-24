@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Auth;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Command\CommandBase;
@@ -50,7 +51,7 @@ class AuthTokenCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        if (!$input->getOption('no-warn')) {
+        if (!Option::bool($input, 'no-warn')) {
             $this->stdErr->writeln(
                 '<fg=yellow>Warning: keep access tokens secret.</>',
             );
@@ -58,7 +59,7 @@ class AuthTokenCommand extends CommandBase
 
         $token = $this->api->getAccessToken();
 
-        $output->write($input->getOption('header') ? self::RFC6750_PREFIX . $token : $token);
+        $output->write(Option::bool($input, 'header') ? self::RFC6750_PREFIX . $token : $token);
 
         return 0;
     }

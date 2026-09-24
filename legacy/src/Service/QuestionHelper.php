@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Service;
 
+use Platformsh\Cli\Console\Option;
 use Symfony\Component\Console\Helper\QuestionHelper as BaseQuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
@@ -58,8 +59,8 @@ class QuestionHelper extends BaseQuestionHelper
 
         $questionText .= ' <question>' . ($default ? '[Y/n]' : '[y/N]') . '</question> ';
 
-        $yes = $this->input->hasOption('yes') && $this->input->getOption('yes');
-        $no = $this->input->hasOption('no') && $this->input->getOption('no');
+        $yes = $this->input->hasOption('yes') && Option::bool($this->input, 'yes');
+        $no = $this->input->hasOption('no') && Option::bool($this->input, 'no');
         if ($yes && !$no) {
             $this->output->writeln($questionText . 'y');
             return true;

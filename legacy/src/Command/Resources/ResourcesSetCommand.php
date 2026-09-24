@@ -13,6 +13,7 @@ use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Console\ArrayArgument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Util\OsUtil;
 use Platformsh\Cli\Util\Wildcard;
 use GuzzleHttp\Exception\GuzzleException;
@@ -195,10 +196,10 @@ class ResourcesSetCommand extends ResourcesCommandBase
 
         // Ask all questions if nothing was specified on the command line.
         $showCompleteForm = $input->isInteractive()
-            && $input->getOption('size') === []
-            && $input->getOption('count') === []
-            && $input->getOption('disk') === []
-            && $input->getOption('object-storage') === [];
+            && Option::stringArray($input, 'size') === []
+            && Option::stringArray($input, 'count') === []
+            && Option::stringArray($input, 'disk') === []
+            && Option::stringArray($input, 'object-storage') === [];
 
         $updates = [];
         $current = [];
@@ -360,7 +361,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
 
         $this->io->debug('Raw updates: ' . json_encode($updates, JSON_UNESCAPED_SLASHES));
 
-        [$limit, $used] = $input->getOption('force') === false ? $this->trialResourceLimits($selection->getProject()) : [null, null];
+        [$limit, $used] = Option::bool($input, 'force') === false ? $this->trialResourceLimits($selection->getProject()) : [null, null];
         if ($limit !== null && $used !== null) {
             $diff = $this->computeMemoryCPUStorageDiff($updates, $current);
 
@@ -400,7 +401,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
             }
         }
 
-        if ($input->getOption('dry-run')) {
+        if (Option::bool($input, 'dry-run')) {
             return 0;
         }
 

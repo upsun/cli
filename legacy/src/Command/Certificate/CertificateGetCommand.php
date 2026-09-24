@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Certificate;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Command\CommandBase;
@@ -37,7 +39,7 @@ class CertificateGetCommand extends CommandBase
         $selection = $this->selector->getSelection($input);
         $project = $selection->getProject();
 
-        $id = $input->getArgument('id');
+        $id = Argument::string($input, 'id');
         $cert = $project->getCertificate($id);
         if (!$cert) {
             try {
@@ -49,7 +51,7 @@ class CertificateGetCommand extends CommandBase
             }
         }
 
-        $this->propertyFormatter->displayData($output, $cert->getProperties(), $input->getOption('property'));
+        $this->propertyFormatter->displayData($output, $cert->getProperties(), Option::stringOrNull($input, 'property'));
 
         return 0;
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Local;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Local\LocalBuild;
 use Platformsh\Cli\Command\CommandBase;
@@ -54,9 +55,9 @@ class LocalCleanCommand extends CommandBase
         }
         $result = $this->localBuild->cleanBuilds(
             $projectRoot,
-            $input->getOption('max-age') !== null ? $this->getIntOption($input, 'max-age') : null,
-            $this->getIntOption($input, 'keep'),
-            $input->getOption('include-active'),
+            Option::intOrNull($input, 'max-age'),
+            Option::int($input, 'keep'),
+            Option::bool($input, 'include-active'),
             false,
         );
 

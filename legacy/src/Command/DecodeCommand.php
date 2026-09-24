@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Util\NestedArrayUtil;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -36,14 +38,14 @@ class DecodeCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $variable = $input->getArgument('value');
-        if (trim((string) $variable) === '') {
+        $variable = Argument::string($input, 'value');
+        if (trim($variable) === '') {
             $this->stdErr->writeln('Failed to decode: the provided value is empty.');
 
             return 1;
         }
 
-        $b64decoded = base64_decode((string) $variable, true);
+        $b64decoded = base64_decode($variable, true);
         if ($b64decoded === false) {
             $this->stdErr->writeln('Invalid value: base64 decoding failed.');
 
@@ -61,7 +63,7 @@ class DecodeCommand extends CommandBase
             return 1;
         }
 
-        if ($property = $input->getOption('property')) {
+        if ($property = Option::stringOrNull($input, 'property')) {
             if (is_scalar($decoded)) {
                 $this->stdErr->writeln('The --property option cannot be used with a scalar value.');
 
