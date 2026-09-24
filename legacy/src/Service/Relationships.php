@@ -112,9 +112,11 @@ class Relationships implements InputConfiguringInterface
         if ($input->hasOption('relationship')
             && ($relationshipName = $input->getOption('relationship'))) {
             // Normalise the relationship name to remove a trailing ".0".
-            if (str_ends_with((string) $relationshipName, '.0')
-                && isset($relationships[$relationshipName]) && count($relationships[$relationshipName]) === 1) {
-                $relationshipName = substr((string) $relationshipName, 0, strlen((string) $relationshipName) - 2);
+            if (str_ends_with((string) $relationshipName, '.0')) {
+                $baseName = substr((string) $relationshipName, 0, -2);
+                if (isset($relationships[$baseName]) && count($relationships[$baseName]) === 1) {
+                    $relationshipName = $baseName;
+                }
             }
             if (!isset($choices[$relationshipName])) {
                 $stdErr->writeln('Relationship not found: <error>' . $relationshipName . '</error>');
