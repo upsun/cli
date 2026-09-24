@@ -45,8 +45,8 @@ class ResourcesUtil
     public function writeSizingApiDisabledError(Project $project): void
     {
         $this->stdErr->writeln(sprintf('The flexible resources API is not enabled for the project %s.', $this->api->getProjectLabel($project, 'comment')));
-        if ($this->isFixedProject($project)) {
-            $this->stdErr->writeln('Flexible resources are not available on Upsun Fixed. See: <info>https://docs.upsun.com/anchors/fixed/</info>');
+        if ($this->config->has('service.fixed_docs_url') && $this->isFixedProject($project)) {
+            $this->stdErr->writeln('Flexible resources are not available for Fixed organizations. See: <info>' . $this->config->getStr('service.fixed_docs_url') . '</info>');
         }
     }
 
@@ -55,8 +55,8 @@ class ResourcesUtil
      */
     private function isFixedProject(Project $project): bool
     {
-        $orgId = $project->getProperty('organization', false);
-        if (!$orgId) {
+        $orgId = $project->getProperty('organization', false, false);
+        if (!$orgId || !$this->config->getBool('api.organizations')) {
             return false;
         }
         try {

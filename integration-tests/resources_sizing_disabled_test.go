@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,9 +14,12 @@ import (
 )
 
 // TestResourcesSizingDisabled checks the error shown when the project does not
-// support flexible resources, which mentions Upsun Fixed only for Fixed orgs.
+// support flexible resources, which mentions Fixed only for Fixed orgs.
 func TestResourcesSizingDisabled(t *testing.T) {
-	const fixedNote = "not available on Upsun Fixed"
+	const (
+		fixedNote = "not available for Fixed organizations"
+		fixedURL  = "https://docs.cli-tests.example.com/fixed/"
+	)
 
 	commands := [][]string{
 		{"resources:get", "-e", "main"},
@@ -87,9 +89,10 @@ func TestResourcesSizingDisabled(t *testing.T) {
 					assert.Contains(t, stderr, "The flexible resources API is not enabled for the project")
 					if c.wantFixed {
 						assert.Contains(t, stderr, fixedNote)
-						assert.Contains(t, stderr, "https://docs.upsun.com/anchors/fixed/")
+						assert.Contains(t, stderr, fixedURL)
 					} else {
-						assert.NotContains(t, strings.ToLower(stderr), "fixed")
+						assert.NotContains(t, stderr, fixedNote)
+						assert.NotContains(t, stderr, fixedURL)
 					}
 				})
 			}
