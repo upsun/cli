@@ -167,7 +167,7 @@ class EnvironmentCheckoutCommand extends CommandBase
         if ($environmentId !== false) {
             $label = $this->api->getEnvironmentLabel($environments[$environmentId]);
             if ($this->questionHelper->confirm(sprintf('Check out environment %s?', $label))) {
-                return $environmentId;
+                return (string) $environmentId;
             }
         }
 
