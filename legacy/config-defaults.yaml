@@ -339,6 +339,14 @@ ssh:
   # often provides a weak security benefit.
   cert_key_ttl: 86400
 
+  # The algorithm of the automatically generated SSH key pair.
+  #
+  # Set to "auto" to use "rsa" if FIPS mode is enabled (detected on Linux via
+  # /proc/sys/crypto/fips_enabled), and "ed25519" otherwise. Other values are
+  # passed to "ssh-keygen -t" as-is.
+  # Overridden by the {application.env_prefix}SSH_CERT_KEY_ALGORITHM env var.
+  cert_key_algorithm: auto
+
 # How the CLI detects and configures Git repositories as projects.
 detection:
   ## Required keys that must be defined elsewhere:

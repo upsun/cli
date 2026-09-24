@@ -15,8 +15,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class Certifier
 {
-    public const KEY_ALGORITHM = 'ed25519';
-    public const PRIVATE_KEY_FILENAME = 'id_ed25519';
+    private const FIPS_ENABLED_FILE = '/proc/sys/crypto/fips_enabled';
     private readonly OutputInterface $stdErr;
 
     private static bool $disableAutoLoad = false;
@@ -83,7 +82,8 @@ class Certifier
         $dir = $this->config->getSessionDir(true) . DIRECTORY_SEPARATOR . 'ssh';
         $this->fs->mkdir($dir, 0o700);
 
-        $privateKeyFilename = $dir . DIRECTORY_SEPARATOR . self::PRIVATE_KEY_FILENAME;
+        $keyAlgorithm = $this->keyAlgorithm();
+        $privateKeyFilename = $dir . DIRECTORY_SEPARATOR . 'id_' . $keyAlgorithm;
         $certificateFilename = $privateKeyFilename . '-cert.pub';
         $publicKeyFilename = $privateKeyFilename . '.pub';
         $tempPrivateKeyFilename = $privateKeyFilename . '_tmp';
@@ -102,7 +102,7 @@ class Certifier
             || ($keyTtl !== 0 && ($mtime = filemtime($privateKeyFilename)) && time() - $mtime > $keyTtl);
 
         if ($regenerateKey) {
-            $this->generateSshKey($tempPrivateKeyFilename);
+            $this->generateSshKey($tempPrivateKeyFilename, $keyAlgorithm);
 
             $publicContents = file_get_contents($tempPublicKeyFilename);
             if (!$publicContents) {
@@ -156,7 +156,7 @@ class Certifier
     public function getExistingCertificate(): ?Certificate
     {
         $dir = $this->config->getSessionDir(true) . DIRECTORY_SEPARATOR . 'ssh';
-        $private = $dir . DIRECTORY_SEPARATOR . self::PRIVATE_KEY_FILENAME;
+        $private = $dir . DIRECTORY_SEPARATOR . 'id_' . $this->keyAlgorithm();
         $cert = $private . '-cert.pub';
 
         $exists = file_exists($private) && file_exists($cert);
@@ -244,18 +244,49 @@ class Certifier
     }
 
     /**
+     * Returns the algorithm for the temporary SSH key pair.
+     */
+    private function keyAlgorithm(): string
+    {
+        return self::resolveKeyAlgorithm($this->config->getStr('ssh.cert_key_algorithm'), self::FIPS_ENABLED_FILE);
+    }
+
+    /**
+     * Resolves the configured key algorithm, detecting FIPS mode for "auto".
+     *
+     * @param string $configured
+     *   The configured algorithm, e.g. "auto", "rsa" or "ed25519".
+     * @param string $fipsEnabledFile
+     *   The file indicating whether FIPS mode is enabled (Linux only).
+     */
+    public static function resolveKeyAlgorithm(string $configured, string $fipsEnabledFile): string
+    {
+        if ($configured === '' || $configured === 'auto') {
+            $fipsEnabled = is_readable($fipsEnabledFile) && trim((string) file_get_contents($fipsEnabledFile)) === '1';
+            return $fipsEnabled ? 'rsa' : 'ed25519';
+        }
+        // The value is used in a filename, so restrict its characters.
+        if (!preg_match('/^[a-z0-9-]+$/', $configured)) {
+            throw new \InvalidArgumentException('Invalid SSH certificate key algorithm: ' . $configured);
+        }
+        return $configured;
+    }
+
+    /**
      * Generate an SSH key pair to request a new certificate.
      *
      * @param string $filename
      *   The private key filename.
+     * @param string $algorithm
+     *   The key algorithm (passed to ssh-keygen -t).
      */
-    private function generateSshKey(string $filename): void
+    private function generateSshKey(string $filename, string $algorithm): void
     {
         $this->stdErr->writeln('Generating local key pair', OutputInterface::VERBOSITY_VERBOSE);
 
         $args = [
             'ssh-keygen',
-            '-t', self::KEY_ALGORITHM,
+            '-t', $algorithm,
             '-f', $filename,
             '-N', '', // No passphrase
             '-C', $this->config->getStr('application.slug') . '-temporary-cert', // Key comment

@@ -10,20 +10,36 @@ import (
 )
 
 func TestSSHCerts(t *testing.T) {
-	authServer := mockapi.NewAuthServer(t)
-	defer authServer.Close()
+	cases := []struct {
+		name      string
+		algorithm string
+		filename  string
+		keyType   string
+	}{
+		{"default", "", "id_ed25519", "ssh-ed25519-cert-v01@openssh.com"},
+		{"rsa", "rsa", "id_rsa", "ssh-rsa-cert-v01@openssh.com"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			authServer := mockapi.NewAuthServer(t)
+			defer authServer.Close()
 
-	myUserID := "my-user-id"
+			myUserID := "my-user-id"
 
-	apiHandler := mockapi.NewHandler(t)
-	apiHandler.SetMyUser(&mockapi.User{ID: myUserID})
-	apiServer := httptest.NewServer(apiHandler)
-	defer apiServer.Close()
+			apiHandler := mockapi.NewHandler(t)
+			apiHandler.SetMyUser(&mockapi.User{ID: myUserID})
+			apiServer := httptest.NewServer(apiHandler)
+			defer apiServer.Close()
 
-	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+			f := newCommandFactory(t, apiServer.URL, authServer.URL)
+			if c.algorithm != "" {
+				f.extraEnv = []string{EnvPrefix + "SSH_CERT_KEY_ALGORITHM=" + c.algorithm}
+			}
 
-	output := f.Run("ssh-cert:info")
-	assert.Regexp(t, `(?m)^filename: .+?id_ed25519-cert\.pub$`, output)
-	assert.Contains(t, output, "key_id: test-key-id\n")
-	assert.Contains(t, output, "key_type: ssh-ed25519-cert-v01@openssh.com\n")
+			output := f.Run("ssh-cert:info")
+			assert.Regexp(t, `(?m)^filename: .+?`+c.filename+`-cert\.pub$`, output)
+			assert.Contains(t, output, "key_id: test-key-id\n")
+			assert.Contains(t, output, "key_type: "+c.keyType+"\n")
+		})
+	}
 }
