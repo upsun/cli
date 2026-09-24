@@ -77,7 +77,7 @@ class CommitListCommand extends CommandBase
             ));
         }
 
-        $commits = $this->loadCommitList($environment, $startCommit, $input->getOption('limit'));
+        $commits = $this->loadCommitList($environment, $startCommit, $this->getIntOption($input, 'limit'));
 
         $rows = [];
         foreach ($commits as $commit) {
