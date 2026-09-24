@@ -44,6 +44,7 @@ func TestVariableDelete(t *testing.T) {
 				"#delete=/projects/"+projectID+"/variables/to_delete",
 			),
 		},
+		{Name: "to_keep", Value: "val2", VisibleRuntime: true},
 	})
 
 	apiHandler.SetEnvLevelVariables(projectID, "main", []*mockapi.EnvLevelVariable{
@@ -61,6 +62,7 @@ func TestVariableDelete(t *testing.T) {
 			IsEnabled:     true,
 			IsInheritable: false,
 		},
+		{Variable: mockapi.Variable{Name: "env:TO_KEEP", Value: "envval2", VisibleRuntime: true}, IsEnabled: true},
 	})
 
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
@@ -72,7 +74,9 @@ func TestVariableDelete(t *testing.T) {
 	assert.Contains(t, stdErr, "Deleted variable to_delete")
 
 	// Verify it is gone from list.
-	stdOut, stdErr, _ := f.RunCombinedOutput("var", "-p", projectID, "-l", "p")
+	stdOut, stdErr, err := f.RunCombinedOutput("var", "-p", projectID, "-l", "p")
+	assert.NoError(t, err)
+	assert.Contains(t, stdOut, "to_keep")
 	assert.NotContains(t, stdOut+stdErr, "to_delete")
 
 	// Delete an env-level variable.
@@ -81,6 +85,8 @@ func TestVariableDelete(t *testing.T) {
 	assert.Contains(t, stdErr, "Deleted variable env:TO_DELETE")
 
 	// Verify it is gone from list.
-	stdOut, stdErr, _ = f.RunCombinedOutput("var", "-p", projectID, "-e", "main", "-l", "e")
+	stdOut, stdErr, err = f.RunCombinedOutput("var", "-p", projectID, "-e", "main", "-l", "e")
+	assert.NoError(t, err)
+	assert.Contains(t, stdOut, "env:TO_KEEP")
 	assert.NotContains(t, stdOut+stdErr, "env:TO_DELETE")
 }
