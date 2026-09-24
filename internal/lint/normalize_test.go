@@ -1,7 +1,6 @@
 package lint
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -43,7 +42,7 @@ func TestDetectStyle(t *testing.T) {
 			for p, c := range tc.files {
 				writeFile(t, filepath.Join(dir, p), c)
 			}
-			_, style, err := CheckDir(context.Background(), dir, upsunVendor())
+			_, style, err := CheckDir(dir, upsunVendor())
 			if tc.wantErr {
 				require.Error(t, err)
 			} else {
@@ -89,7 +88,7 @@ func TestCheckDir_Vendors(t *testing.T) {
 			for p, c := range tc.files {
 				writeFile(t, filepath.Join(dir, p), c)
 			}
-			_, style, err := CheckDir(context.Background(), dir, tc.vendor)
+			_, style, err := CheckDir(dir, tc.vendor)
 			if tc.wantErr {
 				require.Error(t, err)
 			} else {
@@ -122,7 +121,7 @@ func TestLintFixed_StrayPlatformDir(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".platform.app.yaml"), "name: app\ntype: \"php:8.3\"")
 	writeFile(t, filepath.Join(dir, "legacy", ".platform", "routes.yaml"), "{}")
-	result, style, err := CheckDir(context.Background(), dir, upsunVendor())
+	result, style, err := CheckDir(dir, upsunVendor())
 	require.NoError(t, err)
 	assert.Equal(t, StyleFixed, style)
 	assert.Contains(t, result.String(), "legacy/.platform")
@@ -135,7 +134,7 @@ func TestLintFixed_StrayUpsunDir(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".platform.app.yaml"), "name: app\ntype: \"php:8.3\"")
 	writeFile(t, filepath.Join(dir, "sub", ".upsun", "config.yaml"), "applications: {}")
-	result, style, err := CheckDir(context.Background(), dir, upsunVendor())
+	result, style, err := CheckDir(dir, upsunVendor())
 	require.NoError(t, err)
 	assert.Equal(t, StyleFixed, style)
 	assert.Contains(t, result.String(), "sub/.upsun")
@@ -156,7 +155,7 @@ routes:
     type: upstream
     upstream: "app:http"
 `)
-	result, style, err := CheckDir(context.Background(), dir, upsunVendor())
+	result, style, err := CheckDir(dir, upsunVendor())
 	require.NoError(t, err)
 	assert.Equal(t, StyleFlex, style)
 	assert.False(t, result.HasErrors(), "expected no errors, got: %s", result)
@@ -164,7 +163,7 @@ routes:
 
 func TestLintDir_NoConfig(t *testing.T) {
 	dir := t.TempDir()
-	_, style, err := CheckDir(context.Background(), dir, upsunVendor())
+	_, style, err := CheckDir(dir, upsunVendor())
 	require.Error(t, err)
 	assert.Equal(t, StyleUnknown, style)
 	assert.Contains(t, err.Error(), "no configuration found")
@@ -177,7 +176,7 @@ func TestLintDir_BothPresentPrefersFlex(t *testing.T) {
     type: "php:8.3"
 `)
 	writeFile(t, filepath.Join(dir, ".platform.app.yaml"), "name: app")
-	result, style, err := CheckDir(context.Background(), dir, upsunVendor())
+	result, style, err := CheckDir(dir, upsunVendor())
 	require.NoError(t, err)
 	assert.Equal(t, StyleFlex, style)
 	assert.True(t, result.HasWarnings())

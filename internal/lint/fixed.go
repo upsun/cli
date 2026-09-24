@@ -1,7 +1,6 @@
 package lint
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,7 +25,7 @@ var flexTopKeys = []string{keyApplications, keyServices, keyRoutes}
 // lintFixed lints Fixed-style configuration in dir using the resolved names in
 // cfg: per-app config files (cfg.app) and/or cfg.dir/applications.yaml, plus
 // optional cfg.dir/routes.yaml and cfg.dir/services.yaml.
-func lintFixed(_ context.Context, dir string, cfg fixedNames) (*Result, error) {
+func lintFixed(dir string, cfg fixedNames) (*Result, error) {
 	result := &Result{}
 
 	apps, err := loadFixedApplications(dir, cfg, result)

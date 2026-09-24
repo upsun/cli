@@ -1,7 +1,6 @@
 package lint
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -12,7 +11,7 @@ import (
 var ErrEmptyContent = errors.New("empty content")
 
 // CheckContent checks merged Flex-style configuration content and returns a Result.
-func CheckContent(_ context.Context, content string) (*Result, error) {
+func CheckContent(content string) (*Result, error) {
 	if len(content) == 0 {
 		return nil, ErrEmptyContent
 	}

@@ -1,7 +1,6 @@
 package lint
 
 import (
-	"context"
 	"path/filepath"
 	"testing"
 
@@ -97,7 +96,7 @@ type: "php:999"`,
 				writeFile(t, filepath.Join(dir, name), content)
 			}
 
-			result, style, err := CheckDir(context.Background(), dir, upsunVendor())
+			result, style, err := CheckDir(dir, upsunVendor())
 			require.NoError(t, err)
 			assert.Equal(t, StyleFixed, style)
 
@@ -119,7 +118,7 @@ func TestLintFixed_DuplicateAppName(t *testing.T) {
 	writeFile(t, filepath.Join(dir, ".platform", "routes.yaml"), "{}")
 	writeFile(t, filepath.Join(dir, "a", ".platform.app.yaml"), "name: same\ntype: \"php:8.3\"")
 	writeFile(t, filepath.Join(dir, "b", ".platform.app.yaml"), "name: same\ntype: \"php:8.3\"")
-	result, _, err := CheckDir(context.Background(), dir, upsunVendor())
+	result, _, err := CheckDir(dir, upsunVendor())
 	require.NoError(t, err)
 	// The error should name both source files so it is actionable.
 	assert.Contains(t, result.String(), `duplicate application name "same"`)

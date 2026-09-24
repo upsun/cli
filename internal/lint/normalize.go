@@ -1,7 +1,6 @@
 package lint
 
 import (
-	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -19,17 +18,6 @@ const (
 	// StyleFixed is the legacy Platform.sh configuration (.platform.app.yaml, .platform/*.yaml).
 	StyleFixed
 )
-
-func (s Style) String() string {
-	switch s {
-	case StyleFlex:
-		return "flex"
-	case StyleFixed:
-		return "fixed"
-	default:
-		return "unknown"
-	}
-}
 
 // First-party config conventions. The native format and directory of any CLI
 // come from its config (see Vendor); these constants are the cross-brand
@@ -86,7 +74,7 @@ func (v Vendor) candidates() (flexDirs []string, fixed []fixedNames) {
 // CheckDir detects the configuration style in dir and lints it, returning the
 // detected style. Detection uses the vendor's name conventions and the files
 // present: Flex wins when present, else Fixed, else the native format.
-func CheckDir(ctx context.Context, dir string, vendor Vendor) (*Result, Style, error) {
+func CheckDir(dir string, vendor Vendor) (*Result, Style, error) {
 	flexDirs, fixedSet := vendor.candidates()
 	flexDir, flexOK := detectFlex(dir, flexDirs)
 	fixedCfg, fixedOK := detectFixed(dir, fixedSet)
@@ -97,7 +85,7 @@ func CheckDir(ctx context.Context, dir string, vendor Vendor) (*Result, Style, e
 		if err != nil {
 			return nil, StyleFlex, err
 		}
-		result, err := CheckContent(ctx, content)
+		result, err := CheckContent(content)
 		if err != nil {
 			return nil, StyleFlex, err
 		}
@@ -109,7 +97,7 @@ func CheckDir(ctx context.Context, dir string, vendor Vendor) (*Result, Style, e
 		}
 		return result, StyleFlex, nil
 	case fixedOK:
-		result, err := lintFixed(ctx, dir, fixedCfg)
+		result, err := lintFixed(dir, fixedCfg)
 		if err != nil {
 			return nil, StyleFixed, err
 		}

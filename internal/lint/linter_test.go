@@ -1,7 +1,6 @@
 package lint
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -94,7 +93,7 @@ services:
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := CheckContent(context.Background(), tc.content)
+			result, err := CheckContent(tc.content)
 			assert.NoError(t, err)
 
 			if tc.wantErr {

@@ -1,12 +1,10 @@
 package commands
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 	"unicode"
 
@@ -69,23 +67,9 @@ func lintInput(cmd *cobra.Command, args []string, vendor lint.Vendor) (*lint.Res
 		return nil, "", fmt.Errorf("invalid --format %q: must be \"text\" or \"json\"", format)
 	}
 
-	ctx := cmd.Context()
 	if explicitStdin {
-		result, err := lintStdin(ctx, cmd)
+		result, err := lintStdin(cmd)
 		return result, format, err
-	}
-
-	// With no path argument, lint piped stdin if it carries content; otherwise
-	// (e.g. a non-interactive shell or CI with no input) fall back to the directory.
-	if len(args) == 0 && stdinIsPiped() {
-		content, err := io.ReadAll(cmd.InOrStdin())
-		if err != nil {
-			return nil, format, err
-		}
-		if strings.TrimSpace(string(content)) != "" {
-			result, err := lint.CheckContent(ctx, string(content))
-			return result, format, err
-		}
 	}
 
 	path := "."
@@ -96,7 +80,7 @@ func lintInput(cmd *cobra.Command, args []string, vendor lint.Vendor) (*lint.Res
 	if format == "text" {
 		fmt.Fprintln(cmd.ErrOrStderr(), "Validating configuration in directory: "+color.CyanString(root))
 	}
-	result, _, err := lint.CheckDir(ctx, root, vendor)
+	result, _, err := lint.CheckDir(root, vendor)
 	return result, format, err
 }
 
@@ -111,18 +95,12 @@ func capitalizeFirst(s string) string {
 }
 
 // lintStdin reads configuration from standard input and lints it.
-func lintStdin(ctx context.Context, cmd *cobra.Command) (*lint.Result, error) {
+func lintStdin(cmd *cobra.Command) (*lint.Result, error) {
 	content, err := io.ReadAll(cmd.InOrStdin())
 	if err != nil {
 		return nil, err
 	}
-	return lint.CheckContent(ctx, string(content))
-}
-
-// stdinIsPiped reports whether standard input is a pipe or file rather than a terminal.
-func stdinIsPiped() bool {
-	stat, err := os.Stdin.Stat()
-	return err == nil && (stat.Mode()&os.ModeCharDevice) == 0
+	return lint.CheckContent(string(content))
 }
 
 // issuesOrEmpty replaces a nil slice with an empty one, so that the JSON output
