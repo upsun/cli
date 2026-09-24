@@ -39,7 +39,9 @@ class RunCommand extends CommandBase
         $this->selector->addAppOption($this->getDefinition());
         $this->addCompleter($this->selector);
         $this->addOption('worker', null, InputOption::VALUE_REQUIRED, 'A worker name');
+        $this->addOption('parameter', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'A parameter to pass to the operation, one per option, in order');
         $this->activityMonitor->addWaitOptions($this->getDefinition());
+        $this->addExample('Run the "migrate" operation with parameters', 'migrate --app app --parameter=--force --parameter "my value"');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -123,7 +125,7 @@ class RunCommand extends CommandBase
         }
 
         try {
-            $result = $deployment->execRuntimeOperation($operationName, $appName);
+            $result = $deployment->execRuntimeOperation($operationName, $appName, $input->getOption('parameter'));
         } catch (OperationUnavailableException) {
             throw new ApiFeatureMissingException('This project does not support runtime operations.');
         }
