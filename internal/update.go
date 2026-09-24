@@ -34,17 +34,26 @@ func CheckForUpdate(cnf *config.Config, currentVersion string) (*ReleaseInfo, er
 		return nil, nil
 	}
 
+	var latest string
 	defer func() {
 		// After checking, save the last check time.
-		s.Updates.LastChecked = time.Now().Unix()
 		//nolint:errcheck // not being able to set the state should have no impact on the rest of the program
-		state.Save(s, cnf)
+		state.Update(cnf, func(s *state.State) {
+			s.Updates.LastChecked = time.Now().Unix()
+			if latest != "" {
+				s.Updates.KnownLatestVersion = latest
+			}
+		})
 	}()
 
 	releaseInfo, err := getLatestReleaseInfo(cnf.Wrapper.GitHubRepo)
 	if err != nil {
 		return nil, fmt.Errorf("could not determine latest release: %w", err)
 	}
+
+	// Cache the latest known version so the next invocation can show a message
+	// before its command runs, without blocking on the network.
+	latest = releaseInfo.Version
 
 	cmp, err := version.Compare(releaseInfo.Version, currentVersion)
 	if err != nil {
@@ -57,13 +66,62 @@ func CheckForUpdate(cnf *config.Config, currentVersion string) (*ReleaseInfo, er
 	return nil, nil
 }
 
+// notifyInterval is the minimum time between showing update messages.
+const notifyInterval = 7 * 24 * 60 * 60 // one week, in seconds
+
+// PendingNotification returns a release to tell the user about, based on the
+// version cached by a previous background check. It returns nil when there is
+// nothing to show, when the weekly throttle has not elapsed, or when the
+// environment is not eligible. The caller should print the result and then call
+// MarkNotified.
+func PendingNotification(cnf *config.Config, currentVersion string) *ReleaseInfo {
+	if !shouldCheckForUpdate(cnf) {
+		return nil
+	}
+	s, err := state.Load(cnf)
+	if err != nil {
+		return nil
+	}
+	return notificationFromState(s, cnf.Wrapper.GitHubRepo, currentVersion, time.Now().Unix())
+}
+
+// notificationFromState decides whether to notify about the cached latest
+// version, given the current time. It is the pure core of PendingNotification.
+func notificationFromState(s state.State, repo, currentVersion string, now int64) *ReleaseInfo {
+	if s.Updates.KnownLatestVersion == "" {
+		return nil
+	}
+	// A LastNotified in the future (clock skew) is treated as stale.
+	if s.Updates.LastNotified != 0 && s.Updates.LastNotified <= now && now-s.Updates.LastNotified < notifyInterval {
+		return nil
+	}
+	cmp, err := version.Compare(s.Updates.KnownLatestVersion, currentVersion)
+	if err != nil || cmp <= 0 {
+		return nil
+	}
+	return &ReleaseInfo{
+		Version: s.Updates.KnownLatestVersion,
+		URL:     fmt.Sprintf("https://github.com/%s/releases/tag/%s", repo, s.Updates.KnownLatestVersion),
+	}
+}
+
+// MarkNotified records that an update message was just shown, so it is not
+// repeated until the next notify interval.
+func MarkNotified(cnf *config.Config) {
+	//nolint:errcheck // failing to save state should not affect the rest of the program
+	state.Update(cnf, func(s *state.State) {
+		s.Updates.LastNotified = time.Now().Unix()
+	})
+}
+
 // shouldCheckForUpdate checks updates are not disabled and the environment is a terminal
 func shouldCheckForUpdate(cnf *config.Config) bool {
 	return config.Version != "0.0.0" &&
 		cnf.Wrapper.GitHubRepo != "" &&
 		cnf.Updates.Check &&
 		os.Getenv(cnf.Application.EnvPrefix+"UPDATES_CHECK") != "0" &&
-		!isCI() && terminal.IsTerminal(os.Stdout) && terminal.IsTerminal(os.Stderr)
+		!isCI() && !IsAutoUpdating(cnf) &&
+		terminal.IsTerminal(os.Stdout) && terminal.IsTerminal(os.Stderr)
 }
 
 func isCI() bool {

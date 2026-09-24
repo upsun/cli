@@ -40,10 +40,7 @@ func Execute(cnf *config.Config) error {
 }
 
 func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cobra.Command {
-	var (
-		updateMessageChan = make(chan *internal.ReleaseInfo, 1)
-		versionCommand    = newVersionCommand(cnf)
-	)
+	versionCommand := newVersionCommand(cnf)
 	cmd := &cobra.Command{
 		Use:                cnf.Application.Executable,
 		Short:              cnf.Application.Name,
@@ -57,7 +54,8 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 				// Completions must be fast and quiet.
 				return
 			}
-			if viper.GetBool("quiet") && !viper.GetBool("debug") && !viper.GetBool("verbose") {
+			quiet := viper.GetBool("quiet") && !viper.GetBool("debug") && !viper.GetBool("verbose")
+			if quiet {
 				viper.Set("no-interaction", true)
 				cmd.SetErr(io.Discard)
 			} else {
@@ -77,9 +75,20 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 				os.Exit(0)
 			}
 			if cnf.Wrapper.GitHubRepo != "" {
+				// Show any update found by a previous run, before the command's
+				// output. The check itself runs in the background (below) and
+				// caches its result for the next invocation. In quiet mode the
+				// notice would be discarded, so it is left for a later run.
+				if rel := internal.PendingNotification(cnf, config.Version); rel != nil && !quiet {
+					// Full detection can find package installs that lack the marker.
+					if !internal.DetectInstallMethod(cnf).AutoUpdating() {
+						printUpdateMessage(cmd.ErrOrStderr(), rel, cnf)
+					}
+					internal.MarkNotified(cnf)
+				}
 				go func() {
-					rel, _ := internal.CheckForUpdate(cnf, config.Version)
-					updateMessageChan <- rel
+					//nolint:errcheck // a failed update check should not affect the command
+					internal.CheckForUpdate(cnf, config.Version)
 				}()
 			}
 			if alt.ShouldUpdate(cnf) {
@@ -101,11 +110,6 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 				return
 			}
 			checkShellConfigLeftovers(cmd.ErrOrStderr(), cnf)
-			select {
-			case rel := <-updateMessageChan:
-				printUpdateMessage(cmd.ErrOrStderr(), rel, cnf)
-			default:
-			}
 		},
 	}
 
@@ -212,19 +216,14 @@ func printUpdateMessage(w io.Writer, newRelease *internal.ReleaseInfo, cnf *conf
 		return
 	}
 
-	fmt.Fprintf(w, "\n\n%s %s → %s\n",
+	fmt.Fprintf(w, "%s %s → %s\n",
 		color.YellowString(fmt.Sprintf("A new release of the %s is available:", cnf.Application.Name)),
 		color.CyanString(config.Version),
 		color.CyanString(newRelease.Version),
 	)
 
-	executable, err := os.Executable()
-	if err == nil && cnf.Wrapper.HomebrewTap != "" && isUnderHomebrew(executable) {
-		fmt.Fprintf(
-			w,
-			"To upgrade, run: brew update && brew upgrade %s\n",
-			color.YellowString(cnf.Wrapper.HomebrewTap),
-		)
+	if cmd := upgradeCommand(cnf); cmd != "" {
+		fmt.Fprintf(w, "To upgrade, run: %s\n", color.YellowString(cmd))
 	} else if cnf.Wrapper.GitHubRepo != "" {
 		fmt.Fprintf(
 			w,
@@ -236,19 +235,45 @@ func printUpdateMessage(w io.Writer, newRelease *internal.ReleaseInfo, cnf *conf
 	fmt.Fprintf(w, "%s\n\n", color.YellowString(newRelease.URL))
 }
 
-func isUnderHomebrew(binary string) bool {
-	brewExe, err := exec.LookPath("brew")
-	if err != nil {
-		return false
-	}
+// upgradeCommand returns the upgrade command for the detected install method, or
+// an empty string when there is no tailored command (the caller then falls back
+// to a generic link).
+func upgradeCommand(cnf *config.Config) string {
+	exe, _ := os.Executable()
+	return upgradeCommandFor(cnf, internal.DetectInstallMethod(cnf), exe)
+}
 
-	brewPrefixBytes, err := exec.Command(brewExe, "--prefix").Output()
-	if err != nil {
-		return false
+func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod, exe string) string {
+	switch method {
+	case internal.InstallHomebrew:
+		if cnf.Wrapper.HomebrewTap != "" {
+			return "brew update && brew upgrade " + cnf.Wrapper.HomebrewTap
+		}
+	case internal.InstallScoop:
+		return "scoop update " + cnf.Application.Executable
+	case internal.InstallNpm:
+		if cnf.Wrapper.NpmPackage != "" {
+			return "npm install -g " + cnf.Wrapper.NpmPackage + "@latest"
+		}
+	case internal.InstallScript:
+		// The raw method replaces the binary in INSTALL_DIR; without it, the
+		// installer may choose a package manager instead (e.g. apt on Debian).
+		if cnf.Wrapper.InstallerURL != "" && exe != "" {
+			return "curl -fsSL " + cnf.Wrapper.InstallerURL +
+				" | INSTALL_METHOD=raw INSTALL_DIR=" + shellQuote(filepath.Dir(exe)) + " sh"
+		}
 	}
+	return ""
+}
 
-	brewBinPrefix := filepath.Join(strings.TrimSpace(string(brewPrefixBytes)), "bin") + string(filepath.Separator)
-	return strings.HasPrefix(binary, brewBinPrefix)
+var shellSafe = regexp.MustCompile(`^[A-Za-z0-9_./-]+$`)
+
+// shellQuote quotes s for a POSIX shell, if needed.
+func shellQuote(s string) string {
+	if shellSafe.MatchString(s) {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 func debugLogf(format string, v ...any) {
