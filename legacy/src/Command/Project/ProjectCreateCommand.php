@@ -84,6 +84,10 @@ class ProjectCreateCommand extends CommandBase
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        // Validate the timeout options before creating anything.
+        $checkTimeout = $this->getTimeOption($input, 'check-timeout', 1, 3600);
+        $totalTimeout = $this->getTimeOption($input, 'timeout', 0, 3600);
+
         $organizationsEnabled = $this->config->getBool('api.organizations');
 
         // Check if the user needs phone verification before creating a project.
@@ -228,8 +232,6 @@ class ProjectCreateCommand extends CommandBase
         $timedOut = false;
         $start = $lastCheck = time();
         $checkInterval = 3;
-        $checkTimeout = $this->getTimeOption($input, 'check-timeout', 1, 3600);
-        $totalTimeout = $this->getTimeOption($input, 'timeout', 0, 3600);
         while ($subscription->isPending() && !$timedOut) {
             $bot->render();
             // Attempt to check the subscription every $checkInterval seconds.
@@ -625,11 +627,11 @@ class ProjectCreateCommand extends CommandBase
      * @param int $min
      * @param int $max
      *
-     * @return float|int
+     * @return int
      */
-    private function getTimeOption(InputInterface $input, string $optionName, int $min = 0, int $max = 3600): float|int
+    private function getTimeOption(InputInterface $input, string $optionName, int $min = 0, int $max = 3600): int
     {
-        $value = $input->getOption($optionName);
+        $value = $this->getIntOption($input, $optionName);
         if ($value <= $min) {
             $value = $min;
         } elseif ($value > $max) {

@@ -132,7 +132,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
 
         // Validate the --*-up options.
         $thresholdUp = $input->getOption('threshold-up');
-        if ($thresholdUp !== null) {
+        if (is_string($thresholdUp)) {
             $thresholdUp = $this->validateThreshold($thresholdUp, 'threshold-up');
         }
         $durationUp = $input->getOption('duration-up');
@@ -146,7 +146,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
 
         // Validate the --*-down options.
         $thresholdDown = $input->getOption('threshold-down');
-        if ($thresholdDown !== null) {
+        if (is_string($thresholdDown)) {
             $thresholdDown = $this->validateThreshold($thresholdDown, 'threshold-down');
         }
         $durationDown = $input->getOption('duration-down');
@@ -216,7 +216,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
             }
 
             // Get autoscaling current values for selected service
-            $currentServiceSettings = $autoscalingSettings['services'][$service];
+            $currentServiceSettings = $autoscalingSettings['services'][$service] ?? null;
 
             $this->stdErr->writeln('<options=bold>' . ucfirst($this->typeName($services[$service])) . ': </><options=bold,underscore>' . $service . '</>');
             $this->stdErr->writeln('');
@@ -239,7 +239,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
                 $enabled = true;
             }
             // Only mark 'enabled' as an updated field if it is changing
-            if ($currentServiceSettings['enabled'] !== $enabled) {
+            if (($currentServiceSettings['triggers'][$metric]['enabled'] ?? false) !== $enabled) {
                 $updates[$service]['enabled'] = $enabled;
             }
 
@@ -288,8 +288,8 @@ class AutoscalingSettingsSetCommand extends CommandBase
             }
 
             // Only mark 'enabled' as an updated field if it was explicitly set and is changing
-            $currentServiceSettings = $autoscalingSettings['services'][$service];
-            if ($enabled !== null && $currentServiceSettings['enabled'] !== $enabled) {
+            $currentServiceSettings = $autoscalingSettings['services'][$service] ?? null;
+            if ($enabled !== null && ($currentServiceSettings['triggers'][$metric]['enabled'] ?? false) !== $enabled) {
                 $updates[$service]['enabled'] = $enabled;
             }
 
@@ -461,7 +461,11 @@ class AutoscalingSettingsSetCommand extends CommandBase
             $default = $existingValue ?? $defaultValue;
             $newValue = $this->questionHelper->askInput($prompt, $default, [], $validator);
             $this->stdErr->writeln('');
-            if ($newValue !== $existingValue) {
+            // Compare numbers by value, e.g. a validated float threshold with the API's int.
+            $unchanged = is_numeric($newValue) && is_numeric($existingValue)
+                ? (float) $newValue === (float) $existingValue
+                : $newValue === $existingValue;
+            if (!$unchanged) {
                 $updates[$service][$updateKey] = $newValue;
             }
             return $newValue;
@@ -607,9 +611,10 @@ class AutoscalingSettingsSetCommand extends CommandBase
         $this->stdErr->writeln(sprintf('  Metric: <info>%s</info>', $metric));
 
         $action = 'remain';
-        $enabledText = $current['triggers'][$metric]['enabled'] ? 'enabled' : 'disabled';
+        $currentEnabled = $current['triggers'][$metric]['enabled'] ?? false;
+        $enabledText = $currentEnabled ? 'enabled' : 'disabled';
         if (isset($updates['enabled'])) {
-            if ($current['triggers'][$metric]['enabled'] != $updates['enabled']) {
+            if ($currentEnabled != $updates['enabled']) {
                 $action = 'become';
                 $enabledText = $updates['enabled'] ? 'enabled' : 'disabled';
             }
@@ -838,15 +843,22 @@ class AutoscalingSettingsSetCommand extends CommandBase
     /**
      * Validates a given threshold.
      *
-     * @param float|int $value
+     * @param string $value
      * @param string $context
      *
      * @throws InvalidArgumentException
      *
      * @return float
      */
-    protected function validateThreshold(float|int $value, string $context = ''): float
+    protected function validateThreshold(string $value, string $context = ''): float
     {
+        if (!is_numeric($value)) {
+            $message = sprintf('Invalid threshold <error>%s</error>: must be a number', $value);
+            if ($context) {
+                $message .= sprintf(' for %s', $context);
+            }
+            throw new InvalidArgumentException($message);
+        }
         $threshold = (float) $value;
         if ($threshold < 0) {
             $message = sprintf('Invalid threshold <error>%s</error>: must be 0 or greater', $value);

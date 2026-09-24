@@ -69,6 +69,10 @@ class EnvironmentSetRemoteCommand extends CommandBase
             }
         } else {
             $specifiedBranch = $this->git->getCurrentBranch();
+            if ($specifiedBranch === false) {
+                $this->stdErr->writeln('Could not determine the current branch. Specify a <error>branch</error> argument.');
+                return 1;
+            }
         }
 
         // Check whether the branch is mapped by default (its name or its Git

@@ -94,10 +94,12 @@ class Pip extends DependencyManagerBase
     {
         $lines = [];
         foreach ($dependencies as $package => $version) {
-            if (in_array($version[0], ['<', '!', '>', '='])) {
-                $lines[] = sprintf('%s%s', $package, $version);
-            } elseif ($version === '*') {
+            // Versions may be parsed from YAML as numbers.
+            $version = is_scalar($version) ? (string) $version : '';
+            if ($version === '' || $version === '*') {
                 $lines[] = $package;
+            } elseif (in_array($version[0], ['<', '!', '>', '='])) {
+                $lines[] = sprintf('%s%s', $package, $version);
             } else {
                 $lines[] = sprintf('%s==%s', $package, $version);
             }
