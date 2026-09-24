@@ -67,7 +67,11 @@ class ShellServiceTest extends TestCase
 
         $shell = new Shell();
         $this->assertFalse($shell->execute(['pwd'], $dir));
-        $this->expectException(ProcessStartFailedException::class);
-        $shell->mustExecute(['pwd'], $dir);
+        try {
+            $shell->mustExecute(['pwd'], $dir);
+            $this->fail('Expected a ProcessStartFailedException');
+        } catch (ProcessStartFailedException $e) {
+            $this->assertFalse($shell->exceptionMeansCommandDoesNotExist($e));
+        }
     }
 }

@@ -283,6 +283,10 @@ class Shell
     public function exceptionMeansCommandDoesNotExist(ProcessFailedException $e): bool
     {
         $process = $e->getProcess();
+        // A process that failed to start has no exit code or output to check.
+        if (!$process->isStarted()) {
+            return false;
+        }
         if ($process->getExitCode() === 127) {
             return true;
         }
