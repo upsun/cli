@@ -160,16 +160,22 @@ class QuestionHelper extends BaseQuestionHelper
         }
         $question = new ChoiceQuestion($text, $items, $default);
         $question->setMaxAttempts(5);
+        // PHP converts integer-like keys to ints, so ChoiceQuestion may treat
+        // the items as a list and return a value instead of a key.
+        $validator = $question->getValidator() ?? fn($answer) => $answer;
+        $question->setValidator(fn($answer) => is_string($answer) && array_key_exists($answer, $items) ? $answer : $validator($answer));
         $choice = $this->ask($this->input, $this->output, $question);
         if ($newLine) {
             $this->output->writeln('');
         }
-        // PHP converts integer-like keys to ints, so ChoiceQuestion treats the
-        // list as non-associative and returns the value instead of the key.
-        if (array_filter(array_keys($items), 'is_string') === []) {
-            return (string) array_search($choice, $items, true);
+        if (is_scalar($choice) && array_key_exists((string) $choice, $items)) {
+            return (string) $choice;
         }
-        return $choice;
+        $choiceKey = array_search($choice, $items, true);
+        if ($choiceKey === false) {
+            throw new \RuntimeException('Invalid value: ' . (is_scalar($choice) ? $choice : get_debug_type($choice)));
+        }
+        return (string) $choiceKey;
     }
 
     /**

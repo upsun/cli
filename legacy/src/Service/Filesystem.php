@@ -46,7 +46,7 @@ class Filesystem
     /**
      * Delete a file or directory.
      *
-     * @param string|iterable $files
+     * @param string|iterable<string> $files
      *   A filename or an iterable list of files to delete.
      * @param bool $chmod
      *   Whether to first recursively add read/write/exec permissions, so that
@@ -78,7 +78,7 @@ class Filesystem
     /**
      * Make files writable by the current user.
      *
-     * @param string|iterable $files
+     * @param string|iterable<string> $files
      *   A filename or an iterable list of files.
      * @param bool $recursive
      *   Whether to change the mode recursively or not.
@@ -96,12 +96,19 @@ class Filesystem
             if (is_link($file)) {
                 continue;
             } elseif (is_dir($file)) {
-                if ((!is_executable($file) || !is_writable($file))
+                if ((!is_readable($file) || !is_executable($file) || !is_writable($file))
                     && true !== @chmod($file, 0o700)) {
                     return false;
                 }
-                if ($recursive && !$this->unprotect(new \FilesystemIterator($file, \FilesystemIterator::CURRENT_AS_PATHNAME | \FilesystemIterator::SKIP_DOTS), true)) {
-                    return false;
+                if ($recursive) {
+                    try {
+                        $iterator = new \FilesystemIterator($file, \FilesystemIterator::CURRENT_AS_PATHNAME | \FilesystemIterator::SKIP_DOTS);
+                    } catch (\UnexpectedValueException) {
+                        return false;
+                    }
+                    if (!$this->unprotect($iterator, true)) {
+                        return false;
+                    }
                 }
             } elseif (!is_writable($file) && true !== @chmod($file, 0o600)) {
                 return false;
