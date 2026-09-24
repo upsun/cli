@@ -146,10 +146,13 @@ A new function `DetectInstallMethod(cnf) InstallMethod` resolves the method once
    scope (`@<vendor>/cli-` derived from config, or simply `node_modules`). → `npm`.
 4. **Scoop** (Windows only). Path contains a `scoop{sep}` segment. → `scoop`.
 5. **Homebrew.** Existing `isUnderHomebrew` logic (path under `brew --prefix`),
-   plus a cheap pre-check for `/Cellar/` in the path to avoid the subprocess when
-   obviously not Homebrew. → `homebrew`.
+   plus a cheap pre-check for `/Cellar/<formula>/` in the path to avoid the
+   subprocess when obviously Homebrew. → `homebrew`.
 6. **Script.** Otherwise, if the binary is in a normal bin dir
-   (`/usr/bin`, `/usr/local/bin`, `$INSTALL_DIR`-style) → `script`.
+   (`/usr/bin`, `/usr/local/bin`, `$INSTALL_DIR`-style) → `script`, unless on
+   Linux `dpkg-query -S`, `rpm -qf` or `apk info --who-owns` says a package owns
+   it → `package`. This covers packages installed before the marker existed.
+   It is too slow for the hot path, so it only runs before printing a notice.
 7. **Unknown.** Anything else (e.g. `go run`, source builds). → `unknown`.
 
 Resolve symlinks with `filepath.EvalSymlinks(os.Executable())` before matching so
@@ -204,7 +207,7 @@ hint.
 | `homebrew` | Yes | `brew update && brew upgrade <wrapper.homebrew_tap>` | Yes |
 | `scoop` | Yes | `scoop update <application.executable>` | Yes |
 | `npm` | Yes | `npm install -g <wrapper.npm_package>@latest` | Yes |
-| `script` | Yes | `curl -fsSL <wrapper.installer_url> \| INSTALL_DIR=<exe dir> sh` | No (remote + maybe sudo)¹ |
+| `script` | Yes | `curl -fsSL <wrapper.installer_url> \| INSTALL_METHOD=raw INSTALL_DIR=<exe dir> sh` | No (remote + maybe sudo)¹ |
 | `unknown` | Yes | `follow the instructions at https://github.com/<repo>#upgrade` (today's text) | No |
 
 ¹ Becomes auto-updatable in Phase 3 if raw installs move to a user-local,
@@ -383,7 +386,8 @@ interfaces/fakes (avoid real `brew`/filesystem):
 - `…/node_modules/@upsun/cli-linux-x64/bin/upsun` → `npm`.
 - `…\scoop\apps\upsun\current\upsun.exe` (GOOS=windows) → `scoop`.
 - brew-prefix path → `homebrew`.
-- `/usr/bin/upsun` no marker → `script`.
+- `/usr/bin/upsun` no marker, not package-owned → `script`.
+- `/usr/bin/upsun` no marker, package-owned → `package`.
 - `<PREFIX>INSTALL_METHOD=homebrew` overrides a `/usr/bin` path.
 - `go run` temp path → `unknown`.
 

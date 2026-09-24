@@ -80,7 +80,10 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 				// caches its result for the next invocation. In quiet mode the
 				// notice would be discarded, so it is left for a later run.
 				if rel := internal.PendingNotification(cnf, config.Version); rel != nil && !quiet {
-					printUpdateMessage(cmd.ErrOrStderr(), rel, cnf)
+					// Full detection can find package installs that lack the marker.
+					if !internal.DetectInstallMethod(cnf).AutoUpdating() {
+						printUpdateMessage(cmd.ErrOrStderr(), rel, cnf)
+					}
 					internal.MarkNotified(cnf)
 				}
 				go func() {
@@ -253,10 +256,11 @@ func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod, exe st
 			return "npm install -g " + cnf.Wrapper.NpmPackage + "@latest"
 		}
 	case internal.InstallScript:
-		// INSTALL_DIR replaces the binary in place and forces the installer's raw
-		// method, which it might not otherwise choose (e.g. apt on Debian).
+		// The raw method replaces the binary in INSTALL_DIR; without it, the
+		// installer may choose a package manager instead (e.g. apt on Debian).
 		if cnf.Wrapper.InstallerURL != "" && exe != "" {
-			return "curl -fsSL " + cnf.Wrapper.InstallerURL + " | INSTALL_DIR=" + shellQuote(filepath.Dir(exe)) + " sh"
+			return "curl -fsSL " + cnf.Wrapper.InstallerURL +
+				" | INSTALL_METHOD=raw INSTALL_DIR=" + shellQuote(filepath.Dir(exe)) + " sh"
 		}
 	}
 	return ""

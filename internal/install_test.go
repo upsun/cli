@@ -100,9 +100,27 @@ func TestDetectInstallMethod(t *testing.T) {
 			name: "homebrew via cellar symlink target",
 			probe: installProbe{
 				goos: "darwin", exe: "/opt/homebrew/Cellar/upsun-cli/2.0.0/bin/upsun", slug: "upsun",
-				getenv: func(string) string { return "" }, fileExists: noFile, brewPrefix: noBrew,
+				brewFormula: "upsun-cli",
+				getenv:      func(string) string { return "" }, fileExists: noFile, brewPrefix: noBrew,
 			},
 			want: InstallHomebrew,
+		},
+		{
+			name: "cellar directory not belonging to homebrew",
+			probe: installProbe{
+				goos: "linux", exe: "/srv/cellar/bin/upsun", slug: "upsun", brewFormula: "upsun-cli",
+				getenv: func(string) string { return "" }, fileExists: noFile, brewPrefix: noBrew,
+			},
+			want: InstallUnknown,
+		},
+		{
+			name: "usr-bin owned by a package without marker",
+			probe: installProbe{
+				goos: "linux", exe: "/usr/bin/upsun", slug: "upsun",
+				getenv: func(string) string { return "" }, fileExists: noFile, brewPrefix: noBrew,
+				pkgOwned: func(exe string) bool { return exe == "/usr/bin/upsun" },
+			},
+			want: InstallPackage,
 		},
 		{
 			name: "homebrew via brew prefix",
@@ -124,6 +142,9 @@ func TestDetectInstallMethod(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			if c.probe.pkgOwned == nil {
+				c.probe.pkgOwned = func(string) bool { return false }
+			}
 			assert.Equal(t, c.want, detectInstallMethod(&c.probe))
 		})
 	}

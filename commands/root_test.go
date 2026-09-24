@@ -12,7 +12,7 @@ func TestUpgradeCommandFor(t *testing.T) {
 	cnf := testConfig()
 	cnf.Wrapper.HomebrewTap = "upsun/tap/upsun-cli"
 	cnf.Wrapper.NpmPackage = "upsun"
-	cnf.Wrapper.InstallerURL = "https://example.com/installer.sh"
+	cnf.Wrapper.InstallerURL = "https://x.test/i.sh"
 	cnf.Application.Executable = "upsun"
 
 	cases := []struct {
@@ -22,7 +22,7 @@ func TestUpgradeCommandFor(t *testing.T) {
 		{internal.InstallHomebrew, "brew update && brew upgrade upsun/tap/upsun-cli"},
 		{internal.InstallScoop, "scoop update upsun"},
 		{internal.InstallNpm, "npm install -g upsun@latest"},
-		{internal.InstallScript, "curl -fsSL https://example.com/installer.sh | INSTALL_DIR=/usr/local/bin sh"},
+		{internal.InstallScript, "curl -fsSL https://x.test/i.sh | INSTALL_METHOD=raw INSTALL_DIR=/usr/local/bin sh"},
 		{internal.InstallPackage, ""}, // suppressed; no tailored command
 		{internal.InstallUnknown, ""}, // falls back to the generic link
 	}

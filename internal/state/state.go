@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/upsun/cli/internal/config"
 )
@@ -50,6 +51,21 @@ func Save(state State, cnf *config.Config) error {
 	}
 
 	return os.WriteFile(statePath, data, 0o600)
+}
+
+var mu sync.Mutex
+
+// Update loads the state, applies fn and saves it. Reloading under a lock stops
+// concurrent updates in one process from dropping each other's fields.
+func Update(cnf *config.Config, fn func(*State)) error {
+	mu.Lock()
+	defer mu.Unlock()
+	s, err := Load(cnf)
+	if err != nil {
+		return err
+	}
+	fn(&s)
+	return Save(s, cnf)
 }
 
 // getPath determines the path to the state JSON file depending on config.

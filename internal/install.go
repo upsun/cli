@@ -3,6 +3,7 @@ package internal
 import (
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -37,9 +38,11 @@ type installProbe struct {
 	envPrefix    string
 	slug         string
 	configMethod string
+	brewFormula  string // the last segment of the Homebrew tap, e.g. "upsun-cli"
 	getenv       func(string) string
 	fileExists   func(string) bool
 	brewPrefix   func() (string, bool)
+	pkgOwned     func(exe string) bool
 }
 
 var (
@@ -58,9 +61,11 @@ func DetectInstallMethod(cnf *config.Config) InstallMethod {
 			envPrefix:    cnf.Application.EnvPrefix,
 			slug:         cnf.Application.Slug,
 			configMethod: cnf.Wrapper.InstallMethod,
+			brewFormula:  path.Base(cnf.Wrapper.HomebrewTap),
 			getenv:       getenvFunc,
 			fileExists:   fileExists,
 			brewPrefix:   brewPrefix,
+			pkgOwned:     ownedBySystemPackage,
 		})
 	})
 	return detectedMethod
@@ -89,10 +94,14 @@ func detectInstallMethod(p *installProbe) InstallMethod {
 	if p.goos == "windows" && strings.Contains(n, "/scoop/") {
 		return InstallScoop
 	}
-	if isHomebrew(p.exe, p.brewPrefix) {
+	if isHomebrew(p.exe, p.brewFormula, p.brewPrefix) {
 		return InstallHomebrew
 	}
 	if inStandardBinDir(p.exe) {
+		// Packages installed before the marker file existed lack it.
+		if p.goos == "linux" && p.pkgOwned(p.exe) {
+			return InstallPackage
+		}
 		return InstallScript
 	}
 	return InstallUnknown
@@ -136,10 +145,10 @@ func packageMarkerExists(exe, slug string, fileExists func(string) bool) bool {
 	return fileExists(filepath.Join(prefix, "share", slug, "install-source"))
 }
 
-func isHomebrew(exe string, brewPrefix func() (string, bool)) bool {
+func isHomebrew(exe, formula string, brewPrefix func() (string, bool)) bool {
 	n := normPath(exe)
 	// Homebrew bins symlink into the Cellar; the resolved path reveals it cheaply.
-	if strings.Contains(n, "/cellar/") {
+	if formula != "" && formula != "." && strings.Contains(n, "/cellar/"+strings.ToLower(formula)+"/") {
 		return true
 	}
 	if prefix, ok := brewPrefix(); ok && prefix != "" {
@@ -196,6 +205,21 @@ func getenvFunc(k string) string {
 func fileExists(p string) bool {
 	_, err := os.Stat(p)
 	return err == nil
+}
+
+// ownedBySystemPackage asks the system package database whether it owns exe.
+func ownedBySystemPackage(exe string) bool {
+	queries := [][]string{
+		{"dpkg-query", "-S", exe},
+		{"rpm", "-qf", exe},
+		{"apk", "info", "--who-owns", exe},
+	}
+	for _, q := range queries {
+		if p, err := exec.LookPath(q[0]); err == nil && exec.Command(p, q[1:]...).Run() == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func brewPrefix() (string, bool) {

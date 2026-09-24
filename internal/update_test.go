@@ -44,4 +44,9 @@ func TestNotificationFromState(t *testing.T) {
 		lastNotified := int64(now - 8*24*60*60) // 8 days ago
 		assert.NotNil(t, notificationFromState(newState("v2.0.0", lastNotified), "upsun/cli", "v1.0.0", now))
 	})
+
+	t.Run("notifies when last notified is in the future", func(t *testing.T) {
+		lastNotified := int64(now + 30*24*60*60) // clock skew
+		assert.NotNil(t, notificationFromState(newState("v2.0.0", lastNotified), "upsun/cli", "v1.0.0", now))
+	})
 }

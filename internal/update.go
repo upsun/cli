@@ -34,11 +34,16 @@ func CheckForUpdate(cnf *config.Config, currentVersion string) (*ReleaseInfo, er
 		return nil, nil
 	}
 
+	var latest string
 	defer func() {
 		// After checking, save the last check time.
-		s.Updates.LastChecked = time.Now().Unix()
 		//nolint:errcheck // not being able to set the state should have no impact on the rest of the program
-		state.Save(s, cnf)
+		state.Update(cnf, func(s *state.State) {
+			s.Updates.LastChecked = time.Now().Unix()
+			if latest != "" {
+				s.Updates.KnownLatestVersion = latest
+			}
+		})
 	}()
 
 	releaseInfo, err := getLatestReleaseInfo(cnf.Wrapper.GitHubRepo)
@@ -48,7 +53,7 @@ func CheckForUpdate(cnf *config.Config, currentVersion string) (*ReleaseInfo, er
 
 	// Cache the latest known version so the next invocation can show a message
 	// before its command runs, without blocking on the network.
-	s.Updates.KnownLatestVersion = releaseInfo.Version
+	latest = releaseInfo.Version
 
 	cmp, err := version.Compare(releaseInfo.Version, currentVersion)
 	if err != nil {
@@ -86,7 +91,8 @@ func notificationFromState(s state.State, repo, currentVersion string, now int64
 	if s.Updates.KnownLatestVersion == "" {
 		return nil
 	}
-	if s.Updates.LastNotified != 0 && now-s.Updates.LastNotified < notifyInterval {
+	// A LastNotified in the future (clock skew) is treated as stale.
+	if s.Updates.LastNotified != 0 && s.Updates.LastNotified <= now && now-s.Updates.LastNotified < notifyInterval {
 		return nil
 	}
 	cmp, err := version.Compare(s.Updates.KnownLatestVersion, currentVersion)
@@ -102,13 +108,10 @@ func notificationFromState(s state.State, repo, currentVersion string, now int64
 // MarkNotified records that an update message was just shown, so it is not
 // repeated until the next notify interval.
 func MarkNotified(cnf *config.Config) {
-	s, err := state.Load(cnf)
-	if err != nil {
-		return
-	}
-	s.Updates.LastNotified = time.Now().Unix()
 	//nolint:errcheck // failing to save state should not affect the rest of the program
-	state.Save(s, cnf)
+	state.Update(cnf, func(s *state.State) {
+		s.Updates.LastNotified = time.Now().Unix()
+	})
 }
 
 // shouldCheckForUpdate checks updates are not disabled and the environment is a terminal
