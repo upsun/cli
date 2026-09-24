@@ -69,7 +69,7 @@ class SelfReleaseCommand extends CommandBase
             return 1;
         }
 
-        if (!$input->getOption('no-check-changes')) {
+        if (!Option::bool($input, 'no-check-changes')) {
             $gitStatus = $this->git->execute(['status', '--porcelain'], CLI_ROOT, true);
             if (is_string($gitStatus) && !empty($gitStatus)) {
                 foreach (explode("\n", $gitStatus) as $statusLine) {
@@ -110,13 +110,13 @@ class SelfReleaseCommand extends CommandBase
             $this->stdErr->writeln('Last version number (from latest Git tag): <info>' . $lastVersion . '</info>');
         }
 
-        if (!$input->getOption('no-check-changes') && !$this->hasGitDifferences($lastTag)) {
+        if (!Option::bool($input, 'no-check-changes') && !$this->hasGitDifferences($lastTag)) {
             $this->stdErr->writeln('There are no changes since the last version.');
 
             return 1;
         }
 
-        $allowLower = (bool) $input->getOption('allow-lower');
+        $allowLower = Option::bool($input, 'allow-lower');
         $validateNewVersion = function ($next) use ($lastVersion, $allowLower) {
             if ($next === null) {
                 throw new \InvalidArgumentException('The new version is required.');

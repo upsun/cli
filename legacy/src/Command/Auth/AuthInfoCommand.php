@@ -40,7 +40,7 @@ class AuthInfoCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        if ($input->getOption('no-auto-login') && !$this->api->isLoggedIn()) {
+        if (Option::bool($input, 'no-auto-login') && !$this->api->isLoggedIn()) {
             $this->stdErr->writeln('Not logged in', OutputInterface::VERBOSITY_VERBOSE);
             return 0;
         }
@@ -61,12 +61,12 @@ class AuthInfoCommand extends CommandBase
 
         // Exit early if it's the user ID.
         if ($property === 'id') {
-            $userId = $this->api->getMyUserId($input->getOption('refresh'));
+            $userId = $this->api->getMyUserId(Option::bool($input, 'refresh'));
             $output->writeln($userId);
             return 0;
         }
 
-        $info = $this->api->getMyAccount($input->getOption('refresh'));
+        $info = $this->api->getMyAccount(Option::bool($input, 'refresh'));
 
         $propertiesToDisplay = ['id', 'first_name', 'last_name', 'username', 'email', 'phone_number_verified'];
         $info = array_intersect_key($info, array_flip($propertiesToDisplay));

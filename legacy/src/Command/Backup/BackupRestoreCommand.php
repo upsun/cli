@@ -114,7 +114,7 @@ class BackupRestoreCommand extends CommandBase
         // Display a summary of the backup.
         $this->stdErr->writeln(\sprintf('Backup ID: <comment>%s</comment>', $backup->id));
         $this->stdErr->writeln(\sprintf('Created at: <comment>%s</comment>', $this->propertyFormatter->format($backup->created_at, 'created_at')));
-        if ($input->getOption('no-code')) {
+        if (Option::bool($input, 'no-code')) {
             $this->stdErr->writeln('Only data, not code, will be restored.');
         }
 
@@ -141,8 +141,8 @@ class BackupRestoreCommand extends CommandBase
             (new RestoreOptions())
                 ->setEnvironmentName($targetName)
                 ->setBranchFrom($branchFrom)
-                ->setRestoreCode($input->getOption('no-code') ? false : null)
-                ->setRestoreResources($input->hasOption('no-resources') && $input->getOption('no-resources') ? false : null)
+                ->setRestoreCode(Option::bool($input, 'no-code') ? false : null)
+                ->setRestoreResources($input->hasOption('no-resources') && Option::bool($input, 'no-resources') ? false : null)
                 ->setResourcesInit($resourcesInit),
         );
 

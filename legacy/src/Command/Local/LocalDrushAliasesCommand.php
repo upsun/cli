@@ -83,7 +83,7 @@ class LocalDrushAliasesCommand extends CommandBase
 
         $current_group = $this->drush->getAliasGroup($project, $projectRoot);
 
-        if ($input->getOption('pipe')) {
+        if (Option::bool($input, 'pipe')) {
             $output->writeln($current_group);
 
             return 0;
@@ -104,7 +104,7 @@ class LocalDrushAliasesCommand extends CommandBase
             $new_group = (new Slugify())->slugify($project->title);
         }
 
-        if (($new_group && $new_group != $current_group) || empty($aliases) || $input->getOption('recreate')) {
+        if (($new_group && $new_group != $current_group) || empty($aliases) || Option::bool($input, 'recreate')) {
             $new_group = $new_group ?: $current_group;
 
             $this->stdErr->writeln("Creating Drush aliases in the group <info>@$new_group</info>");

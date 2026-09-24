@@ -96,7 +96,7 @@ class SelfBuildCommand extends CommandBase
             }
         }
 
-        if (!$input->getOption('no-composer-rebuild')) {
+        if (!Option::bool($input, 'no-composer-rebuild')) {
             $this->stdErr->writeln('Ensuring correct composer dependencies.');
             $this->stdErr->writeln('If this fails, you may need to run "composer install" manually.');
 

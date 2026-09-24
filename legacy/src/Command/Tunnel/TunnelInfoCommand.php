@@ -73,7 +73,7 @@ class TunnelInfoCommand extends TunnelCommandBase
             return 1;
         }
 
-        if ($input->getOption('encode')) {
+        if (Option::bool($input, 'encode')) {
             if (Option::stringOrNull($input, 'property')) {
                 $this->stdErr->writeln('You cannot combine --encode with --property.');
                 return 1;

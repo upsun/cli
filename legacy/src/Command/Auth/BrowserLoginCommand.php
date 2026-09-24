@@ -75,7 +75,7 @@ class BrowserLoginCommand extends CommandBase
             $this->stdErr->writeln('');
         }
         $connector = $this->api->getClient(false)->getConnector();
-        $force = $input->getOption('force');
+        $force = Option::bool($input, 'force');
         if (!$force && Option::stringArray($input, 'method') === [] && $maxAge === null && $connector->isLoggedIn()) {
             // Get account information, simultaneously checking whether the API
             // login is still valid. If the request works, then do not log in

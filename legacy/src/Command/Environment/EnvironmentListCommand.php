@@ -171,7 +171,7 @@ class EnvironmentListCommand extends CommandBase
 
         // Filter the list of environments.
         $filters = [];
-        if ($input->getOption('no-inactive')) {
+        if (Option::bool($input, 'no-inactive')) {
             $filters['no-inactive'] = true;
         }
         if ($types = ArrayArgument::getOption($input, 'type')) {
@@ -185,11 +185,11 @@ class EnvironmentListCommand extends CommandBase
         if ($sort = Option::string($input, 'sort')) {
             $this->api->sortResources($environments, $sort);
         }
-        if ($input->getOption('reverse')) {
+        if (Option::bool($input, 'reverse')) {
             $environments = array_reverse($environments, true);
         }
 
-        if ($input->getOption('pipe')) {
+        if (Option::bool($input, 'pipe')) {
             $output->writeln(array_keys($environments));
 
             return 0;

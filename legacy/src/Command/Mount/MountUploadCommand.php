@@ -140,7 +140,7 @@ class MountUploadCommand extends CommandBase
         }
 
         $rsyncOptions = [
-            'delete' => $input->getOption('delete'),
+            'delete' => Option::bool($input, 'delete'),
             'exclude' => Option::stringArray($input, 'exclude'),
             'include' => Option::stringArray($input, 'include'),
             'verbose' => $output->isVeryVerbose(),

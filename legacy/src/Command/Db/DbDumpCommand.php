@@ -68,11 +68,11 @@ class DbDumpCommand extends CommandBase
         $selection = $this->selector->getSelection($input, $selectorConfig);
         $host = $this->selector->getHostFromSelection($input, $selection);
 
-        $timestamp = $input->getOption('timestamp') ? date('Ymd-His-T') : null;
-        $gzip = $input->getOption('gzip');
+        $timestamp = Option::bool($input, 'timestamp') ? date('Ymd-His-T') : null;
+        $gzip = Option::bool($input, 'gzip');
         $includedTables = Option::stringArray($input, 'table');
         $excludedTables = Option::stringArray($input, 'exclude-table');
-        $schemaOnly = $input->getOption('schema-only');
+        $schemaOnly = Option::bool($input, 'schema-only');
         $charset = Option::stringOrNull($input, 'charset');
         $projectRoot = $this->selector->getProjectRoot();
 
@@ -132,7 +132,7 @@ class DbDumpCommand extends CommandBase
         }
 
         $dumpFile = null;
-        if (!$input->getOption('stdout')) {
+        if (!Option::bool($input, 'stdout')) {
             // Process the user --file option.
             if ($fileOption = Option::stringOrNull($input, 'file')) {
                 if (is_dir($fileOption)) {

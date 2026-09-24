@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Console\Animation;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -31,11 +32,11 @@ class BotCommand extends CommandBase
     {
         $dir = CLI_ROOT . '/resources/bot';
         $signature = $this->config->getStr('service.name');
-        $party = $input->getOption('party');
+        $party = Option::bool($input, 'party');
         $interval = $party ? 120000 : 500000;
 
         // With thanks to https://github.com/jmhobbs/terminal-parrot
-        if ($input->getOption('parrot')) {
+        if (Option::bool($input, 'parrot')) {
             $dir = dirname($dir) . '/parrot';
             $interval = $party ? 70000 : 100000;
             $signature = '';

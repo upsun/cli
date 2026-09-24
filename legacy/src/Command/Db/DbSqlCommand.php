@@ -121,7 +121,7 @@ class DbSqlCommand extends CommandBase
             case 'pgsql':
                 $sqlCommand = 'psql ' . $this->relationships->getDbCommandArgs('psql', $database, $schema);
                 if ($query) {
-                    if ($input->getOption('raw')) {
+                    if (Option::bool($input, 'raw')) {
                         $sqlCommand .= ' -t';
                     }
                     $sqlCommand .= ' -c ' . OsUtil::escapePosixShellArg($query);
@@ -133,7 +133,7 @@ class DbSqlCommand extends CommandBase
                 $cmdInvocation = $this->relationships->mariaDbCommandWithFallback($cmdName);
                 $sqlCommand = $cmdInvocation . ' --no-auto-rehash ' . $this->relationships->getDbCommandArgs($cmdName, $database, $schema);
                 if ($query) {
-                    if ($input->getOption('raw')) {
+                    if (Option::bool($input, 'raw')) {
                         $sqlCommand .= ' --batch --raw';
                     }
                     $sqlCommand .= ' --execute ' . OsUtil::escapePosixShellArg($query);
@@ -142,7 +142,7 @@ class DbSqlCommand extends CommandBase
         }
 
         // Enable tabular output when the input is a terminal.
-        if (!$input->getOption('raw') && $host instanceof RemoteHost && $this->io->isTerminal(STDIN)) {
+        if (!Option::bool($input, 'raw') && $host instanceof RemoteHost && $this->io->isTerminal(STDIN)) {
             $host->setExtraSshOptions(['RequestTTY yes']);
         }
 

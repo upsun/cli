@@ -76,7 +76,7 @@ class TeamListCommand extends TeamCommandBase
         $params = [];
 
         if ($sortBy = Option::string($input, 'sort')) {
-            if ($input->getOption('reverse')) {
+            if (Option::bool($input, 'reverse')) {
                 $sortBy = '-' . $sortBy;
             }
             $params['sort'] = $sortBy;
@@ -91,7 +91,7 @@ class TeamListCommand extends TeamCommandBase
         $executable = $this->config->getStr('application.executable');
 
         // Fetch teams for a specific project.
-        $projectSpecific = !$input->getOption('all') && $selection->hasProject();
+        $projectSpecific = !Option::bool($input, 'all') && $selection->hasProject();
         if ($projectSpecific) {
             $teamsOnProject = $this->loadTeamsOnProject($selection->getProject());
             if (!$teamsOnProject) {

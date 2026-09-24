@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\App;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Api;
@@ -51,7 +52,7 @@ class AppListCommand extends CommandBase
 
         // Find a list of deployed web apps.
         $deployment = $this->api
-            ->getCurrentDeployment($selection->getEnvironment(), $input->getOption('refresh'));
+            ->getCurrentDeployment($selection->getEnvironment(), Option::bool($input, 'refresh'));
         $apps = $deployment->webapps;
 
         if (!count($apps)) {
@@ -61,7 +62,7 @@ class AppListCommand extends CommandBase
             return 0;
         }
 
-        if ($input->getOption('pipe')) {
+        if (Option::bool($input, 'pipe')) {
             $appNames = array_keys($apps);
             sort($appNames, SORT_NATURAL);
             $output->writeln($appNames);

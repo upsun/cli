@@ -235,7 +235,7 @@ class ProjectGetCommand extends CommandBase
 
         // Launch the first build.
         $success = true;
-        if ($input->hasOption('build') && $input->getOption('build')) {
+        if ($input->hasOption('build') && Option::bool($input, 'build')) {
             // Launch the first build.
             $this->stdErr->writeln('');
             $this->stdErr->writeln(sprintf(

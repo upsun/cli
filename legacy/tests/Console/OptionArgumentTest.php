@@ -97,6 +97,15 @@ class OptionArgumentTest extends TestCase
         Option::stringArray($input, 'arr');
     }
 
+    public function testBoolOption(): void
+    {
+        $definition = new InputDefinition([new InputOption('flag', null, InputOption::VALUE_NONE)]);
+        $this->assertFalse(Option::bool(new ArrayInput([], $definition), 'flag'));
+        $this->assertTrue(Option::bool(new ArrayInput(['--flag' => true], $definition), 'flag'));
+        $this->expectException(\LogicException::class);
+        Option::bool(new ArrayInput(['--flag' => 1], $definition), 'flag');
+    }
+
     public function testIntOption(): void
     {
         $this->assertSame(5, Option::int(self::input(['--opt' => '5']), 'opt'));

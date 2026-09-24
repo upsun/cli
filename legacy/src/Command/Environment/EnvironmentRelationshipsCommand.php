@@ -46,7 +46,7 @@ class EnvironmentRelationshipsCommand extends CommandBase
         $selection = $this->selector->getSelection($input, new SelectorConfig(allowLocalHost: $this->relationships->hasLocalEnvVar(), chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
         $host = $this->selector->getHostFromSelection($input, $selection);
 
-        $relationships = $this->relationships->getRelationships($host, $input->getOption('refresh'));
+        $relationships = $this->relationships->getRelationships($host, Option::bool($input, 'refresh'));
 
         foreach ($relationships as $name => $relationship) {
             foreach ($relationship as $index => $instance) {

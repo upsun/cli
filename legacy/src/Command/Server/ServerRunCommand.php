@@ -110,7 +110,7 @@ class ServerRunCommand extends ServerCommandBase
             $appConfig['drupal_7_workaround'] = true;
         }
 
-        $force = $input->getOption('force');
+        $force = Option::bool($input, 'force');
 
         if ($otherServer = $this->isServerRunningForApp($appId, $projectRoot)) {
             if (!$force) {

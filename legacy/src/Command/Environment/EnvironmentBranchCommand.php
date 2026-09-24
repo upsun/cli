@@ -100,8 +100,8 @@ class EnvironmentBranchCommand extends CommandBase
         }
 
         $projectRoot = $this->selector->getProjectRoot();
-        $dryRun = $input->getOption('dry-run');
-        $checkoutLocally = $projectRoot && !$input->getOption('no-checkout');
+        $dryRun = Option::bool($input, 'dry-run');
+        $checkoutLocally = $projectRoot && !Option::bool($input, 'no-checkout');
 
         if ($environment = $this->api->getEnvironment($branchName, $selectedProject)) {
             if (!$checkoutLocally || $dryRun) {
@@ -166,7 +166,7 @@ class EnvironmentBranchCommand extends CommandBase
         $this->stdErr->writeln(sprintf('Creating a new environment: %s', $newLabel));
         $this->stdErr->writeln('');
 
-        $parentMessage = $input->getOption('no-clone-parent')
+        $parentMessage = Option::bool($input, 'no-clone-parent')
             ? 'Settings will be copied from the parent environment: %s'
             : 'Settings will be copied and data cloned from the parent environment: %s';
         $this->stdErr->writeln(sprintf($parentMessage, $this->api->getEnvironmentLabel($parentEnvironment, 'info', false)));
@@ -200,7 +200,7 @@ class EnvironmentBranchCommand extends CommandBase
             $params = [
                 'name' => $branchName,
                 'title' => $title,
-                'clone_parent' => !$input->getOption('no-clone-parent'),
+                'clone_parent' => !Option::bool($input, 'no-clone-parent'),
             ];
             if ($type !== null) {
                 $params['type'] = $type;

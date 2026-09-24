@@ -325,12 +325,6 @@ parameters:
 			path: src/Command/App/AppListCommand.php
 
 		-
-			message: '#^Parameter \#2 \$refresh of method Platformsh\\Cli\\Service\\Api\:\:getCurrentDeployment\(\) expects bool, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/App/AppListCommand.php
-
-		-
 			message: '#^Call to an undefined method Platformsh\\Client\\Connection\\ConnectorInterface\:\:getOAuth2Provider\(\)\.$#'
 			identifier: method.notFound
 			count: 1
@@ -347,18 +341,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: src/Command/Auth/ApiTokenLoginCommand.php
-
-		-
-			message: '#^Parameter \#1 \$reset of method Platformsh\\Cli\\Service\\Api\:\:getMyAccount\(\) expects bool, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Auth/AuthInfoCommand.php
-
-		-
-			message: '#^Parameter \#1 \$reset of method Platformsh\\Cli\\Service\\Api\:\:getMyUserId\(\) expects bool, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Auth/AuthInfoCommand.php
 
 		-
 			message: '#^Binary operation "\." between ''  Description\: '' and mixed results in an error\.$#'
@@ -811,18 +793,6 @@ parameters:
 			path: src/Command/Db/DbDumpCommand.php
 
 		-
-			message: '#^Parameter \#6 \$schemaOnly of method Platformsh\\Cli\\Command\\Db\\DbDumpCommand\:\:getDefaultFilename\(\) expects bool, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Db/DbDumpCommand.php
-
-		-
-			message: '#^Parameter \#7 \$gzip of method Platformsh\\Cli\\Command\\Db\\DbDumpCommand\:\:getDefaultFilename\(\) expects bool, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Db/DbDumpCommand.php
-
-		-
 			message: '#^Possibly invalid array key type mixed\.$#'
 			identifier: offsetAccess.invalidOffset
 			count: 2
@@ -1087,12 +1057,6 @@ parameters:
 			path: src/Command/Environment/EnvironmentRelationshipsCommand.php
 
 		-
-			message: '#^Parameter \#2 \$refresh of method Platformsh\\Cli\\Service\\Relationships\:\:getRelationships\(\) expects bool, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentRelationshipsCommand.php
-
-		-
 			message: '#^Binary operation "\." between ''\<error\>Error\:\<…'' and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
 			count: 1
@@ -1243,12 +1207,6 @@ parameters:
 			path: src/Command/Local/LocalBuildCommand.php
 
 		-
-			message: '#^Parameter \#4 \$includeActive of method Platformsh\\Cli\\Local\\LocalBuild\:\:cleanBuilds\(\) expects bool, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Local/LocalCleanCommand.php
-
-		-
 			message: '#^Cannot access an offset on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -1293,12 +1251,6 @@ parameters:
 		-
 			message: '#^Cannot access offset ''_to'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/AllMetricsCommand.php
-
-		-
-			message: '#^Parameter \#1 \$bytes of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:storageFields\(\) expects bool, mixed given\.$#'
-			identifier: argument.type
 			count: 1
 			path: src/Command/Metrics/AllMetricsCommand.php
 
@@ -1407,12 +1359,6 @@ parameters:
 		-
 			message: '#^Cannot access offset ''_to'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/DiskUsageCommand.php
-
-		-
-			message: '#^Parameter \#1 \$bytes of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:storageFields\(\) expects bool, mixed given\.$#'
-			identifier: argument.type
 			count: 1
 			path: src/Command/Metrics/DiskUsageCommand.php
 
@@ -1693,12 +1639,6 @@ parameters:
 			path: src/Command/Mount/MountDownloadCommand.php
 
 		-
-			message: '#^Parameter \#4 \$options of method Platformsh\\Cli\\Service\\Rsync\:\:syncDown\(\) expects array\{verbose\?\: bool, quiet\?\: bool, convert\-mac\-filenames\?\: bool, delete\?\: bool, include\?\: array\<string\>, exclude\?\: array\<string\>\}, array\{delete\: mixed, exclude\: array\<string\>, include\: array\<string\>, verbose\: bool, quiet\: bool\} given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Mount/MountDownloadCommand.php
-
-		-
 			message: '#^Cannot access offset ''name'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -1736,12 +1676,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#2 \$localDir of method Platformsh\\Cli\\Service\\Rsync\:\:syncUp\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Mount/MountUploadCommand.php
-
-		-
-			message: '#^Parameter \#4 \$options of method Platformsh\\Cli\\Service\\Rsync\:\:syncUp\(\) expects array\{verbose\?\: bool, quiet\?\: bool, convert\-mac\-filenames\?\: bool, delete\?\: bool, include\?\: array\<string\>, exclude\?\: array\<string\>\}, array\{delete\: mixed, exclude\: array\<string\>, include\: array\<string\>, verbose\: bool, quiet\: bool, convert\-mac\-filenames\?\: true\} given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Mount/MountUploadCommand.php
@@ -1931,12 +1865,6 @@ parameters:
 			identifier: argument.type
 			count: 2
 			path: src/Command/Project/ProjectListCommand.php
-
-		-
-			message: '#^Parameter \#3 \$json of method Platformsh\\Client\\Model\\Project\:\:setVariable\(\) expects bool, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Project/Variable/ProjectVariableSetCommand.php
 
 		-
 			message: '#^Cannot access offset ''cpu'' on mixed\.$#'
@@ -2161,12 +2089,6 @@ parameters:
 			path: src/Command/Route/RouteGetCommand.php
 
 		-
-			message: '#^Parameter \#2 \$refresh of method Platformsh\\Cli\\Service\\Api\:\:getCurrentDeployment\(\) expects bool, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Route/RouteGetCommand.php
-
-		-
 			message: '#^Parameter \#1 \$routes of static method Platformsh\\Cli\\Model\\Route\:\:fromVariables\(\) expects array\<string, mixed\>, array\<mixed, mixed\> given\.$#'
 			identifier: argument.type
 			count: 1
@@ -2174,12 +2096,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$string of function base64_decode expects string, string\|false given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Route/RouteListCommand.php
-
-		-
-			message: '#^Parameter \#2 \$refresh of method Platformsh\\Cli\\Service\\Api\:\:getCurrentDeployment\(\) expects bool, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Route/RouteListCommand.php
@@ -2509,12 +2425,6 @@ parameters:
 			path: src/Command/Server/ServerStartCommand.php
 
 		-
-			message: '#^Parameter \#4 \$gzip of method Platformsh\\Cli\\Command\\Service\\MongoDB\\MongoDumpCommand\:\:getDefaultFilename\(\) expects bool, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Service/MongoDB/MongoDumpCommand.php
-
-		-
 			message: '#^Parameter \#1 \$array of function array_filter expects array, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -2539,12 +2449,6 @@ parameters:
 			path: src/Command/Service/ServiceListCommand.php
 
 		-
-			message: '#^Parameter \#2 \$refresh of method Platformsh\\Cli\\Service\\Api\:\:getCurrentDeployment\(\) expects bool, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Service/ServiceListCommand.php
-
-		-
 			message: '#^Strict comparison using \!\=\= between string and null will always evaluate to true\.$#'
 			identifier: notIdentical.alwaysTrue
 			count: 1
@@ -2555,12 +2459,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: src/Command/Session/SessionSwitchCommand.php
-
-		-
-			message: '#^Parameter \#2 \$forceNewKey of method Platformsh\\Cli\\SshCert\\Certifier\:\:generateCertificate\(\) expects bool, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/SshCert/SshCertLoadCommand.php
 
 		-
 			message: '#^Method Platformsh\\Cli\\Command\\SshKey\\SshKeyAddCommand\:\:askNewKeyPath\(\) should return string but returns mixed\.$#'
@@ -2869,12 +2767,6 @@ parameters:
 			path: src/Command/User/UserAddCommand.php
 
 		-
-			message: '#^Parameter \#4 \$force of method Platformsh\\Client\\Model\\Project\:\:inviteUserByEmail\(\) expects bool, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/User/UserAddCommand.php
-
-		-
 			message: '#^Cannot access property \$type on Platformsh\\Client\\Model\\Environment\|null\.$#'
 			identifier: property.nonObject
 			count: 1
@@ -2929,12 +2821,6 @@ parameters:
 			path: src/Command/Variable/VariableCreateCommand.php
 
 		-
-			message: '#^Parameter \#3 \$json of method Platformsh\\Client\\Model\\Environment\:\:setVariable\(\) expects bool, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Variable/VariableSetCommand.php
-
-		-
 			message: '#^Binary operation "\." between ''The value is not…'' and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
 			count: 1
@@ -2985,12 +2871,6 @@ parameters:
 		-
 			message: '#^Cannot access offset ''sizing_api_enabled'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Worker/WorkerListCommand.php
-
-		-
-			message: '#^Parameter \#2 \$refresh of method Platformsh\\Cli\\Service\\Api\:\:getCurrentDeployment\(\) expects bool, mixed given\.$#'
-			identifier: argument.type
 			count: 1
 			path: src/Command/Worker/WorkerListCommand.php
 

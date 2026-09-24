@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Auth;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\SshConfig;
 use Platformsh\Cli\Command\CommandBase;
@@ -37,7 +38,7 @@ class LogoutCommand extends CommandBase
             $this->stdErr->writeln('<comment>Warning: an API token is set via config</comment>');
         }
 
-        if ($input->getOption('other') && !$input->getOption('all')) {
+        if (Option::bool($input, 'other') && !Option::bool($input, 'all')) {
             $currentSessionId = $this->config->getSessionId();
             $this->stdErr->writeln(sprintf('The current session ID is: <info>%s</info>', $currentSessionId));
             $other = \array_filter($this->api->listSessionIds(), fn($sessionId): bool => $sessionId !== $currentSessionId);
@@ -61,7 +62,7 @@ class LogoutCommand extends CommandBase
         $this->sshConfig->deleteSessionConfiguration();
 
         // Check for other sessions.
-        if ($input->getOption('all')) {
+        if (Option::bool($input, 'all')) {
             $this->api->deleteAllSessions();
             $this->stdErr->writeln('');
             $this->stdErr->writeln('All sessions have been deleted.');

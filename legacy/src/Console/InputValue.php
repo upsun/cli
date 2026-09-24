@@ -23,6 +23,15 @@ final class InputValue
         return $value;
     }
 
+    public static function bool(mixed $value, string $label): bool
+    {
+        if (!is_bool($value)) {
+            throw new \LogicException(sprintf('Expected a boolean value for %s, got %s.', $label, get_debug_type($value)));
+        }
+
+        return $value;
+    }
+
     public static function stringOrNull(mixed $value, string $label): ?string
     {
         if ($value !== null && !is_string($value)) {

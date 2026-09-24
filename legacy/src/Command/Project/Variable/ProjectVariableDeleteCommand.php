@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Project\Variable;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
 use Platformsh\Cli\Service\SubCommandRunner;
@@ -50,8 +51,8 @@ class ProjectVariableDeleteCommand extends CommandBase
             '--level' => 'project',
             '--project' => $selection->getProject()->id,
         ] + array_filter([
-            '--wait' => $input->getOption('wait'),
-            '--no-wait' => $input->getOption('no-wait'),
+            '--wait' => Option::bool($input, 'wait'),
+            '--no-wait' => Option::bool($input, 'no-wait'),
         ]));
     }
 }

@@ -81,7 +81,7 @@ class MongoExportCommand extends CommandBase
         if ($type) {
             $command .= ' --type ' . OsUtil::escapePosixShellArg($type);
         }
-        if ($input->getOption('jsonArray')) {
+        if (Option::bool($input, 'jsonArray')) {
             $command .= ' --jsonArray';
         }
         if ($fields) {

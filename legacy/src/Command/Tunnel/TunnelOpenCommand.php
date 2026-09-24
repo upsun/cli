@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Tunnel;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -104,7 +105,7 @@ class TunnelOpenCommand extends TunnelCommandBase
         }
 
         $sshOptions = [];
-        if ($input->getOption('gateway-ports')) {
+        if (Option::bool($input, 'gateway-ports')) {
             $sshOptions[] = 'GatewayPorts yes';
         }
         $sshArgs = $this->ssh->getSshArgs($sshUrl, $sshOptions);

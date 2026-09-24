@@ -81,7 +81,7 @@ class IntegrationActivityLogCommand extends IntegrationCommandBase
         ]);
 
         $timestamps = false;
-        if ($input->getOption('timestamps')) {
+        if (Option::bool($input, 'timestamps')) {
             $timestamps = $input->hasOption('date-fmt')
                 ? Option::string($input, 'date-fmt')
                 : $this->config->getStr('application.date_format');

@@ -84,7 +84,7 @@ class MultiCommand extends CommandBase
         }
 
         $success = true;
-        $continue = $input->getOption('continue');
+        $continue = Option::bool($input, 'continue');
         $this->stdErr->writeln(sprintf(
             "Running command on %d %s:  <info>%s</info>",
             count($projects),
@@ -177,7 +177,7 @@ class MultiCommand extends CommandBase
         if ($sort = Option::string($input, 'sort')) {
             Sort::sortObjects($projects, $sort);
         }
-        if ($input->getOption('reverse')) {
+        if (Option::bool($input, 'reverse')) {
             $projects = array_reverse($projects, true);
         }
 

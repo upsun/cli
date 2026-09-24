@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Command\Environment;
 
 use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\ActivityMonitor;
@@ -97,7 +98,7 @@ class EnvironmentSynchronizeCommand extends CommandBase
             return 1;
         }
 
-        $rebase = (bool) $input->getOption('rebase');
+        $rebase = Option::bool($input, 'rebase');
 
         $integrationManagingCode = null;
         if ($selectedEnvironment->getProperty('has_remote', false)) {

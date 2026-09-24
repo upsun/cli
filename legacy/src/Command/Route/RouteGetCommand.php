@@ -62,7 +62,7 @@ class RouteGetCommand extends CommandBase
             $selection = $this->selector->getSelection($input);
             $environment = $selection->getEnvironment();
             $deployment = $this->api
-                ->getCurrentDeployment($environment, $input->getOption('refresh'));
+                ->getCurrentDeployment($environment, Option::bool($input, 'refresh'));
             $routes = Route::fromDeploymentApi($deployment->routes);
         }
 
@@ -86,7 +86,7 @@ class RouteGetCommand extends CommandBase
             }
         }
 
-        if (!$selectedRoute && $input->getOption('primary')) {
+        if (!$selectedRoute && Option::bool($input, 'primary')) {
             foreach ($routes as $route) {
                 if ($route->primary) {
                     $selectedRoute = $route;

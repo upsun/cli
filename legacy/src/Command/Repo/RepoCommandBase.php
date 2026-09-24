@@ -78,14 +78,14 @@ class RepoCommandBase extends CommandBase
 
         $treeObjects = $tree->tree;
         if ($input->hasOption('files') && $input->hasOption('directories')) {
-            if ($input->getOption('files') && !$input->getOption('directories')) {
+            if (Option::bool($input, 'files') && !Option::bool($input, 'directories')) {
                 $treeObjects = array_filter($treeObjects, fn(array $treeObject): bool => $treeObject['type'] === 'blob');
-            } elseif ($input->getOption('directories') && !$input->getOption('files')) {
+            } elseif (Option::bool($input, 'directories') && !Option::bool($input, 'files')) {
                 $treeObjects = array_filter($treeObjects, fn(array $treeObject): bool => $treeObject['type'] === 'tree');
             }
         }
 
-        $gitStyle = $input->hasOption('git-style') && $input->getOption('git-style');
+        $gitStyle = $input->hasOption('git-style') && Option::bool($input, 'git-style');
         foreach ($treeObjects as $object) {
             if ($gitStyle) {
                 $detailsFormat = "%s %s %s\t%s";

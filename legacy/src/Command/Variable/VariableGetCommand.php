@@ -92,7 +92,7 @@ class VariableGetCommand extends CommandBase
             ));
         }
 
-        if ($input->getOption('pipe')) {
+        if (Option::bool($input, 'pipe')) {
             if (!$variable->hasProperty('value')) {
                 if ($variable->is_sensitive) {
                     $this->stdErr->writeln('The variable is sensitive, so its value cannot be read.');

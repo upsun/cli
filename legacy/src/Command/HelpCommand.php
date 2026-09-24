@@ -75,14 +75,14 @@ class HelpCommand extends CommandBase
                 $namespace,
                 $output,
                 Option::string($input, 'format'),
-                (bool) $input->getOption('raw'),
+                Option::bool($input, 'raw'),
             );
         }
 
         $command = $this->command ?: $this->getApplication()->find($input->getArgument('command_name'));
 
         $format = Option::string($input, 'format');
-        $options = ['format' => $format, 'raw_text' => $input->getOption('raw'), 'all' => true];
+        $options = ['format' => $format, 'raw_text' => Option::bool($input, 'raw'), 'all' => true];
 
         switch ($format) {
             case 'md':

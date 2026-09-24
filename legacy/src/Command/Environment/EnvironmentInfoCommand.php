@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Command\Environment;
 
 use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
@@ -57,7 +58,7 @@ class EnvironmentInfoCommand extends CommandBase
         $selection = $this->selector->getSelection($input);
 
         $environment = $selection->getEnvironment();
-        if ($input->getOption('refresh')) {
+        if (Option::bool($input, 'refresh')) {
             $environment->refresh();
         }
 

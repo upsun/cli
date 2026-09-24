@@ -80,7 +80,7 @@ class TeamCreateCommand extends TeamCommandBase
         }
 
         // Ensure the team label is unique (unless --no-check-unique is specified).
-        if (!$input->getOption('no-check-unique') && (!$existingTeam || $label !== $existingTeam->label)) {
+        if (!Option::bool($input, 'no-check-unique') && (!$existingTeam || $label !== $existingTeam->label)) {
             $options = [];
             $options['query']['filter[organization_id]'] = $organization->id;
             $client = $this->api->getHttpClient();
@@ -216,7 +216,7 @@ class TeamCreateCommand extends TeamCommandBase
             }
         }
 
-        if ($input->hasOption('output-id') && $input->getOption('output-id')) {
+        if ($input->hasOption('output-id') && Option::bool($input, 'output-id')) {
             $output->writeln($team->id);
             return 0;
         }

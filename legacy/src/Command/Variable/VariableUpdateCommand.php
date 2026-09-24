@@ -6,6 +6,7 @@ namespace Platformsh\Cli\Command\Variable;
 
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selection;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
@@ -96,7 +97,7 @@ class VariableUpdateCommand extends CommandBase
         if (!$values) {
             $this->stdErr->writeln('No changes were provided.');
 
-            return $input->getOption('allow-no-change') ? 0 : 1;
+            return Option::bool($input, 'allow-no-change') ? 0 : 1;
         }
 
         $result = $variable->update($values);

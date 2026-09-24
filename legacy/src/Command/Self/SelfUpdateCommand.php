@@ -35,8 +35,8 @@ class SelfUpdateCommand extends CommandBase
     {
         $manifestUrl = Option::stringOrNull($input, 'manifest') ?: $this->config->getStr('application.manifest_url');
         $currentVersion = Option::stringOrNull($input, 'current-version') ?: $this->config->getVersion();
-        $this->selfUpdater->setAllowMajor(!$input->getOption('no-major'));
-        $this->selfUpdater->setAllowUnstable((bool) $input->getOption('unstable'));
+        $this->selfUpdater->setAllowMajor(!Option::bool($input, 'no-major'));
+        $this->selfUpdater->setAllowUnstable(Option::bool($input, 'unstable'));
         $this->selfUpdater->setTimeout(Option::int($input, 'timeout'));
 
         $result = $this->selfUpdater->update($manifestUrl, $currentVersion);

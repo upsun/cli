@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Backup;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -80,7 +81,7 @@ class BackupCreateCommand extends CommandBase
             return 1;
         }
 
-        $live = $input->getOption('live') || $input->getOption('unsafe');
+        $live = Option::bool($input, 'live') || Option::bool($input, 'unsafe');
 
         $this->stdErr->writeln(sprintf(
             'Creating a %s of %s.',

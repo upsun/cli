@@ -60,7 +60,7 @@ class OrganizationListCommand extends OrganizationCommandBase
         $client = $this->api->getClient();
         $userId = $this->api->getMyUserId();
 
-        if ($input->getOption('my')) {
+        if (Option::bool($input, 'my')) {
             $organizations = $client->listOrganizationsByOwner($userId);
         } else {
             $organizations = $client->listOrganizationsWithMember($userId);
@@ -74,7 +74,7 @@ class OrganizationListCommand extends OrganizationCommandBase
         if ($sortBy = Option::stringOrNull($input, 'sort')) {
             $this->api->sortResources($organizations, $sortBy);
         }
-        if ($input->getOption('reverse')) {
+        if (Option::bool($input, 'reverse')) {
             $organizations = array_reverse($organizations, true);
         }
 
@@ -110,7 +110,7 @@ class OrganizationListCommand extends OrganizationCommandBase
         }
 
         if (!$machineReadable) {
-            if ($input->getOption('my')) {
+            if (Option::bool($input, 'my')) {
                 $this->stdErr->writeln('Organizations you own:');
             } else {
                 $this->stdErr->writeln('Organizations you own or belong to:');

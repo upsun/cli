@@ -83,9 +83,9 @@ class ActivityLogCommand extends ActivityCommandBase
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $id = Argument::stringOrNull($input, 'id');
-        $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: !($input->getOption('all') || $id)));
+        $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: !(Option::bool($input, 'all') || $id)));
 
-        if ($selection->hasEnvironment() && !$input->getOption('all')) {
+        if ($selection->hasEnvironment() && !Option::bool($input, 'all')) {
             $apiResource = $selection->getEnvironment();
         } else {
             $apiResource = $selection->getProject();
@@ -119,7 +119,7 @@ class ActivityLogCommand extends ActivityCommandBase
 
         $refresh = Option::int($input, 'refresh');
         $timestamps = false;
-        if ($input->getOption('timestamps')) {
+        if (Option::bool($input, 'timestamps')) {
             $timestamps = $input->hasOption('date-fmt')
                 ? Option::string($input, 'date-fmt')
                 : $this->config->getStr('application.date_format');

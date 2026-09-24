@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Project;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
 use Platformsh\Cli\Service\Api;
@@ -50,7 +51,7 @@ class ProjectInfoCommand extends CommandBase
 
         $project = $selection->getProject();
 
-        if ($input->getOption('refresh')) {
+        if (Option::bool($input, 'refresh')) {
             $project->refresh();
         }
 

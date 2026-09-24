@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Route;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
@@ -64,7 +65,7 @@ class RouteListCommand extends CommandBase
         } else {
             $this->io->debug('Reading routes from the deployments API');
             $selection = $this->selector->getSelection($input);
-            $deployment = $this->api->getCurrentDeployment($selection->getEnvironment(), $input->getOption('refresh'));
+            $deployment = $this->api->getCurrentDeployment($selection->getEnvironment(), Option::bool($input, 'refresh'));
             $routes = Route::fromDeploymentApi($deployment->routes);
             $fromEnv = false;
         }

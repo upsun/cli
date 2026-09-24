@@ -35,7 +35,7 @@ class SshCertInfoCommand extends CommandBase
     {
         $cert = $this->certifier->getExistingCertificate();
         if (!$cert || !$this->certifier->isValid($cert)) {
-            if ($input->getOption('no-refresh')) {
+            if (Option::bool($input, 'no-refresh')) {
                 $this->stdErr->writeln('No valid SSH certificate found.');
                 $this->stdErr->writeln('To generate a certificate, run this command again without the <comment>--no-refresh</comment> option.');
                 return 1;

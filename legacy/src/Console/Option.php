@@ -31,6 +31,14 @@ final class Option
     }
 
     /**
+     * Gets the value of a flag (VALUE_NONE) option.
+     */
+    public static function bool(InputInterface $input, string $name): bool
+    {
+        return InputValue::bool($input->getOption($name), '--' . $name);
+    }
+
+    /**
      * Gets the value of a non-negative integer option.
      *
      * @throws InvalidArgumentException if the value is not a non-negative integer

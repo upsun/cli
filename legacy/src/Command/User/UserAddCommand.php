@@ -381,7 +381,7 @@ class UserAddCommand extends CommandBase
                 $permissions[] = new Permission($type, $role);
             }
             try {
-                $project->inviteUserByEmail($email, $desiredProjectRole, [], $input->getOption('force-invite'), $permissions);
+                $project->inviteUserByEmail($email, $desiredProjectRole, [], Option::bool($input, 'force-invite'), $permissions);
                 $this->stdErr->writeln('');
                 $this->stdErr->writeln(sprintf('An invitation has been sent to <info>%s</info>', $email));
             } catch (AlreadyInvitedException $e) {

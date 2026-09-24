@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Project\Variable;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
 use Platformsh\Cli\Service\Api;
@@ -52,9 +53,9 @@ class ProjectVariableSetCommand extends CommandBase
 
         $variableName = Argument::string($input, 'name');
         $variableValue = Argument::string($input, 'value');
-        $json = $input->getOption('json');
-        $supressBuild = $input->getOption('no-visible-build');
-        $supressRuntime = $input->getOption('no-visible-runtime');
+        $json = Option::bool($input, 'json');
+        $supressBuild = Option::bool($input, 'no-visible-build');
+        $supressRuntime = Option::bool($input, 'no-visible-runtime');
 
         if ($json && !$this->validateJson($variableValue)) {
             throw new \Exception("Invalid JSON: <error>$variableValue</error>");

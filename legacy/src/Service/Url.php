@@ -65,7 +65,7 @@ class Url implements InputConfiguringInterface
         $success = false;
 
         // If the user wants to pipe the output to another command, stop here.
-        if ($this->input->hasOption('pipe') && $this->input->getOption('pipe')) {
+        if ($this->input->hasOption('pipe') && Option::bool($this->input, 'pipe')) {
             $open = false;
             $print = true;
         }

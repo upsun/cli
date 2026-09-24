@@ -214,7 +214,7 @@ abstract class MetricsCommandBase extends CommandBase
         // Filter to the latest complete data point if --latest is given.
         // Services' metrics can take a minute or two to arrive, so a point
         // that started recently is skipped if an older one has more services.
-        if ($input->getOption('latest')) {
+        if (Option::bool($input, 'latest')) {
             $settledBefore = time() - self::LATEST_SETTLE_TIME;
             $latest = null;
             foreach (array_reverse($items['data']) as $item) {

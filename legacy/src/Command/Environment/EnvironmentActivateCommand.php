@@ -110,8 +110,8 @@ class EnvironmentActivateCommand extends CommandBase
                         return $this->subCommandRunner->run('environment:resume', [
                             '--project' => $environment->project,
                             '--environment' => $environment->id,
-                            '--wait' => $input->getOption('wait'),
-                            '--no-wait' => $input->getOption('no-wait'),
+                            '--wait' => Option::bool($input, 'wait'),
+                            '--no-wait' => Option::bool($input, 'no-wait'),
                             '--yes' => true,
                         ]) === 0;
                     }

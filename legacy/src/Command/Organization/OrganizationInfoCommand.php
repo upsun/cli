@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Organization;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use GuzzleHttp\Exception\BadResponseException;
@@ -44,7 +45,7 @@ class OrganizationInfoCommand extends OrganizationCommandBase
     {
         $property = Argument::stringOrNull($input, 'property');
         $value = Argument::stringOrNull($input, 'value');
-        $skipCache = $value !== null || $input->getOption('refresh');
+        $skipCache = $value !== null || Option::bool($input, 'refresh');
         $organization = $this->selector->selectOrganization($input, '', '', $skipCache);
 
         if ($property === null) {

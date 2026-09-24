@@ -91,7 +91,7 @@ class VariableCreateCommand extends CommandBase
             }
             $existing = $this->variableCommandUtil->getExistingVariable($name, $selection, $this->variableCommandUtil->getRequestedLevel($input), false);
             if ($existing) {
-                if (!$input->getOption('update')) {
+                if (!Option::bool($input, 'update')) {
                     $this->stdErr->writeln('The variable already exists: <error>' . $name . '</error>');
 
                     $executable = $this->config->getStr('application.executable');

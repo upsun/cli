@@ -114,7 +114,7 @@ class EnvironmentPushCommand extends CommandBase
 
         if ($currentProject && $currentProject->id !== $project->id) {
             $this->stdErr->writeln('The current repository is linked to another project: ' . $this->api->getProjectLabel($currentProject, 'comment'));
-            if ($input->getOption('set-upstream')) {
+            if (Option::bool($input, 'set-upstream')) {
                 $this->stdErr->writeln('It will be changed to link to the selected project.');
             } else {
                 $this->stdErr->writeln('To link it to the selected project for future actions, use the: <comment>--set-upstream</comment> (<comment>-u</comment>) option');
@@ -236,7 +236,7 @@ class EnvironmentPushCommand extends CommandBase
         $remoteName = $this->config->getStr('detection.git_remote_name');
 
         // Map the current directory to the project.
-        if ($input->getOption('set-upstream') && (!$currentProject || $currentProject->id !== $project->id)) {
+        if (Option::bool($input, 'set-upstream') && (!$currentProject || $currentProject->id !== $project->id)) {
             $this->stdErr->writeln(sprintf('Mapping the directory <info>%s</info> to the project %s', $gitRoot, $this->api->getProjectLabel($project)));
             $this->stdErr->writeln('');
             $this->localProject->mapDirectory($gitRoot, $project);
@@ -262,7 +262,7 @@ class EnvironmentPushCommand extends CommandBase
                 $source . ':refs/heads/' . $target,
             ];
             foreach (['force', 'force-with-lease', 'set-upstream'] as $option) {
-                if ($input->getOption($option)) {
+                if (Option::bool($input, $option)) {
                     $gitArgs[] = '--' . $option;
                 }
             }
@@ -278,7 +278,7 @@ class EnvironmentPushCommand extends CommandBase
             if ($type !== null) {
                 $gitArgs[] = '--push-option=environment.type=' . $type;
             }
-            if ($input->getOption('no-clone-parent')) {
+            if (Option::bool($input, 'no-clone-parent')) {
                 $gitArgs[] = '--push-option=environment.clone_parent_on_create=false';
             }
             if ($resourcesInit !== null) {
@@ -366,7 +366,7 @@ class EnvironmentPushCommand extends CommandBase
                     return 1;
                 }
             }
-            $activities = $this->ensureActive($targetEnvironment, $parentId, !$input->getOption('no-clone-parent'), $type);
+            $activities = $this->ensureActive($targetEnvironment, $parentId, !Option::bool($input, 'no-clone-parent'), $type);
         }
 
         // Wait if there are still activities.
@@ -379,7 +379,7 @@ class EnvironmentPushCommand extends CommandBase
         }
 
         // Advise the user to set the project as the remote.
-        if (!$currentProject && !$input->getOption('set-upstream')) {
+        if (!$currentProject && !Option::bool($input, 'set-upstream')) {
             $this->stdErr->writeln('');
             $this->stdErr->writeln('To set the project as the remote for this repository, run:');
             $this->stdErr->writeln(sprintf('<info>%s set-remote %s</info>', $this->config->getStr('application.executable'), OsUtil::escapeShellArg($project->id)));
@@ -446,7 +446,7 @@ class EnvironmentPushCommand extends CommandBase
         if ($target === $project->default_branch || ($targetEnvironment && $targetEnvironment->is_main)) {
             return false;
         }
-        if ($input->getOption('branch') || $input->getOption('activate')) {
+        if (Option::bool($input, 'branch') || Option::bool($input, 'activate')) {
             return true;
         }
         if (!$input->isInteractive()) {

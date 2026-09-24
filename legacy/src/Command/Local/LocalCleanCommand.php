@@ -57,7 +57,7 @@ class LocalCleanCommand extends CommandBase
             $projectRoot,
             Option::intOrNull($input, 'max-age'),
             Option::int($input, 'keep'),
-            $input->getOption('include-active'),
+            Option::bool($input, 'include-active'),
             false,
         );
 

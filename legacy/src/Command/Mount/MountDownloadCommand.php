@@ -69,7 +69,7 @@ class MountDownloadCommand extends CommandBase
             return 1;
         }
 
-        $all = $input->getOption('all');
+        $all = Option::bool($input, 'all');
 
         if ($mountPathOption = Option::stringOrNull($input, 'mount')) {
             if ($all) {
@@ -140,7 +140,7 @@ class MountDownloadCommand extends CommandBase
         }
 
         $rsyncOptions = [
-            'delete' => $input->getOption('delete'),
+            'delete' => Option::bool($input, 'delete'),
             'exclude' => Option::stringArray($input, 'exclude'),
             'include' => Option::stringArray($input, 'include'),
             'verbose' => $output->isVeryVerbose(),
@@ -157,7 +157,7 @@ class MountDownloadCommand extends CommandBase
                 return 1;
             }
 
-            $useSourcePath = $input->getOption('source-path');
+            $useSourcePath = Option::bool($input, 'source-path');
 
             foreach ($mounts as $mountPath => $definition) {
                 $this->stdErr->writeln('');

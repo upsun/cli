@@ -59,7 +59,7 @@ class EnvironmentSshCommand extends CommandBase
             $selection = $this->selector->getSelection($input, new SelectorConfig(chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
             $environment = $selection->getEnvironment();
 
-            if ($input->getOption('all')) {
+            if (Option::bool($input, 'all')) {
                 $output->writeln(array_values($environment->getSshUrls()));
 
                 return 0;
@@ -93,7 +93,7 @@ class EnvironmentSshCommand extends CommandBase
             throw $e instanceof InvalidArgumentException ? $e : new InvalidArgumentException($e->getMessage());
         }
 
-        if ($input->getOption('pipe')) {
+        if (Option::bool($input, 'pipe')) {
             $output->write($sshUrl);
             return 0;
         }

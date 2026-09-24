@@ -105,7 +105,7 @@ class ProjectListCommand extends CommandBase
         if (($title = Option::stringOrNull($input, 'title')) !== null) {
             $filters['title'] = $title;
         }
-        if ($input->getOption('my')) {
+        if (Option::bool($input, 'my')) {
             $filters['my'] = true;
         }
         if (($org = $input->hasOption('org') ? Option::stringOrNull($input, 'org') : null) !== null) {
@@ -120,7 +120,7 @@ class ProjectListCommand extends CommandBase
         if ($sort = Option::string($input, 'sort')) {
             Sort::sortObjects($projects, $sort);
         }
-        if ($input->getOption('reverse')) {
+        if (Option::bool($input, 'reverse')) {
             $projects = array_reverse($projects, true);
         }
 
@@ -149,7 +149,7 @@ class ProjectListCommand extends CommandBase
         }
 
         // Display a simple list of project IDs, if --pipe is used.
-        if ($input->getOption('pipe')) {
+        if (Option::bool($input, 'pipe')) {
             $output->writeln(\array_map(fn(BasicProjectInfo $info): string => $info->id, $projects));
 
             return 0;

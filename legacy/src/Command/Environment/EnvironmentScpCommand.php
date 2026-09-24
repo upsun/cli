@@ -62,7 +62,7 @@ class EnvironmentScpCommand extends CommandBase
             $command .= ' ' . implode(' ', array_map(OsUtil::escapePosixShellArg(...), $sshArgs));
         }
 
-        if ($input->getOption('recursive')) {
+        if (Option::bool($input, 'recursive')) {
             $command .= ' -r';
         }
 

@@ -100,7 +100,7 @@ class ServerStartCommand extends ServerCommandBase
                 $items[$appId]['config']['drupal_7_workaround'] = true;
             }
 
-            if ($input->getOption('tunnel')) {
+            if (Option::bool($input, 'tunnel')) {
                 $bufferedOutput = new BufferedOutput();
                 $result = $this->subCommandRunner->run(
                     'tunnel:info',
@@ -143,7 +143,7 @@ class ServerStartCommand extends ServerCommandBase
 
         $error = false;
         $processes = [];
-        $force = $input->getOption('force');
+        $force = Option::bool($input, 'force');
         foreach ($items as $appId => $item) {
             $appConfig = $item['config'];
             $address = $item['address'];

@@ -361,7 +361,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
 
         $this->io->debug('Raw updates: ' . json_encode($updates, JSON_UNESCAPED_SLASHES));
 
-        [$limit, $used] = $input->getOption('force') === false ? $this->trialResourceLimits($selection->getProject()) : [null, null];
+        [$limit, $used] = Option::bool($input, 'force') === false ? $this->trialResourceLimits($selection->getProject()) : [null, null];
         if ($limit !== null && $used !== null) {
             $diff = $this->computeMemoryCPUStorageDiff($updates, $current);
 
@@ -401,7 +401,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
             }
         }
 
-        if ($input->getOption('dry-run')) {
+        if (Option::bool($input, 'dry-run')) {
             return 0;
         }
 

@@ -57,7 +57,7 @@ class EnvironmentLogCommand extends CommandBase
     {
         $selection = $this->selector->getSelection($input, new SelectorConfig(chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
 
-        if ($input->getOption('tail') && $this->runningViaMulti) {
+        if (Option::bool($input, 'tail') && $this->runningViaMulti) {
             throw new InvalidArgumentException('The --tail option cannot be used with "multi"');
         }
         $lines = Option::int($input, 'lines');
@@ -111,7 +111,7 @@ class EnvironmentLogCommand extends CommandBase
         }
 
         $command = sprintf('tail -n %1$d %2$s', $lines, $logFilename);
-        if ($input->getOption('tail')) {
+        if (Option::bool($input, 'tail')) {
             $command .= ' -f';
         }
 

@@ -77,9 +77,9 @@ class ListCommand extends CommandBase
                 $row = [];
                 $row['service'] = $serviceName;
                 $row['name'] = new AdaptiveTableCell($name, ['wrap' => false]);
-                $row['start'] = $input->getOption('full') ? $op->commands['start'] : $this->truncateCommand($op->commands['start']);
+                $row['start'] = Option::bool($input, 'full') ? $op->commands['start'] : $this->truncateCommand($op->commands['start']);
                 $stop = $op->commands['stop'] ?? '';
-                $row['stop'] = $input->getOption('full') ? $stop : $this->truncateCommand($stop);
+                $row['stop'] = Option::bool($input, 'full') ? $stop : $this->truncateCommand($stop);
                 $row['role'] = $op->role;
                 $rows[] = $row;
             }

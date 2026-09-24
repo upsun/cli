@@ -51,7 +51,7 @@ readonly class CurlCli implements InputConfiguringInterface
             $url .= '/' . ltrim($path, '/');
         }
 
-        $retryOn401 = !$input->getOption('no-retry-401');
+        $retryOn401 = !Option::bool($input, 'no-retry-401');
 
         $token = $this->api->getAccessToken();
 
@@ -149,13 +149,13 @@ readonly class CurlCli implements InputConfiguringInterface
 
         $passThroughFlags = ['head', 'include', 'fail'];
         foreach ($passThroughFlags as $flag) {
-            if ($input->getOption($flag)) {
+            if (Option::bool($input, $flag)) {
                 $commandline .= ' --' . $flag;
             }
         }
 
         // Set --fail-with-body by default.
-        if (!$input->getOption('fail')) {
+        if (!Option::bool($input, 'fail')) {
             $commandline .= ' --fail-with-body';
         }
 
@@ -176,11 +176,11 @@ readonly class CurlCli implements InputConfiguringInterface
             $commandline .= ' --data ' . escapeshellarg($data);
         }
 
-        if (!$input->getOption('disable-compression')) {
+        if (!Option::bool($input, 'disable-compression')) {
             $commandline .= ' --compressed';
         }
 
-        if (!$input->getOption('enable-glob')) {
+        if (!Option::bool($input, 'enable-glob')) {
             $commandline .= ' --globoff';
         }
 

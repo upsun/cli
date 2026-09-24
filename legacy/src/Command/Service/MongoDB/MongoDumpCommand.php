@@ -47,7 +47,7 @@ class MongoDumpCommand extends CommandBase
     {
         $projectRoot = $this->selector->getProjectRoot();
 
-        $gzip = $input->getOption('gzip');
+        $gzip = Option::bool($input, 'gzip');
 
         $envPrefix = $this->config->getStr('service.env_prefix');
         $selection = $this->selector->getSelection($input, new SelectorConfig(
@@ -65,7 +65,7 @@ class MongoDumpCommand extends CommandBase
 
         $collection = Option::stringOrNull($input, 'collection');
 
-        if (!$input->getOption('stdout')) {
+        if (!Option::bool($input, 'stdout')) {
             $defaultFilename = $this->getDefaultFilename($selection->hasEnvironment() ? $selection->getEnvironment() : null, $appName, $collection, $gzip);
             $dumpFile = $projectRoot ? $projectRoot . '/' . $defaultFilename : $defaultFilename;
         }

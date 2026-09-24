@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Command\Environment;
 
 use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -72,7 +73,7 @@ class EnvironmentDrushCommand extends CommandBase
 
         // Pass through options that the CLI shares with Drush.
         foreach (['yes', 'no', 'quiet'] as $option) {
-            if ($input->getOption($option) && !preg_match('/\b' . preg_quote($option) . '\b/', $drushCommand)) {
+            if (Option::bool($input, $option) && !preg_match('/\b' . preg_quote($option) . '\b/', $drushCommand)) {
                 $drushCommand .= " --$option";
             }
         }

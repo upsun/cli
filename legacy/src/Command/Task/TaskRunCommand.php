@@ -128,7 +128,7 @@ class TaskRunCommand extends CommandBase
         $this->stdErr->writeln('The task has been triggered.');
 
         // Waiting is opt-in so the exit code can reflect a failed activity, e.g. in CI.
-        if ($input->getOption('wait') && $activities !== []) {
+        if (Option::bool($input, 'wait') && $activities !== []) {
             $success = $this->activityMonitor->waitMultiple($activities, $selection->getProject());
             return $success ? 0 : 1;
         }

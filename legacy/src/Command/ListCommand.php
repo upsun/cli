@@ -72,9 +72,9 @@ class ListCommand extends CommandBase
             $this->getApplication(),
             [
                 'format' => Option::string($input, 'format'),
-                'raw_text' => $input->getOption('raw'),
+                'raw_text' => Option::bool($input, 'raw'),
                 'namespace' => Argument::stringOrNull($input, 'namespace'),
-                'all' => $input->getOption('all'),
+                'all' => Option::bool($input, 'all'),
             ],
         );
         return 0;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Metrics;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Model\Metrics\Aggregation;
 use Platformsh\Cli\Model\Metrics\Field;
 use Platformsh\Cli\Model\Metrics\Format;
@@ -58,7 +59,7 @@ class MemCommand extends MetricsCommandBase
     {
         [$values, $environment] = $this->processQuery($input, [MetricKind::API_TYPE_MEMORY], [MetricKind::API_AGG_AVG]);
 
-        $bytes = $input->getOption('bytes');
+        $bytes = Option::bool($input, 'bytes');
 
         $rows = $this->buildRows($values, [
             'used' => new Field(

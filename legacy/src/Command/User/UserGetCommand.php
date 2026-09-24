@@ -90,7 +90,7 @@ class UserGetCommand extends CommandBase
             return 1;
         }
 
-        if ($input->getOption('pipe')) {
+        if (Option::bool($input, 'pipe')) {
             $this->displayRole($selectedUser, $level, $output, $environment);
 
             return 0;

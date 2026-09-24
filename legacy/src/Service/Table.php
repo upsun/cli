@@ -225,7 +225,7 @@ class Table implements InputConfiguringInterface
         $columnsToDisplay = $this->columnsToDisplay($header, $defaultColumns);
         $rows = $this->filterColumns($rows, $header, $columnsToDisplay);
 
-        if ($this->input->hasOption('no-header') && $this->input->getOption('no-header')) {
+        if ($this->input->hasOption('no-header') && Option::bool($this->input, 'no-header')) {
             $header = [];
         } else {
             /** @var array<int|string, string|TableCell> $header */

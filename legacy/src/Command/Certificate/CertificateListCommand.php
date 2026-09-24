@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Certificate;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -56,7 +57,7 @@ class CertificateListCommand extends CommandBase
 
         // Set --no-expired by default, if --ignore-expiry and --only-expired
         // are not supplied.
-        if (!$input->getOption('ignore-expiry') && !$input->getOption('only-expired')) {
+        if (!Option::bool($input, 'ignore-expiry') && !Option::bool($input, 'only-expired')) {
             $input->setOption('no-expired', true);
         }
 
@@ -69,7 +70,7 @@ class CertificateListCommand extends CommandBase
 
         $this->filterCerts($certs, $filters);
 
-        if (!empty($filters) && !$input->getOption('pipe-domains')) {
+        if (!empty($filters) && !Option::bool($input, 'pipe-domains')) {
             $filtersUsed = '<comment>--'
                 . implode('</comment>, <comment>--', array_keys($filters))
                 . '</comment>';
@@ -83,7 +84,7 @@ class CertificateListCommand extends CommandBase
             return 0;
         }
 
-        if ($input->getOption('pipe-domains')) {
+        if (Option::bool($input, 'pipe-domains')) {
             foreach ($certs as $cert) {
                 foreach ($cert->domains as $domain) {
                     $output->writeln($domain);

@@ -54,7 +54,7 @@ class ProjectVariableGetCommand extends CommandBase
             '--project' => $selection->getProject()->id,
         ] + array_filter([
             '--format' => Option::string($input, 'format'),
-            '--pipe' => $input->getOption('pipe'),
+            '--pipe' => Option::bool($input, 'pipe'),
         ]));
     }
 }

@@ -101,11 +101,11 @@ class ActivityListCommand extends ActivityCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: !$input->getOption('all')));
+        $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: !Option::bool($input, 'all')));
 
         $project = $selection->getProject();
 
-        if ($selection->hasEnvironment() && !$input->getOption('all')) {
+        if ($selection->hasEnvironment() && !Option::bool($input, 'all')) {
             $environmentSpecific = true;
             $apiResource = $selection->getEnvironment();
         } else {

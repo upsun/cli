@@ -78,7 +78,7 @@ class OrganizationUserListCommand extends OrganizationCommandBase
         }
 
         if ($sort = Option::string($input, 'sort')) {
-            if ($input->getOption('reverse')) {
+            if (Option::bool($input, 'reverse')) {
                 $sort = '-' . $sort;
             }
             $options['query']['sort'] = $sort;

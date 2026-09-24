@@ -78,7 +78,7 @@ class TunnelSingleCommand extends TunnelCommandBase
         }
 
         $sshOptions = [];
-        if ($input->getOption('gateway-ports')) {
+        if (Option::bool($input, 'gateway-ports')) {
             $sshOptions[] = 'GatewayPorts yes';
         }
         $sshArgs = $this->ssh->getSshArgs($sshUrl, $sshOptions);
