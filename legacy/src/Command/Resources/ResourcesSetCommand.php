@@ -594,25 +594,25 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 $serviceName,
             ));
         }
+        $properties = $service->getProperties();
+        if ($value === 'default') {
+            if (!isset($properties['resources']['default']['disk'])) {
+                throw new \RuntimeException(sprintf('Default disk size not found for service %s', $serviceName));
+            }
+            return (int) $properties['resources']['default']['disk'];
+        }
+        if ($value === 'minimum' || $value === 'min') {
+            if (!isset($properties['resources']['minimum']['disk'])) {
+                throw new \RuntimeException(sprintf('Minimum disk size not found for service %s', $serviceName));
+            }
+            return (int) $properties['resources']['minimum']['disk'];
+        }
         $size = (int) $value;
         if ($size != $value || $value < 0) {
             throw new InvalidArgumentException(sprintf(
                 'Invalid disk size <error>%s</error>: it must be an integer in MB.',
                 $value,
             ));
-        }
-        $properties = $service->getProperties();
-        if ($value === 'default') {
-            if (!isset($properties['resources']['default']['disk'])) {
-                throw new \RuntimeException(sprintf('Default disk size not found for service %s', $serviceName));
-            }
-            return $properties['resources']['default']['disk'];
-        }
-        if ($value === 'minimum' || $value === 'min') {
-            if (!isset($properties['resources']['minimum']['disk'])) {
-                throw new \RuntimeException(sprintf('Minimum disk size not found for service %s', $serviceName));
-            }
-            return $properties['resources']['minimum']['disk'];
         }
         if (isset($properties['resources']['minimum']['disk']) && $value < $properties['resources']['minimum']['disk']) {
             throw new InvalidArgumentException(sprintf(

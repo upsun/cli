@@ -108,6 +108,46 @@ func patchedApp(t *testing.T, patchBody *atomic.Value) map[string]any {
 	return app
 }
 
+// TestResourcesSet_DiskKeywords checks the documented 'default' and 'min'
+// values for --disk.
+func TestResourcesSet_DiskKeywords(t *testing.T) {
+	cases := []struct {
+		value string
+		want  int
+	}{
+		{"default", 2048},
+		{"min", 256},
+		{"minimum", 256},
+	}
+	for _, c := range cases {
+		t.Run(c.value, func(t *testing.T) {
+			f, projectID, patchBody := setupResourcesSetApp(t, map[string]any{
+				"name":              "app",
+				"type":              "golang:1.23",
+				"container_profile": "HIGH_CPU",
+				"resources": map[string]any{
+					"profile_size": "1",
+					"minimum":      map[string]any{"disk": 256},
+					"default":      map[string]any{"disk": 2048},
+				},
+				"instance_count": 1,
+				"disk":           512,
+			}, map[string]any{
+				"HIGH_CPU": map[string]any{
+					"1": map[string]any{"cpu": "1", "memory": "384", "cpu_type": "shared"},
+				},
+			})
+
+			stdout, stderr, err := f.RunCombinedOutput(
+				"resources:set", "-p", projectID, "-e", "main", "--no-wait", "--yes",
+				"--disk", "app:"+c.value,
+			)
+			require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
+			assert.EqualValues(t, c.want, patchedApp(t, patchBody)["disk"])
+		})
+	}
+}
+
 // TestResourcesSet_InteractiveIntegerProfileSizes checks that choosing a
 // profile size returns the size, when every size offered is an integer.
 func TestResourcesSet_InteractiveIntegerProfileSizes(t *testing.T) {
