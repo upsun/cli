@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path"
@@ -8,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/upsun/cli/internal/config"
 )
@@ -208,14 +210,17 @@ func fileExists(p string) bool {
 }
 
 // ownedBySystemPackage asks the system package database whether it owns exe.
+// A time limit stops a slow database from delaying the command.
 func ownedBySystemPackage(exe string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 	queries := [][]string{
 		{"dpkg-query", "-S", exe},
 		{"rpm", "-qf", exe},
 		{"apk", "info", "--who-owns", exe},
 	}
 	for _, q := range queries {
-		if p, err := exec.LookPath(q[0]); err == nil && exec.Command(p, q[1:]...).Run() == nil {
+		if p, err := exec.LookPath(q[0]); err == nil && exec.CommandContext(ctx, p, q[1:]...).Run() == nil {
 			return true
 		}
 	}

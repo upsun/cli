@@ -56,13 +56,14 @@ func Save(state State, cnf *config.Config) error {
 var mu sync.Mutex
 
 // Update loads the state, applies fn and saves it. Reloading under a lock stops
-// concurrent updates in one process from dropping each other's fields.
+// concurrent updates in one process from dropping each other's fields. An
+// unreadable state file is replaced, so a corrupt file does not persist.
 func Update(cnf *config.Config, fn func(*State)) error {
 	mu.Lock()
 	defer mu.Unlock()
 	s, err := Load(cnf)
 	if err != nil {
-		return err
+		s = State{}
 	}
 	fn(&s)
 	return Save(s, cnf)
