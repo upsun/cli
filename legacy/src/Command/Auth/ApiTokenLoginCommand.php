@@ -55,8 +55,8 @@ class ApiTokenLoginCommand extends CommandBase
             return 1;
         }
 
-        $validator = function (string $apiToken): string {
-            $apiToken = trim($apiToken);
+        $validator = function (?string $apiToken): string {
+            $apiToken = trim((string) $apiToken);
             if (!strlen($apiToken)) {
                 throw new \RuntimeException('The token cannot be empty');
             }

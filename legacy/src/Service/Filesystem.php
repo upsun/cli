@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Service;
 
 use Platformsh\Cli\Util\OsUtil;
-use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\Filesystem\Filesystem as SymfonyFilesystem;
 
 class Filesystem
@@ -46,22 +45,28 @@ class Filesystem
     /**
      * Delete a file or directory.
      *
-     * @param string|iterable $files
+     * @param string|iterable<string> $files
      *   A filename or an iterable list of files to delete.
-     * @param bool $retryWithChmod
-     *   Whether to retry deleting on error, after recursively changing file
-     *   modes to add read/write/exec permissions. A bit like 'rm -rf'.
+     * @param bool $chmod
+     *   Whether to first recursively add read/write/exec permissions, so that
+     *   read-only files can be deleted. A bit like 'rm -rf'.
      *
      * @return bool
      */
-    public function remove(string|iterable $files, bool $retryWithChmod = false): bool
+    public function remove(string|iterable $files, bool $chmod = false): bool
     {
+        // Symfony renames a directory before deleting its contents, and does
+        // not rename it back on failure, so this cannot be done as a retry.
+        if ($chmod) {
+            if (!is_string($files)) {
+                $files = iterator_to_array($files, false);
+            }
+            $this->unprotect($files, true);
+        }
         try {
             $this->fs->remove($files);
-        } catch (IOException $e) {
-            if ($retryWithChmod && $this->unprotect($files, true)) {
-                return $this->remove($files, false);
-            }
+        } catch (\RuntimeException $e) {
+            // Includes IOException, and UnexpectedValueException for an unreadable directory.
             trigger_error($e->getMessage(), E_USER_WARNING);
 
             return false;
@@ -73,7 +78,7 @@ class Filesystem
     /**
      * Make files writable by the current user.
      *
-     * @param string|iterable $files
+     * @param string|iterable<string> $files
      *   A filename or an iterable list of files.
      * @param bool $recursive
      *   Whether to change the mode recursively or not.
@@ -91,12 +96,19 @@ class Filesystem
             if (is_link($file)) {
                 continue;
             } elseif (is_dir($file)) {
-                if ((!is_executable($file) || !is_writable($file))
+                if ((!is_readable($file) || !is_executable($file) || !is_writable($file))
                     && true !== @chmod($file, 0o700)) {
                     return false;
                 }
-                if ($recursive && !$this->unprotect(new \FilesystemIterator($file), true)) {
-                    return false;
+                if ($recursive) {
+                    try {
+                        $iterator = new \FilesystemIterator($file, \FilesystemIterator::CURRENT_AS_PATHNAME | \FilesystemIterator::SKIP_DOTS);
+                    } catch (\UnexpectedValueException) {
+                        return false;
+                    }
+                    if (!$this->unprotect($iterator, true)) {
+                        return false;
+                    }
                 }
             } elseif (!is_writable($file) && true !== @chmod($file, 0o600)) {
                 return false;
