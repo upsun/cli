@@ -66,7 +66,7 @@ func TestProjectCreate(t *testing.T) {
 			"--org", "cli-tests", "--timeout", "abc")
 		assert.Error(t, err)
 		assert.Empty(t, stdOut)
-		assert.Contains(t, stdErr, "The --timeout value must be an integer.")
+		assert.Contains(t, stdErr, "The --timeout value must be a non-negative integer.")
 		assert.NotContains(t, stdErr, "Creating a project")
 	})
 }

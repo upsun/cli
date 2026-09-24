@@ -29,8 +29,11 @@ func TestLocalClean(t *testing.T) {
 	}{
 		{"keep", []string{"--keep", "1"}, false, []string{"Deleted 2 build(s)", "Kept 1 build(s)"}},
 		{"max-age", []string{"--max-age", "3600"}, false, []string{"Deleted 2 build(s)", "Kept 1 build(s)"}},
-		{"invalid max-age", []string{"--max-age", "abc"}, true, []string{"The --max-age value must be an integer."}},
-		{"invalid keep", []string{"--keep=-1"}, true, []string{"The --keep value must be an integer."}},
+		{
+			"invalid max-age", []string{"--max-age", "abc"}, true,
+			[]string{"The --max-age value must be a non-negative integer."},
+		},
+		{"invalid keep", []string{"--keep=-1"}, true, []string{"The --keep value must be a non-negative integer."}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

@@ -78,7 +78,7 @@ func TestActivityLogRefresh(t *testing.T) {
 	}{
 		{"numeric refresh waits", "1", ""},
 		{"zero refresh reads log", "0", ""},
-		{"non-numeric refresh", "abc", "The --refresh value must be an integer."},
+		{"non-numeric refresh", "abc", "The --refresh value must be a non-negative integer."},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

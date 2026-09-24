@@ -129,7 +129,7 @@ abstract class CommandBase extends Command implements MultiAwareInterface
             return $value;
         }
         if (!is_string($value) || !preg_match('/^[0-9]+$/', $value)) {
-            throw new InvalidArgumentException(sprintf('The --%s value must be an integer.', $name));
+            throw new InvalidArgumentException(sprintf('The --%s value must be a non-negative integer.', $name));
         }
 
         return (int) $value;

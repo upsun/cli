@@ -92,6 +92,6 @@ func TestCommitList(t *testing.T) {
 	t.Run("invalid limit", func(t *testing.T) {
 		_, stdErr, err := f.RunCombinedOutput("commit:list", "-p", projectID, "-e", "main", "c3", "--limit", "abc")
 		assert.Error(t, err)
-		assert.Contains(t, stdErr, "The --limit value must be an integer.")
+		assert.Contains(t, stdErr, "The --limit value must be a non-negative integer.")
 	})
 }
