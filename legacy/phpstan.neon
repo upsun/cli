@@ -12,6 +12,7 @@ parameters:
 		- dist/installer.php
 	stubFiles:
 		- phpstan-stubs/Activity.stub
+		- phpstan-stubs/Command.stub
 
 includes:
 	- phpstan-baseline.neon

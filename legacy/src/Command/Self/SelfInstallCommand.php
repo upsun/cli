@@ -20,8 +20,10 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'self:install', description: 'Install or update CLI configuration files')]
+#[HiddenAliases(['local:install'])]
 class SelfInstallCommand extends CommandBase
 {
     public const INSTALLED_FILENAME = 'self_installed';
@@ -34,7 +36,6 @@ class SelfInstallCommand extends CommandBase
     {
         $this
              ->addOption('shell-type', null, InputOption::VALUE_REQUIRED, 'The shell type for autocompletion (bash or zsh)');
-        $this->setHiddenAliases(['local:install']);
         $cliName = $this->config->getStr('application.name');
         $this->setHelp(
             <<<EOT

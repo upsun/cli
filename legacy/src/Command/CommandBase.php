@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Command;
 
 use Platformsh\Cli\Console\CompleterInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 use Platformsh\Cli\Console\HiddenInputOption;
 use Platformsh\Cli\Service\Config;
 use Symfony\Component\Console\Command\Command;
@@ -41,12 +42,6 @@ abstract class CommandBase extends Command implements MultiAwareInterface
     protected string $stability = self::STABILITY_STABLE;
     protected bool $canBeRunMultipleTimes = true;
     protected bool $runningViaMulti = false;
-
-    /**
-     * @var string[]
-     * @see self::setHiddenAliases()
-     */
-    private array $hiddenAliases = [];
 
     /**
      * The command synopsis.
@@ -117,20 +112,15 @@ abstract class CommandBase extends Command implements MultiAwareInterface
     }
 
     /**
-     * Add aliases that should be hidden from help.
+     * Get aliases that should be hidden from help.
      *
-     * @see parent::setAliases()
-     *
-     * @param string[] $hiddenAliases
-     *
-     * @return static
+     * @return string[]
      */
-    protected function setHiddenAliases(array $hiddenAliases): static
+    public function getHiddenAliases(): array
     {
-        $this->hiddenAliases = $hiddenAliases;
-        $this->setAliases(array_merge($this->getAliases(), $hiddenAliases));
+        $attribute = (new \ReflectionClass($this))->getAttributes(HiddenAliases::class)[0] ?? null;
 
-        return $this;
+        return $attribute?->newInstance()->aliases ?? [];
     }
 
     /**
@@ -140,7 +130,7 @@ abstract class CommandBase extends Command implements MultiAwareInterface
      */
     public function getVisibleAliases(): array
     {
-        return array_diff($this->getAliases(), $this->hiddenAliases);
+        return array_values(array_diff($this->getAliases(), $this->getHiddenAliases()));
     }
 
     /**

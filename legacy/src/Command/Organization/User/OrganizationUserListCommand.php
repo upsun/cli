@@ -18,8 +18,10 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'organization:user:list', description: 'List organization users', aliases: ['org:users'])]
+#[HiddenAliases(['organization:users'])]
 class OrganizationUserListCommand extends OrganizationCommandBase
 {
     /** @var array<string, string> */
@@ -48,8 +50,7 @@ class OrganizationUserListCommand extends OrganizationCommandBase
     {
         $this->addOption('count', 'c', InputOption::VALUE_REQUIRED, 'The number of items to display per page. Use 0 to disable pagination.')
             ->addOption('sort', null, InputOption::VALUE_REQUIRED, 'A property to sort by (created_at or updated_at)', 'created_at')
-            ->addOption('reverse', null, InputOption::VALUE_NONE, 'Reverse the sort order')
-            ->setHiddenAliases(['organization:users']);
+            ->addOption('reverse', null, InputOption::VALUE_NONE, 'Reverse the sort order');
         $this->selector->addOrganizationOptions($this->getDefinition(), true);
         $this->addCompleter($this->selector);
         PropertyFormatter::configureInput($this->getDefinition());

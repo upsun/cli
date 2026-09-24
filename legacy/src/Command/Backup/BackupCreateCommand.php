@@ -21,8 +21,10 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'backup:create', description: 'Make a backup of an environment', aliases: ['backup'])]
+#[HiddenAliases(['snapshot:create', 'environment:backup'])]
 class BackupCreateCommand extends CommandBase
 {
     public function __construct(private readonly ActivityMonitor $activityMonitor, private readonly Api $api, private readonly Config $config, private readonly Io $io, private readonly QuestionHelper $questionHelper, private readonly Selector $selector)
@@ -46,7 +48,6 @@ class BackupCreateCommand extends CommandBase
         $this->addCompleter($this->selector);
         $this->activityMonitor->addWaitOptions($this->getDefinition());
         $this->addHiddenOption('unsafe', null, InputOption::VALUE_NONE, 'Deprecated option: use --live instead');
-        $this->setHiddenAliases(['snapshot:create', 'environment:backup']);
         $this->addExample('Make a backup of the current environment');
         $this->addExample('Request a backup (and exit quickly)', '--no-wait');
         $this->addExample('Make a backup avoiding downtime (but risking inconsistency)', '--live');

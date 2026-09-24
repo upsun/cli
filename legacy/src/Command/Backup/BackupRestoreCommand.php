@@ -21,8 +21,10 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'backup:restore', description: 'Restore an environment backup')]
+#[HiddenAliases(['environment:restore', 'snapshot:restore'])]
 class BackupRestoreCommand extends CommandBase
 {
     /** @var string[] */
@@ -49,7 +51,6 @@ class BackupRestoreCommand extends CommandBase
         $this->selector->addEnvironmentOption($this->getDefinition());
         $this->addCompleter($this->selector);
         $this->activityMonitor->addWaitOptions($this->getDefinition());
-        $this->setHiddenAliases(['environment:restore', 'snapshot:restore']);
         $this->addExample('Restore the most recent backup');
         $this->addExample('Restore a specific backup', '92c9a4b2aa75422efb3d');
     }

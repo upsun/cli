@@ -16,8 +16,10 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'backup:list', description: 'List available backups of an environment', aliases: ['backups'])]
+#[HiddenAliases(['snapshots', 'snapshot:list'])]
 class BackupListCommand extends CommandBase
 {
     /** @var array<string, string> */
@@ -50,7 +52,6 @@ class BackupListCommand extends CommandBase
         $this->selector->addProjectOption($this->getDefinition());
         $this->selector->addEnvironmentOption($this->getDefinition());
         $this->addCompleter($this->selector);
-        $this->setHiddenAliases(['snapshots', 'snapshot:list']);
         $this->addExample('Display backups including the "live" and "commit_id" columns', '-c+live,commit_id');
     }
 

@@ -20,8 +20,10 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'environment:logs', description: "Read an environment's logs", aliases: ['log'])]
+#[HiddenAliases(['logs'])]
 class EnvironmentLogCommand extends CommandBase
 {
     public function __construct(private readonly CacheProvider $cacheProvider, private readonly Io $io, private readonly QuestionHelper $questionHelper, private readonly Selector $selector)
@@ -46,7 +48,6 @@ class EnvironmentLogCommand extends CommandBase
         $this->selector->addRemoteContainerOptions($this->getDefinition());
         $this->selector->addTaskOption($this->getDefinition());
         $this->addCompleter($this->selector);
-        $this->setHiddenAliases(['logs']);
         $this->addExample('Display a choice of logs that can be read');
         $this->addExample('Read the deploy log', 'deploy');
         $this->addExample('Read the access log continuously', 'access --tail');

@@ -22,8 +22,10 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'environment:delete', description: 'Delete one or more environments')]
+#[HiddenAliases(['environment:deactivate'])]
 class EnvironmentDeleteCommand extends CommandBase
 {
     public function __construct(
@@ -40,7 +42,6 @@ class EnvironmentDeleteCommand extends CommandBase
     protected function configure(): void
     {
         $this
-            ->setHiddenAliases(['environment:deactivate'])
             ->addArgument('environment', InputArgument::IS_ARRAY, "The environment(s) to delete.\n" . Wildcard::HELP . "\n" . ArrayArgument::SPLIT_HELP)
             ->addOption('delete-branch', null, InputOption::VALUE_NONE, 'Delete Git branch(es) for inactive environments, without confirmation')
             ->addOption('no-delete-branch', null, InputOption::VALUE_NONE, 'Do not delete any Git branch(es) (inactive environments)')

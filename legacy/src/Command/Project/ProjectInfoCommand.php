@@ -19,8 +19,10 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'project:info', description: 'Read or set properties for a project')]
+#[HiddenAliases(['project:metadata'])]
 class ProjectInfoCommand extends CommandBase
 {
     public function __construct(private readonly ActivityMonitor $activityMonitor, private readonly Api $api, private readonly PropertyFormatter $propertyFormatter, private readonly Selector $selector, private readonly Table $table)
@@ -42,7 +44,6 @@ class ProjectInfoCommand extends CommandBase
         $this->addExample('Read all project properties')
              ->addExample("Show the project's Git URL", 'git')
              ->addExample("Change the project's title", 'title "My project"');
-        $this->setHiddenAliases(['project:metadata']);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
