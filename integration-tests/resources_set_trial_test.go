@@ -150,6 +150,12 @@ func setUsage(apiHandler *mockapi.Handler, orgID string, cpu, memory, storage fl
 func runResourcesSet(
 	t *testing.T, apiHandler *mockapi.Handler, projectID, size string,
 ) (stdout, stderr string, err error) {
+	return runResourcesSetArgs(t, apiHandler, projectID, "--size", size)
+}
+
+func runResourcesSetArgs(
+	t *testing.T, apiHandler *mockapi.Handler, projectID string, args ...string,
+) (stdout, stderr string, err error) {
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -158,14 +164,13 @@ func runResourcesSet(
 
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
 
-	return f.RunCombinedOutput(
+	return f.RunCombinedOutput(append([]string{
 		"resources:set",
 		"-p", projectID,
 		"-e", "main",
-		"--size", size,
 		"--dry-run",
 		"--no-wait",
-	)
+	}, args...)...)
 }
 
 // TestResourcesSet_NoTrial checks that resources:set succeeds for an
@@ -266,4 +271,23 @@ func TestResourcesSet_TrialsNotEnabled(t *testing.T) {
 
 	require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
 	assert.Contains(t, stderr+stdout, "Summary of changes")
+}
+
+// TestResourcesSet_TrialWithoutSizeChange checks that the trial limits are
+// computed from the current profile size when an update does not change it,
+// e.g. when only setting object storage and the instance count.
+func TestResourcesSet_TrialWithoutSizeChange(t *testing.T) {
+	apiHandler := mockapi.NewHandler(t)
+	orgID := "org-trial-no-size"
+	projectID := setUpResourcesSetOrg(apiHandler, orgID)
+	// Doubling the 0.5 CPU app's instances exceeds the 0.75 CPU limit.
+	setTrial(apiHandler, orgID, activeTrial(0.75, 12, 20))
+	setUsage(apiHandler, orgID, 0.5, 0.125, 0.5)
+
+	_, stderr, err := runResourcesSetArgs(t, apiHandler, projectID,
+		"--object-storage", "app:1024", "--count", "app:2")
+
+	assert.Error(t, err)
+	assert.NotContains(t, stderr, "Warning")
+	assert.Contains(t, stderr, "trial CPU limit")
 }

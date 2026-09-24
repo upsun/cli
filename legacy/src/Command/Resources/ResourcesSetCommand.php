@@ -852,7 +852,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 if (isset($serviceUpdates['instance_count'])) {
                     $newCount = $serviceUpdates['instance_count'];
                 }
-                if (isset($serviceUpdates['resources'])) {
+                if (isset($serviceUpdates['resources']['profile_size'])) {
                     $newSize = $serviceUpdates['resources']['profile_size'];
                 }
                 if (isset($serviceUpdates['disk'])) {
@@ -860,14 +860,13 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 }
 
                 $currentService = $current[$group][$serviceName];
-                $currentSize = $currentService['resources']['profile_size'];
-                $currentProfile = $currentService['sizes'][$currentSize];
-                $currentCPU = $currentCount * $currentProfile['cpu'];
-                $currentRAM = $currentCount * $currentProfile['memory'];
+                $currentProfile = $currentService['sizes'][$currentSize] ?? [];
+                $currentCPU = $currentCount * ($currentProfile['cpu'] ?? 0);
+                $currentRAM = $currentCount * ($currentProfile['memory'] ?? 0);
 
-                $newProfile = $currentService['sizes'][$newSize];
-                $newCPU = $newCount * $newProfile['cpu'];
-                $newRAM = $newCount * $newProfile['memory'];
+                $newProfile = $currentService['sizes'][$newSize] ?? [];
+                $newCPU = $newCount * ($newProfile['cpu'] ?? 0);
+                $newRAM = $newCount * ($newProfile['memory'] ?? 0);
 
                 $diff['memory'] += $newRAM - $currentRAM;
                 $diff['cpu'] += $newCPU - $currentCPU;
