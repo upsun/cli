@@ -7,6 +7,7 @@ namespace Platformsh\Cli\Command\Resources\Build;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
+use Platformsh\Cli\Service\ResourcesUtil;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Service\Table;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -23,7 +24,7 @@ class BuildResourcesGetCommand extends CommandBase
         'memory' => 'Memory (MB)',
     ];
 
-    public function __construct(private readonly Api $api, private readonly Config $config, private readonly Selector $selector, private readonly Table $table)
+    public function __construct(private readonly Api $api, private readonly Config $config, private readonly ResourcesUtil $resourcesUtil, private readonly Selector $selector, private readonly Table $table)
     {
         parent::__construct();
     }
@@ -42,12 +43,7 @@ class BuildResourcesGetCommand extends CommandBase
     {
         $selection = $this->selector->getSelection($input);
         if (!$this->api->supportsSizingApi($selection->getProject())) {
-            $this->stdErr->writeln(sprintf(
-                'The flexible resources API is not enabled for the project %s.' . "\n"
-                . 'The function you attempted to use is not available on fixed plans.' . "\n"
-                . 'Please refer to the Fixed documentation: https://fixed.docs.upsun.com/',
-                $this->api->getProjectLabel($selection->getProject(), 'comment')
-            ));
+            $this->resourcesUtil->writeSizingApiDisabledError($selection->getProject());
             return 1;
         }
 

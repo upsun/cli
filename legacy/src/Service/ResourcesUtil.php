@@ -40,6 +40,35 @@ class ResourcesUtil
     }
 
     /**
+     * Prints an error explaining that the project does not support flexible resources.
+     */
+    public function writeSizingApiDisabledError(Project $project): void
+    {
+        $this->stdErr->writeln(sprintf('The flexible resources API is not enabled for the project %s.', $this->api->getProjectLabel($project, 'comment')));
+        if ($this->isFixedProject($project)) {
+            $this->stdErr->writeln('Flexible resources are not available on Upsun Fixed. See: <info>https://docs.upsun.com/anchors/fixed/</info>');
+        }
+    }
+
+    /**
+     * Checks if a project belongs to a Fixed organization, returning false if unknown.
+     */
+    private function isFixedProject(Project $project): bool
+    {
+        $orgId = $project->getProperty('organization', false);
+        if (!$orgId) {
+            return false;
+        }
+        try {
+            $organization = $this->api->getOrganizationById($orgId);
+        } catch (\Exception) {
+            // The user may not have access to the organization.
+            return false;
+        }
+        return $organization && $organization->getProperty('type', false) === 'fixed';
+    }
+
+    /**
      * Lists services in a deployment.
      *
      * @param EnvironmentDeployment $deployment
