@@ -106,7 +106,7 @@ func TestCompletionHidesHiddenCommands(t *testing.T) {
 	// Each suggestion is a name and a description, separated by a tab.
 	var names []string
 	for line := range strings.Lines(strings.TrimSpace(suggestions)) {
-		names = append(names, strings.SplitN(line, "\t", 2)[0])
+		names = append(names, strings.TrimSpace(strings.SplitN(line, "\t", 2)[0]))
 	}
 	require.Greater(t, len(names), 100)
 
