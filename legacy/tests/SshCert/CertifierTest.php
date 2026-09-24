@@ -36,9 +36,15 @@ class CertifierTest extends TestCase
         }
     }
 
-    public function testResolveKeyAlgorithmRejectsInvalid(): void
+    public function testResolveKeyAlgorithmRejectsUnsupported(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
-        Certifier::resolveKeyAlgorithm('../rsa', '/nonexistent');
+        foreach (['ecdsa', '../rsa'] as $value) {
+            try {
+                Certifier::resolveKeyAlgorithm($value, '/nonexistent');
+                $this->fail('Expected exception for: ' . $value);
+            } catch (\InvalidArgumentException) {
+                $this->addToAssertionCount(1);
+            }
+        }
     }
 }

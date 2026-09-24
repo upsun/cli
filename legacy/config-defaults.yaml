@@ -341,9 +341,9 @@ ssh:
 
   # The algorithm of the automatically generated SSH key pair.
   #
-  # Set to "auto" to use "rsa" if FIPS mode is enabled (detected on Linux via
-  # /proc/sys/crypto/fips_enabled), and "ed25519" otherwise. Other values are
-  # passed to "ssh-keygen -t" as-is.
+  # Valid values: "auto", "rsa" or "ed25519". The "auto" value means "rsa" if
+  # FIPS mode is enabled (detected on Linux via /proc/sys/crypto/fips_enabled),
+  # and "ed25519" otherwise.
   # Overridden by the {application.env_prefix}SSH_CERT_KEY_ALGORITHM env var.
   cert_key_algorithm: auto
 

@@ -255,7 +255,7 @@ class Certifier
      * Resolves the configured key algorithm, detecting FIPS mode for "auto".
      *
      * @param string $configured
-     *   The configured algorithm, e.g. "auto", "rsa" or "ed25519".
+     *   The configured algorithm: "auto", "rsa" or "ed25519".
      * @param string $fipsEnabledFile
      *   The file indicating whether FIPS mode is enabled (Linux only).
      */
@@ -265,8 +265,8 @@ class Certifier
             $fipsEnabled = is_readable($fipsEnabledFile) && trim((string) file_get_contents($fipsEnabledFile)) === '1';
             return $fipsEnabled ? 'rsa' : 'ed25519';
         }
-        // The value is used in a filename, so restrict its characters.
-        if (!preg_match('/^[a-z0-9-]+$/', $configured)) {
+        // Only these are supported by the certificate parser.
+        if (!in_array($configured, ['rsa', 'ed25519'], true)) {
             throw new \InvalidArgumentException('Invalid SSH certificate key algorithm: ' . $configured);
         }
         return $configured;
