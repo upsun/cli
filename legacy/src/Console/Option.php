@@ -47,4 +47,14 @@ final class Option
 
         return (int) $value;
     }
+
+    /**
+     * Gets the value of a non-negative integer option, or null if it is not set.
+     *
+     * @throws InvalidArgumentException if the value is not a non-negative integer
+     */
+    public static function intOrNull(InputInterface $input, string $name): ?int
+    {
+        return $input->getOption($name) === null ? null : self::int($input, $name);
+    }
 }

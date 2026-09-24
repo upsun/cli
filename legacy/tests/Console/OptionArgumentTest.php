@@ -104,6 +104,14 @@ class OptionArgumentTest extends TestCase
         $this->assertSame(10, Option::int(self::input([], 10), 'opt'));
     }
 
+    public function testIntOrNullOption(): void
+    {
+        $this->assertNull(Option::intOrNull(self::input([]), 'opt'));
+        $this->assertSame(5, Option::intOrNull(self::input(['--opt' => '5']), 'opt'));
+        $this->expectException(InvalidArgumentException::class);
+        Option::intOrNull(self::input(['--opt' => 'abc']), 'opt');
+    }
+
     public function testIntOptionInvalid(): void
     {
         foreach (['-1', 'abc', '1.5', ''] as $value) {
