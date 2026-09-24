@@ -173,7 +173,7 @@ func TestMetricsStorage(t *testing.T) {
 		{
 			name: "all csv always includes storage",
 			args: []string{"metrics:all", "-1", "--format", "csv"},
-			want: "/tmp inodes %,Storage %\n",
+			want: "/tmp inodes %,Storage %,Storage inodes %\n",
 		},
 		{
 			name:        "disk-usage storage columns",

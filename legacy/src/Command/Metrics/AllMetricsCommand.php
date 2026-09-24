@@ -216,7 +216,7 @@ class AllMetricsCommand extends MetricsCommandBase
             $fields += $this->storageFields($bytes, 'storage_inodes_');
         }
         $rows = $this->buildRows($values, $fields, $environment);
-        [$header, $defaultColumns] = $this->storageColumns(self::TABLE_HEADER, $this->defaultColumns, $values, ['storage_percent'], $environment);
+        [$header, $defaultColumns] = $this->storageColumns(self::TABLE_HEADER, $this->defaultColumns, $values, ['storage_percent', 'storage_inodes_percent'], $environment);
 
         if (!$this->table->formatIsMachineReadable()) {
             $formatter = $this->propertyFormatter;
