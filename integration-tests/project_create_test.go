@@ -29,25 +29,46 @@ func TestProjectCreate(t *testing.T) {
 
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
 
-	stdOut, stdErr, err := f.RunCombinedOutput(
-		"project:create", "-v", "--region", region, "--title", title, "--org", "cli-tests",
-	)
-	require.NoError(t, err)
+	cases := []struct {
+		name      string
+		extraArgs []string
+	}{
+		{"defaults", nil},
+		// Symfony passes option values as strings.
+		{"timeouts", []string{"--timeout", "600", "--check-timeout", "60"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			args := append([]string{"project:create", "-v", "--region", region, "--title", title, "--org", "cli-tests"},
+				c.extraArgs...)
+			stdOut, stdErr, err := f.RunCombinedOutput(args...)
+			require.NoError(t, err, "stderr: %s", stdErr)
 
-	// stdout should contain the project ID.
-	projectID := strings.TrimSpace(stdOut)
-	assert.NotEmpty(t, projectID)
+			// stdout should contain the project ID.
+			projectID := strings.TrimSpace(stdOut)
+			assert.NotEmpty(t, projectID)
 
-	consoleURL := "https://console.cli-tests.example.com/cli-tests/" + projectID
+			consoleURL := "https://console.cli-tests.example.com/cli-tests/" + projectID
 
-	// stderr should contain various messages.
-	assert.Contains(t, stdErr, "The estimated monthly cost of this project is: $1,000 USD")
-	assert.Contains(t, stdErr, "Region: "+region)
-	assert.Contains(t, stdErr, "Project ID: "+projectID)
-	assert.Contains(t, stdErr, "Project title: "+title)
-	assert.Contains(t, stdErr, "Console URL: "+consoleURL)
+			// stderr should contain various messages.
+			assert.Contains(t, stdErr, "The estimated monthly cost of this project is: $1,000 USD")
+			assert.Contains(t, stdErr, "Region: "+region)
+			assert.Contains(t, stdErr, "Project ID: "+projectID)
+			assert.Contains(t, stdErr, "Project title: "+title)
+			assert.Contains(t, stdErr, "Console URL: "+consoleURL)
 
-	f.Run("subscription:info", "-p", projectID)
+			f.Run("subscription:info", "-p", projectID)
+		})
+	}
+
+	t.Run("invalid timeout", func(t *testing.T) {
+		stdOut, stdErr, err := f.RunCombinedOutput("project:create", "--region", region, "--title", title,
+			"--org", "cli-tests", "--timeout", "abc")
+		assert.Error(t, err)
+		assert.Empty(t, stdOut)
+		assert.Contains(t, stdErr, "The --timeout value must be a non-negative integer.")
+		assert.NotContains(t, stdErr, "Creating a project")
+	})
 }
 
 func TestProjectCreate_CanCreateError(t *testing.T) {

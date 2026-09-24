@@ -49,7 +49,8 @@ class YamlParser
             throw new InvalidConfigException($e->getMessage(), $filename, '', $e);
         }
 
-        return $this->processTags($parsed, $filename);
+        // An empty or comment-only file is parsed as null.
+        return $this->processTags($parsed ?? [], $filename);
     }
 
     /**

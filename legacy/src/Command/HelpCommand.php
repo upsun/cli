@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command;
 
+use Platformsh\Cli\Application as CliApplication;
 use Platformsh\Cli\Console\CustomJsonDescriptor;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Console\CustomMarkdownDescriptor;
@@ -63,6 +64,22 @@ class HelpCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        // Asking for help on a namespace lists it, rather than reporting that the
+        // name is ambiguous.
+        $application = $this->getApplication();
+        $name = $input->getArgument('command_name');
+        if ($this->command === null && $application instanceof CliApplication && is_string($name)
+            && ($namespace = $application->findDescribableNamespace($name)) !== null) {
+            $format = $input->getOption('format');
+
+            return $application->listNamespace(
+                $namespace,
+                $output,
+                is_string($format) ? $format : null,
+                (bool) $input->getOption('raw'),
+            );
+        }
+
         $command = $this->command ?: $this->getApplication()->find($input->getArgument('command_name'));
 
         $format = $input->getOption('format');

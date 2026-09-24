@@ -113,4 +113,8 @@ func TestValkey(t *testing.T) {
 
 	assert.Equal(t, "Received command: valkey-cli -h cache.internal -p 6379 --scan --pattern '*-11*'",
 		f.Run("valkey", "-p", projectID, "-e", ".", "--", "--scan --pattern '*-11*'"))
+
+	// A trailing ".0" is accepted for a single-instance relationship.
+	assert.Equal(t, "Received command: valkey-cli -h cache.internal -p 6379 ping",
+		f.Run("valkey", "-p", projectID, "-e", ".", "-r", "cache.0", "ping"))
 }

@@ -16,6 +16,11 @@ import (
 // setUpResourcesSetOrg configures an org, project, environment and deployment,
 // ready for a resources:set --size change from the current 0.5.
 func setUpResourcesSetOrg(apiHandler *mockapi.Handler, orgID string) (projectID string) {
+	return setUpResourcesSetOrgWithSize(apiHandler, orgID, "0.5")
+}
+
+// setUpResourcesSetOrgWithSize is setUpResourcesSetOrg with the app's current profile size.
+func setUpResourcesSetOrgWithSize(apiHandler *mockapi.Handler, orgID, currentSize string) (projectID string) {
 	myUserID := "my-user-id"
 	apiHandler.SetMyUser(&mockapi.User{ID: myUserID})
 	apiHandler.SetOrgs([]*mockapi.Org{{
@@ -60,7 +65,7 @@ func setUpResourcesSetOrg(apiHandler *mockapi.Handler, orgID string) (projectID 
 					"type":              "golang:1.23",
 					"container_profile": "BALANCED",
 					"resources": map[string]any{
-						"profile_size": "0.5",
+						"profile_size": currentSize,
 					},
 					"instance_count": 1,
 					"disk":           512,
@@ -89,6 +94,12 @@ func setUpResourcesSetOrg(apiHandler *mockapi.Handler, orgID string) (projectID 
 						"cpu":      "1",
 						"memory":   "256",
 						"cpu_type": "shared",
+					},
+					// Filtered out: the project does not support guaranteed CPU.
+					"2": map[string]any{
+						"cpu":      "2",
+						"memory":   "512",
+						"cpu_type": "guaranteed",
 					},
 				},
 			},
@@ -150,6 +161,12 @@ func setUsage(apiHandler *mockapi.Handler, orgID string, cpu, memory, storage fl
 func runResourcesSet(
 	t *testing.T, apiHandler *mockapi.Handler, projectID, size string,
 ) (stdout, stderr string, err error) {
+	return runResourcesSetArgs(t, apiHandler, projectID, "--size", size)
+}
+
+func runResourcesSetArgs(
+	t *testing.T, apiHandler *mockapi.Handler, projectID string, args ...string,
+) (stdout, stderr string, err error) {
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -158,14 +175,13 @@ func runResourcesSet(
 
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
 
-	return f.RunCombinedOutput(
+	return f.RunCombinedOutput(append([]string{
 		"resources:set",
 		"-p", projectID,
 		"-e", "main",
-		"--size", size,
 		"--dry-run",
 		"--no-wait",
-	)
+	}, args...)...)
 }
 
 // TestResourcesSet_NoTrial checks that resources:set succeeds for an
@@ -266,4 +282,40 @@ func TestResourcesSet_TrialsNotEnabled(t *testing.T) {
 
 	require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
 	assert.Contains(t, stderr+stdout, "Summary of changes")
+}
+
+// TestResourcesSet_TrialWithoutSizeChange checks that the trial limits are
+// computed from the current profile size when an update does not change it,
+// e.g. when only setting object storage and the instance count.
+func TestResourcesSet_TrialWithoutSizeChange(t *testing.T) {
+	apiHandler := mockapi.NewHandler(t)
+	orgID := "org-trial-no-size"
+	projectID := setUpResourcesSetOrg(apiHandler, orgID)
+	// Doubling the 0.5 CPU app's instances exceeds the 0.75 CPU limit.
+	setTrial(apiHandler, orgID, activeTrial(0.75, 12, 20))
+	setUsage(apiHandler, orgID, 0.5, 0.125, 0.5)
+
+	_, stderr, err := runResourcesSetArgs(t, apiHandler, projectID,
+		"--object-storage", "app:1024", "--count", "app:2")
+
+	assert.Error(t, err)
+	assert.NotContains(t, stderr, "Warning")
+	assert.Contains(t, stderr, "trial CPU limit")
+}
+
+// TestResourcesSet_TrialFromUnsupportedGuaranteedSize checks that the trial
+// limits count the current size even if it is a guaranteed CPU size that the
+// project no longer offers.
+func TestResourcesSet_TrialFromUnsupportedGuaranteedSize(t *testing.T) {
+	apiHandler := mockapi.NewHandler(t)
+	orgID := "org-trial-guaranteed"
+	projectID := setUpResourcesSetOrgWithSize(apiHandler, orgID, "2")
+	// The CPU limit is used up, but going from 2 CPU to 1 reduces usage.
+	setTrial(apiHandler, orgID, activeTrial(2, 12, 20))
+	setUsage(apiHandler, orgID, 2, 0.5, 0.5)
+
+	stdout, stderr, err := runResourcesSet(t, apiHandler, projectID, "app:1")
+
+	require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
+	assert.NotContains(t, stderr, "trial CPU limit")
 }

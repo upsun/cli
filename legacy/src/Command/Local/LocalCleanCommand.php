@@ -54,8 +54,8 @@ class LocalCleanCommand extends CommandBase
         }
         $result = $this->localBuild->cleanBuilds(
             $projectRoot,
-            $input->getOption('max-age'),
-            $input->getOption('keep'),
+            $input->getOption('max-age') !== null ? $this->getIntOption($input, 'max-age') : null,
+            $this->getIntOption($input, 'keep'),
             $input->getOption('include-active'),
             false,
         );

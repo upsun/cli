@@ -756,9 +756,7 @@ class Selector implements CompleterInterface
             );
         } catch (EnvironmentStateException $e) {
             if ($environment->isActive() && $e->getMessage() === 'Current deployment not found') {
-                $appName = $input->hasOption('app') ? $input->getOption('app') : '';
-
-                return new BrokenEnv($environment, $appName);
+                return new BrokenEnv($environment, $appName ?? '');
             }
             throw $e;
         }

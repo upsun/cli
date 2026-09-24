@@ -31,14 +31,22 @@ readonly class SshKey
     public static function fromData(array $data): self
     {
         return new self(
-            (string) ($data['id'] ?? ''),
-            (string) ($data['sha256'] ?? ''),
-            (string) ($data['value'] ?? ''),
-            (string) ($data['label'] ?? ''),
+            self::str($data, 'id'),
+            self::str($data, 'sha256'),
+            self::str($data, 'value'),
+            self::str($data, 'label'),
             (bool) ($data['active'] ?? true),
-            (string) ($data['user_id'] ?? ''),
-            (string) ($data['created_at'] ?? ''),
-            (string) ($data['updated_at'] ?? ''),
+            self::str($data, 'user_id'),
+            self::str($data, 'created_at'),
+            self::str($data, 'updated_at'),
         );
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private static function str(array $data, string $key): string
+    {
+        return isset($data[$key]) && is_string($data[$key]) ? $data[$key] : '';
     }
 }

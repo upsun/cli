@@ -37,7 +37,8 @@ class SshKeyDeleteCommand extends SshKeyCommandBase
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $id = $input->getArgument('id');
-        if (empty($id) && $input->isInteractive()) {
+        $id = is_string($id) ? $id : '';
+        if ($id === '' && $input->isInteractive()) {
             $keys = $this->api->getSshKeys(true);
             if (empty($keys)) {
                 $this->stdErr->writeln('You do not have any SSH keys in your account.');
@@ -49,7 +50,7 @@ class SshKeyDeleteCommand extends SshKeyCommandBase
             }
             $id = $this->questionHelper->choose($options, 'Enter a number to choose a key to delete:', null, false);
         }
-        if (empty($id)) {
+        if ($id === '') {
             $this->stdErr->writeln('<error>You must specify the ID of the SSH key to delete.</error>');
             $this->stdErr->writeln('');
             $this->stdErr->writeln(
@@ -59,7 +60,7 @@ class SshKeyDeleteCommand extends SshKeyCommandBase
             return 1;
         }
 
-        $key = $this->api->getSshKey((string) $id);
+        $key = $this->api->getSshKey($id);
         if (!$key) {
             $this->stdErr->writeln("SSH key not found: <error>$id</error>");
 

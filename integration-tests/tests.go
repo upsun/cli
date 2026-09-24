@@ -2,6 +2,9 @@
 //
 // A TEST_CLI_PATH environment variable can be provided to override the path to a
 // CLI executable. It defaults to a built binary in the dist/ directory.
+//
+// Tests run in directories under INTEGRATION_TESTS_TMPDIR, which defaults to a
+// subdirectory of the user cache directory. It must not be inside a Git repository.
 package tests
 
 import (
@@ -47,7 +50,8 @@ func getCommandName(t *testing.T) string {
 		candidate = c
 	}
 	versionCmd := exec.Command(candidate, "--version")
-	versionCmd.Env = testEnv()
+	versionCmd.Dir = t.TempDir()
+	versionCmd.Env = testEnv(t.TempDir())
 	output, err := versionCmd.Output()
 	require.NoError(t, err, "running '--version' must succeed under the CLI at: %s", candidate)
 	require.Contains(t, string(output), "Platform Test CLI ")
@@ -61,7 +65,8 @@ type cmdFactory struct {
 	apiURL   string
 	authURL  string
 	extraEnv []string
-	dir      string
+	dir      string // Working directory; defaults to a per-test temporary directory.
+	home     string // CLI home directory; defaults to a per-test temporary directory.
 }
 
 func newCommandFactory(t *testing.T, apiURL, authURL string) *cmdFactory {
@@ -121,11 +126,14 @@ func (f *cmdFactory) RunInteractive(stdinInput string, args ...string) (stdOut, 
 
 func (f *cmdFactory) buildCommand(args ...string) *exec.Cmd {
 	cmd := exec.Command(getCommandName(f.t), args...)
-	cmd.Env = testEnv()
-	cmd.Dir = f.dir
-	if cmd.Dir == "" {
-		cmd.Dir = os.TempDir()
+	if f.dir == "" {
+		f.dir = f.t.TempDir()
 	}
+	if f.home == "" {
+		f.home = f.t.TempDir()
+	}
+	cmd.Env = testEnv(f.home)
+	cmd.Dir = f.dir
 	if testing.Verbose() {
 		cmd.Stderr = os.Stderr
 	}
@@ -145,7 +153,7 @@ func assertTrimmed(t *testing.T, expected, actual string) {
 
 const EnvPrefix = "TEST_CLI_"
 
-func testEnv() []string {
+func testEnv(home string) []string {
 	configPath, err := filepath.Abs("config.yaml")
 	if err != nil {
 		panic(err)
@@ -156,7 +164,7 @@ func testEnv() []string {
 		"CLI_CONFIG_FILE="+configPath,
 		EnvPrefix+"NO_INTERACTION=1",
 		EnvPrefix+"VERSION=1.0.0",
-		EnvPrefix+"HOME="+os.TempDir(),
+		EnvPrefix+"HOME="+home,
 		"TZ=UTC",
 	)
 }

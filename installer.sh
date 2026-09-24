@@ -31,11 +31,14 @@ set -eu
 
 # global variables
 binary="upsun"
+# How to run the binary: the full path if its directory is not in $PATH.
+run_cmd="$binary"
 vendor_name="Upsun"
 cmd_shasum=""
 cmd_sudo=""
 dir_bin="/usr/bin"
 footer_notes=""
+completion_note=""
 has_sudo=""
 kernel=""
 machine=""
@@ -189,7 +192,10 @@ outro() {
 
     output "\nWhat's next?" "heading"
 
-    output "  To use the CLI, run: $binary" "output"
+    output "  To use the CLI, run: $run_cmd" "output"
+    if [ ! -z "$completion_note" ]; then
+        output "$completion_note"
+    fi
 
     output "\nUseful links:" "heading"
     output "  CLI introduction: $docs_url/get-started/introduction.html#cli"
@@ -459,7 +465,7 @@ check_directories() {
     fi
 
     if ! echo $PATH | grep ${dir_bin} > /dev/null; then
-        binary="${dir_bin}/$binary"
+        run_cmd="${dir_bin}/$binary"
 
         output "  [ ] ${dir_bin} is not in \$PATH.\n" "warning"
         add_footer_note "  ⚠ The directory \"${dir_bin}\" is not in \$PATH"
@@ -649,6 +655,45 @@ install_raw() {
 
     output "  Installing the binary under ${dir_bin}"
     call_try_user "mv '${tmp_dir}/$binary' '${dir_bin}/${binary}'" "Failed to move the binary ${binary}"
+
+    install_completion "${tmp_dir}/completion"
+}
+
+# Copy a completion file, if its shell is available.
+# Arguments: shell, source file, destination directory, destination file name, [message suffix]
+copy_completion() {
+    if [ ! -f "$2" ] || ! command -v "$1" >/dev/null 2>&1; then
+        return 1
+    fi
+    if mkdir -p "$3" && cp "$2" "$3/$4"; then
+        output "  Installed $1 completion in $3/$4${5:-}"
+    else
+        output "  Could not install $1 completion in $3" "warning"
+        return 1
+    fi
+}
+
+# Set up shell completion for the current user, without editing shell config files.
+install_completion() {
+    if is_ci || [ -z "${HOME:-}" ] || [ ! -d "$1" ]; then
+        return
+    fi
+
+    output "\nSetting up shell completion" "heading"
+
+    data_dir="${XDG_DATA_HOME:-$HOME/.local/share}"
+    copy_completion bash "$1/bash/${binary}.bash" \
+        "${data_dir}/bash-completion/completions" "${binary}" " (loaded by bash-completion 2)" || true
+    copy_completion fish "$1/fish/${binary}.fish" \
+        "${XDG_CONFIG_HOME:-$HOME/.config}/fish/completions" "${binary}.fish" || true
+
+    # zsh has no user directory in fpath by default, and Symfony's zsh script
+    # misses the first Tab when autoloaded from fpath, so it is sourced instead.
+    # The file does nothing until sourced, so it is only installed for zsh users.
+    if echo "${SHELL:-}" | grep '/zsh' > /dev/null \
+        && copy_completion zsh "$1/zsh/_${binary}" "${data_dir}/${binary}" "completion.zsh"; then
+        completion_note='  To enable shell completion, add this line to ~/.zshrc (after compinit):\n    source "'"${data_dir}/${binary}/completion.zsh"'"'
+    fi
 }
 
 install() {

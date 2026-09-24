@@ -12,6 +12,7 @@ use Platformsh\Cli\Service\QuestionHelper;
 use GuzzleHttp\Exception\BadResponseException;
 use Platformsh\Cli\Console\ArrayArgument;
 use Platformsh\Cli\Console\ProgressMessage;
+use Platformsh\Cli\Util\PaginationUtil;
 use Platformsh\Cli\Util\Wildcard;
 use Platformsh\Client\Exception\ApiResponseException;
 use Platformsh\Client\Model\Team\Team;
@@ -64,6 +65,10 @@ class TeamCreateCommand extends TeamCommandBase
 
         $label = $input->getOption('label');
         if ($label === null) {
+            if (!$existingTeam && !$input->isInteractive()) {
+                $this->stdErr->writeln('The <error>--label</error> option is required in non-interactive mode.');
+                return 1;
+            }
             $label = $this->questionHelper->askInput("Enter the team's label", $existingTeam ? $existingTeam->label : null, [], function ($value) {
                 if (empty($value)) {
                     throw new InvalidArgumentException('The label cannot be empty');
@@ -81,7 +86,7 @@ class TeamCreateCommand extends TeamCommandBase
             $url = '/teams';
             $pageNumber = 1;
             $progress = new ProgressMessage($this->stdErr);
-            while ($url) {
+            while (true) {
                 if ($pageNumber > 1) {
                     $progress->showIfOutputDecorated(sprintf('Loading teams (page %d)...', $pageNumber));
                 }
@@ -94,7 +99,11 @@ class TeamCreateCommand extends TeamCommandBase
                         return 1;
                     }
                 }
-                $url = $result['collection']->getNextPageUrl();
+                $nextPage = PaginationUtil::nextPage($result['collection']->getNextPageUrl(), $url, $options['query']);
+                if ($nextPage === null) {
+                    break;
+                }
+                [$url, $options['query']] = $nextPage;
                 $pageNumber++;
             }
         }

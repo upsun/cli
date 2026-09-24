@@ -10,6 +10,7 @@ use Platformsh\Cli\Service\Config;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Completion\CompletionInput;
 use Symfony\Component\Console\Completion\CompletionSuggestions;
+use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
@@ -114,6 +115,24 @@ abstract class CommandBase extends Command implements MultiAwareInterface
         $this->getDefinition()->addOption(new HiddenInputOption($name, $shortcut, $mode, $description, $default));
 
         return $this;
+    }
+
+    /**
+     * Gets the value of a non-negative integer option.
+     *
+     * @throws InvalidArgumentException if the value is not a non-negative integer
+     */
+    protected function getIntOption(InputInterface $input, string $name): int
+    {
+        $value = $input->getOption($name);
+        if (is_int($value) && $value >= 0) {
+            return $value;
+        }
+        if (!is_string($value) || !preg_match('/^[0-9]+$/', $value)) {
+            throw new InvalidArgumentException(sprintf('The --%s value must be a non-negative integer.', $name));
+        }
+
+        return (int) $value;
     }
 
     /**

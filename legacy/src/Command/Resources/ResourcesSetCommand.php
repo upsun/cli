@@ -113,7 +113,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
     {
         $selection = $this->selector->getSelection($input);
         if (!$this->api->supportsSizingApi($selection->getProject())) {
-            $this->stdErr->writeln(sprintf('The flexible resources API is not enabled for the project %s.', $this->api->getProjectLabel($selection->getProject(), 'comment')));
+            $this->resourcesUtil->writeSizingApiDisabledError($selection->getProject());
             return 1;
         }
 
@@ -213,7 +213,8 @@ class ResourcesSetCommand extends ResourcesCommandBase
             $current[$group][$name]['resources']['profile_size'] = $properties['resources']['profile_size'] ?? null;
             $current[$group][$name]['instance_count'] = $properties['instance_count'] ?? null;
             $current[$group][$name]['disk'] = $properties['disk'] ?? null;
-            $current[$group][$name]['sizes'] = $containerProfiles[$containerProfile] ?? [];
+            // Unfiltered, so that usage is also known for a current size that is no longer offered.
+            $current[$group][$name]['sizes'] = $nextDeployment->container_profiles[$containerProfile] ?? [];
 
             $header = '<options=bold>' . ucfirst($type) . ': </><options=bold,underscore>' . $name . '</>';
             $headerShown = false;
@@ -678,7 +679,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
             if ($value == $sizeName) {
                 if (isset($resources['minimum']['cpu'], $sizeInfo['cpu']) && $sizeInfo['cpu'] < $resources['minimum']['cpu']) {
                     throw new InvalidArgumentException(sprintf(
-                        'Invalid profile size <error>%s</error>: its CPU amount %d is below the minimum for this %s, %d',
+                        'Invalid profile size <error>%s</error>: its CPU amount %s is below the minimum for this %s, %s',
                         $sizeName,
                         $sizeInfo['cpu'],
                         $this->typeName($service),
@@ -852,7 +853,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 if (isset($serviceUpdates['instance_count'])) {
                     $newCount = $serviceUpdates['instance_count'];
                 }
-                if (isset($serviceUpdates['resources'])) {
+                if (isset($serviceUpdates['resources']['profile_size'])) {
                     $newSize = $serviceUpdates['resources']['profile_size'];
                 }
                 if (isset($serviceUpdates['disk'])) {
@@ -860,14 +861,13 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 }
 
                 $currentService = $current[$group][$serviceName];
-                $currentSize = $currentService['resources']['profile_size'];
-                $currentProfile = $currentService['sizes'][$currentSize];
-                $currentCPU = $currentCount * $currentProfile['cpu'];
-                $currentRAM = $currentCount * $currentProfile['memory'];
+                $currentProfile = $currentService['sizes'][$currentSize] ?? [];
+                $currentCPU = $currentCount * ($currentProfile['cpu'] ?? 0);
+                $currentRAM = $currentCount * ($currentProfile['memory'] ?? 0);
 
-                $newProfile = $currentService['sizes'][$newSize];
-                $newCPU = $newCount * $newProfile['cpu'];
-                $newRAM = $newCount * $newProfile['memory'];
+                $newProfile = $currentService['sizes'][$newSize] ?? [];
+                $newCPU = $newCount * ($newProfile['cpu'] ?? 0);
+                $newRAM = $newCount * ($newProfile['memory'] ?? 0);
 
                 $diff['memory'] += $newRAM - $currentRAM;
                 $diff['cpu'] += $newCPU - $currentCPU;

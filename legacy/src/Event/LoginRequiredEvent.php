@@ -50,7 +50,7 @@ class LoginRequiredEvent extends Event
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array<string, string[]|int>
      */
     public function getLoginOptions(): array
     {

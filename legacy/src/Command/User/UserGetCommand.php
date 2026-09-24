@@ -60,8 +60,7 @@ class UserGetCommand extends CommandBase
         }
 
         $level = $input->getOption('level');
-        $validLevels = ['project', 'environment', null];
-        if (!in_array($level, $validLevels)) {
+        if ($level !== null && $level !== 'project' && $level !== 'environment') {
             $this->stdErr->writeln("Invalid level: <error>$level</error>");
             return 1;
         }
@@ -74,7 +73,11 @@ class UserGetCommand extends CommandBase
 
         // Load the user.
         $email = $input->getArgument('email');
-        if ($email === null && $input->isInteractive()) {
+        if ($email === null) {
+            if (!$input->isInteractive()) {
+                $this->stdErr->writeln('An email address is required (in non-interactive mode).');
+                return 1;
+            }
             $email = $this->questionHelper->choose($this->accessApi->listUsers($project), 'Enter a number to choose a user:');
         }
 
@@ -100,7 +103,7 @@ class UserGetCommand extends CommandBase
         return $this->subCommandRunner->run('user:add', $args, $output);
     }
 
-    private function displayRole(ProjectAccess|ProjectUserAccess $user, string $level, OutputInterface $output, ?Environment $environment = null): void
+    private function displayRole(ProjectAccess|ProjectUserAccess $user, ?string $level, OutputInterface $output, ?Environment $environment = null): void
     {
         if ($level === 'environment') {
             if ($user instanceof ProjectAccess) {

@@ -129,8 +129,9 @@ class SshKeyAddCommand extends SshKeyCommandBase
         }
 
         // Add the new key.
+        $name = $input->getOption('name');
         try {
-            $this->api->addSshKey($publicKey, $input->getOption('name'));
+            $this->api->addSshKey($publicKey, is_string($name) ? $name : null);
         } catch (BadResponseException $e) {
             // The API rejects a key that is already registered, by anyone.
             if ($e->getResponse()->getStatusCode() === 409) {

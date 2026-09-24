@@ -93,9 +93,9 @@ class QuestionHelper extends BaseQuestionHelper
     {
         if (count($items) === 1) {
             if ($skipOnOne) {
-                return key($items);
+                return (string) key($items);
             } elseif ($default === null) {
-                $default = key($items);
+                $default = (string) key($items);
             }
         }
         $itemList = array_values($items);
@@ -119,7 +119,7 @@ class QuestionHelper extends BaseQuestionHelper
                 throw new \RuntimeException('Invalid default');
             }
 
-            return $choiceKey;
+            return (string) $choiceKey;
         }
 
         $choice = $this->ask($this->input, $this->output, $question);
@@ -130,7 +130,7 @@ class QuestionHelper extends BaseQuestionHelper
 
         $this->output->writeln('');
 
-        return $choiceKey;
+        return (string) $choiceKey;
     }
 
     /**
@@ -152,9 +152,9 @@ class QuestionHelper extends BaseQuestionHelper
     {
         if (count($items) === 1) {
             if ($skipOnOne) {
-                return key($items);
+                return (string) key($items);
             } elseif ($default === null) {
-                $default = key($items);
+                $default = (string) key($items);
             }
         }
         $question = new ChoiceQuestion($text, $items, $default);

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -22,12 +23,79 @@ import (
 // against a mock whose current settings have triggers.cpu but no
 // triggers.cpu.down. summarizeChanges then runs formatDurationChange(null, ...).
 func TestAutoscalingSettingsSetMissingDuration(t *testing.T) {
+	f, projectID := setupAutoscalingSettingsSet(t)
+
+	// Use --dry-run to skip the confirmation; we just need summarizeChanges to run.
+	stdout, stderr, err := f.RunCombinedOutput(
+		"autoscaling:set",
+		"-p", projectID,
+		"-e", "main",
+		"--service", "app",
+		"--metric", "cpu",
+		"--duration-down", "2m",
+		"--cooldown-down", "5m",
+		"--dry-run",
+	)
+
+	combined := stdout + "\n---\n" + stderr
+	assert.NotContains(t, combined, "TypeError", "stdout: %s\nstderr: %s", stdout, stderr)
+	assert.NotContains(t, combined, "must be of type int|string, null given")
+	assert.NotContains(t, combined, "Fatal error")
+	require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
+}
+
+// TestAutoscalingSettingsSetInvalidThreshold checks that a non-numeric
+// threshold, from an option or typed interactively, is reported as invalid
+// rather than causing a TypeError.
+func TestAutoscalingSettingsSetInvalidThreshold(t *testing.T) {
+	f, projectID := setupAutoscalingSettingsSet(t)
+
+	cases := []struct {
+		name   string
+		option string
+	}{
+		{"threshold-up", "--threshold-up"},
+		{"threshold-down", "--threshold-down"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, stderr, err := f.RunCombinedOutput("autoscaling:set", "-p", projectID, "-e", "main",
+				"--service", "app", "--metric", "cpu", c.option, "abc", "--dry-run")
+			assert.Error(t, err)
+			assert.NotContains(t, stderr, "TypeError")
+			assert.Contains(t, stderr, "abc</error>: must be a number for "+c.name)
+		})
+	}
+
+	t.Run("interactive", func(t *testing.T) {
+		// Choose the service and metric, then type an invalid threshold.
+		_, stderr, err := f.RunInteractive("app\ncpu\nabc\n", "autoscaling:set", "-p", projectID, "-e", "main")
+		assert.Error(t, err)
+		assert.NotContains(t, stderr, "TypeError")
+		assert.Contains(t, stderr, "Invalid threshold abc: must be a number")
+	})
+}
+
+// TestAutoscalingSettingsSetAcceptDefaults checks that accepting the current
+// threshold at the interactive prompt is not reported as a change.
+func TestAutoscalingSettingsSetAcceptDefaults(t *testing.T) {
+	f, projectID := setupAutoscalingSettingsSet(t)
+
+	// Accept every default, including the metric (the only service is selected automatically).
+	input := strings.Repeat("\n", 12)
+	_, stderr, err := f.RunInteractive(input, "autoscaling:set", "-p", projectID, "-e", "main", "--dry-run")
+	require.NoError(t, err, stderr)
+	assert.Contains(t, stderr, "Summary of changes")
+	assert.NotContains(t, stderr, "from 80% to 80%")
+}
+
+func setupAutoscalingSettingsSet(t *testing.T) (f *cmdFactory, projectID string) {
 	authServer := mockapi.NewAuthServer(t)
-	defer authServer.Close()
+	t.Cleanup(authServer.Close)
 
 	apiHandler := mockapi.NewHandler(t)
 
-	projectID := mockapi.ProjectID()
+	projectID = mockapi.ProjectID()
 
 	apiHandler.SetProjects([]*mockapi.Project{{
 		ID: projectID,
@@ -120,25 +188,7 @@ func TestAutoscalingSettingsSetMissingDuration(t *testing.T) {
 	})
 
 	apiServer := httptest.NewServer(apiHandler)
-	defer apiServer.Close()
+	t.Cleanup(apiServer.Close)
 
-	f := newCommandFactory(t, apiServer.URL, authServer.URL)
-
-	// Use --dry-run to skip the confirmation; we just need summarizeChanges to run.
-	stdout, stderr, err := f.RunCombinedOutput(
-		"autoscaling:set",
-		"-p", projectID,
-		"-e", "main",
-		"--service", "app",
-		"--metric", "cpu",
-		"--duration-down", "2m",
-		"--cooldown-down", "5m",
-		"--dry-run",
-	)
-
-	combined := stdout + "\n---\n" + stderr
-	assert.NotContains(t, combined, "TypeError", "stdout: %s\nstderr: %s", stdout, stderr)
-	assert.NotContains(t, combined, "must be of type int|string, null given")
-	assert.NotContains(t, combined, "Fatal error")
-	require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
+	return newCommandFactory(t, apiServer.URL, authServer.URL), projectID
 }

@@ -29,8 +29,11 @@ class ApiSshKeyTest extends TestCase
         ]);
         $api = $this->createApi($handler);
 
-        $this->assertSame(['key-1', 'key-2'], array_map(fn($key) => $key->id, $api->getSshKeys()));
-        $this->assertSame(['key-1', 'key-2'], array_map(fn($key) => $key->id, $api->getSshKeys()));
+        $ids = fn(): array => array_map(fn($key) => $key->id, $api->getSshKeys());
+        $first = $ids();
+        $second = $ids();
+        $this->assertSame(['key-1', 'key-2'], $first);
+        $this->assertSame($first, $second);
         $this->assertCount(0, $handler);
     }
 
