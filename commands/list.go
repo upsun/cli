@@ -53,6 +53,12 @@ func newListCommand(cnf *config.Config) *cobra.Command {
 				list.AddCommand(&appConfigValidateCommand)
 			}
 
+			routeLoopsCommand := innerRouteLoopsCommand(cnf)
+
+			if !list.DescribesNamespace() || list.Namespace == routeLoopsCommand.Name.Namespace {
+				list.AddCommand(&routeLoopsCommand)
+			}
+
 			appProjectConvertCommand := innerProjectConvertCommand(cnf)
 
 			if cnf.Service.ProjectConfigFlavor == "upsun" &&
