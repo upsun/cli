@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -73,6 +74,19 @@ func TestAutoscalingSettingsSetInvalidThreshold(t *testing.T) {
 		assert.NotContains(t, stderr, "TypeError")
 		assert.Contains(t, stderr, "Invalid threshold abc: must be a number")
 	})
+}
+
+// TestAutoscalingSettingsSetAcceptDefaults checks that accepting the current
+// threshold at the interactive prompt is not reported as a change.
+func TestAutoscalingSettingsSetAcceptDefaults(t *testing.T) {
+	f, projectID := setupAutoscalingSettingsSet(t)
+
+	// Accept every default, including the metric (the only service is selected automatically).
+	input := strings.Repeat("\n", 12)
+	_, stderr, err := f.RunInteractive(input, "autoscaling:set", "-p", projectID, "-e", "main", "--dry-run")
+	require.NoError(t, err, stderr)
+	assert.Contains(t, stderr, "Summary of changes")
+	assert.NotContains(t, stderr, "from 80% to 80%")
 }
 
 func setupAutoscalingSettingsSet(t *testing.T) (f *cmdFactory, projectID string) {

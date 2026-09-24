@@ -461,7 +461,11 @@ class AutoscalingSettingsSetCommand extends CommandBase
             $default = $existingValue ?? $defaultValue;
             $newValue = $this->questionHelper->askInput($prompt, $default, [], $validator);
             $this->stdErr->writeln('');
-            if ($newValue !== $existingValue) {
+            // Compare numbers by value, e.g. a validated float threshold with the API's int.
+            $unchanged = is_numeric($newValue) && is_numeric($existingValue)
+                ? (float) $newValue === (float) $existingValue
+                : $newValue === $existingValue;
+            if (!$unchanged) {
                 $updates[$service][$updateKey] = $newValue;
             }
             return $newValue;
