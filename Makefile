@@ -32,6 +32,15 @@ internal/legacy/archives/platform.phar: legacy/vendor/autoload.php
 	mkdir -p internal/legacy/archives
 	cd legacy && php bin/platform self:build --no-interaction --output=../internal/legacy/archives/platform.phar
 
+# Index the legacy CLI's commands, so the Go layer can resolve abbreviations of its own commands.
+# Experiments are enabled so that every command is included. HOME is isolated from user config.
+internal/legacy/archives/commands.json: internal/legacy/archives/platform.phar
+	tmp=$$(mktemp -d) && \
+	HOME=$$tmp PLATFORMSH_CLI_EXPERIMENTAL_ALL_EXPERIMENTS=1 PLATFORMSH_CLI_NO_LEGACY_WARNING=1 \
+		php $< list --all --format=json > $$tmp/commands.json && \
+	mv $$tmp/commands.json $@; \
+	status=$$?; rm -rf $$tmp; exit $$status
+
 legacy/vendor/autoload.php:
 	cd legacy && composer install --no-interaction
 
@@ -80,11 +89,11 @@ repogen:
 	command -v repogen >/dev/null || go install github.com/ralt/repogen/cmd/repogen@$(REPOGEN_VERSION)
 
 .PHONY: single
-single: goreleaser internal/legacy/archives/platform.phar php ## Build a single target release
+single: goreleaser internal/legacy/archives/platform.phar internal/legacy/archives/commands.json php ## Build a single target release
 	PHP_VERSION=$(PHP_VERSION) goreleaser build --single-target --id=$(GORELEASER_ID) --snapshot --clean
 
 .PHONY: snapshot
-snapshot: goreleaser internal/legacy/archives/platform.phar php internal/legacy/archives/cacert.pem ## Build a snapshot release
+snapshot: goreleaser internal/legacy/archives/platform.phar internal/legacy/archives/commands.json php internal/legacy/archives/cacert.pem ## Build a snapshot release
 ifndef RSA_SIGNING_KEY_FILE
 	$(error RSA_SIGNING_KEY_FILE is not set. Set it to the path of your RSA private key for APK signing, or use 'make snapshot-no-nfpm' to skip packaging.)
 endif
@@ -94,16 +103,16 @@ endif
 	PHP_VERSION=$(PHP_VERSION) goreleaser release --snapshot --clean --skip=publish,announce
 
 .PHONY: snapshot-no-nfpm
-snapshot-no-nfpm: goreleaser internal/legacy/archives/platform.phar php ## Build a snapshot release without package signing
+snapshot-no-nfpm: goreleaser internal/legacy/archives/platform.phar internal/legacy/archives/commands.json php ## Build a snapshot release without package signing
 	PHP_VERSION=$(PHP_VERSION) goreleaser release --snapshot --clean --skip=publish,announce,nfpm
 
 .PHONY: clean-phar
 clean-phar: ## Clean up the legacy CLI phar
-	rm -f internal/legacy/archives/platform.phar
+	rm -f internal/legacy/archives/platform.phar internal/legacy/archives/commands.json
 	rm -rf legacy/vendor
 
 .PHONY: release
-release: goreleaser clean-phar internal/legacy/archives/platform.phar php internal/legacy/archives/cacert.pem ## Create and publish a release
+release: goreleaser clean-phar internal/legacy/archives/platform.phar internal/legacy/archives/commands.json php internal/legacy/archives/cacert.pem ## Create and publish a release
 ifndef RSA_SIGNING_KEY_FILE
 	$(error RSA_SIGNING_KEY_FILE is not set. Set it to the path of your RSA private key for APK signing.)
 endif
@@ -145,11 +154,11 @@ ifndef VENDOR_BINARY
 endif
 
 .PHONY: vendor-release
-vendor-release:  check-vendor .goreleaser.vendor.yaml goreleaser clean-phar internal/legacy/archives/platform.phar php ## Release a vendor CLI
+vendor-release:  check-vendor .goreleaser.vendor.yaml goreleaser clean-phar internal/legacy/archives/platform.phar internal/legacy/archives/commands.json php ## Release a vendor CLI
 	PHP_VERSION=$(PHP_VERSION) VENDOR_BINARY="$(VENDOR_BINARY)" VENDOR_NAME="$(VENDOR_NAME)" goreleaser release --clean --config=.goreleaser.vendor.yaml
 
 .PHONY: vendor-snapshot
-vendor-snapshot: check-vendor .goreleaser.vendor.yaml goreleaser internal/legacy/archives/platform.phar php ## Build a vendor CLI snapshot
+vendor-snapshot: check-vendor .goreleaser.vendor.yaml goreleaser internal/legacy/archives/platform.phar internal/legacy/archives/commands.json php ## Build a vendor CLI snapshot
 	PHP_VERSION=$(PHP_VERSION) VENDOR_BINARY="$(VENDOR_BINARY)" VENDOR_NAME="$(VENDOR_NAME)" goreleaser build --snapshot --clean --config=.goreleaser.vendor.yaml
 
 .PHONY: goreleaser-check

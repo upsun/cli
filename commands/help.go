@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/upsun/cli/internal/config"
+	"github.com/upsun/cli/internal/legacy"
 )
 
 func newHelpCommand(_ *config.Config) *cobra.Command {
@@ -12,6 +13,11 @@ func newHelpCommand(_ *config.Config) *cobra.Command {
 		// Disable flag parsing so flags like --format are preserved for the legacy CLI.
 		DisableFlagParsing: true,
 		Run: func(cmd *cobra.Command, args []string) {
+			if expanded, ok, err := expandAbbreviation(cmd.Root(), legacy.Commands, args); err != nil {
+				debugLogf("Failed to load the legacy command index: %s", err)
+			} else if ok {
+				args = expanded
+			}
 			foundCmd, _, e := cmd.Root().Find(args)
 			if foundCmd == nil || e != nil || foundCmd == cmd.Root() {
 				// Unknown command or root: delegate to root's HelpFunc for legacy CLI.

@@ -36,7 +36,13 @@ func Execute(cnf *config.Config) error {
 	}
 
 	ctx := vendorization.WithVendorAssets(config.ToContext(context.Background(), cnf), assets)
-	return newRootCommand(cnf, assets).ExecuteContext(ctx)
+	cmd := newRootCommand(cnf, assets)
+	if args, ok, err := expandAbbreviation(cmd, legacy.Commands, os.Args[1:]); err != nil {
+		debugLogf("Failed to load the legacy command index: %s", err)
+	} else if ok {
+		cmd.SetArgs(args)
+	}
+	return cmd.ExecuteContext(ctx)
 }
 
 func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cobra.Command {
