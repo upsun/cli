@@ -78,13 +78,13 @@ func TestMetricsLatest(t *testing.T) {
 		defer mu.Unlock()
 		data = d
 	}
+	overviewPath := envPath + "/observability/resources/overview"
 	apiHandler.Get(envPath+"/observability/", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"_links": mockapi.MakeHALLinks(
-				"resources_overview=" + apiServer.URL + envPath + "/observability/resources/overview"),
+			"_links": mockapi.MakeHALLinks("resources_overview=" + apiServer.URL + overviewPath),
 		})
 	})
-	apiHandler.Get(envPath+"/observability/resources/overview", func(w http.ResponseWriter, _ *http.Request) {
+	apiHandler.Get(overviewPath, func(w http.ResponseWriter, _ *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
 		now = time.Now().UTC()
