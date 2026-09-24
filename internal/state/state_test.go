@@ -28,4 +28,12 @@ func TestUpdateRepairsCorruptFile(t *testing.T) {
 	s, err := Load(cnf)
 	require.NoError(t, err)
 	assert.EqualValues(t, 42, s.Updates.LastChecked)
+
+	// The save leaves no temporary files and keeps the file private.
+	entries, err := os.ReadDir(filepath.Dir(statePath))
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	info, err := os.Stat(statePath)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 }

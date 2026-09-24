@@ -50,7 +50,21 @@ func Save(state State, cnf *config.Config) error {
 		return err
 	}
 
-	return os.WriteFile(statePath, data, 0o600)
+	// Write to a temporary file and rename it, so that other processes never
+	// read a partially written file.
+	f, err := os.CreateTemp(filepath.Dir(statePath), ".state-*.tmp")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(f.Name())
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return os.Rename(f.Name(), statePath)
 }
 
 var mu sync.Mutex

@@ -210,17 +210,24 @@ func fileExists(p string) bool {
 }
 
 // ownedBySystemPackage asks the system package database whether it owns exe.
-// A time limit stops a slow database from delaying the command.
+// A time limit stops a slow database from delaying the command; a timeout
+// counts as owned, to err on the side of silence.
 func ownedBySystemPackage(exe string) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
 	queries := [][]string{
 		{"dpkg-query", "-S", exe},
 		{"rpm", "-qf", exe},
 		{"apk", "info", "--who-owns", exe},
 	}
 	for _, q := range queries {
-		if p, err := exec.LookPath(q[0]); err == nil && exec.CommandContext(ctx, p, q[1:]...).Run() == nil {
+		p, err := exec.LookPath(q[0])
+		if err != nil {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		err = exec.CommandContext(ctx, p, q[1:]...).Run()
+		timedOut := ctx.Err() != nil
+		cancel()
+		if err == nil || timedOut {
 			return true
 		}
 	}
