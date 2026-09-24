@@ -50,6 +50,11 @@ func TestInvalidIntegerOptions(t *testing.T) {
 			"The --port value must be a non-negative integer.",
 		},
 		{
+			"backup:list --limit",
+			append([]string{"backup:list", "--limit", "abc"}, env...),
+			"The --limit value must be a non-negative integer.",
+		},
+		{
 			"project:list --page",
 			[]string{"project:list", "--page", "abc"},
 			"The --page value must be a non-negative integer.",
