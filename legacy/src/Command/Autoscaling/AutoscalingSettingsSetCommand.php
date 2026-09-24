@@ -216,7 +216,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
             }
 
             // Get autoscaling current values for selected service
-            $currentServiceSettings = $autoscalingSettings['services'][$service];
+            $currentServiceSettings = $autoscalingSettings['services'][$service] ?? null;
 
             $this->stdErr->writeln('<options=bold>' . ucfirst($this->typeName($services[$service])) . ': </><options=bold,underscore>' . $service . '</>');
             $this->stdErr->writeln('');
@@ -239,7 +239,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
                 $enabled = true;
             }
             // Only mark 'enabled' as an updated field if it is changing
-            if ($currentServiceSettings['enabled'] !== $enabled) {
+            if (($currentServiceSettings['triggers'][$metric]['enabled'] ?? false) !== $enabled) {
                 $updates[$service]['enabled'] = $enabled;
             }
 
@@ -288,8 +288,8 @@ class AutoscalingSettingsSetCommand extends CommandBase
             }
 
             // Only mark 'enabled' as an updated field if it was explicitly set and is changing
-            $currentServiceSettings = $autoscalingSettings['services'][$service];
-            if ($enabled !== null && $currentServiceSettings['enabled'] !== $enabled) {
+            $currentServiceSettings = $autoscalingSettings['services'][$service] ?? null;
+            if ($enabled !== null && ($currentServiceSettings['triggers'][$metric]['enabled'] ?? false) !== $enabled) {
                 $updates[$service]['enabled'] = $enabled;
             }
 
@@ -607,9 +607,10 @@ class AutoscalingSettingsSetCommand extends CommandBase
         $this->stdErr->writeln(sprintf('  Metric: <info>%s</info>', $metric));
 
         $action = 'remain';
-        $enabledText = $current['triggers'][$metric]['enabled'] ? 'enabled' : 'disabled';
+        $currentEnabled = $current['triggers'][$metric]['enabled'] ?? false;
+        $enabledText = $currentEnabled ? 'enabled' : 'disabled';
         if (isset($updates['enabled'])) {
-            if ($current['triggers'][$metric]['enabled'] != $updates['enabled']) {
+            if ($currentEnabled != $updates['enabled']) {
                 $action = 'become';
                 $enabledText = $updates['enabled'] ? 'enabled' : 'disabled';
             }
