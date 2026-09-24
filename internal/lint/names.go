@@ -45,7 +45,7 @@ func validateServiceName(value, nameType string) string {
 	}
 
 	if len(value) > maxServiceNameLength {
-		return fmt.Sprintf("%q is not a valid %s name, it should be shorter than %d characters.",
+		return fmt.Sprintf("%q is not a valid %s name, it should be no longer than %d characters.",
 			value, nameType, maxServiceNameLength)
 	}
 

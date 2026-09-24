@@ -31,12 +31,11 @@ func CheckContent(content string) (*Result, error) {
 		return nil, err
 	}
 
-	return runChecks(cfg, StyleFlex)
+	return runChecks(cfg)
 }
 
-// runChecks runs the semantic checks over a decoded config, adapting some
-// checks to the configuration style.
-func runChecks(cfg *Config, style Style) (*Result, error) {
+// runChecks runs the semantic checks over a decoded config.
+func runChecks(cfg *Config) (*Result, error) {
 	reg, err := registry.Parsed()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load registry: %w", err)
@@ -45,7 +44,7 @@ func runChecks(cfg *Config, style Style) (*Result, error) {
 	return Combine(
 		CheckRelationships(cfg),
 		CheckNames(cfg),
-		CheckTypes(cfg, reg, style),
+		CheckTypes(cfg, reg),
 		CheckScripts(cfg),
 		CheckWebConfig(cfg),
 		CheckDependencies(cfg),

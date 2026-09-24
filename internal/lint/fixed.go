@@ -68,7 +68,7 @@ func lintFixed(dir string, cfg fixedNames) (*Result, error) {
 		return nil, err
 	}
 
-	checks, err := runChecks(decoded, StyleFixed)
+	checks, err := runChecks(decoded)
 	if err != nil {
 		return nil, err
 	}

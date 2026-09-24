@@ -126,8 +126,8 @@ services:
   averylongservicenamethatexceedsthirtytwocharacters:
     type: valkey:8.0`,
 			expectErrorValues: []string{
-				`applications.averylongapplicationnamethatexceedsthirtytwocharacters: "averylongapplicationnamethatexceedsthirtytwocharacters" is not a valid application name, it should be shorter than 32 characters.`, //nolint:lll
-				`services.averylongservicenamethatexceedsthirtytwocharacters: "averylongservicenamethatexceedsthirtytwocharacters" is not a valid service name, it should be shorter than 32 characters.`,                 //nolint:lll
+				`applications.averylongapplicationnamethatexceedsthirtytwocharacters: "averylongapplicationnamethatexceedsthirtytwocharacters" is not a valid application name, it should be no longer than 32 characters.`, //nolint:lll
+				`services.averylongservicenamethatexceedsthirtytwocharacters: "averylongservicenamethatexceedsthirtytwocharacters" is not a valid service name, it should be no longer than 32 characters.`,                 //nolint:lll
 			},
 		},
 	}

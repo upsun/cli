@@ -138,13 +138,13 @@ func innerAppConfigValidateCommand(cnf *config.Config) Command {
 						Name:        "path",
 						IsRequired:  false,
 						IsArray:     false,
-						Description: "The path to a project directory to validate (default: the current directory)",
+						Description: "The project directory to validate (default: the enclosing Git repository root)",
 					},
 				},
 			)),
 			Options: orderedmap.New[string, Option](orderedmap.WithInitialData[string, Option](
 				orderedmap.Pair[string, Option]{
-					Key: "--format",
+					Key: "format",
 					Value: Option{
 						Name:            "--format",
 						AcceptValue:     true,
@@ -154,7 +154,7 @@ func innerAppConfigValidateCommand(cnf *config.Config) Command {
 					},
 				},
 				orderedmap.Pair[string, Option]{
-					Key: "--stdin",
+					Key: "stdin",
 					Value: Option{
 						Name:        "--stdin",
 						Description: "Read merged Flex configuration from standard input",

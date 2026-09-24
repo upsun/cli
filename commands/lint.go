@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 	"unicode"
 
@@ -72,11 +73,17 @@ func lintInput(cmd *cobra.Command, args []string, vendor lint.Vendor) (*lint.Res
 		return result, format, err
 	}
 
-	path := "."
+	// An explicit path is linted as given; by default the enclosing repository root is used.
+	var root string
 	if len(args) == 1 {
-		path = args[0]
+		abs, err := filepath.Abs(args[0])
+		if err != nil {
+			return nil, format, err
+		}
+		root = abs
+	} else {
+		root = lint.FindProjectRoot(".")
 	}
-	root := lint.FindProjectRoot(path)
 	if format == "text" {
 		fmt.Fprintln(cmd.ErrOrStderr(), "Validating configuration in directory: "+color.CyanString(root))
 	}

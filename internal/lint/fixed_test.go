@@ -31,6 +31,14 @@ relationships:
 			wantNoErr: true,
 		},
 		{
+			name: "composable image with stack and no type",
+			files: map[string]string{
+				".platform.app.yaml": `name: myapp
+stack: ["php@8.3"]`,
+			},
+			wantNoErr: true,
+		},
+		{
 			name: "invalid type and bad upstream",
 			files: map[string]string{
 				".platform.app.yaml": `name: myapp

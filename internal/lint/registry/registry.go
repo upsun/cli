@@ -15,8 +15,11 @@ const ChannelStable = "25.11"
 //go:embed registry.json
 var Data []byte
 
-var parsedRegistry Registry
-var parsedOnce sync.Once
+var (
+	parsedRegistry Registry
+	parsedErr      error
+	parsedOnce     sync.Once
+)
 
 func Parse(b []byte) (reg Registry, err error) {
 	err = json.Unmarshal(b, &reg)
@@ -27,11 +30,10 @@ func Parse(b []byte) (reg Registry, err error) {
 }
 
 func Parsed() (Registry, error) {
-	var err error
 	parsedOnce.Do(func() {
-		parsedRegistry, err = Parse(Data)
+		parsedRegistry, parsedErr = Parse(Data)
 	})
-	return parsedRegistry, err
+	return parsedRegistry, parsedErr
 }
 
 // clean reduces irrelevant information in a registry, for the purposes of this project.
