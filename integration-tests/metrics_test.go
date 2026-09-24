@@ -31,7 +31,6 @@ func TestMetricsLatest(t *testing.T) {
 
 	envPath := "/projects/" + projectID + "/environments/main"
 	main := makeEnv(projectID, "main", "production", "active", nil)
-	main.Links["#observability-pipeline"] = mockapi.HALLink{HREF: apiServer.URL + envPath + "/observability"}
 	main.SetCurrentDeployment(&mockapi.Deployment{
 		WebApps:  map[string]mockapi.App{"app": {Name: "app", Type: "golang:1.23", Size: "AUTO"}},
 		Services: map[string]mockapi.App{"db": {Name: "db", Type: "mariadb:11.4", Size: "AUTO"}},
@@ -79,7 +78,13 @@ func TestMetricsLatest(t *testing.T) {
 		defer mu.Unlock()
 		data = d
 	}
-	apiHandler.Get(envPath+"/observability/resources/overview", func(w http.ResponseWriter, _ *http.Request) {
+	overviewPath := envPath + "/observability/resources/overview"
+	apiHandler.Get(envPath+"/observability/", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"_links": mockapi.MakeHALLinks("resources_overview=" + apiServer.URL + overviewPath),
+		})
+	})
+	apiHandler.Get(overviewPath, func(w http.ResponseWriter, _ *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
 		now = time.Now().UTC()
