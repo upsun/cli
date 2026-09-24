@@ -38,7 +38,7 @@ services: {}
 			content: `
 applications:
   foo:
-    type: golang:1.25
+    type: golang:1.26
     relationships:
       database:
     web:
@@ -54,7 +54,7 @@ services:
 			content: `
 applications:
   foo:
-    type: golang:1.25
+    type: golang:1.26
     relationships:
       database:
     web:
@@ -71,7 +71,7 @@ services:
 			content: `
 applications:
   foo:
-    type: golang:1.25
+    type: golang:1.26
     relationships:
       database:
     web:
