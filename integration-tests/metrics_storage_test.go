@@ -151,6 +151,11 @@ func TestMetricsStorage(t *testing.T) {
 			want:        "Storage used",
 		},
 		{
+			name: "disk-usage csv always includes storage",
+			args: []string{"disk", "-1", "--format", "csv"},
+			want: "/tmp %,Storage used,Storage limit,Storage %,Storage inodes %\n",
+		},
+		{
 			name:        "disabled",
 			withStorage: true,
 			env:         []string{"TEST_CLI_API_METRICS_STORAGE=0"},
