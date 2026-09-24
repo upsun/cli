@@ -31,6 +31,8 @@ set -eu
 
 # global variables
 binary="upsun"
+# How to run the binary: the full path if its directory is not in $PATH.
+run_cmd="$binary"
 vendor_name="Upsun"
 cmd_shasum=""
 cmd_sudo=""
@@ -189,7 +191,7 @@ outro() {
 
     output "\nWhat's next?" "heading"
 
-    output "  To use the CLI, run: $binary" "output"
+    output "  To use the CLI, run: $run_cmd" "output"
 
     output "\nUseful links:" "heading"
     output "  CLI introduction: $docs_url/get-started/introduction.html#cli"
@@ -459,7 +461,7 @@ check_directories() {
     fi
 
     if ! echo $PATH | grep ${dir_bin} > /dev/null; then
-        binary="${dir_bin}/$binary"
+        run_cmd="${dir_bin}/$binary"
 
         output "  [ ] ${dir_bin} is not in \$PATH.\n" "warning"
         add_footer_note "  ⚠ The directory \"${dir_bin}\" is not in \$PATH"
