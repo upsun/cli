@@ -170,3 +170,43 @@ func TestProjectSetRemote(t *testing.T) {
 		assert.Contains(t, stdErr, "Could not determine the current project")
 	})
 }
+
+// TestEnvironmentSetRemoteDetachedHead is a regression test for a TypeError
+// raised by environment:set-remote in a detached HEAD without a branch argument.
+func TestEnvironmentSetRemoteDetachedHead(t *testing.T) {
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+
+	apiHandler := mockapi.NewHandler(t)
+
+	projectID := mockapi.ProjectID()
+	apiHandler.SetProjects([]*mockapi.Project{{
+		ID:            projectID,
+		DefaultBranch: "main",
+		Repository:    mockapi.ProjectRepository{URL: "test-user@git.cli-tests.example.com:" + projectID + ".git"},
+		Links: mockapi.MakeHALLinks(
+			"self=/projects/"+projectID,
+			"environments=/projects/"+projectID+"/environments",
+		),
+	}})
+	apiHandler.SetEnvironments([]*mockapi.Environment{
+		makeEnv(projectID, "main", "production", "active", nil),
+	})
+
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	repo := t.TempDir()
+	initRepoOnBranch(t, repo, "main")
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f.dir = repo
+	_, stdErr, err := f.RunCombinedOutput("set-remote", projectID)
+	require.NoError(t, err, "stderr: %s", stdErr)
+
+	runGit(t, repo, "checkout", "--quiet", "--detach")
+
+	_, stdErr, err = f.RunCombinedOutput("environment:set-remote", "main")
+	require.Error(t, err)
+	assert.NotContains(t, stdErr, "TypeError")
+	assert.Contains(t, stdErr, "Could not determine the current branch.")
+}
