@@ -3,7 +3,7 @@
 namespace Platformsh\Cli\Command\Environment;
 
 use GuzzleHttp\Utils;
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Platformsh\Cli\Service\ActivityMonitor;
@@ -51,7 +51,7 @@ class EnvironmentDeployTypeCommand extends CommandBase
         $settings = $environment->getSettings();
         $currentType = $settings->enable_manual_deployments ? 'manual' : 'automatic';
 
-        $newType = InputUtil::getNullableStringArgument($input, 'type');
+        $newType = Argument::stringOrNull($input, 'type');
         if ($newType === null) {
             if ($input->getOption('pipe')) {
                 $output->writeln($currentType);

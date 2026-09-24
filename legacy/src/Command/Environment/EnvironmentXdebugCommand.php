@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -81,11 +81,11 @@ class EnvironmentXdebugCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $port = InputUtil::getIntOption($input, 'port');
+        $port = Option::int($input, 'port');
         $selection = $this->selector->getSelection($input, new SelectorConfig(chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
 
         $container = $selection->getRemoteContainer();
-        $sshUrl = $container->getSshUrl(InputUtil::getNullableStringOption($input, 'instance') ?? '');
+        $sshUrl = $container->getSshUrl(Option::stringOrNull($input, 'instance') ?? '');
 
         $config = $container->getConfig()->getNormalized();
         $ideKey = $config['runtime']['xdebug']['idekey'] ?? '';

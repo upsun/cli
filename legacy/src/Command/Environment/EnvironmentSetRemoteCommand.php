@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Git;
@@ -52,7 +52,7 @@ class EnvironmentSetRemoteCommand extends CommandBase
         $projectRoot = (string) $this->selector->getProjectRoot();
         $this->git->setDefaultRepositoryDir($projectRoot);
 
-        $specifiedEnvironmentId = InputUtil::getStringArgument($input, 'environment');
+        $specifiedEnvironmentId = Argument::string($input, 'environment');
         $specifiedEnvironment = null;
         if ($specifiedEnvironmentId != '0') {
             $specifiedEnvironment = $this->api->getEnvironment($specifiedEnvironmentId, $project);
@@ -62,7 +62,7 @@ class EnvironmentSetRemoteCommand extends CommandBase
             }
         }
 
-        $specifiedBranch = InputUtil::getNullableStringArgument($input, 'branch');
+        $specifiedBranch = Argument::stringOrNull($input, 'branch');
         if ($specifiedBranch) {
             if (!$this->git->branchExists($specifiedBranch)) {
                 $this->stdErr->writeln("Branch not found: <error>$specifiedBranch</error>");

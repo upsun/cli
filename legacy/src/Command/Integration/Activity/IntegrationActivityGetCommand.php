@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Integration\Activity;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -48,12 +49,12 @@ class IntegrationActivityGetCommand extends IntegrationCommandBase
 
         $project = $selection->getProject();
 
-        $integration = $this->selectIntegration($project, InputUtil::getNullableStringArgument($input, 'integration'), $input->isInteractive());
+        $integration = $this->selectIntegration($project, Argument::stringOrNull($input, 'integration'), $input->isInteractive());
         if (!$integration) {
             return 1;
         }
 
-        $id = InputUtil::getNullableStringArgument($input, 'activity');
+        $id = Argument::stringOrNull($input, 'activity');
         if ($id) {
             $activity = $project->getActivity($id);
             if (!$activity) {
@@ -83,7 +84,7 @@ class IntegrationActivityGetCommand extends IntegrationCommandBase
             $properties['duration'] = (new \Platformsh\Cli\Model\Activity())->getDuration($activity);
         }
 
-        if ($property = InputUtil::getNullableStringOption($input, 'property')) {
+        if ($property = Option::stringOrNull($input, 'property')) {
             $this->propertyFormatter->displayData($output, $properties, $property);
             return 0;
         }

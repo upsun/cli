@@ -6,7 +6,7 @@ namespace Platformsh\Cli\Service;
 
 use GuzzleHttp\Psr7\Query;
 use GuzzleHttp\Psr7\Uri;
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Model\Host\HostInterface;
 use Platformsh\Cli\Model\Host\LocalHost;
 use Platformsh\Cli\Util\OsUtil;
@@ -111,7 +111,7 @@ class Relationships implements InputConfiguringInterface
         // Use the --relationship option, if specified.
         $identifier = false;
         if ($input->hasOption('relationship')
-            && ($relationshipName = InputUtil::getNullableStringOption($input, 'relationship'))) {
+            && ($relationshipName = Option::stringOrNull($input, 'relationship'))) {
             // Normalise the relationship name to remove a trailing ".0".
             if (str_ends_with($relationshipName, '.0')) {
                 $baseName = substr($relationshipName, 0, -2);

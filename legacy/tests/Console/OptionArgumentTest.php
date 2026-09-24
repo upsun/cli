@@ -6,7 +6,8 @@ namespace Platformsh\Cli\Tests\Console;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Input\InputArgument;
@@ -14,7 +15,7 @@ use Symfony\Component\Console\Input\InputDefinition;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 
-class InputUtilTest extends TestCase
+class OptionArgumentTest extends TestCase
 {
     /**
      * @param array<string, mixed> $params
@@ -30,17 +31,17 @@ class InputUtilTest extends TestCase
     public function testStringValues(): void
     {
         $input = self::input(['arg' => 'a', '--opt' => 'o']);
-        $this->assertSame('a', InputUtil::getStringArgument($input, 'arg'));
-        $this->assertSame('a', InputUtil::getNullableStringArgument($input, 'arg'));
-        $this->assertSame('o', InputUtil::getStringOption($input, 'opt'));
-        $this->assertSame('o', InputUtil::getNullableStringOption($input, 'opt'));
+        $this->assertSame('a', Argument::string($input, 'arg'));
+        $this->assertSame('a', Argument::stringOrNull($input, 'arg'));
+        $this->assertSame('o', Option::string($input, 'opt'));
+        $this->assertSame('o', Option::stringOrNull($input, 'opt'));
     }
 
     public function testNullValues(): void
     {
         $input = self::input([]);
-        $this->assertNull(InputUtil::getNullableStringArgument($input, 'arg'));
-        $this->assertNull(InputUtil::getNullableStringOption($input, 'opt'));
+        $this->assertNull(Argument::stringOrNull($input, 'arg'));
+        $this->assertNull(Option::stringOrNull($input, 'opt'));
     }
 
     /**
@@ -52,12 +53,12 @@ class InputUtilTest extends TestCase
         $int = self::input(['arg' => 1, '--opt' => 1]);
 
         return [
-            'null string argument' => [fn(InputInterface $i) => InputUtil::getStringArgument($i, 'arg'), $none],
-            'null string option' => [fn(InputInterface $i) => InputUtil::getStringOption($i, 'opt'), $none],
-            'int string argument' => [fn(InputInterface $i) => InputUtil::getStringArgument($i, 'arg'), $int],
-            'int nullable argument' => [fn(InputInterface $i) => InputUtil::getNullableStringArgument($i, 'arg'), $int],
-            'int string option' => [fn(InputInterface $i) => InputUtil::getStringOption($i, 'opt'), $int],
-            'int nullable option' => [fn(InputInterface $i) => InputUtil::getNullableStringOption($i, 'opt'), $int],
+            'null string argument' => [fn(InputInterface $i) => Argument::string($i, 'arg'), $none],
+            'null string option' => [fn(InputInterface $i) => Option::string($i, 'opt'), $none],
+            'int string argument' => [fn(InputInterface $i) => Argument::string($i, 'arg'), $int],
+            'int nullable argument' => [fn(InputInterface $i) => Argument::stringOrNull($i, 'arg'), $int],
+            'int string option' => [fn(InputInterface $i) => Option::string($i, 'opt'), $int],
+            'int nullable option' => [fn(InputInterface $i) => Option::stringOrNull($i, 'opt'), $int],
         ];
     }
 
@@ -77,14 +78,14 @@ class InputUtilTest extends TestCase
             new InputArgument('arr', InputArgument::IS_ARRAY),
             new InputOption('arr', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY),
         ]));
-        $this->assertSame(['a', 'b'], InputUtil::getStringArrayArgument($input, 'arr'));
-        $this->assertSame(['c'], InputUtil::getStringArrayOption($input, 'arr'));
+        $this->assertSame(['a', 'b'], Argument::stringArray($input, 'arr'));
+        $this->assertSame(['c'], Option::stringArray($input, 'arr'));
     }
 
     public function testStringArrayInvalid(): void
     {
         $this->expectException(\LogicException::class);
-        InputUtil::getStringArrayOption(self::input(['--opt' => 'a']), 'opt');
+        Option::stringArray(self::input(['--opt' => 'a']), 'opt');
     }
 
     public function testStringArrayInvalidItem(): void
@@ -93,21 +94,21 @@ class InputUtilTest extends TestCase
             new InputOption('arr', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY),
         ]));
         $this->expectException(\LogicException::class);
-        InputUtil::getStringArrayOption($input, 'arr');
+        Option::stringArray($input, 'arr');
     }
 
     public function testIntOption(): void
     {
-        $this->assertSame(5, InputUtil::getIntOption(self::input(['--opt' => '5']), 'opt'));
-        $this->assertSame(5, InputUtil::getIntOption(self::input(['--opt' => 5]), 'opt'));
-        $this->assertSame(10, InputUtil::getIntOption(self::input([], 10), 'opt'));
+        $this->assertSame(5, Option::int(self::input(['--opt' => '5']), 'opt'));
+        $this->assertSame(5, Option::int(self::input(['--opt' => 5]), 'opt'));
+        $this->assertSame(10, Option::int(self::input([], 10), 'opt'));
     }
 
     public function testIntOptionInvalid(): void
     {
         foreach (['-1', 'abc', '1.5', ''] as $value) {
             try {
-                InputUtil::getIntOption(self::input(['--opt' => $value]), 'opt');
+                Option::int(self::input(['--opt' => $value]), 'opt');
                 $this->fail('Expected exception for ' . $value);
             } catch (InvalidArgumentException $e) {
                 $this->assertSame('The --opt value must be a non-negative integer.', $e->getMessage());

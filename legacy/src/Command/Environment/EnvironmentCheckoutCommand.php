@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -54,7 +54,7 @@ class EnvironmentCheckoutCommand extends CommandBase
             throw new RootNotFoundException();
         }
 
-        $branch = InputUtil::getNullableStringArgument($input, 'environment');
+        $branch = Argument::stringOrNull($input, 'environment');
         if ($branch === null) {
             if ($input->isInteractive()) {
                 $branch = $this->offerBranchChoice($project, $projectRoot);

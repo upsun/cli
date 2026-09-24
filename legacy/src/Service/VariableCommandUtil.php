@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Service;
 
 use Platformsh\Cli\Console\AdaptiveTableCell;
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selection;
 use Platformsh\Client\Exception\EnvironmentStateException;
 use Platformsh\Client\Model\ApiResourceBase;
@@ -59,7 +59,7 @@ class VariableCommandUtil
      */
     public function getRequestedLevel(InputInterface $input): ?string
     {
-        $str = InputUtil::getNullableStringOption($input, 'level');
+        $str = Option::stringOrNull($input, 'level');
         if (empty($str)) {
             return null;
         }

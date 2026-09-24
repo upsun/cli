@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Service;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Util\NestedArrayUtil;
 use Platformsh\Cli\Util\TimezoneUtil;
 use Symfony\Component\Console\Input\InputDefinition;
@@ -108,7 +108,7 @@ class PropertyFormatter implements InputConfiguringInterface
     private function dateFormat(): string
     {
         if (isset($this->input) && $this->input->hasOption('date-fmt')) {
-            return InputUtil::getStringOption($this->input, 'date-fmt');
+            return Option::string($this->input, 'date-fmt');
         }
         return $this->config->getStr('application.date_format');
     }

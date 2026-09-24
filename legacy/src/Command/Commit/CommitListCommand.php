@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Commit;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
@@ -78,7 +78,7 @@ class CommitListCommand extends CommandBase
             ));
         }
 
-        $commits = $this->loadCommitList($environment, $startCommit, InputUtil::getIntOption($input, 'limit'));
+        $commits = $this->loadCommitList($environment, $startCommit, Option::int($input, 'limit'));
 
         $rows = [];
         foreach ($commits as $commit) {

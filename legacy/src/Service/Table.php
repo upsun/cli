@@ -6,7 +6,7 @@ namespace Platformsh\Cli\Service;
 
 use Platformsh\Cli\Console\AdaptiveTable;
 use Platformsh\Cli\Console\ArrayArgument;
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Util\Csv;
 use Platformsh\Cli\Util\PlainFormat;
 use Platformsh\Cli\Util\Wildcard;
@@ -277,7 +277,7 @@ class Table implements InputConfiguringInterface
         if (!$this->input->hasOption('columns')) {
             return [];
         }
-        $val = InputUtil::getStringArrayOption($this->input, 'columns');
+        $val = Option::stringArray($this->input, 'columns');
         if (\count($val) === 1) {
             $first = \reset($val);
             if (str_contains($first, '+')) {
@@ -358,7 +358,7 @@ class Table implements InputConfiguringInterface
      */
     protected function getFormat(): ?string
     {
-        if ($this->input->hasOption('format') && ($format = InputUtil::getNullableStringOption($this->input, 'format'))) {
+        if ($this->input->hasOption('format') && ($format = Option::stringOrNull($this->input, 'format'))) {
             return strtolower($format);
         }
 

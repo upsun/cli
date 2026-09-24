@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Service;
 
 use Platformsh\Cli\Console\HiddenInputOption;
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\SshCert\Certifier;
 use Platformsh\Cli\Util\OsUtil;
 use Symfony\Component\Console\Input\InputDefinition;
@@ -103,7 +103,7 @@ class Ssh implements InputConfiguringInterface
             $options[] = 'LogLevel QUIET';
         }
 
-        if ($this->input->hasOption('identity-file') && ($file = InputUtil::getNullableStringOption($this->input, 'identity-file'))) {
+        if ($this->input->hasOption('identity-file') && ($file = Option::stringOrNull($this->input, 'identity-file'))) {
             foreach ($this->sshConfig->formattedPaths($file) as $path) {
                 $options[] = 'IdentityFile ' . $path;
             }

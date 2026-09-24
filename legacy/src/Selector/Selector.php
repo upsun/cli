@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Selector;
 
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Console\CompleterInterface;
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Local\ApplicationFinder;
 use Platformsh\Cli\Model\Host\LocalHost;
 use Platformsh\Cli\Model\RemoteContainer\BrokenEnv;
@@ -113,8 +114,8 @@ class Selector implements CompleterInterface
             return new Selection($config);
         }
 
-        $projectId = $input->hasOption('project') ? InputUtil::getNullableStringOption($input, 'project') : null;
-        $projectHost = $input->hasOption('host') ? InputUtil::getNullableStringOption($input, 'host') : null;
+        $projectId = $input->hasOption('project') ? Option::stringOrNull($input, 'project') : null;
+        $projectHost = $input->hasOption('host') ? Option::stringOrNull($input, 'host') : null;
         $environmentId = null;
 
         // Identify the project.
@@ -164,7 +165,7 @@ class Selector implements CompleterInterface
                 $environment = $this->selectEnvironment($input, $project, $config, $argument);
             }
         } elseif ($input->hasOption($envOptionName)) {
-            $environmentId = InputUtil::getNullableStringOption($input, $envOptionName) ?? $environmentId;
+            $environmentId = Option::stringOrNull($input, $envOptionName) ?? $environmentId;
             $environment = $this->selectEnvironment($input, $project, $config, $environmentId);
         }
 
@@ -175,7 +176,7 @@ class Selector implements CompleterInterface
         // by resources:get); the calling command will handle filtering itself.
         // VALUE_IS_ARRAY options always return an array (empty by default).
         if ($input->hasOption('app') && !is_array($input->getOption('app'))) {
-            if ($appOption = InputUtil::getNullableStringOption($input, 'app')) {
+            if ($appOption = Option::stringOrNull($input, 'app')) {
                 $appName = $appOption;
             } elseif (isset($result['appId'])) {
                 // An app ID might be provided from the parsed project URL.
@@ -243,7 +244,7 @@ class Selector implements CompleterInterface
         }
 
         $remoteContainer = $selection->getRemoteContainer();
-        $instanceId = $input->hasOption('instance') ? InputUtil::getNullableStringOption($input, 'instance') : null;
+        $instanceId = $input->hasOption('instance') ? Option::stringOrNull($input, 'instance') : null;
         if ($input->hasOption('instance') && $instanceId !== null) {
             $instances = $selection->getEnvironment()->getSshInstanceURLs($remoteContainer->getName());
             if ((!empty($instances) || $instanceId !== '0') && !isset($instances[$instanceId])) {
@@ -736,10 +737,10 @@ class Selector implements CompleterInterface
     {
         // A running task container is selected from its in-progress activity,
         // not from the deployment, so handle it before loading the deployment.
-        $taskOption = $input->hasOption('task') ? InputUtil::getNullableStringOption($input, 'task') : null;
+        $taskOption = $input->hasOption('task') ? Option::stringOrNull($input, 'task') : null;
         if ($taskOption !== null && $taskOption !== '') {
             foreach (['app', 'worker', 'instance'] as $conflicting) {
-                $value = $input->hasOption($conflicting) ? InputUtil::getNullableStringOption($input, $conflicting) : null;
+                $value = $input->hasOption($conflicting) ? Option::stringOrNull($input, $conflicting) : null;
                 if ($value !== null && $value !== '') {
                     throw new InvalidArgumentException(sprintf('The --%s option cannot be used together with --task.', $conflicting));
                 }
@@ -762,11 +763,11 @@ class Selector implements CompleterInterface
 
         // Validate the --app option, without doing anything with it.
         if ($appName === null) {
-            $appName = $input->hasOption('app') ? InputUtil::getNullableStringOption($input, 'app') : null;
+            $appName = $input->hasOption('app') ? Option::stringOrNull($input, 'app') : null;
         }
 
         // Handle the --worker option first, as it's more specific.
-        $workerOption = $includeWorkers ? InputUtil::getNullableStringOption($input, 'worker') : null;
+        $workerOption = $includeWorkers ? Option::stringOrNull($input, 'worker') : null;
         if ($workerOption !== null) {
             // Check for a conflict with the --app option.
             if ($appName !== null
@@ -911,7 +912,7 @@ class Selector implements CompleterInterface
         }
 
         // An explicit activity ID disambiguates parallel runs without a prompt.
-        $activityId = $input->hasOption('activity') ? InputUtil::getNullableStringOption($input, 'activity') : null;
+        $activityId = $input->hasOption('activity') ? Option::stringOrNull($input, 'activity') : null;
         if ($activityId !== null && $activityId !== '') {
             $activity = $this->matchTaskActivity($running, $taskName, $activityId);
         } elseif (count($running) === 1) {
@@ -1069,7 +1070,7 @@ class Selector implements CompleterInterface
         $explicitProject = $input->hasOption('project') && $input->getOption('project');
         $selection = $explicitProject ? $this->getSelection($input) : new Selection();
 
-        if ($identifier = InputUtil::getNullableStringOption($input, 'org')) {
+        if ($identifier = Option::stringOrNull($input, 'org')) {
             // Organization names have to be lower case, while organization IDs are the uppercase ULID format.
             // So it's easy to distinguish one from the other.
             /** @link https://github.com/ulid/spec */
@@ -1217,11 +1218,11 @@ class Selector implements CompleterInterface
             return false;
         }
         if ($input->hasOption('project')) {
-            $id = InputUtil::getNullableStringOption($input, 'project');
+            $id = Option::stringOrNull($input, 'project');
         } elseif ($input->hasArgument('project')) {
-            $id = InputUtil::getNullableStringArgument($input, 'project');
+            $id = Argument::stringOrNull($input, 'project');
         } elseif ($input->hasArgument('get')) {
-            $id = InputUtil::getNullableStringArgument($input, 'get');
+            $id = Argument::stringOrNull($input, 'get');
         } else {
             $id = null;
         }

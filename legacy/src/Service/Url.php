@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Service;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Util\OsUtil;
 use Symfony\Component\Console\Input\InputDefinition;
 use Symfony\Component\Console\Input\InputInterface;
@@ -50,7 +50,7 @@ class Url implements InputConfiguringInterface
     public function canOpenUrls(): bool
     {
         return $this->hasDisplay()
-            && $this->getBrowser($this->input->hasOption('browser') ? InputUtil::getNullableStringOption($this->input, 'browser') : null) !== false;
+            && $this->getBrowser($this->input->hasOption('browser') ? Option::stringOrNull($this->input, 'browser') : null) !== false;
     }
 
     /**
@@ -60,7 +60,7 @@ class Url implements InputConfiguringInterface
      */
     public function openUrl(string $url, bool $print = true): bool
     {
-        $browserOption = $this->input->hasOption('browser') ? InputUtil::getNullableStringOption($this->input, 'browser') : null;
+        $browserOption = $this->input->hasOption('browser') ? Option::stringOrNull($this->input, 'browser') : null;
         $open = true;
         $success = false;
 

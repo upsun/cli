@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Shell;
@@ -46,7 +47,7 @@ class EnvironmentScpCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $files = InputUtil::getStringArrayArgument($input, 'files');
+        $files = Argument::stringArray($input, 'files');
         if (!$files) {
             throw new InvalidArgumentException('No files specified');
         }
@@ -54,7 +55,7 @@ class EnvironmentScpCommand extends CommandBase
         $selection = $this->selector->getSelection($input, new SelectorConfig(chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
         $container = $selection->getRemoteContainer();
 
-        $sshUrl = $container->getSshUrl(InputUtil::getNullableStringOption($input, 'instance') ?? '');
+        $sshUrl = $container->getSshUrl(Option::stringOrNull($input, 'instance') ?? '');
         $command = 'scp';
 
         if ($sshArgs = $this->ssh->getSshArgs($sshUrl)) {

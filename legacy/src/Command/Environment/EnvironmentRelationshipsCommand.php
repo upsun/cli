@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\PropertyFormatter;
@@ -55,7 +55,7 @@ class EnvironmentRelationshipsCommand extends CommandBase
                 }
             }
         }
-        $this->propertyFormatter->displayData($output, $relationships, InputUtil::getNullableStringOption($input, 'property'));
+        $this->propertyFormatter->displayData($output, $relationships, Option::stringOrNull($input, 'property'));
 
         return 0;
     }

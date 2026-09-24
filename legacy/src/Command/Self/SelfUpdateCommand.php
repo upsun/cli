@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Self;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\SelfUpdater;
 use Platformsh\Cli\Command\CommandBase;
@@ -37,7 +37,7 @@ class SelfUpdateCommand extends CommandBase
         $currentVersion = $input->getOption('current-version') ?: $this->config->getVersion();
         $this->selfUpdater->setAllowMajor(!$input->getOption('no-major'));
         $this->selfUpdater->setAllowUnstable((bool) $input->getOption('unstable'));
-        $this->selfUpdater->setTimeout(InputUtil::getIntOption($input, 'timeout'));
+        $this->selfUpdater->setTimeout(Option::int($input, 'timeout'));
 
         $result = $this->selfUpdater->update($manifestUrl, $currentVersion);
         if ($result === '') {

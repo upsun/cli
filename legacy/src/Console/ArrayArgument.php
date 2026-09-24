@@ -20,7 +20,7 @@ class ArrayArgument
      */
     public static function getArgument(InputInterface $input, string $argName): array
     {
-        return self::split(InputUtil::getStringArrayArgument($input, $argName));
+        return self::split(Argument::stringArray($input, $argName));
     }
 
     /**
@@ -33,7 +33,7 @@ class ArrayArgument
      */
     public static function getOption(InputInterface $input, string $optionName): array
     {
-        return self::split(InputUtil::getStringArrayOption($input, $optionName));
+        return self::split(Option::stringArray($input, $optionName));
     }
 
     /**

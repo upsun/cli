@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Service\ResourcesUtil;
@@ -67,7 +68,7 @@ class EnvironmentBranchCommand extends CommandBase
     {
         $this->io->warnAboutDeprecatedOptions(['force', 'identity-file']);
 
-        $branchName = InputUtil::getNullableStringArgument($input, 'id');
+        $branchName = Argument::stringOrNull($input, 'id');
         $selectorConfig = new SelectorConfig(
             envRequired: $branchName !== null,
             envArgName: 'parent',
@@ -151,13 +152,13 @@ class EnvironmentBranchCommand extends CommandBase
             return 1;
         }
 
-        $title = InputUtil::getNullableStringOption($input, 'title') ?? $branchName;
+        $title = Option::stringOrNull($input, 'title') ?? $branchName;
 
         $newLabel = strlen($title) > 0 && $title !== $branchName
             ? '<info>' . $title . '</info> (' . $branchName . ')'
             : '<info>' . $branchName . '</info>';
 
-        $type = InputUtil::getNullableStringOption($input, 'type');
+        $type = Option::stringOrNull($input, 'type');
         if ($type !== null) {
             $newLabel .= ' (type: <info>' . $type . '</info>)';
         }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Service;
 
 use Platformsh\Cli\Console\ArrayArgument;
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Cli\Util\StringUtil;
 use Platformsh\Cli\Util\Wildcard;
@@ -323,7 +323,7 @@ class ResourcesUtil
      */
     public function validateInput(InputInterface $input, Project $project, array $allowedValues): false|string|null
     {
-        $resourcesInit = $input->hasOption('resources-init') ? InputUtil::getNullableStringOption($input, 'resources-init') : null;
+        $resourcesInit = $input->hasOption('resources-init') ? Option::stringOrNull($input, 'resources-init') : null;
         if ($resourcesInit !== null) {
             if (!\in_array($resourcesInit, $allowedValues, true)) {
                 $this->stdErr->writeln('The value for <error>--resources-init</error> must be one of: ' . \implode(', ', $allowedValues));

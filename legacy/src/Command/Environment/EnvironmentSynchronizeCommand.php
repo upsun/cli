@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\ActivityMonitor;
@@ -107,7 +107,7 @@ class EnvironmentSynchronizeCommand extends CommandBase
             }
         }
 
-        if ($synchronize = InputUtil::getStringArrayArgument($input, 'synchronize')) {
+        if ($synchronize = Argument::stringArray($input, 'synchronize')) {
             $validOptions = $this->config->getBool('api.sizing') ? ['code', 'data', 'resources'] : ['code', 'data', 'both'];
             $toSync = [];
             foreach ($synchronize as $item) {

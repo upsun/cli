@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Activity;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
@@ -83,7 +84,7 @@ class ActivityGetCommand extends ActivityCommandBase
             $apiResource = $selection->getProject();
         }
 
-        $id = InputUtil::getNullableStringArgument($input, 'id');
+        $id = Argument::stringOrNull($input, 'id');
         if ($id) {
             $activity = $selection->getProject()
                 ->getActivity($id);
@@ -114,7 +115,7 @@ class ActivityGetCommand extends ActivityCommandBase
             $properties['duration'] = (new \Platformsh\Cli\Model\Activity())->getDuration($activity);
         }
 
-        if ($property = InputUtil::getNullableStringOption($input, 'property')) {
+        if ($property = Option::stringOrNull($input, 'property')) {
             $this->propertyFormatter->displayData($output, $properties, $property);
             return 0;
         }

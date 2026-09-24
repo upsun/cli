@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Integration\Activity;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -87,7 +88,7 @@ class IntegrationActivityListCommand extends IntegrationCommandBase
 
         $project = $selection->getProject();
 
-        $integration = $this->selectIntegration($project, InputUtil::getNullableStringArgument($input, 'id'), $input->isInteractive());
+        $integration = $this->selectIntegration($project, Argument::stringOrNull($input, 'id'), $input->isInteractive());
         if (!$integration) {
             return 1;
         }
@@ -133,7 +134,7 @@ class IntegrationActivityListCommand extends IntegrationCommandBase
         if (!$this->table->formatIsMachineReadable()) {
             $executable = $this->config->getStr('application.executable');
 
-            $max = InputUtil::getIntOption($input, 'limit') ?: self::DEFAULT_LIST_LIMIT;
+            $max = Option::int($input, 'limit') ?: self::DEFAULT_LIST_LIMIT;
             $maybeMoreAvailable = count($activities) === $max;
             if ($maybeMoreAvailable) {
                 $this->stdErr->writeln('');

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Service;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputDefinition;
@@ -41,7 +42,7 @@ readonly class CurlCli implements InputConfiguringInterface
         $stdErr = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;
         $url = rtrim($baseUrl, '/');
 
-        if ($path = InputUtil::getNullableStringArgument($input, 'path')) {
+        if ($path = Argument::stringOrNull($input, 'path')) {
             if (parse_url($path, PHP_URL_HOST)) {
                 $stdErr->writeln(sprintf('Invalid path: <error>%s</error>', $path));
 
@@ -158,11 +159,11 @@ readonly class CurlCli implements InputConfiguringInterface
             $commandline .= ' --fail-with-body';
         }
 
-        if ($requestMethod = InputUtil::getNullableStringOption($input, 'request')) {
+        if ($requestMethod = Option::stringOrNull($input, 'request')) {
             $commandline .= ' --request ' . escapeshellarg($requestMethod);
         }
 
-        if ($data = InputUtil::getNullableStringOption($input, 'json')) {
+        if ($data = Option::stringOrNull($input, 'json')) {
             if (\json_decode($data) === null && \json_last_error() !== JSON_ERROR_NONE) {
                 throw new InvalidArgumentException('The value of --json contains invalid JSON.');
             }
@@ -171,7 +172,7 @@ readonly class CurlCli implements InputConfiguringInterface
             $commandline .= ' --header ' . escapeshellarg('Accept: application/json');
         }
 
-        if ($data = InputUtil::getNullableStringOption($input, 'data')) {
+        if ($data = Option::stringOrNull($input, 'data')) {
             $commandline .= ' --data ' . escapeshellarg($data);
         }
 
@@ -183,7 +184,7 @@ readonly class CurlCli implements InputConfiguringInterface
             $commandline .= ' --globoff';
         }
 
-        foreach (InputUtil::getStringArrayOption($input, 'header') as $header) {
+        foreach (Option::stringArray($input, 'header') as $header) {
             $commandline .= ' --header ' . escapeshellarg($header);
         }
 

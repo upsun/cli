@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Activity;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityLoader;
@@ -168,7 +168,7 @@ class ActivityListCommand extends ActivityCommandBase
             $executable = $this->config->getStr('application.executable');
 
             // TODO make this more deterministic by fetching limit+1 activities
-            $max = InputUtil::getIntOption($input, 'limit') ?: self::DEFAULT_LIST_LIMIT;
+            $max = Option::int($input, 'limit') ?: self::DEFAULT_LIST_LIMIT;
             $maybeMoreAvailable = count($activities) === $max;
             if ($maybeMoreAvailable) {
                 $this->stdErr->writeln('');

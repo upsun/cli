@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -63,7 +63,7 @@ class EnvironmentDrushCommand extends CommandBase
     {
         $selection = $this->selector->getSelection($input);
 
-        $drushCommand = InputUtil::getStringArrayArgument($input, 'cmd');
+        $drushCommand = Argument::stringArray($input, 'cmd');
         if (count($drushCommand) === 1) {
             $drushCommand = reset($drushCommand);
         } else {

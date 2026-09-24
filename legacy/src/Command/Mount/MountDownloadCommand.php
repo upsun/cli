@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Mount;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Model\RemoteContainer\RemoteContainerInterface;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Local\ApplicationFinder;
@@ -61,7 +61,7 @@ class MountDownloadCommand extends CommandBase
         $selection = $this->selector->getSelection($input, new SelectorConfig(chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
         $container = $selection->getRemoteContainer();
         $mounts = $this->mount->mountsFromConfig($container->getConfig());
-        $sshUrl = $container->getSshUrl(InputUtil::getNullableStringOption($input, 'instance') ?? '');
+        $sshUrl = $container->getSshUrl(Option::stringOrNull($input, 'instance') ?? '');
 
         if (empty($mounts)) {
             $this->stdErr->writeln(sprintf('No mounts found on host: <info>%s</info>', $sshUrl));

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Api;
@@ -66,7 +67,7 @@ class EnvironmentSshCommand extends CommandBase
 
             $container = $selection->getRemoteContainer();
 
-            $sshUrl = $container->getSshUrl(InputUtil::getNullableStringOption($input, 'instance') ?? '');
+            $sshUrl = $container->getSshUrl(Option::stringOrNull($input, 'instance') ?? '');
         } catch (EnvironmentStateException $e) {
             $environment = $e->getEnvironment();
             switch ($environment->status) {
@@ -97,11 +98,11 @@ class EnvironmentSshCommand extends CommandBase
             return 0;
         }
 
-        $remoteCommand = InputUtil::getStringArrayArgument($input, 'cmd');
+        $remoteCommand = Argument::stringArray($input, 'cmd');
         if (empty($remoteCommand) && $this->runningViaMulti) {
             throw new InvalidArgumentException('The cmd argument is required when running via "multi"');
         }
-        $command = $this->ssh->getSshCommand($sshUrl, InputUtil::getStringArrayOption($input, 'option'), $remoteCommand);
+        $command = $this->ssh->getSshCommand($sshUrl, Option::stringArray($input, 'option'), $remoteCommand);
 
         $start = \time();
 

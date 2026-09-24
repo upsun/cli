@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Activity;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityLoader;
@@ -89,7 +90,7 @@ class ActivityLogCommand extends ActivityCommandBase
             $apiResource = $selection->getProject();
         }
 
-        $id = InputUtil::getNullableStringArgument($input, 'id');
+        $id = Argument::stringOrNull($input, 'id');
         if ($id) {
             $activity = $selection->getProject()
                 ->getActivity($id);
@@ -116,11 +117,11 @@ class ActivityLogCommand extends ActivityCommandBase
             '<info>Log: </info>',
         ]);
 
-        $refresh = InputUtil::getIntOption($input, 'refresh');
+        $refresh = Option::int($input, 'refresh');
         $timestamps = false;
         if ($input->getOption('timestamps')) {
             $timestamps = $input->hasOption('date-fmt')
-                ? InputUtil::getStringOption($input, 'date-fmt')
+                ? Option::string($input, 'date-fmt')
                 : $this->config->getStr('application.date_format');
         }
         if ($refresh > 0 && !$this->runningViaMulti && !$activity->isComplete() && $activity->state !== Activity::STATE_CANCELLED) {

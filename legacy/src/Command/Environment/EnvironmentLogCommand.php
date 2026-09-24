@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
-use Platformsh\Cli\Console\InputUtil;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -59,7 +60,7 @@ class EnvironmentLogCommand extends CommandBase
         if ($input->getOption('tail') && $this->runningViaMulti) {
             throw new InvalidArgumentException('The --tail option cannot be used with "multi"');
         }
-        $lines = InputUtil::getIntOption($input, 'lines');
+        $lines = Option::int($input, 'lines');
 
         $host = $this->selector->getHostFromSelection($input, $selection);
 
@@ -73,7 +74,7 @@ class EnvironmentLogCommand extends CommandBase
         }
 
         // Select the log file that the user specified.
-        if ($logType = InputUtil::getNullableStringArgument($input, 'type')) {
+        if ($logType = Argument::stringOrNull($input, 'type')) {
             // @todo this might need to be cleverer
             if (str_ends_with($logType, '.log')) {
                 $logType = substr($logType, 0, strlen($logType) - 4);
