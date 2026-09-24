@@ -165,6 +165,9 @@ class QuestionHelper extends BaseQuestionHelper
         // keys here. A key takes precedence over an identical value.
         $question->setValidator(function (mixed $answer) use ($items): string {
             $answer = is_scalar($answer) ? trim((string) $answer) : '';
+            if ($answer === '') {
+                throw new \InvalidArgumentException('A choice is required');
+            }
             if (array_key_exists($answer, $items)) {
                 return $answer;
             }

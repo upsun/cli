@@ -45,6 +45,20 @@ class QuestionHelperTest extends TestCase
         $this->assertSame($expected, $helper->chooseAssoc($items, 'Choose:', $default));
     }
 
+    public function testChooseAssocEmptyAnswer(): void
+    {
+        $stream = fopen('php://memory', 'r+');
+        $this->assertNotFalse($stream);
+        fwrite($stream, "\n");
+        rewind($stream);
+        $input = new ArrayInput([]);
+        $input->setStream($stream);
+
+        $helper = new QuestionHelper($input, new BufferedOutput());
+        $this->expectException(\InvalidArgumentException::class);
+        $helper->chooseAssoc(['' => 'None', 'a' => 'Apple'], 'Choose:');
+    }
+
     public function testChooseAssocNonInteractive(): void
     {
         $input = new ArrayInput([]);
