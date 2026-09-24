@@ -139,15 +139,6 @@ class Certifier
             $this->rename($tempPublicKeyFilename, $publicKeyFilename);
         }
 
-        // Remove keys left over from a previously used algorithm.
-        foreach (array_diff(self::KEY_ALGORITHMS, [$keyAlgorithm]) as $other) {
-            $otherKey = $dir . DIRECTORY_SEPARATOR . 'id_' . $other;
-            if ($this->config->getBool('ssh.add_to_agent') && (file_exists($otherKey) || file_exists($otherKey . '.pub'))) {
-                $this->shell->execute(['ssh-add', '-d', $otherKey], null, false, !$this->stdErr->isVeryVerbose());
-            }
-            $this->fs->remove([$otherKey, $otherKey . '.pub', $otherKey . '-cert.pub']);
-        }
-
         $certificate = new Certificate($certificateFilename, $privateKeyFilename);
 
         // Add the key to the SSH agent, if possible, silently.
