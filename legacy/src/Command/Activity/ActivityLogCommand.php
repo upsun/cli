@@ -89,7 +89,7 @@ class ActivityLogCommand extends ActivityCommandBase
             $apiResource = $selection->getProject();
         }
 
-        $id = $input->getArgument('id');
+        $id = InputUtil::getNullableStringArgument($input, 'id');
         if ($id) {
             $activity = $selection->getProject()
                 ->getActivity($id);
@@ -117,11 +117,11 @@ class ActivityLogCommand extends ActivityCommandBase
         ]);
 
         $refresh = InputUtil::getIntOption($input, 'refresh');
-        $timestamps = $input->getOption('timestamps');
-        if ($timestamps && $input->hasOption('date-fmt') && $input->getOption('date-fmt') !== null) {
-            $timestamps = $input->getOption('date-fmt');
-        } elseif ($timestamps) {
-            $timestamps = $this->config->getStr('application.date_format');
+        $timestamps = false;
+        if ($input->getOption('timestamps')) {
+            $timestamps = $input->hasOption('date-fmt')
+                ? InputUtil::getStringOption($input, 'date-fmt')
+                : $this->config->getStr('application.date_format');
         }
         if ($refresh > 0 && !$this->runningViaMulti && !$activity->isComplete() && $activity->state !== Activity::STATE_CANCELLED) {
             $this->activityMonitor->waitAndLog($activity, $refresh, $timestamps, false, $output);

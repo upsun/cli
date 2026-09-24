@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Activity;
 
+use Platformsh\Cli\Console\InputUtil;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
@@ -71,7 +72,7 @@ class ActivityCancelCommand extends ActivityCommandBase
             $apiResource = $selection->getProject();
         }
 
-        $id = $input->getArgument('id');
+        $id = InputUtil::getNullableStringArgument($input, 'id');
         if ($id) {
             $activity = $selection->getProject()
                 ->getActivity($id);

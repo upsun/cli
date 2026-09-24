@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Integration\Activity;
 
+use Platformsh\Cli\Console\InputUtil;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -46,12 +47,12 @@ class IntegrationActivityLogCommand extends IntegrationCommandBase
 
         $project = $selection->getProject();
 
-        $integration = $this->selectIntegration($project, $input->getArgument('integration'), $input->isInteractive());
+        $integration = $this->selectIntegration($project, InputUtil::getNullableStringArgument($input, 'integration'), $input->isInteractive());
         if (!$integration) {
             return 1;
         }
 
-        $id = $input->getArgument('activity');
+        $id = InputUtil::getNullableStringArgument($input, 'activity');
         if ($id) {
             $activity = $project->getActivity($id);
             if (!$activity) {
@@ -78,11 +79,11 @@ class IntegrationActivityLogCommand extends IntegrationCommandBase
             '<info>Log: </info>',
         ]);
 
-        $timestamps = $input->getOption('timestamps');
-        if ($timestamps && $input->hasOption('date-fmt') && $input->getOption('date-fmt') !== null) {
-            $timestamps = $input->getOption('date-fmt');
-        } elseif ($timestamps) {
-            $timestamps = $this->config->getStr('application.date_format');
+        $timestamps = false;
+        if ($input->getOption('timestamps')) {
+            $timestamps = $input->hasOption('date-fmt')
+                ? InputUtil::getStringOption($input, 'date-fmt')
+                : $this->config->getStr('application.date_format');
         }
         if (!$this->runningViaMulti && !$activity->isComplete() && $activity->state !== Activity::STATE_CANCELLED) {
             $this->activityMonitor->waitAndLog($activity, 3, $timestamps, false, $output);
