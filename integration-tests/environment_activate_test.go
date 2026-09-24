@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -31,6 +33,12 @@ func TestEnvironmentActivate(t *testing.T) {
 	inactive := makeEnv(projectID, "staging", "staging", "inactive", "main")
 	inactive.Links["#activate"] = mockapi.HALLink{HREF: "/projects/" + projectID + "/environments/staging/activate"}
 	apiHandler.SetEnvironments([]*mockapi.Environment{main, inactive})
+	// Activation checks settings and capabilities.
+	for _, path := range []string{"settings", "capabilities"} {
+		apiHandler.Get("/projects/"+projectID+"/"+path, func(w http.ResponseWriter, _ *http.Request) {
+			_ = json.NewEncoder(w).Encode(map[string]any{})
+		})
+	}
 
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
 	f.Run("cc")

@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -49,11 +48,9 @@ func TestEnvironmentURL(t *testing.T) {
 	assert.Contains(t, output, "https://main.example.com/")
 	assert.Contains(t, output, "http://main.example.com/")
 
-	// --primary returns only the primary route URL (the upstream, not redirect).
-	output = f.Run("environment:url", "-p", projectID, "-e", ".", "--primary", "--pipe")
-	assert.Contains(t, output, "main.example.com/")
-	// Only one URL should be returned.
-	assert.Equal(t, 1, len(strings.Split(strings.TrimSpace(output), "\n")))
+	// --primary returns only the primary route URL.
+	assert.Equal(t, "https://main.example.com/\n",
+		f.Run("environment:url", "-p", projectID, "-e", ".", "--primary", "--pipe"))
 }
 
 func TestEnvironmentURLLocal(t *testing.T) {
@@ -68,7 +65,5 @@ func TestEnvironmentURLLocal(t *testing.T) {
 	assert.Contains(t, output, "http://main.example.com/")
 
 	// --primary returns only the primary route URL.
-	output = f.Run("environment:url", "--primary", "--pipe")
-	assert.Contains(t, output, "main.example.com/")
-	assert.Equal(t, 1, len(strings.Split(strings.TrimSpace(output), "\n")))
+	assert.Equal(t, "https://main.example.com/\n", f.Run("environment:url", "--primary", "--pipe"))
 }

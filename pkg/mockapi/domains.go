@@ -23,9 +23,9 @@ func (h *Handler) handleGetProjectDomain(w http.ResponseWriter, req *http.Reques
 	h.RLock()
 	defer h.RUnlock()
 	projectID := chi.URLParam(req, "project_id")
-	domainName, _ := url.PathUnescape(chi.URLParam(req, "name"))
+	domainID, _ := url.PathUnescape(chi.URLParam(req, "domain_id"))
 	for _, d := range h.projectDomains[projectID] {
-		if d.Name == domainName {
+		if d.ID == domainID {
 			_ = json.NewEncoder(w).Encode(d)
 			return
 		}

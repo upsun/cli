@@ -77,7 +77,7 @@ func (h *Handler) handleDeleteProjectVariable(w http.ResponseWriter, req *http.R
 	for k, v := range h.projectVariables[projectID] {
 		if v.Name == variableName {
 			h.projectVariables[projectID] = slices.Delete(h.projectVariables[projectID], k, k+1)
-			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(activityResponse())
 			return
 		}
 	}

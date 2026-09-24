@@ -79,4 +79,8 @@ func TestVariableDelete(t *testing.T) {
 	_, stdErr, err = f.RunCombinedOutput("var:delete", "-p", projectID, "-e", "main", "-l", "e", "-y", "env:TO_DELETE")
 	assert.NoError(t, err)
 	assert.Contains(t, stdErr, "Deleted variable env:TO_DELETE")
+
+	// Verify it is gone from list.
+	stdOut, stdErr, _ = f.RunCombinedOutput("var", "-p", projectID, "-e", "main", "-l", "e")
+	assert.NotContains(t, stdOut+stdErr, "env:TO_DELETE")
 }

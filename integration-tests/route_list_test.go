@@ -48,8 +48,8 @@ func TestRouteList(t *testing.T) {
 +-------------------+----------+---------------------------+
 | Route             | Type     | To                        |
 +-------------------+----------+---------------------------+
-| http://{default}  | redirect | https://main.example.com/ |
 | https://{default} | upstream | app:http                  |
+| http://{default}  | redirect | https://main.example.com/ |
 +-------------------+----------+---------------------------+
 `, f.Run("routes", "-p", projectID, "-e", ".", "--refresh"))
 
@@ -66,8 +66,8 @@ func TestRouteListLocal(t *testing.T) {
 +-------------------+----------+---------------------------+
 | Route             | Type     | To                        |
 +-------------------+----------+---------------------------+
-| http://{default}  | redirect | https://main.example.com/ |
 | https://{default} | upstream | app:http                  |
+| http://{default}  | redirect | https://main.example.com/ |
 +-------------------+----------+---------------------------+
 `, f.Run("route:list"))
 
@@ -103,7 +103,7 @@ func mockRoutes() map[string]any {
 			"upstream": "app:http",
 		},
 		"http://main.example.com/": map[string]any{
-			"primary":        true,
+			"primary":        false,
 			"id":             "app",
 			"production_url": "http://main.example.com/",
 			"attributes":     map[string]any{},

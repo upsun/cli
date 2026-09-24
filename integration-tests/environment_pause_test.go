@@ -37,9 +37,8 @@ func TestEnvironmentPause(t *testing.T) {
 	// Pause an active environment.
 	stdOut, stdErr, err := f.RunCombinedOutput("environment:pause", "-p", projectID, "-e", ".", "--no-wait")
 	assert.NoError(t, err)
-	// The CLI outputs confirmation and pause messages on stderr.
-	combined := stdOut + stdErr
-	assert.Contains(t, combined, "pause")
+	// No output follows the prompt; a failed POST would exit non-zero.
+	assert.Contains(t, stdOut+stdErr, "Are you sure you want to pause the environment main?")
 }
 
 func TestEnvironmentResume(t *testing.T) {
@@ -70,6 +69,5 @@ func TestEnvironmentResume(t *testing.T) {
 	// Resume a paused environment.
 	stdOut, stdErr, err := f.RunCombinedOutput("environment:resume", "-p", projectID, "-e", ".", "--no-wait")
 	assert.NoError(t, err)
-	combined := stdOut + stdErr
-	assert.Contains(t, combined, "resum")
+	assert.Contains(t, stdOut+stdErr, "Are you sure you want to resume the paused environment main?")
 }
