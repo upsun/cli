@@ -163,7 +163,7 @@ class BrowserLoginCommand extends CommandBase
             'CLI_OAUTH_SCOPE' => 'offline_access',
             'CLI_OAUTH_FILE' => $responseFile,
             'CLI_OAUTH_METHODS' => implode(' ', ArrayArgument::getOption($input, 'method')),
-            'CLI_OAUTH_MAX_AGE' => $maxAge,
+            'CLI_OAUTH_MAX_AGE' => (string) $maxAge,
         ] + getenv());
         $process->setTimeout(null);
         $this->stdErr->writeln('Starting local web server with command: <info>' . $process->getCommandLine() . '</info>', OutputInterface::VERBOSITY_VERY_VERBOSE);
