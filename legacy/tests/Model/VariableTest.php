@@ -39,6 +39,36 @@ class VariableTest extends TestCase
         );
     }
 
+    public function testParseMultiple(): void
+    {
+        $this->assertEquals([], (new Variable())->parseMultiple([]));
+
+        $this->assertEquals(
+            [
+                'env' => ['foo' => 'bar', 'baz' => 'qux'],
+                'complex' => ['json' => '{"a":"b"}'],
+            ],
+            (new Variable())->parseMultiple([
+                'env:foo=bar',
+                'env:baz=qux',
+                'complex:json={"a":"b"}',
+            ]),
+        );
+
+        // A later definition overwrites an earlier one with the same type and name.
+        $this->assertEquals(
+            ['env' => ['foo' => 'second']],
+            (new Variable())->parseMultiple(['env:foo=first', 'env:foo=second']),
+        );
+    }
+
+    public function testParseMultipleWithInvalidVariable(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage($this->invalidMessage);
+        (new Variable())->parseMultiple(['env:foo=bar', 'invalid']);
+    }
+
     public function testParseInvalidVariableType(): void
     {
         $this->expectException(\InvalidArgumentException::class);

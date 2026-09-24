@@ -39,9 +39,11 @@ class EnvironmentSshCommand extends CommandBase
         $this->selector->addProjectOption($this->getDefinition());
         $this->selector->addEnvironmentOption($this->getDefinition());
         $this->selector->addRemoteContainerOptions($this->getDefinition());
+        $this->selector->addTaskOption($this->getDefinition());
         $this->addCompleter($this->selector);
         Ssh::configureInput($this->getDefinition());
         $this->addExample('Open a shell over SSH');
+        $this->addExample('Open a shell into a running task container', '--task mytask');
         $this->addExample('Pass an extra option to SSH', "-o 'RequestTTY force'");
         $this->addExample('List files', 'ls');
         $this->addExample("Monitor the app log (use '--' before flags)", 'tail /var/log/app.log -- -n50 -f');

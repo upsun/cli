@@ -11,6 +11,7 @@ use Platformsh\Cli\Util\Wildcard;
 use Platformsh\Client\Exception\EnvironmentStateException;
 use Platformsh\Client\Model\Deployment\EnvironmentDeployment;
 use Platformsh\Client\Model\Deployment\Service;
+use Platformsh\Client\Model\Deployment\Task;
 use Platformsh\Client\Model\Deployment\WebApp;
 use Platformsh\Client\Model\Deployment\Worker;
 use Platformsh\Client\Model\Environment;
@@ -39,11 +40,40 @@ class ResourcesUtil
     }
 
     /**
+     * Prints an error explaining that the project does not support flexible resources.
+     */
+    public function writeSizingApiDisabledError(Project $project): void
+    {
+        $this->stdErr->writeln(sprintf('The flexible resources API is not enabled for the project %s.', $this->api->getProjectLabel($project, 'comment')));
+        if ($this->config->has('service.fixed_docs_url') && $this->isFixedProject($project)) {
+            $this->stdErr->writeln('Flexible resources are not available for Fixed organizations. See: <info>' . $this->config->getStr('service.fixed_docs_url') . '</info>');
+        }
+    }
+
+    /**
+     * Checks if a project belongs to a Fixed organization, returning false if unknown.
+     */
+    private function isFixedProject(Project $project): bool
+    {
+        $orgId = $project->getProperty('organization', false, false);
+        if (!$orgId || !$this->config->getBool('api.organizations')) {
+            return false;
+        }
+        try {
+            $organization = $this->api->getOrganizationById($orgId);
+        } catch (\Exception) {
+            // The user may not have access to the organization.
+            return false;
+        }
+        return $organization && $organization->getProperty('type', false) === 'fixed';
+    }
+
+    /**
      * Lists services in a deployment.
      *
      * @param EnvironmentDeployment $deployment
      *
-     * @return array<string, WebApp|Worker|Service>
+     * @return array<string, WebApp|Worker|Service|Task>
      *     An array of services keyed by the service name.
      */
     public function allServices(EnvironmentDeployment $deployment): array
@@ -51,19 +81,27 @@ class ResourcesUtil
         $webapps = $deployment->webapps;
         $workers = $deployment->workers;
         $services = $deployment->services;
+        // Only include tasks the client mapped to Task objects (older clients pass raw arrays).
+        $tasks = !empty($deployment->getData()['tasks'])
+            ? array_filter($deployment->tasks, fn($task): bool => $task instanceof Task)
+            : [];
         ksort($webapps, SORT_STRING | SORT_FLAG_CASE);
         ksort($workers, SORT_STRING | SORT_FLAG_CASE);
         ksort($services, SORT_STRING | SORT_FLAG_CASE);
-        return array_merge($webapps, $workers, $services);
+        ksort($tasks, SORT_STRING | SORT_FLAG_CASE);
+        return array_merge($webapps, $workers, $services, $tasks);
     }
 
     /**
-     * Checks whether a service needs a persistent disk.
+     * Checks whether a service can have a persistent disk.
+     *
+     * This does not mean one is required: a minimum of 0 allows a service to run
+     * without a disk.
      */
-    public function supportsDisk(WebApp|Worker|Service $service): bool
+    public function supportsDisk(WebApp|Worker|Service|Task $service): bool
     {
-        // Workers use the disk of their parent app.
-        if ($service instanceof Worker) {
+        // Workers use their parent app's disk; tasks have none.
+        if ($service instanceof Worker || $service instanceof Task) {
             return false;
         }
         return isset($service->getProperties()['resources']['minimum']['disk']);
@@ -96,10 +134,10 @@ class ResourcesUtil
     /**
      * Filters a list of services according to the --service or --type options.
      *
-     * @param array<string, WebApp|Service|Worker> $services
+     * @param array<string, WebApp|Service|Worker|Task> $services
      * @param InputInterface $input
      *
-     * @return WebApp[]|Service[]|Worker[]|false
+     * @return WebApp[]|Service[]|Worker[]|Task[]|false
      *   False on error, or an array of services.
      */
     public function filterServices(array $services, InputInterface $input): array|false
@@ -133,12 +171,27 @@ class ResourcesUtil
             }
             $services = array_intersect_key($services, array_flip($selectedNames));
         }
+        $requestedTasks = $input->hasOption('task') ? ArrayArgument::getOption($input, 'task') : [];
+        if (!empty($requestedTasks)) {
+            $selectedNames = Wildcard::select(array_keys(array_filter($services, fn($s): bool => $s instanceof Task)), $requestedTasks);
+            if (!$selectedNames) {
+                $this->stdErr->writeln('No tasks were found matching the name(s): <error>' . implode('</error>, <error>', $requestedTasks) . '</error>');
+                return false;
+            }
+            $services = array_intersect_key($services, array_flip($selectedNames));
+        }
 
         if ($input->hasOption('type') && ($requestedTypes = ArrayArgument::getOption($input, 'type'))) {
             $byType = [];
             foreach ($services as $name => $service) {
-                $type = $service->type;
-                [$prefix] = explode(':', $service->type, 2);
+                // Read the type from properties: a service without one (e.g. a
+                // task whose deployment has no resolved type) is skipped, not fatal.
+                $properties = $service->getProperties();
+                if (!isset($properties['type']) || !is_string($properties['type'])) {
+                    continue;
+                }
+                $type = $properties['type'];
+                [$prefix] = explode(':', $type, 2);
                 $byType[$type][] = $name;
                 $byType[$prefix][] = $name;
             }

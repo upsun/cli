@@ -485,11 +485,11 @@ class Api
     /**
      * Returns proxy config in the format expected by Guzzle.
      *
-     * @return string[]
+     * @return array<string, string|string[]>
      */
     private function guzzleProxyConfig(): array
     {
-        return array_map(function ($proxyUrl) {
+        $config = array_map(function ($proxyUrl) {
             // If Guzzle is going to use PHP's built-in HTTP streams,
             // rather than curl, then transform the proxy scheme.
             if (!\extension_loaded('curl') && \ini_get('allow_url_fopen')) {
@@ -497,6 +497,14 @@ class Api
             }
             return $proxyUrl;
         }, $this->config->getProxies());
+
+        // Guzzle only reads the no_proxy environment variable itself when no
+        // proxy has been configured explicitly, so pass the hosts on.
+        if ($noProxy = $this->config->getNoProxy()) {
+            $config['no'] = $noProxy;
+        }
+
+        return $config;
     }
 
     /**
@@ -1815,6 +1823,28 @@ class Api
             }
             throw $e;
         }
+    }
+
+    /**
+     * Returns the tasks defined on an environment, keyed by task name.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function getEnvironmentTasks(Environment $environment): array
+    {
+        try {
+            $response = $this->getHttpClient()->request('GET', $environment->getUri() . '/tasks');
+        } catch (BadResponseException $e) {
+            throw ApiResponseException::create($e->getRequest(), $e->getResponse(), $e);
+        }
+        $tasks = (array) json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        $byName = [];
+        foreach ($tasks as $key => $task) {
+            $byName[(string) ($task['name'] ?? $key)] = $task;
+        }
+
+        return $byName;
     }
 
     /**

@@ -49,7 +49,7 @@ class ResourcesSizeListCommand extends ResourcesCommandBase
     {
         $selection = $this->selector->getSelection($input);
         if (!$this->api->supportsSizingApi($selection->getProject())) {
-            $this->stdErr->writeln(sprintf('The flexible resources API is not enabled for the project %s.', $this->api->getProjectLabel($selection->getProject(), 'comment')));
+            $this->resourcesUtil->writeSizingApiDisabledError($selection->getProject());
             return 1;
         }
 

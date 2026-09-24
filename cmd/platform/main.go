@@ -10,6 +10,7 @@ import (
 	"github.com/symfony-cli/terminal"
 
 	"github.com/upsun/cli/commands"
+	"github.com/upsun/cli/internal/certs"
 	"github.com/upsun/cli/internal/config"
 )
 
@@ -24,6 +25,12 @@ func main() {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
+	}
+
+	// Trust the same certificates as the legacy CLI. This is not fatal: the
+	// system certificates are used instead, as they were before.
+	if err := certs.UseEnvCertFile(); err != nil {
+		fmt.Fprintln(os.Stderr, "Warning: "+err.Error())
 	}
 
 	// When Cobra starts, load Viper config from the environment.

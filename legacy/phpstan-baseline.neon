@@ -201,7 +201,7 @@ parameters:
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
-			message: "#^Access to an undefined property Platformsh\\\\Client\\\\Model\\\\Deployment\\\\Service\\|Platformsh\\\\Client\\\\Model\\\\Deployment\\\\WebApp\\|Platformsh\\\\Client\\\\Model\\\\Deployment\\\\Worker\\:\\:\\$container_profile\\.$#"
+			message: "#^Access to an undefined property Platformsh\\\\Client\\\\Model\\\\Deployment\\\\Service\\|Platformsh\\\\Client\\\\Model\\\\Deployment\\\\Task\\|Platformsh\\\\Client\\\\Model\\\\Deployment\\\\WebApp\\|Platformsh\\\\Client\\\\Model\\\\Deployment\\\\Worker\\:\\:\\$container_profile\\.$#"
 			count: 3
 			path: src/Command/Resources/ResourcesSizeListCommand.php
 
@@ -774,11 +774,6 @@ parameters:
 			message: "#^Method Platformsh\\\\Cli\\\\Service\\\\Ssh\\:\\:getHost\\(\\) should return string\\|false but returns string\\|false\\|null\\.$#"
 			count: 1
 			path: src/Service/Ssh.php
-
-		-
-			message: "#^Argument of an invalid type array\\<Platformsh\\\\Cli\\\\Tunnel\\\\Tunnel\\>\\|null supplied for foreach, only iterables are supported\\.$#"
-			count: 1
-			path: src/Service/TunnelManager.php
 
 		-
 			message: "#^Method Platformsh\\\\Cli\\\\Service\\\\TunnelManager\\:\\:getTunnels\\(\\) should return array\\<Platformsh\\\\Cli\\\\Tunnel\\\\Tunnel\\> but returns array\\<Platformsh\\\\Cli\\\\Tunnel\\\\Tunnel\\>\\|null\\.$#"

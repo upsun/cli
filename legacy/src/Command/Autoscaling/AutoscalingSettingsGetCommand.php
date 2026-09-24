@@ -12,6 +12,7 @@ use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Service\Table;
 use Platformsh\Client\Exception\EnvironmentStateException;
 use Platformsh\Client\Model\Deployment\Service;
+use Platformsh\Client\Model\Deployment\Task;
 use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -76,6 +77,8 @@ class AutoscalingSettingsGetCommand extends CommandBase
         $autoscalingSettings = $autoscalingSettings->getData();
 
         $services = $this->resourcesUtil->allServices($deployment);
+        // Autoscaling does not apply to tasks.
+        $services = array_filter($services, static fn($service): bool => !$service instanceof Task);
         if (empty($services)) {
             $this->stdErr->writeln('No apps, workers, or services found.');
             return 1;

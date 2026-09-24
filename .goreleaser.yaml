@@ -168,8 +168,8 @@ brews:
     directory: Formula
 
     commit_author:
-      name: Antonis Kalipetis
-      email: antonis.kalipetis@upsun.com
+      name: Upsun
+      email: hello@upsun.com
 
     homepage: https://docs.upsun.com/anchors/fixed/cli/
     description: Platform.sh CLI
@@ -199,8 +199,8 @@ brews:
     directory: Formula
 
     commit_author:
-      name: Antonis Kalipetis
-      email: antonis.kalipetis@upsun.com
+      name: Upsun
+      email: hello@upsun.com
 
     homepage: https://docs.upsun.com/anchors/cli/
     description: Upsun CLI
@@ -229,8 +229,8 @@ scoops:
 
     directory: Scoops
     commit_author:
-      name: Antonis Kalipetis
-      email: antonis.kalipetis@upsun.com
+      name: Upsun
+      email: hello@upsun.com
 
     homepage: https://docs.upsun.com/anchors/fixed/cli/
     description: Platform.sh CLI
@@ -251,8 +251,8 @@ scoops:
 
     directory: Scoops
     commit_author:
-      name: Antonis Kalipetis
-      email: antonis.kalipetis@upsun.com
+      name: Upsun
+      email: hello@upsun.com
 
     homepage: https://docs.upsun.com/anchors/cli/
     description: Upsun CLI
@@ -267,7 +267,7 @@ nfpms:
     homepage: https://docs.upsun.com/anchors/fixed/cli/
     package_name: platformsh-cli
     description: Platform.sh CLI
-    maintainer: Antonis Kalipetis <antonis.kalipetis@upsun.com>
+    maintainer: Upsun <hello@upsun.com>
     license: MIT
     vendor: Platform.sh
     file_name_template: "platformsh-cli_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
@@ -294,7 +294,7 @@ nfpms:
     homepage: https://docs.upsun.com/anchors/cli/
     package_name: upsun-cli
     description: Upsun CLI
-    maintainer: Antonis Kalipetis <antonis.kalipetis@upsun.com>
+    maintainer: Upsun <hello@upsun.com>
     license: MIT
     file_name_template: upsun-cli_{{ .Version }}_{{ .Os }}_{{ .Arch }}
     vendor: Upsun

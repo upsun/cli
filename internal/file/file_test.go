@@ -79,3 +79,52 @@ func TestWriteIfNeeded(t *testing.T) {
 		})
 	}
 }
+
+func TestWriteIfChanged(t *testing.T) {
+	source := []byte("new contents")
+
+	cases := []struct {
+		name        string
+		initialData []byte
+	}{
+		{"a missing file", nil},
+		{"a shorter file", []byte("old")},
+		{"a longer file", []byte("old contents, but longer than the new ones")},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			destFile := filepath.Join(t.TempDir(), "dynamic-file")
+			if c.initialData != nil {
+				require.NoError(t, os.WriteFile(destFile, c.initialData, 0o600))
+			}
+
+			require.NoError(t, WriteIfChanged(destFile, source, 0o600))
+			actual, err := os.ReadFile(destFile)
+			require.NoError(t, err)
+			assert.Equal(t, source, actual)
+		})
+	}
+}
+
+func TestWriteIfChangedChecksTheWholeFile(t *testing.T) {
+	destFile := filepath.Join(t.TempDir(), "dynamic-file")
+	original := bytes.Repeat([]byte{'a'}, 64*1024)
+	updated := bytes.Clone(original)
+	updated[0] = 'b'
+
+	require.NoError(t, os.WriteFile(destFile, original, 0o600))
+	require.NoError(t, WriteIfChanged(destFile, updated, 0o600))
+	actual, err := os.ReadFile(destFile)
+	require.NoError(t, err)
+	assert.Equal(t, updated, actual,
+		"equal size and matching final 32 KB must not hide an earlier change")
+
+	// A rewrite is detected by an older modification time being lost, because
+	// the clock can tick too slowly to tell two writes apart.
+	past := time.Unix(1, 0)
+	require.NoError(t, os.Chtimes(destFile, past, past))
+	require.NoError(t, WriteIfChanged(destFile, updated, 0o600))
+	info, err := os.Stat(destFile)
+	require.NoError(t, err)
+	assert.Equal(t, past.UTC(), info.ModTime().UTC(), "matching contents should not be rewritten")
+}

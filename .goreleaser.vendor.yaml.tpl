@@ -69,7 +69,7 @@ nfpms:
   - homepage: https://docs.upsun.com/anchors/fixed/cli/
     package_name: ${VENDOR_BINARY}-cli
     description: ${VENDOR_NAME} CLI
-    maintainer: Antonis Kalipetis <antonis.kalipetis@upsun.com>
+    maintainer: Upsun <hello@upsun.com>
     license: MIT
     vendor: Upsun
     ids:

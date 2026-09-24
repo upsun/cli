@@ -120,6 +120,21 @@ func TestRuntimeOperationRun(t *testing.T) {
 		require.True(t, ok, "operations POST was not received")
 		assert.Equal(t, "migrate", body["operation"])
 		assert.Equal(t, "app", body["service"], "service (app name) must be a non-null string")
+		assert.NotContains(t, body, "parameters")
+	})
+
+	t.Run("run_with_parameters", func(t *testing.T) {
+		stdout, stderr, err := f.RunCombinedOutput(
+			"operation:run", "migrate",
+			"-p", projectID, "-e", "main",
+			"--parameter=--force", "--parameter", "my value,other",
+			"--no-wait", "--yes",
+		)
+		require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
+
+		body, ok := receivedBody.Load().(map[string]any)
+		require.True(t, ok, "operations POST was not received")
+		assert.Equal(t, []any{"--force", "my value,other"}, body["parameters"])
 	})
 
 	// Drive the not-found branch: this is the path where $appName starts null

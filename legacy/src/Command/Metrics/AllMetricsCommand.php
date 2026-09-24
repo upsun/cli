@@ -52,6 +52,14 @@ class AllMetricsCommand extends MetricsCommandBase
         'tmp_inodes_used' => '/tmp inodes used',
         'tmp_inodes_limit' => '/tmp inodes limit',
         'tmp_inodes_percent' => '/tmp inodes %',
+
+        'storage_used' => 'Storage used',
+        'storage_limit' => 'Storage limit',
+        'storage_percent' => 'Storage %',
+
+        'storage_inodes_used' => 'Storage inodes used',
+        'storage_inodes_limit' => 'Storage inodes limit',
+        'storage_inodes_percent' => 'Storage inodes %',
     ];
 
     /** @var string[] */
@@ -106,7 +114,7 @@ class AllMetricsCommand extends MetricsCommandBase
 
         $bytes = $input->getOption('bytes');
 
-        $rows = $this->buildRows($values, [
+        $fields = [
             'cpu_used' => new Field(
                 Format::Rounded2p,
                 new SourceField(MetricKind::CpuUsed, Aggregation::Avg),
@@ -203,7 +211,12 @@ class AllMetricsCommand extends MetricsCommandBase
                     new SourceField(MetricKind::InodesLimit, Aggregation::Max, '/tmp')
                 ),
             ),
-        ], $environment);
+        ];
+        if ($this->storageMetricsEnabled()) {
+            $fields += $this->storageFields($bytes, 'storage_inodes_');
+        }
+        $rows = $this->buildRows($values, $fields, $environment);
+        [$header, $defaultColumns] = $this->storageColumns(self::TABLE_HEADER, $this->defaultColumns, $values, ['storage_percent', 'storage_inodes_percent'], $environment);
 
         if (!$this->table->formatIsMachineReadable()) {
             $formatter = $this->propertyFormatter;
@@ -215,7 +228,7 @@ class AllMetricsCommand extends MetricsCommandBase
             ));
         }
 
-        $this->table->render($rows, self::TABLE_HEADER, $this->defaultColumns);
+        $this->table->render($rows, $header, $defaultColumns);
 
         if (!$this->table->formatIsMachineReadable()) {
             $this->explainHighMemoryServices();

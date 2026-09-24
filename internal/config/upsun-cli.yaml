@@ -44,6 +44,8 @@ service:
 
   pricing_url: "https://upsun.com/pricing"
 
+  fixed_docs_url: "https://docs.upsun.com/anchors/fixed/"
+
   activity_type_list_url: "https://docs.upsun.com/anchors/integrations/activity-scripts/type/"
 
   runtime_operations_help_url: "https://docs.upsun.com/anchors/app/runtime-operations/"

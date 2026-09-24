@@ -602,6 +602,24 @@ class Config
     }
 
     /**
+     * Finds the hosts which should not be proxied, from the no_proxy environment variable.
+     *
+     * @return string[]
+     */
+    public function getNoProxy(): array
+    {
+        $value = \getenv('no_proxy');
+        if ($value === false) {
+            $value = \getenv('NO_PROXY');
+        }
+        if ($value === false) {
+            return [];
+        }
+        $hosts = \array_map('trim', \explode(',', $value));
+        return \array_values(\array_filter($hosts, fn(string $host): bool => $host !== ''));
+    }
+
+    /**
      * Returns an array of context options for HTTP/HTTPS streams.
      *
      * @return array{http: array<string, mixed>, ssl?: array<string, mixed>}
