@@ -118,24 +118,6 @@ abstract class CommandBase extends Command implements MultiAwareInterface
     }
 
     /**
-     * Gets the value of a non-negative integer option.
-     *
-     * @throws InvalidArgumentException if the value is not a non-negative integer
-     */
-    protected function getIntOption(InputInterface $input, string $name): int
-    {
-        $value = $input->getOption($name);
-        if (is_int($value) && $value >= 0) {
-            return $value;
-        }
-        if (!is_string($value) || !preg_match('/^[0-9]+$/', $value)) {
-            throw new InvalidArgumentException(sprintf('The --%s value must be a non-negative integer.', $name));
-        }
-
-        return (int) $value;
-    }
-
-    /**
      * Add aliases that should be hidden from help.
      *
      * @see parent::setAliases()

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Project;
 
+use Platformsh\Cli\Console\InputUtil;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\SubCommandRunner;
@@ -631,7 +632,7 @@ class ProjectCreateCommand extends CommandBase
      */
     private function getTimeOption(InputInterface $input, string $optionName, int $min = 0, int $max = 3600): int
     {
-        $value = $this->getIntOption($input, $optionName);
+        $value = InputUtil::getIntOption($input, $optionName);
         if ($value <= $min) {
             $value = $min;
         } elseif ($value > $max) {

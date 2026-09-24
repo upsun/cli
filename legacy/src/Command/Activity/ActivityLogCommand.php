@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Activity;
 
+use Platformsh\Cli\Console\InputUtil;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityLoader;
@@ -115,7 +116,7 @@ class ActivityLogCommand extends ActivityCommandBase
             '<info>Log: </info>',
         ]);
 
-        $refresh = $this->getIntOption($input, 'refresh');
+        $refresh = InputUtil::getIntOption($input, 'refresh');
         $timestamps = $input->getOption('timestamps');
         if ($timestamps && $input->hasOption('date-fmt') && $input->getOption('date-fmt') !== null) {
             $timestamps = $input->getOption('date-fmt');
