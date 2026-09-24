@@ -48,20 +48,22 @@ class Filesystem
      *
      * @param string|iterable $files
      *   A filename or an iterable list of files to delete.
-     * @param bool $retryWithChmod
-     *   Whether to retry deleting on error, after recursively changing file
-     *   modes to add read/write/exec permissions. A bit like 'rm -rf'.
+     * @param bool $chmod
+     *   Whether to first recursively add read/write/exec permissions, so that
+     *   read-only files can be deleted. A bit like 'rm -rf'.
      *
      * @return bool
      */
-    public function remove(string|iterable $files, bool $retryWithChmod = false): bool
+    public function remove(string|iterable $files, bool $chmod = false): bool
     {
+        // Symfony renames a directory before deleting its contents, and does
+        // not rename it back on failure, so this cannot be done as a retry.
+        if ($chmod) {
+            $this->unprotect($files, true);
+        }
         try {
             $this->fs->remove($files);
         } catch (IOException $e) {
-            if ($retryWithChmod && $this->unprotect($files, true)) {
-                return $this->remove($files, false);
-            }
             trigger_error($e->getMessage(), E_USER_WARNING);
 
             return false;
@@ -95,7 +97,7 @@ class Filesystem
                     && true !== @chmod($file, 0o700)) {
                     return false;
                 }
-                if ($recursive && !$this->unprotect(new \FilesystemIterator($file), true)) {
+                if ($recursive && !$this->unprotect(new \FilesystemIterator($file, \FilesystemIterator::CURRENT_AS_PATHNAME | \FilesystemIterator::SKIP_DOTS), true)) {
                     return false;
                 }
             } elseif (!is_writable($file) && true !== @chmod($file, 0o600)) {

@@ -50,6 +50,19 @@ class FilesystemServiceTest extends TestCase
     }
 
     /**
+     * Test FilesystemHelper::remove() on a directory containing read-only subdirectories.
+     */
+    public function testRemoveDirWithChmod(): void
+    {
+        $testDir = $this->tempDir(true);
+        chmod($testDir . '/test-nesting/1/2', 0o500);
+        chmod($testDir . '/test-dir', 0o500);
+
+        $this->assertTrue($this->fs->remove($testDir, true));
+        $this->assertFileDoesNotExist($testDir);
+    }
+
+    /**
      * Test FilesystemHelper::copyAll().
      */
     public function testCopyAll(): void
