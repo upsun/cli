@@ -30,21 +30,27 @@ class CertifierTest extends TestCase
             ['', $missing, 'ed25519'],
             ['ed25519', $fipsOn, 'ed25519'],
             ['rsa', $fipsOff, 'rsa'],
+            [' RSA ', $fipsOff, 'rsa'],
         ];
         foreach ($cases as [$configured, $fipsFile, $expected]) {
             $this->assertSame($expected, Certifier::resolveKeyAlgorithm($configured, $fipsFile), sprintf('configured "%s" with %s', $configured, basename($fipsFile)));
         }
     }
 
-    public function testResolveKeyAlgorithmRejectsUnsupported(): void
+    public function testResolveKeyAlgorithmFallsBackOnUnsupported(): void
     {
-        foreach (['ecdsa', '../rsa'] as $value) {
-            try {
-                Certifier::resolveKeyAlgorithm($value, '/nonexistent');
-                $this->fail('Expected exception for: ' . $value);
-            } catch (\InvalidArgumentException) {
-                $this->addToAssertionCount(1);
+        $warnings = [];
+        set_error_handler(function (int $errno, string $errstr) use (&$warnings): bool {
+            $warnings[] = $errstr;
+            return true;
+        }, E_USER_WARNING);
+        try {
+            foreach (['ecdsa', '../rsa'] as $value) {
+                $this->assertSame('ed25519', Certifier::resolveKeyAlgorithm($value, '/nonexistent'));
             }
+        } finally {
+            restore_error_handler();
         }
+        $this->assertCount(2, $warnings);
     }
 }

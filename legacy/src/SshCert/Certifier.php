@@ -16,6 +16,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 class Certifier
 {
     private const FIPS_ENABLED_FILE = '/proc/sys/crypto/fips_enabled';
+    // Algorithms supported by the certificate parser.
+    private const KEY_ALGORITHMS = ['rsa', 'ed25519'];
     private readonly OutputInterface $stdErr;
 
     private static bool $disableAutoLoad = false;
@@ -93,6 +95,18 @@ class Certifier
         // Remove the old certificate and key from the SSH agent.
         if ($this->config->getBool('ssh.add_to_agent')) {
             $this->shell->execute(['ssh-add', '-d', $privateKeyFilename], null, false, !$this->stdErr->isVeryVerbose());
+        }
+
+        // Remove keys left over from a previously used algorithm.
+        foreach (array_diff(self::KEY_ALGORITHMS, [$keyAlgorithm]) as $other) {
+            $otherKey = $dir . DIRECTORY_SEPARATOR . 'id_' . $other;
+            if (!file_exists($otherKey)) {
+                continue;
+            }
+            if ($this->config->getBool('ssh.add_to_agent')) {
+                $this->shell->execute(['ssh-add', '-d', $otherKey], null, false, !$this->stdErr->isVeryVerbose());
+            }
+            $this->fs->remove([$otherKey, $otherKey . '.pub', $otherKey . '-cert.pub']);
         }
 
         $apiClient = $this->api->getClient();
@@ -261,15 +275,15 @@ class Certifier
      */
     public static function resolveKeyAlgorithm(string $configured, string $fipsEnabledFile): string
     {
-        if ($configured === '' || $configured === 'auto') {
-            $fipsEnabled = is_readable($fipsEnabledFile) && trim((string) file_get_contents($fipsEnabledFile)) === '1';
-            return $fipsEnabled ? 'rsa' : 'ed25519';
+        $configured = strtolower(trim($configured));
+        if (in_array($configured, self::KEY_ALGORITHMS, true)) {
+            return $configured;
         }
-        // Only these are supported by the certificate parser.
-        if (!in_array($configured, ['rsa', 'ed25519'], true)) {
-            throw new \InvalidArgumentException('Invalid SSH certificate key algorithm: ' . $configured);
+        if ($configured !== '' && $configured !== 'auto') {
+            trigger_error(sprintf('Invalid configuration value for ssh.cert_key_algorithm: %s (expected "auto", "rsa" or "ed25519")', $configured), E_USER_WARNING);
         }
-        return $configured;
+        $fipsEnabled = is_readable($fipsEnabledFile) && trim((string) file_get_contents($fipsEnabledFile)) === '1';
+        return $fipsEnabled ? 'rsa' : 'ed25519';
     }
 
     /**
