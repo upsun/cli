@@ -83,7 +83,9 @@ class Application extends ParentApplication
         /** @var CommandLoaderInterface $loader */
         $loader = $this->container()->get('console.command_loader');
         /** @var string[] $hiddenAliases */
-        $hiddenAliases = $this->container()->getParameter(HiddenAliasesPass::PARAMETER);
+        $hiddenAliases = $this->container()->hasParameter(HiddenAliasesPass::PARAMETER)
+            ? $this->container()->getParameter(HiddenAliasesPass::PARAMETER)
+            : [];
         $this->hiddenAliases = $hiddenAliases;
         $this->commandLoader = new HiddenAliasesCommandLoader($loader, $hiddenAliases);
         $this->setCommandLoader($this->commandLoader);
@@ -121,29 +123,22 @@ class Application extends ParentApplication
      * {@inheritdoc}
      *
      * Prevent commands being enabled, according to config.yaml configuration.
-     */
-    public function add(ConsoleCommand $command): ?ConsoleCommand
-    {
-        if (!$this->config->isCommandEnabled($command->getName())) {
-            $command->setApplication(null);
-            return null;
-        }
-
-        return parent::add($command);
-    }
-
-    /**
-     * {@inheritdoc}
      *
      * Hidden aliases are removed, so that they are not used for abbreviations
      * or namespaces.
      *
-     * @see self::find()
+     * @see self::get()
      */
     public function addCommand(callable|ConsoleCommand $command): ?ConsoleCommand
     {
-        if ($command instanceof ConsoleCommand && array_intersect($command->getAliases(), $this->hiddenAliases)) {
-            $command->setAliases(array_values(array_diff($command->getAliases(), $this->hiddenAliases)));
+        if ($command instanceof ConsoleCommand) {
+            if (!$this->config->isCommandEnabled($command->getName())) {
+                $command->setApplication(null);
+                return null;
+            }
+            if (array_intersect($command->getAliases(), $this->hiddenAliases)) {
+                $command->setAliases(array_values(array_diff($command->getAliases(), $this->hiddenAliases)));
+            }
         }
 
         return parent::addCommand($command);
@@ -152,15 +147,15 @@ class Application extends ParentApplication
     /**
      * {@inheritdoc}
      *
-     * Finds commands by their hidden aliases, which only work in full.
+     * Gets commands by their hidden aliases, which only work in full.
      */
-    public function find(string $name): ConsoleCommand
+    public function get(string $name): ConsoleCommand
     {
         if (in_array($name, $this->hiddenAliases, true) && $this->commandLoader?->has($name)) {
-            return $this->get($this->commandLoader->get($name)->getName() ?? $name);
+            $name = $this->commandLoader->get($name)->getName() ?? $name;
         }
 
-        return parent::find($name);
+        return parent::get($name);
     }
 
     /**

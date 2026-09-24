@@ -17,6 +17,7 @@ use Symfony\Component\Console\Exception\CommandNotFoundException;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\NullOutput;
+use Symfony\Component\Yaml\Yaml;
 
 class HiddenAliasesTest extends TestCase
 {
@@ -98,6 +99,33 @@ class HiddenAliasesTest extends TestCase
         $this->assertSame('db:dump', $this->app->find('sql-dump')->getName());
         $this->expectException(CommandNotFoundException::class);
         $this->app->find('sql-dum');
+    }
+
+    public function testHasAndGetAgreeForHiddenAliases(): void
+    {
+        $this->assertTrue($this->app->has('snapshots'));
+        $this->assertSame('backup:list', $this->app->get('snapshots')->getName());
+    }
+
+    public function testDisabledCommands(): void
+    {
+        $config = Yaml::parseFile(__DIR__ . '/../data/mock-cli-config.yaml');
+        $this->assertIsArray($config);
+        $this->assertIsArray($config['application']);
+        $config['application']['disabled_commands'] = ['completion', 'backup:list'];
+        $file = tempnam(sys_get_temp_dir(), 'cli-config-');
+        $this->assertIsString($file);
+        file_put_contents($file, Yaml::dump($config));
+        try {
+            $app = new Application(new Config([], $file));
+            $app->setIO(new ArrayInput([]), new NullOutput());
+            $this->assertFalse($app->has('completion'));
+            $this->assertFalse($app->has('backup:list'));
+            $this->assertFalse($app->has('snapshots'));
+            $this->assertTrue($app->has('backup:get'));
+        } finally {
+            unlink($file);
+        }
     }
 
     private function load(Command $command): Command
