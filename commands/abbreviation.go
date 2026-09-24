@@ -75,6 +75,10 @@ func expandAbbreviation(
 
 // isRootBoolFlag tests if arg consists of boolean root flags, e.g. "--yes" or "-vq".
 func isRootBoolFlag(root *cobra.Command, arg string) bool {
+	if arg == "--help" || arg == "-h" {
+		// Cobra only adds the help flag during execution.
+		return true
+	}
 	isBool := func(f *pflag.Flag) bool { return f != nil && f.Value.Type() == "bool" }
 	if name, ok := strings.CutPrefix(arg, "--"); ok {
 		name, _, _ = strings.Cut(name, "=")
@@ -127,9 +131,8 @@ func resolveAbbreviation(name string, candidates []abbrevCandidate) *abbrevCandi
 		return nil
 	}
 
-	if len(matched) > 1 {
-		matched = slices.DeleteFunc(matched, func(i int) bool { return candidates[i].hidden })
-	}
+	// Hidden commands still count toward ambiguity: the legacy CLI's lazy-loaded commands do not reliably report
+	// whether they are hidden, so it can resolve to them.
 	if len(matched) != 1 || candidates[matched[0]].hidden {
 		return nil
 	}

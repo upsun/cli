@@ -34,10 +34,12 @@ internal/legacy/archives/platform.phar: legacy/vendor/autoload.php
 
 # Index the legacy CLI's commands, so the Go layer can resolve abbreviations of its own commands.
 # Experiments are enabled so that every command is included. HOME is isolated from user config.
+# The version is set, as by the Go wrapper, so that the CLI does not try to read it from Git.
 internal/legacy/archives/commands.json: internal/legacy/archives/platform.phar
 	tmp=$$(mktemp -d) && \
 	HOME=$$tmp PLATFORMSH_CLI_EXPERIMENTAL_ALL_EXPERIMENTS=1 PLATFORMSH_CLI_NO_LEGACY_WARNING=1 \
-		php $< list --all --format=json > $$tmp/commands.json && \
+		PLATFORMSH_CLI_APPLICATION_VERSION=0.0.0 \
+		php $< list --all --format=json --no-interaction < /dev/null > $$tmp/commands.json && \
 	mv $$tmp/commands.json $@; \
 	status=$$?; rm -rf $$tmp; exit $$status
 
