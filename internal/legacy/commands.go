@@ -15,7 +15,9 @@ var commandIndex []byte
 type Command struct {
 	Name    string   `json:"name"`
 	Aliases []string `json:"aliases"`
-	Hidden  bool     `json:"hidden"`
+	// HiddenAliases only work in full: they are not matched by abbreviations.
+	HiddenAliases []string `json:"hidden_aliases"`
+	Hidden        bool     `json:"hidden"`
 }
 
 // Commands returns every legacy command, regardless of whether it is enabled by config.

@@ -7,13 +7,14 @@ import (
 	"github.com/upsun/cli/internal/legacy"
 )
 
-func newHelpCommand(_ *config.Config) *cobra.Command {
+func newHelpCommand(cnf *config.Config) *cobra.Command {
 	return &cobra.Command{
 		Use: "help",
 		// Disable flag parsing so flags like --format are preserved for the legacy CLI.
 		DisableFlagParsing: true,
 		Run: func(cmd *cobra.Command, args []string) {
-			if expanded, ok, err := expandAbbreviation(cmd.Root(), legacy.Commands, args); err != nil {
+			loadLegacyCmds := enabledLegacyCommands(cnf, legacy.Commands)
+			if expanded, ok, err := expandAbbreviation(cmd.Root(), loadLegacyCmds, args); err != nil {
 				debugLogf("Failed to load the legacy command index: %s", err)
 			} else if ok {
 				args = expanded

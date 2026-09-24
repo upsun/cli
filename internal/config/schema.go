@@ -37,6 +37,10 @@ type Config struct {
 		UserStateFile   string `validate:"omitempty" yaml:"user_state_file,omitempty"`   // defaults to "state.json"
 		WritableUserDir string `validate:"omitempty" yaml:"writable_user_dir,omitempty"` // defaults to UserConfigDir
 		TempSubDir      string `validate:"omitempty" yaml:"tmp_sub_dir,omitempty"`       // defaults to Slug+"-tmp"
+
+		// Legacy commands disabled by config. As the Go layer always wraps the legacy CLI, both lists apply.
+		DisabledCommands        []string `validate:"omitempty" yaml:"disabled_commands,omitempty"`
+		WrappedDisabledCommands []string `validate:"omitempty" yaml:"wrapped_disabled_commands,omitempty"`
 	} `validate:"required"`
 	Updates struct {
 		Check         bool `validate:"omitempty"`                                 // defaults to true

@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/legacy"
 )
 
@@ -58,7 +59,7 @@ func expandAbbreviation(
 			continue
 		}
 		names := append([]string{c.Name}, c.Aliases...)
-		if slices.Contains(names, name) {
+		if slices.Contains(names, name) || slices.Contains(c.HiddenAliases, name) {
 			return nil, false, nil
 		}
 		candidates = append(candidates, abbrevCandidate{names: names, hidden: c.Hidden})
@@ -94,6 +95,20 @@ func isRootBoolFlag(root *cobra.Command, arg string) bool {
 		}
 	}
 	return true
+}
+
+// enabledLegacyCommands returns a loader for the legacy commands that are not disabled by config.
+func enabledLegacyCommands(cnf *config.Config, load func() ([]legacy.Command, error)) func() ([]legacy.Command, error) {
+	return func() ([]legacy.Command, error) {
+		cmds, err := load()
+		if err != nil {
+			return nil, err
+		}
+		return slices.DeleteFunc(slices.Clone(cmds), func(c legacy.Command) bool {
+			return slices.Contains(cnf.Application.DisabledCommands, c.Name) ||
+				slices.Contains(cnf.Application.WrappedDisabledCommands, c.Name)
+		}), nil
+	}
 }
 
 // resolveAbbreviation follows Symfony Console's rules to find the command abbreviated by name, if it is unique.

@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/legacy"
 )
 
@@ -24,7 +25,7 @@ func TestExpandAbbreviation(t *testing.T) {
 	)
 	legacyCmds := []legacy.Command{
 		{Name: "list"},
-		{Name: "project:info", Aliases: []string{"pinfo"}},
+		{Name: "project:info", Aliases: []string{"pinfo"}, HiddenAliases: []string{"p:in", "project:initx"}},
 		{Name: "project:create", Aliases: []string{"create"}},
 		{Name: "project:curl", Hidden: true},
 		{Name: "app:list", Aliases: []string{"apps"}},
@@ -56,6 +57,8 @@ func TestExpandAbbreviation(t *testing.T) {
 		{"legacy command", []string{"p:info"}, nil},
 		{"exact native command", []string{"init"}, nil},
 		{"exact legacy command", []string{"pinfo"}, nil},
+		{"exact hidden legacy alias", []string{"p:in"}, nil},
+		{"hidden legacy alias not abbreviated", []string{"project:ini"}, []string{"init"}},
 		{"unknown command", []string{"p:nope"}, nil},
 		{"hidden native command", []string{"_comp"}, nil},
 		{"no command", []string{"--version"}, nil},
@@ -74,4 +77,17 @@ func TestExpandAbbreviation(t *testing.T) {
 			assert.Equal(t, c.want, got)
 		})
 	}
+}
+
+func TestEnabledLegacyCommands(t *testing.T) {
+	cnf := &config.Config{}
+	cnf.Application.DisabledCommands = []string{"self:install"}
+	cnf.Application.WrappedDisabledCommands = []string{"self:update"}
+	load := func() ([]legacy.Command, error) {
+		return []legacy.Command{{Name: "self:install"}, {Name: "self:update"}, {Name: "self:stats"}}, nil
+	}
+
+	cmds, err := enabledLegacyCommands(cnf, load)()
+	assert.NoError(t, err)
+	assert.Equal(t, []legacy.Command{{Name: "self:stats"}}, cmds)
 }
