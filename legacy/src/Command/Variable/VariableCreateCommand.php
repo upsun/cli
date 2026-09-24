@@ -86,7 +86,7 @@ class VariableCreateCommand extends CommandBase
 
         // Check whether the variable already exists, if a name is provided.
         if (($name = Option::stringOrNull($input, 'name'))) {
-            if (($prefix = Option::string($input, 'prefix')) && $prefix !== 'none') {
+            if (($prefix = Option::stringOrNull($input, 'prefix')) && $prefix !== 'none') {
                 $name = rtrim($prefix, ':') . ':' . $name;
             }
             $existing = $this->variableCommandUtil->getExistingVariable($name, $selection, $this->variableCommandUtil->getRequestedLevel($input), false);
