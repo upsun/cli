@@ -204,7 +204,7 @@ hint.
 | `homebrew` | Yes | `brew update && brew upgrade <wrapper.homebrew_tap>` | Yes |
 | `scoop` | Yes | `scoop update <application.executable>` | Yes |
 | `npm` | Yes | `npm install -g <wrapper.npm_package>@latest` | Yes |
-| `script` | Yes | `curl -fsSL <wrapper.installer_url> \| sh` | No (remote + maybe sudo)¹ |
+| `script` | Yes | `curl -fsSL <wrapper.installer_url> \| INSTALL_DIR=<exe dir> sh` | No (remote + maybe sudo)¹ |
 | `unknown` | Yes | `follow the instructions at https://github.com/<repo>#upgrade` (today's text) | No |
 
 ¹ Becomes auto-updatable in Phase 3 if raw installs move to a user-local,
@@ -306,8 +306,9 @@ Wrapper struct {
 }
 ```
 
-Populate `npm_package` and `installer_url` in `internal/config/upsun-cli.yaml` and
-`internal/config/platformsh-cli.yaml`. A channel with an empty config field
+Populate `npm_package` and `installer_url` in `internal/config/upsun-cli.yaml`
+only: npm and `installer.sh` ship only the `upsun` binary, so
+`internal/config/platformsh-cli.yaml` leaves them empty. A channel with an empty config field
 simply falls back to the generic GitHub link for that branch (graceful for vendor
 builds that don't ship that channel).
 

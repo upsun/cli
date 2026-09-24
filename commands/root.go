@@ -211,7 +211,7 @@ func printUpdateMessage(w io.Writer, newRelease *internal.ReleaseInfo, cnf *conf
 		return
 	}
 
-	fmt.Fprintf(w, "\n%s %s → %s\n",
+	fmt.Fprintf(w, "%s %s → %s\n",
 		color.YellowString(fmt.Sprintf("A new release of the %s is available:", cnf.Application.Name)),
 		color.CyanString(config.Version),
 		color.CyanString(newRelease.Version),
@@ -234,10 +234,11 @@ func printUpdateMessage(w io.Writer, newRelease *internal.ReleaseInfo, cnf *conf
 // an empty string when there is no tailored command (the caller then falls back
 // to a generic link).
 func upgradeCommand(cnf *config.Config) string {
-	return upgradeCommandFor(cnf, internal.DetectInstallMethod(cnf))
+	exe, _ := os.Executable()
+	return upgradeCommandFor(cnf, internal.DetectInstallMethod(cnf), exe)
 }
 
-func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod) string {
+func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod, exe string) string {
 	switch method {
 	case internal.InstallHomebrew:
 		if cnf.Wrapper.HomebrewTap != "" {
@@ -250,8 +251,10 @@ func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod) string
 			return "npm install -g " + cnf.Wrapper.NpmPackage + "@latest"
 		}
 	case internal.InstallScript:
-		if cnf.Wrapper.InstallerURL != "" {
-			return "curl -fsSL " + cnf.Wrapper.InstallerURL + " | bash"
+		// INSTALL_DIR replaces the binary in place and forces the installer's raw
+		// method, which it might not otherwise choose (e.g. apt on Debian).
+		if cnf.Wrapper.InstallerURL != "" && exe != "" {
+			return "curl -fsSL " + cnf.Wrapper.InstallerURL + " | INSTALL_DIR=" + filepath.Dir(exe) + " sh"
 		}
 	}
 	return ""
