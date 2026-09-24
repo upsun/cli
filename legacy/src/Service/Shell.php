@@ -215,7 +215,8 @@ class Shell
             });
         } catch (ProcessFailedException) {
             if (!$mustRun) {
-                return $process->getExitCode();
+                // The exit code is null if the process failed to start.
+                return $process->getExitCode() ?? 1;
             }
             // The default for Symfony's ProcessFailedException is to print the
             // entire STDOUT and STDERR. But if $quiet is disabled, then the user

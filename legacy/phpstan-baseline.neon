@@ -7123,12 +7123,6 @@ parameters:
 			path: src/Service/Shell.php
 
 		-
-			message: '#^Method Platformsh\\Cli\\Service\\Shell\:\:runProcess\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/Shell.php
-
-		-
 			message: '#^Parameter \#1 \$messages of method Symfony\\Component\\Console\\Output\\OutputInterface\:\:write\(\) expects iterable\|string, string\|null given\.$#'
 			identifier: argument.type
 			count: 1
