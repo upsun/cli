@@ -19,6 +19,10 @@ type store struct {
 	projectBackups    map[string]map[string]*Backup
 	projectVariables  map[string][]*Variable
 	envLevelVariables map[string]map[string][]*EnvLevelVariable
+
+	projectDomains      map[string][]*Domain
+	projectIntegrations map[string][]*Integration
+	projectCertificates map[string][]*Certificate
 }
 
 func (s *store) SetEnvironments(envs []*Environment) {
@@ -137,4 +141,31 @@ func (s *store) SetEnvLevelVariables(projectID, environmentID string, vars []*En
 		s.envLevelVariables[projectID] = make(map[string][]*EnvLevelVariable)
 	}
 	s.envLevelVariables[projectID][environmentID] = vars
+}
+
+func (s *store) SetProjectDomains(projectID string, domains []*Domain) {
+	s.Lock()
+	defer s.Unlock()
+	if s.projectDomains == nil {
+		s.projectDomains = make(map[string][]*Domain)
+	}
+	s.projectDomains[projectID] = domains
+}
+
+func (s *store) SetProjectIntegrations(projectID string, integrations []*Integration) {
+	s.Lock()
+	defer s.Unlock()
+	if s.projectIntegrations == nil {
+		s.projectIntegrations = make(map[string][]*Integration)
+	}
+	s.projectIntegrations[projectID] = integrations
+}
+
+func (s *store) SetProjectCertificates(projectID string, certs []*Certificate) {
+	s.Lock()
+	defer s.Unlock()
+	if s.projectCertificates == nil {
+		s.projectCertificates = make(map[string][]*Certificate)
+	}
+	s.projectCertificates[projectID] = certs
 }

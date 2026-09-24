@@ -69,6 +69,21 @@ func (h *Handler) handleCreateProjectVariable(w http.ResponseWriter, req *http.R
 	})
 }
 
+func (h *Handler) handleDeleteProjectVariable(w http.ResponseWriter, req *http.Request) {
+	h.Lock()
+	defer h.Unlock()
+	projectID := chi.URLParam(req, "project_id")
+	variableName, _ := url.PathUnescape(chi.URLParam(req, "name"))
+	for k, v := range h.projectVariables[projectID] {
+		if v.Name == variableName {
+			h.projectVariables[projectID] = slices.Delete(h.projectVariables[projectID], k, k+1)
+			_ = json.NewEncoder(w).Encode(activityResponse())
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNotFound)
+}
+
 func (h *Handler) handlePatchProjectVariable(w http.ResponseWriter, req *http.Request) {
 	h.Lock()
 	defer h.Unlock()
@@ -189,4 +204,22 @@ func (h *Handler) handlePatchEnvLevelVariable(w http.ResponseWriter, req *http.R
 	patched.UpdatedAt = time.Now()
 	h.envLevelVariables[projectID][environmentID][key] = &patched
 	_ = json.NewEncoder(w).Encode(&patched)
+}
+
+func (h *Handler) handleDeleteEnvLevelVariable(w http.ResponseWriter, req *http.Request) {
+	h.Lock()
+	defer h.Unlock()
+	projectID := chi.URLParam(req, "project_id")
+	environmentID, _ := url.PathUnescape(chi.URLParam(req, "environment_id"))
+	variableName, _ := url.PathUnescape(chi.URLParam(req, "name"))
+	for k, v := range h.envLevelVariables[projectID][environmentID] {
+		if v.Name == variableName {
+			h.envLevelVariables[projectID][environmentID] = slices.Delete(
+				h.envLevelVariables[projectID][environmentID], k, k+1,
+			)
+			_ = json.NewEncoder(w).Encode(activityResponse())
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNotFound)
 }
