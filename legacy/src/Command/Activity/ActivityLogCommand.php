@@ -115,7 +115,7 @@ class ActivityLogCommand extends ActivityCommandBase
             '<info>Log: </info>',
         ]);
 
-        $refresh = $input->getOption('refresh');
+        $refresh = $this->getIntOption($input, 'refresh');
         $timestamps = $input->getOption('timestamps');
         if ($timestamps && $input->hasOption('date-fmt') && $input->getOption('date-fmt') !== null) {
             $timestamps = $input->getOption('date-fmt');
