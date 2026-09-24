@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use Platformsh\Cli\Exception\ProcessFailedException;
 use Platformsh\Cli\Service\Shell;
 use Platformsh\Cli\Tests\HasTempDirTrait;
+use Symfony\Component\Process\Exception\ProcessStartFailedException;
 
 class ShellServiceTest extends TestCase
 {
@@ -66,5 +67,7 @@ class ShellServiceTest extends TestCase
 
         $shell = new Shell();
         $this->assertFalse($shell->execute(['pwd'], $dir));
+        $this->expectException(ProcessStartFailedException::class);
+        $shell->mustExecute(['pwd'], $dir);
     }
 }
