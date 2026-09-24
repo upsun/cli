@@ -163,7 +163,8 @@ class QuestionHelper extends BaseQuestionHelper
         // PHP converts integer-like keys to ints, so ChoiceQuestion may treat
         // the items as a list and return a value instead of a key.
         $validator = $question->getValidator() ?? fn($answer) => $answer;
-        $question->setValidator(fn($answer) => is_string($answer) && array_key_exists($answer, $items) ? $answer : $validator($answer));
+        // Like Symfony, a typed value takes precedence over a key.
+        $question->setValidator(fn($answer) => is_string($answer) && array_key_exists($answer, $items) && !in_array($answer, $items, true) ? $answer : $validator($answer));
         $choice = $this->ask($this->input, $this->output, $question);
         if ($newLine) {
             $this->output->writeln('');

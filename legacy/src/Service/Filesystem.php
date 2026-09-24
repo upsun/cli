@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Service;
 
 use Platformsh\Cli\Util\OsUtil;
-use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\Filesystem\Filesystem as SymfonyFilesystem;
 
 class Filesystem
@@ -66,7 +65,8 @@ class Filesystem
         }
         try {
             $this->fs->remove($files);
-        } catch (IOException $e) {
+        } catch (\RuntimeException $e) {
+            // Includes IOException, and UnexpectedValueException for an unreadable directory.
             trigger_error($e->getMessage(), E_USER_WARNING);
 
             return false;
