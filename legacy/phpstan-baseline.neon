@@ -5137,12 +5137,6 @@ parameters:
 			path: src/Console/AdaptiveTable.php
 
 		-
-			message: '#^Parameter \#1 \$args of static method Platformsh\\Cli\\Console\\ArrayArgument\:\:split\(\) expects array\<string\>, array\<mixed, mixed\> given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Console/ArrayArgument.php
-
-		-
 			message: '#^Method Platformsh\\Cli\\Console\\CustomJsonDescriptor\:\:describeApplication\(\) has parameter \$options with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -5911,24 +5905,6 @@ parameters:
 			path: src/Selector/Selector.php
 
 		-
-			message: '#^Binary operation "\." between ''\-\-'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Binary operation "\." between ''Detected…'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Binary operation "\." between ''Organization not…'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
 			message: '#^Binary operation "\." between ''Project "'' and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
 			count: 1
@@ -5941,33 +5917,9 @@ parameters:
 			path: src/Selector/Selector.php
 
 		-
-			message: '#^Binary operation "\." between ''Worker not found\: '' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 2
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Binary operation "\." between mixed and ''\-\-'' results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 2
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 2
-			path: src/Selector/Selector.php
-
-		-
 			message: '#^Cannot access offset non\-falsy\-string on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 9
 			path: src/Selector/Selector.php
 
 		-
@@ -5997,65 +5949,17 @@ parameters:
 		-
 			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getOrganizationById\(\) expects string, mixed given\.$#'
 			identifier: argument.type
-			count: 3
+			count: 2
 			path: src/Selector/Selector.php
 
 		-
 			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getProject\(\) expects string, mixed given\.$#'
 			identifier: argument.type
-			count: 2
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Parameter \#1 \$instance of method Platformsh\\Cli\\Model\\RemoteContainer\\RemoteContainerInterface\:\:getSshUrl\(\) expects string, mixed given\.$#'
-			identifier: argument.type
 			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Parameter \#1 \$items of method Platformsh\\Cli\\Service\\QuestionHelper\:\:choose\(\) expects array\<string, string\>, array\<mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Parameter \#1 \$keys of function array_combine expects an array of values castable to string, array\<mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Parameter \#1 \$keys of function array_combine expects array\<int\|string\>, array\<mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Parameter \#1 \$name of method Platformsh\\Cli\\Service\\Api\:\:getOrganizationByName\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Parameter \#1 \$name of method Platformsh\\Client\\Model\\Deployment\\EnvironmentDeployment\:\:getWebApp\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Parameter \#1 \$name of method Platformsh\\Client\\Model\\Deployment\\EnvironmentDeployment\:\:getWorker\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 2
 			path: src/Selector/Selector.php
 
 		-
 			message: '#^Parameter \#1 \$organization of method Platformsh\\Cli\\Service\\Api\:\:getOrganizationLabel\(\) expects Platformsh\\Client\\Model\\Organization\\Organization, Platformsh\\Client\\Model\\ApiResourceBase given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Parameter \#1 \$url of method Platformsh\\Cli\\Service\\Identifier\:\:identify\(\) expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Selector/Selector.php
@@ -6079,45 +5983,9 @@ parameters:
 			path: src/Selector/Selector.php
 
 		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 4
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Parameter \#3 \$projectId of method Platformsh\\Cli\\Selector\\Selector\:\:selectProject\(\) expects string\|null, string\|false\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Parameter \#4 \$environmentId of method Platformsh\\Cli\\Selector\\Selector\:\:selectEnvironment\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Parameter \#4 \$host of method Platformsh\\Cli\\Selector\\Selector\:\:selectProject\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Part \$instanceId \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
 			message: '#^Possibly invalid array key type mixed\.$#'
 			identifier: offsetAccess.invalidOffset
-			count: 2
+			count: 1
 			path: src/Selector/Selector.php
 
 		-
@@ -6197,24 +6065,6 @@ parameters:
 			identifier: property.unusedType
 			count: 1
 			path: src/Service/AccessApi.php
-
-		-
-			message: '#^Cannot cast mixed to int\.$#'
-			identifier: cast.int
-			count: 1
-			path: src/Service/ActivityLoader.php
-
-		-
-			message: '#^Parameter \#1 \$datetime of class DateTime constructor expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/ActivityLoader.php
-
-		-
-			message: '#^Parameter \#6 \$result of method Platformsh\\Cli\\Service\\ActivityLoader\:\:load\(\) expects array\<string\>\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/ActivityLoader.php
 
 		-
 			message: '#^Cannot access offset ''exit_code'' on mixed\.$#'
@@ -6763,26 +6613,8 @@ parameters:
 			path: src/Service/CountryService.php
 
 		-
-			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 1
-			path: src/Service/CurlCli.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 7
-			path: src/Service/CurlCli.php
-
-		-
 			message: '#^Method Platformsh\\Cli\\Service\\CurlCli\:\:run\(\) should return int but returns int\|null\.$#'
 			identifier: return.type
-			count: 1
-			path: src/Service/CurlCli.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
 			count: 1
 			path: src/Service/CurlCli.php
 
@@ -6961,12 +6793,6 @@ parameters:
 			path: src/Service/Mount.php
 
 		-
-			message: '#^Method Platformsh\\Cli\\Service\\PropertyFormatter\:\:dateFormat\(\) should return string but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/PropertyFormatter.php
-
-		-
 			message: '#^Parameter \#1 \$httpAccess of method Platformsh\\Cli\\Service\\PropertyFormatter\:\:formatHttpAccess\(\) expects array\<string, mixed\>\|string\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -7051,12 +6877,6 @@ parameters:
 			path: src/Service/Relationships.php
 
 		-
-			message: '#^Binary operation "\." between ''Relationship not…'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Service/Relationships.php
-
-		-
 			message: '#^Cannot access offset ''_relationship_key'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -7099,7 +6919,7 @@ parameters:
 			path: src/Service/Relationships.php
 
 		-
-			message: '#^Cannot access offset mixed on mixed\.$#'
+			message: '#^Cannot access offset string on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
 			path: src/Service/Relationships.php
@@ -7107,7 +6927,7 @@ parameters:
 		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 11
+			count: 7
 			path: src/Service/Relationships.php
 
 		-
@@ -7174,12 +6994,6 @@ parameters:
 			message: '#^Parameter \#5 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 3
-			path: src/Service/Relationships.php
-
-		-
-			message: '#^Possibly invalid array key type mixed\.$#'
-			identifier: offsetAccess.invalidOffset
-			count: 2
 			path: src/Service/Relationships.php
 
 		-
@@ -7279,12 +7093,6 @@ parameters:
 			path: src/Service/Ssh.php
 
 		-
-			message: '#^Parameter \#1 \$path of method Platformsh\\Cli\\Service\\SshConfig\:\:formattedPaths\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Ssh.php
-
-		-
 			message: '#^Parameter \#3 \$subject of function str_replace expects array\<string\>\|string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -7337,30 +7145,6 @@ parameters:
 			identifier: assign.propertyType
 			count: 1
 			path: src/Service/State.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 3
-			path: src/Service/Table.php
-
-		-
-			message: '#^Parameter \#1 \$args of static method Platformsh\\Cli\\Console\\ArrayArgument\:\:split\(\) expects array\<string\>, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Table.php
-
-		-
-			message: '#^Parameter \#1 \$array of function reset expects array\|object, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Table.php
-
-		-
-			message: '#^Parameter \#1 \$value of function count expects array\|Countable, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Table.php
 
 		-
 			message: '#^Cannot cast mixed to string\.$#'
@@ -7435,26 +7219,8 @@ parameters:
 			path: src/Service/TunnelManager.php
 
 		-
-			message: '#^Parameter \#1 \$browserOption of method Platformsh\\Cli\\Service\\Url\:\:getBrowser\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Service/Url.php
-
-		-
-			message: '#^Binary operation "\." between ''Invalid level\: '' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Service/VariableCommandUtil.php
-
-		-
 			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
 			identifier: function.alreadyNarrowedType
-			count: 1
-			path: src/Service/VariableCommandUtil.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
 			count: 1
 			path: src/Service/VariableCommandUtil.php
 

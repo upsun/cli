@@ -36,6 +36,22 @@ final class InputUtil
     }
 
     /**
+     * @return string[]
+     */
+    public static function getStringArrayOption(InputInterface $input, string $name): array
+    {
+        return self::stringArray($input->getOption($name), '--' . $name);
+    }
+
+    /**
+     * @return string[]
+     */
+    public static function getStringArrayArgument(InputInterface $input, string $name): array
+    {
+        return self::stringArray($input->getArgument($name), $name);
+    }
+
+    /**
      * Gets the value of a non-negative integer option.
      *
      * @throws InvalidArgumentException if the value is not a non-negative integer
@@ -60,6 +76,25 @@ final class InputUtil
         }
 
         return $value;
+    }
+
+    /**
+     * @return string[]
+     */
+    private static function stringArray(mixed $value, string $label): array
+    {
+        if (!is_array($value)) {
+            throw new \LogicException(sprintf('Expected an array value for %s, got %s.', $label, get_debug_type($value)));
+        }
+        $strings = [];
+        foreach ($value as $key => $item) {
+            if (!is_string($item)) {
+                throw new \LogicException(sprintf('Expected only string values for %s, got %s.', $label, get_debug_type($item)));
+            }
+            $strings[$key] = $item;
+        }
+
+        return $strings;
     }
 
     private static function nullableString(mixed $value, string $label): ?string

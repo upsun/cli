@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Selector;
 
 use Platformsh\Cli\Console\CompleterInterface;
+use Platformsh\Cli\Console\InputUtil;
 use Platformsh\Cli\Local\ApplicationFinder;
 use Platformsh\Cli\Model\Host\LocalHost;
 use Platformsh\Cli\Model\RemoteContainer\BrokenEnv;
@@ -112,8 +113,8 @@ class Selector implements CompleterInterface
             return new Selection($config);
         }
 
-        $projectId = $input->hasOption('project') ? $input->getOption('project') : null;
-        $projectHost = $input->hasOption('host') ? $input->getOption('host') : null;
+        $projectId = $input->hasOption('project') ? InputUtil::getNullableStringOption($input, 'project') : null;
+        $projectHost = $input->hasOption('host') ? InputUtil::getNullableStringOption($input, 'host') : null;
         $environmentId = null;
 
         // Identify the project.
@@ -125,8 +126,8 @@ class Selector implements CompleterInterface
         }
 
         // Load the project ID from an environment variable, if available.
-        if ($projectId === null && getenv($envPrefix . 'PROJECT')) {
-            $projectId = getenv($envPrefix . 'PROJECT');
+        if ($projectId === null && ($envProjectId = getenv($envPrefix . 'PROJECT'))) {
+            $projectId = $envProjectId;
             $this->stdErr->writeln(sprintf(
                 'Project ID read from environment variable %s: %s',
                 $envPrefix . 'PROJECT',
@@ -158,14 +159,12 @@ class Selector implements CompleterInterface
             if (is_array($argument) && count($argument) == 1) {
                 $argument = $argument[0];
             }
-            if (!is_array($argument)) {
+            if (is_string($argument)) {
                 $this->debug('Selecting environment based on input argument');
                 $environment = $this->selectEnvironment($input, $project, $config, $argument);
             }
         } elseif ($input->hasOption($envOptionName)) {
-            if ($input->getOption($envOptionName) !== null) {
-                $environmentId = $input->getOption($envOptionName);
-            }
+            $environmentId = InputUtil::getNullableStringOption($input, $envOptionName) ?? $environmentId;
             $environment = $this->selectEnvironment($input, $project, $config, $environmentId);
         }
 
@@ -176,8 +175,8 @@ class Selector implements CompleterInterface
         // by resources:get); the calling command will handle filtering itself.
         // VALUE_IS_ARRAY options always return an array (empty by default).
         if ($input->hasOption('app') && !is_array($input->getOption('app'))) {
-            if ($input->getOption('app')) {
-                $appName = (string) $input->getOption('app');
+            if ($appOption = InputUtil::getNullableStringOption($input, 'app')) {
+                $appName = $appOption;
             } elseif (isset($result['appId'])) {
                 // An app ID might be provided from the parsed project URL.
                 $appName = $result['appId'];
@@ -244,7 +243,7 @@ class Selector implements CompleterInterface
         }
 
         $remoteContainer = $selection->getRemoteContainer();
-        $instanceId = $input->hasOption('instance') ? $input->getOption('instance') : null;
+        $instanceId = $input->hasOption('instance') ? InputUtil::getNullableStringOption($input, 'instance') : null;
         if ($input->hasOption('instance') && $instanceId !== null) {
             $instances = $selection->getEnvironment()->getSshInstanceURLs($remoteContainer->getName());
             if ((!empty($instances) || $instanceId !== '0') && !isset($instances[$instanceId])) {
@@ -252,7 +251,7 @@ class Selector implements CompleterInterface
             }
         }
 
-        $sshUrl = $remoteContainer->getSshUrl($instanceId);
+        $sshUrl = $remoteContainer->getSshUrl($instanceId ?? '');
         $this->debug('Selected host: ' . $sshUrl);
         return $this->hostFactory->remote($sshUrl, $selection->getEnvironment());
     }
@@ -737,15 +736,15 @@ class Selector implements CompleterInterface
     {
         // A running task container is selected from its in-progress activity,
         // not from the deployment, so handle it before loading the deployment.
-        $taskOption = $input->hasOption('task') ? $input->getOption('task') : null;
+        $taskOption = $input->hasOption('task') ? InputUtil::getNullableStringOption($input, 'task') : null;
         if ($taskOption !== null && $taskOption !== '') {
             foreach (['app', 'worker', 'instance'] as $conflicting) {
-                $value = $input->hasOption($conflicting) ? $input->getOption($conflicting) : null;
+                $value = $input->hasOption($conflicting) ? InputUtil::getNullableStringOption($input, $conflicting) : null;
                 if ($value !== null && $value !== '') {
                     throw new InvalidArgumentException(sprintf('The --%s option cannot be used together with --task.', $conflicting));
                 }
             }
-            return $this->selectTaskContainer($environment, (string) $taskOption, $input);
+            return $this->selectTaskContainer($environment, $taskOption, $input);
         }
 
         $includeWorkers = $input->hasOption('worker');
@@ -763,16 +762,16 @@ class Selector implements CompleterInterface
 
         // Validate the --app option, without doing anything with it.
         if ($appName === null) {
-            $appName = $input->hasOption('app') ? $input->getOption('app') : null;
+            $appName = $input->hasOption('app') ? InputUtil::getNullableStringOption($input, 'app') : null;
         }
 
         // Handle the --worker option first, as it's more specific.
-        $workerOption = $includeWorkers && $input->hasOption('worker') ? $input->getOption('worker') : null;
+        $workerOption = $includeWorkers ? InputUtil::getNullableStringOption($input, 'worker') : null;
         if ($workerOption !== null) {
             // Check for a conflict with the --app option.
             if ($appName !== null
-                && str_contains((string) $workerOption, '--')
-                && stripos((string) $workerOption, $appName . '--') !== 0) {
+                && str_contains($workerOption, '--')
+                && stripos($workerOption, $appName . '--') !== 0) {
                 throw new InvalidArgumentException(sprintf(
                     'App name "%s" conflicts with worker name "%s"',
                     $appName,
@@ -781,8 +780,8 @@ class Selector implements CompleterInterface
             }
 
             // If we have the app name, load the worker directly.
-            if (str_contains((string) $workerOption, '--') || $appName !== null) {
-                $qualifiedWorkerName = str_contains((string) $workerOption, '--')
+            if (str_contains($workerOption, '--') || $appName !== null) {
+                $qualifiedWorkerName = str_contains($workerOption, '--')
                     ? $workerOption
                     : $appName . '--' . $workerOption;
                 try {
@@ -912,9 +911,9 @@ class Selector implements CompleterInterface
         }
 
         // An explicit activity ID disambiguates parallel runs without a prompt.
-        $activityId = $input->hasOption('activity') ? $input->getOption('activity') : null;
+        $activityId = $input->hasOption('activity') ? InputUtil::getNullableStringOption($input, 'activity') : null;
         if ($activityId !== null && $activityId !== '') {
-            $activity = $this->matchTaskActivity($running, $taskName, (string) $activityId);
+            $activity = $this->matchTaskActivity($running, $taskName, $activityId);
         } elseif (count($running) === 1) {
             $activity = reset($running);
         } else {
@@ -1070,11 +1069,11 @@ class Selector implements CompleterInterface
         $explicitProject = $input->hasOption('project') && $input->getOption('project');
         $selection = $explicitProject ? $this->getSelection($input) : new Selection();
 
-        if ($identifier = $input->getOption('org')) {
+        if ($identifier = InputUtil::getNullableStringOption($input, 'org')) {
             // Organization names have to be lower case, while organization IDs are the uppercase ULID format.
             // So it's easy to distinguish one from the other.
             /** @link https://github.com/ulid/spec */
-            if (\preg_match('#^[0-9A-HJKMNP-TV-Z]{26}$#', (string) $identifier) === 1) {
+            if (\preg_match('#^[0-9A-HJKMNP-TV-Z]{26}$#', $identifier) === 1) {
                 $this->debug('Detected organization ID format (ULID): ' . $identifier);
                 $organization = $this->api->getOrganizationById($identifier, $skipCache);
             } else {
@@ -1218,11 +1217,11 @@ class Selector implements CompleterInterface
             return false;
         }
         if ($input->hasOption('project')) {
-            $id = $input->getOption('project');
+            $id = InputUtil::getNullableStringOption($input, 'project');
         } elseif ($input->hasArgument('project')) {
-            $id = $input->getArgument('project');
+            $id = InputUtil::getNullableStringArgument($input, 'project');
         } elseif ($input->hasArgument('get')) {
-            $id = $input->getArgument('get');
+            $id = InputUtil::getNullableStringArgument($input, 'get');
         } else {
             $id = null;
         }

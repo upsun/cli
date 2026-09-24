@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Service;
 
+use Platformsh\Cli\Console\InputUtil;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputDefinition;
@@ -40,13 +41,13 @@ readonly class CurlCli implements InputConfiguringInterface
         $stdErr = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;
         $url = rtrim($baseUrl, '/');
 
-        if ($path = $input->getArgument('path')) {
-            if (parse_url((string) $path, PHP_URL_HOST)) {
+        if ($path = InputUtil::getNullableStringArgument($input, 'path')) {
+            if (parse_url($path, PHP_URL_HOST)) {
                 $stdErr->writeln(sprintf('Invalid path: <error>%s</error>', $path));
 
                 return 1;
             }
-            $url .= '/' . ltrim((string) $path, '/');
+            $url .= '/' . ltrim($path, '/');
         }
 
         $retryOn401 = !$input->getOption('no-retry-401');
@@ -157,21 +158,21 @@ readonly class CurlCli implements InputConfiguringInterface
             $commandline .= ' --fail-with-body';
         }
 
-        if ($requestMethod = $input->getOption('request')) {
-            $commandline .= ' --request ' . escapeshellarg((string) $requestMethod);
+        if ($requestMethod = InputUtil::getNullableStringOption($input, 'request')) {
+            $commandline .= ' --request ' . escapeshellarg($requestMethod);
         }
 
-        if ($data = $input->getOption('json')) {
-            if (\json_decode((string) $data) === null && \json_last_error() !== JSON_ERROR_NONE) {
+        if ($data = InputUtil::getNullableStringOption($input, 'json')) {
+            if (\json_decode($data) === null && \json_last_error() !== JSON_ERROR_NONE) {
                 throw new InvalidArgumentException('The value of --json contains invalid JSON.');
             }
-            $commandline .= ' --data ' . escapeshellarg((string) $data);
+            $commandline .= ' --data ' . escapeshellarg($data);
             $commandline .= ' --header ' . escapeshellarg('Content-Type: application/json');
             $commandline .= ' --header ' . escapeshellarg('Accept: application/json');
         }
 
-        if ($data = $input->getOption('data')) {
-            $commandline .= ' --data ' . escapeshellarg((string) $data);
+        if ($data = InputUtil::getNullableStringOption($input, 'data')) {
+            $commandline .= ' --data ' . escapeshellarg($data);
         }
 
         if (!$input->getOption('disable-compression')) {
@@ -182,8 +183,8 @@ readonly class CurlCli implements InputConfiguringInterface
             $commandline .= ' --globoff';
         }
 
-        foreach ($input->getOption('header') as $header) {
-            $commandline .= ' --header ' . escapeshellarg((string) $header);
+        foreach (InputUtil::getStringArrayOption($input, 'header') as $header) {
+            $commandline .= ' --header ' . escapeshellarg($header);
         }
 
         $commandline .= ' --no-progress-meter';
