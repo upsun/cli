@@ -362,23 +362,28 @@ abstract class MetricsCommandBase extends CommandBase
     }
 
     /**
-     * Checks if the deployment has storage mounts, or if any service reports storage.
+     * Checks if any of the returned services reports storage or has storage mounts.
      *
      * @param array<mixed> $values
      */
     private function usesStorage(array $values, Environment $environment): bool
     {
-        $deployment = $this->api->getCurrentDeployment($environment);
-        foreach (array_merge($deployment->webapps, $deployment->workers) as $app) {
-            foreach ($app->mounts as $mount) {
-                if (($mount['source'] ?? null) === 'storage') {
+        $serviceNames = [];
+        foreach ($values['data'] as $point) {
+            foreach ($point['services'] ?? [] as $name => $service) {
+                if (isset($service['mountpoints'][self::STORAGE_MOUNTPOINT])) {
                     return true;
                 }
+                $serviceNames[$name] = true;
             }
         }
-        foreach ($values['data'] as $point) {
-            foreach ($point['services'] ?? [] as $service) {
-                if (isset($service['mountpoints'][self::STORAGE_MOUNTPOINT])) {
+        $deployment = $this->api->getCurrentDeployment($environment);
+        foreach (array_merge($deployment->webapps, $deployment->workers) as $name => $app) {
+            if (!isset($serviceNames[$name])) {
+                continue;
+            }
+            foreach ($app->getProperty('mounts', false) ?: [] as $mount) {
+                if (($mount['source'] ?? null) === 'storage') {
                     return true;
                 }
             }

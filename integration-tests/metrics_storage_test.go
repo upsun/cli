@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,6 +20,26 @@ func mountpointMetrics(diskUsed, diskLimit, inodesUsed, inodesLimit float64) map
 		"inodes_used":  map[string]any{"avg": inodesUsed},
 		"inodes_limit": map[string]any{"max": inodesLimit},
 	}
+}
+
+// filterServices applies the services[] query filter, like the API.
+func filterServices(req *http.Request, services map[string]any) map[string]any {
+	var names []string
+	for k, v := range req.URL.Query() {
+		if strings.HasPrefix(k, "services[") {
+			names = append(names, v...)
+		}
+	}
+	if len(names) == 0 {
+		return services
+	}
+	filtered := make(map[string]any)
+	for _, n := range names {
+		if svc, ok := services[n]; ok {
+			filtered[n] = svc
+		}
+	}
+	return filtered
 }
 
 func setupMetricsTest(t *testing.T, withStorage, withStorageMount bool) (f *cmdFactory, projectID string) {
@@ -61,7 +82,7 @@ func setupMetricsTest(t *testing.T, withStorage, withStorageMount bool) (f *cmdF
 			"_links": mockapi.MakeHALLinks("resources_overview=" + apiServer.URL + obsPath + "/resources/overview"),
 		})
 	})
-	apiHandler.Get(obsPath+"/resources/overview", func(w http.ResponseWriter, _ *http.Request) {
+	apiHandler.Get(obsPath+"/resources/overview", func(w http.ResponseWriter, req *http.Request) {
 		limits := map[string]any{
 			"cpu_used":     map[string]any{"avg": 0.1},
 			"cpu_limit":    map[string]any{"max": 1.0},
@@ -98,10 +119,10 @@ func setupMetricsTest(t *testing.T, withStorage, withStorageMount bool) (f *cmdF
 			"_to":    1790190000,
 			"data": []any{map[string]any{
 				"timestamp": 1790190000,
-				"services": map[string]any{
+				"services": filterServices(req, map[string]any{
 					"app": withMounts(appMounts),
 					"db":  withMounts(dbMounts),
-				},
+				}),
 			}},
 		})
 	})
@@ -144,6 +165,12 @@ func TestMetricsStorage(t *testing.T) {
 			want:             "Storage %",
 		},
 		{
+			name:             "all table ignores storage mounts of filtered-out apps",
+			withStorageMount: true,
+			args:             []string{"metrics:all", "-1", "-s", "db"},
+			notWant:          "Storage",
+		},
+		{
 			name: "all csv always includes storage",
 			args: []string{"metrics:all", "-1", "--format", "csv"},
 			want: "/tmp inodes %,Storage %\n",
@@ -182,6 +209,7 @@ func TestMetricsStorage(t *testing.T) {
 			args = append(args, "-p", projectID, "-e", "main")
 			stdout, stderr, err := f.RunCombinedOutput(args...)
 			require.NoError(t, err, "stderr: %s", stderr)
+			assert.NotContains(t, stderr, "Warning")
 			if c.want != "" {
 				assert.Contains(t, stdout, c.want)
 			}
