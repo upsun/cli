@@ -76,21 +76,25 @@ func expandAbbreviation(
 
 // isRootBoolFlag tests if arg consists of boolean root flags, e.g. "--yes" or "-vq".
 func isRootBoolFlag(root *cobra.Command, arg string) bool {
-	if arg == "--help" || arg == "-h" {
-		// Cobra only adds the help flag during execution.
-		return true
+	flagSets := []*pflag.FlagSet{root.Flags(), root.PersistentFlags()}
+	isBool := func(lookup func(*pflag.FlagSet) *pflag.Flag) bool {
+		for _, fs := range flagSets {
+			if f := lookup(fs); f != nil {
+				return f.Value.Type() == "bool"
+			}
+		}
+		return false
 	}
-	isBool := func(f *pflag.Flag) bool { return f != nil && f.Value.Type() == "bool" }
 	if name, ok := strings.CutPrefix(arg, "--"); ok {
 		name, _, _ = strings.Cut(name, "=")
-		return isBool(root.PersistentFlags().Lookup(name))
+		return isBool(func(fs *pflag.FlagSet) *pflag.Flag { return fs.Lookup(name) })
 	}
 	shorthands, ok := strings.CutPrefix(arg, "-")
 	if !ok || shorthands == "" {
 		return false
 	}
 	for _, c := range shorthands {
-		if !isBool(root.PersistentFlags().ShorthandLookup(string(c))) {
+		if !isBool(func(fs *pflag.FlagSet) *pflag.Flag { return fs.ShorthandLookup(string(c)) }) {
 			return false
 		}
 	}

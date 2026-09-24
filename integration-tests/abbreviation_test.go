@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,11 +17,13 @@ func TestAbbreviation(t *testing.T) {
 	}{
 		{[]string{"p:init", "--help"}, "Command: project:init"},
 		{[]string{"help", "p:init"}, "Command: project:init"},
+		{[]string{"--help", "p:init"}, "Command: project:init"},
+		{[]string{"--help", "init"}, "Command: project:init"},
 		{[]string{"a:config-v", "--help"}, "Command: app:config-validate"},
 		{[]string{"env:info", "--help"}, "Command: environment:info"},
 	}
 	for _, c := range cases {
-		t.Run(c.args[0], func(t *testing.T) {
+		t.Run(strings.Join(c.args, " "), func(t *testing.T) {
 			assert.Contains(t, f.Run(c.args...), c.expected)
 		})
 	}

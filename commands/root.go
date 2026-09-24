@@ -173,6 +173,9 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		cmd.AddCommand(newProjectConvertCommand(cnf))
 	}
 
+	// Define the help flag before Cobra looks up the command, so that "--help init" does not treat "init" as its value.
+	cmd.InitDefaultHelpFlag()
+
 	//nolint:errcheck
 	viper.BindPFlags(cmd.PersistentFlags())
 

@@ -15,6 +15,7 @@ func TestExpandAbbreviation(t *testing.T) {
 	root.PersistentFlags().BoolP("verbose", "v", false, "")
 	root.PersistentFlags().BoolP("yes", "y", false, "")
 	root.PersistentFlags().String("context", "", "")
+	root.InitDefaultHelpFlag()
 	root.AddCommand(
 		&cobra.Command{Use: "init", Aliases: []string{"project:init", "ify"}},
 		&cobra.Command{Use: "project:convert", Aliases: []string{"convert"}},
