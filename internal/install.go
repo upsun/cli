@@ -213,6 +213,8 @@ func fileExists(p string) bool {
 // A time limit stops a slow database from delaying the command; a timeout
 // counts as owned, to err on the side of silence.
 func ownedBySystemPackage(exe string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 	queries := [][]string{
 		{"dpkg-query", "-S", exe},
 		{"rpm", "-qf", exe},
@@ -223,11 +225,7 @@ func ownedBySystemPackage(exe string) bool {
 		if err != nil {
 			continue
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		err = exec.CommandContext(ctx, p, q[1:]...).Run()
-		timedOut := ctx.Err() != nil
-		cancel()
-		if err == nil || timedOut {
+		if err := exec.CommandContext(ctx, p, q[1:]...).Run(); err == nil || ctx.Err() != nil {
 			return true
 		}
 	}

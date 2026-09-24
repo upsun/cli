@@ -51,8 +51,16 @@ func Save(state State, cnf *config.Config) error {
 	}
 
 	// Write to a temporary file and rename it, so that other processes never
-	// read a partially written file.
-	f, err := os.CreateTemp(filepath.Dir(statePath), ".state-*.tmp")
+	// read a partially written file. The rename can fail on Windows while
+	// another process has the file open, so fall back to a direct write.
+	if err := writeAndRename(statePath, data); err != nil {
+		return os.WriteFile(statePath, data, 0o600)
+	}
+	return nil
+}
+
+func writeAndRename(path string, data []byte) error {
+	f, err := os.CreateTemp(filepath.Dir(path), ".state-*.tmp")
 	if err != nil {
 		return err
 	}
@@ -64,7 +72,7 @@ func Save(state State, cnf *config.Config) error {
 	if err := f.Close(); err != nil {
 		return err
 	}
-	return os.Rename(f.Name(), statePath)
+	return os.Rename(f.Name(), path)
 }
 
 var mu sync.Mutex
