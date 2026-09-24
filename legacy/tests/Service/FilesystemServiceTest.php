@@ -60,6 +60,11 @@ class FilesystemServiceTest extends TestCase
 
         $this->assertTrue($this->fs->remove($testDir, true));
         $this->assertFileDoesNotExist($testDir);
+
+        $testDir = $this->tempDir(true);
+        chmod($testDir . '/test-dir', 0o500);
+        $this->assertTrue($this->fs->remove((fn() => yield $testDir)(), true));
+        $this->assertFileDoesNotExist($testDir);
     }
 
     /**

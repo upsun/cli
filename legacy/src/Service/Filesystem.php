@@ -59,6 +59,9 @@ class Filesystem
         // Symfony renames a directory before deleting its contents, and does
         // not rename it back on failure, so this cannot be done as a retry.
         if ($chmod) {
+            if (!is_string($files)) {
+                $files = iterator_to_array($files, false);
+            }
             $this->unprotect($files, true);
         }
         try {
