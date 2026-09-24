@@ -349,12 +349,6 @@ parameters:
 			path: src/Command/Activity/ActivityLogCommand.php
 
 		-
-			message: '#^Parameter \#2 \$pollInterval of method Platformsh\\Cli\\Service\\ActivityMonitor\:\:waitAndLog\(\) expects int, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Activity/ActivityLogCommand.php
-
-		-
 			message: '#^Parameter \#2 \$timestamps of method Platformsh\\Cli\\Service\\ActivityMonitor\:\:formatLog\(\) expects bool\|string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -633,7 +627,7 @@ parameters:
 		-
 			message: '#^Cannot access offset mixed on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 6
+			count: 5
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
 		-
@@ -658,12 +652,6 @@ parameters:
 			message: '#^Method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:handleScalingSettings\(\) never assigns null to &\$duration so it can be removed from the by\-ref type\.$#'
 			identifier: parameterByRef.unusedType
 			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Offset ''triggers'' might not exist on array\<string, mixed\>\|null\.$#'
-			identifier: offsetAccess.notFound
-			count: 2
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
 		-
@@ -712,12 +700,6 @@ parameters:
 			message: '#^Parameter \#1 \$value of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:validateService\(\) expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$value of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:validateThreshold\(\) expects float\|int, mixed given\.$#'
-			identifier: argument.type
-			count: 2
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
 		-
@@ -1040,12 +1022,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#2 \$sha of method Platformsh\\Cli\\Service\\GitDataApi\:\:getCommit\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Commit/CommitListCommand.php
-
-		-
-			message: '#^Parameter \#3 \$limit of method Platformsh\\Cli\\Command\\Commit\\CommitListCommand\:\:loadCommitList\(\) expects int, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Commit/CommitListCommand.php
@@ -2323,18 +2299,6 @@ parameters:
 			path: src/Command/Local/LocalBuildCommand.php
 
 		-
-			message: '#^Parameter \#2 \$maxAge of method Platformsh\\Cli\\Local\\LocalBuild\:\:cleanBuilds\(\) expects int\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Local/LocalCleanCommand.php
-
-		-
-			message: '#^Parameter \#3 \$keepMax of method Platformsh\\Cli\\Local\\LocalBuild\:\:cleanBuilds\(\) expects int, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Local/LocalCleanCommand.php
-
-		-
 			message: '#^Parameter \#4 \$includeActive of method Platformsh\\Cli\\Local\\LocalBuild\:\:cleanBuilds\(\) expects bool, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -3223,12 +3187,6 @@ parameters:
 			path: src/Command/Project/ProjectCreateCommand.php
 
 		-
-			message: '#^Method Platformsh\\Cli\\Command\\Project\\ProjectCreateCommand\:\:getTimeOption\(\) should return float\|int but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Command/Project/ProjectCreateCommand.php
-
-		-
 			message: '#^Binary operation "\." between ''\<info\>'' and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
 			count: 1
@@ -3573,7 +3531,7 @@ parameters:
 		-
 			message: '#^Cannot access offset ''profile_size'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 4
+			count: 3
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
@@ -4016,12 +3974,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$manifestUrl of method Platformsh\\Cli\\Service\\SelfUpdater\:\:update\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Self/SelfUpdateCommand.php
-
-		-
-			message: '#^Parameter \#1 \$timeout of method Platformsh\\Cli\\Service\\SelfUpdater\:\:setTimeout\(\) expects int, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Self/SelfUpdateCommand.php
@@ -4945,12 +4897,6 @@ parameters:
 			path: src/Command/User/UserGetCommand.php
 
 		-
-			message: '#^Parameter \#2 \$level of method Platformsh\\Cli\\Command\\User\\UserGetCommand\:\:displayRole\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/User/UserGetCommand.php
-
-		-
 			message: '#^Part \$email \(mixed\) of encapsed string cannot be cast to string\.$#'
 			identifier: encapsedStringPart.nonString
 			count: 1
@@ -5617,18 +5563,6 @@ parameters:
 			path: src/Local/DependencyManager/Npm.php
 
 		-
-			message: '#^Cannot access offset 0 on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Local/DependencyManager/Pip.php
-
-		-
-			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Local/DependencyManager/Pip.php
-
-		-
 			message: '#^Binary operation "\." between ''Build flavor not…'' and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
 			count: 1
@@ -6134,12 +6068,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$values of method Symfony\\Component\\Console\\Completion\\CompletionSuggestions\:\:suggestValues\(\) expects list\<string\|Symfony\\Component\\Console\\Completion\\Suggestion\>, array\<string\|Symfony\\Component\\Console\\Completion\\Suggestion\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Parameter \#2 \$appName of class Platformsh\\Cli\\Model\\RemoteContainer\\BrokenEnv constructor expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Selector/Selector.php
@@ -7179,7 +7107,7 @@ parameters:
 		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 12
+			count: 11
 			path: src/Service/Relationships.php
 
 		-
@@ -7251,7 +7179,7 @@ parameters:
 		-
 			message: '#^Possibly invalid array key type mixed\.$#'
 			identifier: offsetAccess.invalidOffset
-			count: 4
+			count: 2
 			path: src/Service/Relationships.php
 
 		-
