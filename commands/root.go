@@ -53,6 +53,10 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		SilenceUsage:       true,
 		SilenceErrors:      false,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+			if isCompletionRequest(cmd) {
+				// Completions must be fast and quiet.
+				return
+			}
 			if viper.GetBool("quiet") && !viper.GetBool("debug") && !viper.GetBool("verbose") {
 				viper.Set("no-interaction", true)
 				cmd.SetErr(io.Discard)
@@ -93,6 +97,9 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 			}
 		},
 		PersistentPostRun: func(cmd *cobra.Command, _ []string) {
+			if isCompletionRequest(cmd) {
+				return
+			}
 			checkShellConfigLeftovers(cmd.ErrOrStderr(), cnf)
 			select {
 			case rel := <-updateMessageChan:
@@ -143,6 +150,7 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 
 	// Add subcommands.
 	cmd.AddCommand(
+		newCompleteCommand(cnf),
 		newConfigInstallCommand(),
 		newCompletionCommand(cnf),
 		newHelpCommand(cnf),
