@@ -22,6 +22,8 @@ class Certifier
 
     private static bool $disableAutoLoad = false;
 
+    private string $keyAlgorithm;
+
     public function __construct(private readonly Api $api, private readonly Config $config, private readonly Shell $shell, private readonly Filesystem $fs, OutputInterface $output, private readonly FileLock $fileLock)
     {
         $this->stdErr = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;
@@ -97,18 +99,6 @@ class Certifier
             $this->shell->execute(['ssh-add', '-d', $privateKeyFilename], null, false, !$this->stdErr->isVeryVerbose());
         }
 
-        // Remove keys left over from a previously used algorithm.
-        foreach (array_diff(self::KEY_ALGORITHMS, [$keyAlgorithm]) as $other) {
-            $otherKey = $dir . DIRECTORY_SEPARATOR . 'id_' . $other;
-            if (!file_exists($otherKey)) {
-                continue;
-            }
-            if ($this->config->getBool('ssh.add_to_agent')) {
-                $this->shell->execute(['ssh-add', '-d', $otherKey], null, false, !$this->stdErr->isVeryVerbose());
-            }
-            $this->fs->remove([$otherKey, $otherKey . '.pub', $otherKey . '-cert.pub']);
-        }
-
         $apiClient = $this->api->getClient();
 
         $keyTtl = (int) $this->config->get('ssh.cert_key_ttl');
@@ -147,6 +137,15 @@ class Certifier
         if ($regenerateKey) {
             $this->rename($tempPrivateKeyFilename, $privateKeyFilename);
             $this->rename($tempPublicKeyFilename, $publicKeyFilename);
+        }
+
+        // Remove keys left over from a previously used algorithm.
+        foreach (array_diff(self::KEY_ALGORITHMS, [$keyAlgorithm]) as $other) {
+            $otherKey = $dir . DIRECTORY_SEPARATOR . 'id_' . $other;
+            if ($this->config->getBool('ssh.add_to_agent') && (file_exists($otherKey) || file_exists($otherKey . '.pub'))) {
+                $this->shell->execute(['ssh-add', '-d', $otherKey], null, false, !$this->stdErr->isVeryVerbose());
+            }
+            $this->fs->remove([$otherKey, $otherKey . '.pub', $otherKey . '-cert.pub']);
         }
 
         $certificate = new Certificate($certificateFilename, $privateKeyFilename);
@@ -262,7 +261,16 @@ class Certifier
      */
     private function keyAlgorithm(): string
     {
-        return self::resolveKeyAlgorithm($this->config->getStr('ssh.cert_key_algorithm'), self::FIPS_ENABLED_FILE);
+        if (isset($this->keyAlgorithm)) {
+            return $this->keyAlgorithm;
+        }
+        try {
+            $algorithm = self::resolveKeyAlgorithm($this->config->getStr('ssh.cert_key_algorithm'), self::FIPS_ENABLED_FILE);
+        } catch (\InvalidArgumentException $e) {
+            $this->stdErr->writeln('<comment>Warning:</comment> ' . $e->getMessage());
+            $algorithm = self::resolveKeyAlgorithm('auto', self::FIPS_ENABLED_FILE);
+        }
+        return $this->keyAlgorithm = $algorithm;
     }
 
     /**
@@ -280,7 +288,7 @@ class Certifier
             return $configured;
         }
         if ($configured !== '' && $configured !== 'auto') {
-            trigger_error(sprintf('Invalid configuration value for ssh.cert_key_algorithm: %s (expected "auto", "rsa" or "ed25519")', $configured), E_USER_WARNING);
+            throw new \InvalidArgumentException(sprintf('Invalid configuration value for ssh.cert_key_algorithm: %s (expected "auto", "rsa" or "ed25519")', $configured));
         }
         $fipsEnabled = is_readable($fipsEnabledFile) && trim((string) file_get_contents($fipsEnabledFile)) === '1';
         return $fipsEnabled ? 'rsa' : 'ed25519';

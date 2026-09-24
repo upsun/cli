@@ -341,9 +341,10 @@ ssh:
 
   # The algorithm of the automatically generated SSH key pair.
   #
-  # Valid values: "auto", "rsa" or "ed25519". The "auto" value (or an invalid
-  # one) means "rsa" if FIPS mode is enabled (detected on Linux via
-  # /proc/sys/crypto/fips_enabled), and "ed25519" otherwise.
+  # Valid values: "auto", "rsa" or "ed25519". The "auto" value means "rsa" if
+  # FIPS mode is enabled (detected on Linux via /proc/sys/crypto/fips_enabled),
+  # and "ed25519" otherwise. An invalid value is treated as "auto", with a
+  # warning.
   # Overridden by the {application.env_prefix}SSH_CERT_KEY_ALGORITHM env var.
   cert_key_algorithm: auto
 

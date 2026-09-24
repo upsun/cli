@@ -20,7 +20,7 @@ func TestSSHCerts(t *testing.T) {
 		filename  string
 		keyType   string
 	}{
-		{"default", "", "id_ed25519", "ssh-ed25519-cert-v01@openssh.com"},
+		{"ed25519", "ed25519", "id_ed25519", "ssh-ed25519-cert-v01@openssh.com"},
 		{"rsa", "rsa", "id_rsa", "ssh-rsa-cert-v01@openssh.com"},
 	}
 	for _, c := range cases {
@@ -36,9 +36,7 @@ func TestSSHCerts(t *testing.T) {
 			defer apiServer.Close()
 
 			f := newCommandFactory(t, apiServer.URL, authServer.URL)
-			if c.algorithm != "" {
-				f.extraEnv = []string{EnvPrefix + "SSH_CERT_KEY_ALGORITHM=" + c.algorithm}
-			}
+			f.extraEnv = []string{EnvPrefix + "SSH_CERT_KEY_ALGORITHM=" + c.algorithm}
 
 			output := f.Run("ssh-cert:info")
 			assert.Regexp(t, `(?m)^filename: .+?`+c.filename+`-cert\.pub$`, output)
@@ -60,6 +58,7 @@ func TestSSHCertAlgorithmSwitch(t *testing.T) {
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
 	f.home = t.TempDir()
 
+	f.extraEnv = []string{EnvPrefix + "SSH_CERT_KEY_ALGORITHM=ed25519"}
 	assert.Contains(t, f.Run("ssh-cert:info"), "key_type: ssh-ed25519-cert-v01@openssh.com\n")
 
 	f.extraEnv = []string{EnvPrefix + "SSH_CERT_KEY_ALGORITHM=rsa"}

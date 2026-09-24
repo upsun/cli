@@ -37,20 +37,15 @@ class CertifierTest extends TestCase
         }
     }
 
-    public function testResolveKeyAlgorithmFallsBackOnUnsupported(): void
+    public function testResolveKeyAlgorithmRejectsUnsupported(): void
     {
-        $warnings = [];
-        set_error_handler(function (int $errno, string $errstr) use (&$warnings): bool {
-            $warnings[] = $errstr;
-            return true;
-        }, E_USER_WARNING);
-        try {
-            foreach (['ecdsa', '../rsa'] as $value) {
-                $this->assertSame('ed25519', Certifier::resolveKeyAlgorithm($value, '/nonexistent'));
+        foreach (['ecdsa', '../rsa'] as $value) {
+            try {
+                Certifier::resolveKeyAlgorithm($value, '/nonexistent');
+                $this->fail('Expected exception for: ' . $value);
+            } catch (\InvalidArgumentException) {
+                $this->addToAssertionCount(1);
             }
-        } finally {
-            restore_error_handler();
         }
-        $this->assertCount(2, $warnings);
     }
 }
