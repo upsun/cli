@@ -78,12 +78,13 @@ type BuildConfig struct {
 // Dependency version map under Docs.
 type Dependency map[string]string
 
-// VersionInfo lists deprecated, supported, and optional legacy versions.
+// VersionInfo lists deprecated, supported, and optional legacy and retired versions.
 type VersionInfo struct {
 	Supported []string `json:"supported"`
 
 	Deprecated []string `json:"deprecated,omitempty" yaml:"deprecated,omitempty"`
 	Legacy     []string `json:"legacy,omitempty" yaml:"legacy,omitempty"`
+	Retired    []string `json:"retired,omitempty" yaml:"retired,omitempty"`
 }
 
 // UnmarshalJSON handles both string and object formats for versions field.
@@ -105,13 +106,4 @@ func (v *VersionInfo) UnmarshalJSON(data []byte) error {
 	}
 	*v = VersionInfo(obj)
 	return nil
-}
-
-// LatestVersion returns the most recent supported version.
-// Returns empty string if no supported versions exist.
-func (v VersionInfo) LatestVersion() string {
-	if len(v.Supported) == 0 {
-		return ""
-	}
-	return v.Supported[0]
 }

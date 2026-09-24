@@ -12,7 +12,15 @@ import (
 func CheckTypes(cfg *Config, reg registry.Registry) *Result {
 	result := &Result{}
 
-	check := func(t string, runtime bool) error { return checkType(t, reg, runtime) }
+	// check reports an error, or a warning for a retired version, at path.
+	check := func(path, t string, runtime bool) {
+		warning, err := checkType(t, reg, runtime)
+		if err != nil {
+			result.AddError(path, err.Error())
+		} else if warning != "" {
+			result.AddWarning(path, warning)
+		}
+	}
 
 	for appName := range cfg.Applications {
 		app := cfg.Applications[appName]
@@ -22,9 +30,7 @@ func CheckTypes(cfg *Config, reg registry.Registry) *Result {
 				"'type' should be specified (as a composable image) when using 'stack'")
 			continue
 		}
-		if err := check(app.Type, true); err != nil {
-			result.AddError("applications."+appName+".type", err.Error())
-		}
+		check("applications."+appName+".type", app.Type, true)
 		isComposable := strings.HasPrefix(app.Type, "composable")
 		if isComposable && isStackEmpty(app.Stack) {
 			result.AddWarning("applications."+appName, "'stack' should be specified when using a composable image")
@@ -36,24 +42,22 @@ func CheckTypes(cfg *Config, reg registry.Registry) *Result {
 		app := cfg.Applications[appName]
 		for workerName, w := range app.Workers {
 			if w.Type != "" {
-				if err := check(w.Type, true); err != nil {
-					result.AddError("applications."+appName+".workers."+workerName+".type", err.Error())
-				}
+				check("applications."+appName+".workers."+workerName+".type", w.Type, true)
 			}
 		}
 	}
 	for serviceName, service := range cfg.Services {
-		if err := check(service.Type, false); err != nil {
-			result.AddError("services."+serviceName+".type", err.Error())
-		}
+		check("services."+serviceName+".type", service.Type, false)
 	}
 
 	return result
 }
 
-func checkType(t string, reg registry.Registry, runtime bool) error {
+// checkType validates an image type and version. It returns a warning for a
+// retired version, or an error if the type or version is not allowed.
+func checkType(t string, reg registry.Registry, runtime bool) (string, error) {
 	if t == "" {
-		return fmt.Errorf("type cannot be empty")
+		return "", fmt.Errorf("type cannot be empty")
 	}
 
 	parts := strings.SplitN(t, ":", 2)
@@ -65,27 +69,33 @@ func checkType(t string, reg registry.Registry, runtime bool) error {
 
 	if img, ok := reg[imageType]; ok {
 		if img.IsRuntime && !runtime {
-			return fmt.Errorf("type '%s' is a runtime type, not a service type", imageType)
+			return "", fmt.Errorf("type '%s' is a runtime type, not a service type", imageType)
 		} else if !img.IsRuntime && runtime {
-			return fmt.Errorf("type '%s' is a service type, not a runtime type", imageType)
+			return "", fmt.Errorf("type '%s' is a service type, not a runtime type", imageType)
+		}
+
+		supported := strings.Join(img.Versions.Supported, ", ")
+		if slices.Contains(img.Versions.Retired, version) {
+			return fmt.Sprintf("version '%s' of type '%s' is retired; use one of: %s",
+				version, imageType, supported), nil
 		}
 
 		// Allow supported or legacy versions, but only mention supported ones in the error.
-		allVersions := append(img.Versions.Supported, img.Versions.Legacy...) //nolint:gocritic
+		allVersions := slices.Concat(img.Versions.Supported, img.Versions.Legacy, img.Versions.Retired)
 		if !slices.Contains(allVersions, version) {
 			if hasMajorVersion(allVersions, version) {
-				return fmt.Errorf(
+				return "", fmt.Errorf(
 					"version '%s' is not precise enough for type '%s'; it must be exactly one of: %s",
-					version, imageType, strings.Join(img.Versions.Supported, ", "))
+					version, imageType, supported)
 			}
-			return fmt.Errorf(
+			return "", fmt.Errorf(
 				"version '%s' is not supported for type '%s'; it must be exactly one of: %s",
-				version, imageType, strings.Join(img.Versions.Supported, ", "))
+				version, imageType, supported)
 		}
-		return nil
+		return "", nil
 	}
 
-	return fmt.Errorf("type not found: '%s'; it must be one of: %s "+
+	return "", fmt.Errorf("type not found: '%s'; it must be one of: %s "+
 		"(check the Registry for supported types, or make an application using a composable image)",
 		imageType, strings.Join(reg.AllTypes(runtime), ", "))
 }

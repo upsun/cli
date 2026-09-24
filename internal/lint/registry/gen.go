@@ -57,7 +57,7 @@ func run() error {
 
 	reg := make(registry.Registry, len(images))
 	for typeName, img := range images {
-		var supported, legacy []string
+		var supported, legacy, retired []string
 		for version, info := range img.Versions {
 			switch info.Upsun.Status {
 			case "supported":
@@ -65,16 +65,20 @@ func run() error {
 			case "deprecated":
 				// Deprecated versions still deploy, so treat them as legacy (allowed).
 				legacy = append(legacy, version)
+			case "retired":
+				// Retired versions are allowed with a warning.
+				retired = append(retired, version)
 			}
-			// "retired" and "decommissioned" versions are omitted, so they fail linting.
+			// "decommissioned" versions are omitted, so they fail linting.
 		}
 		sortVersionsDescending(supported)
 		sortVersionsDescending(legacy)
+		sortVersionsDescending(retired)
 		reg[typeName] = registry.Image{
 			Name:      img.Name,
 			Type:      typeName,
 			IsRuntime: !img.Service,
-			Versions:  registry.VersionInfo{Supported: supported, Legacy: legacy},
+			Versions:  registry.VersionInfo{Supported: supported, Legacy: legacy, Retired: retired},
 		}
 	}
 

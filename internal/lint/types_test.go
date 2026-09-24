@@ -126,3 +126,22 @@ applications:
 		})
 	}
 }
+
+func TestCheckTypes_RetiredVersion(t *testing.T) {
+	reg := registry.Registry{
+		"golang": {Type: "golang", IsRuntime: true, Versions: registry.VersionInfo{
+			Supported: []string{"1.27", "1.26"},
+			Retired:   []string{"1.25"},
+		}},
+	}
+	cfg, err := lint.DecodeConfig(`
+applications:
+  foo:
+    type: golang:1.25`)
+	require.NoError(t, err)
+
+	result := lint.CheckTypes(cfg, reg)
+	assert.False(t, result.HasErrors())
+	assert.Equal(t, `linter warnings:
+  - applications.foo.type: version '1.25' of type 'golang' is retired; use one of: 1.27, 1.26`, result.Error())
+}
