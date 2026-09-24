@@ -164,10 +164,11 @@ class QuestionHelper extends BaseQuestionHelper
         // treat the items as a list and return values, so resolve answers to
         // keys here. A key takes precedence over an identical value.
         $question->setValidator(function (mixed $answer) use ($items): string {
-            $answer = is_scalar($answer) ? trim((string) $answer) : '';
-            if ($answer === '') {
+            // Symfony passes null for an empty answer with no default.
+            if ($answer === null) {
                 throw new \InvalidArgumentException('A choice is required');
             }
+            $answer = is_scalar($answer) ? trim((string) $answer) : '';
             if (array_key_exists($answer, $items)) {
                 return $answer;
             }

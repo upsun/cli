@@ -25,6 +25,7 @@ class QuestionHelperTest extends TestCase
             'integer value' => [['1' => 'One', '2' => 'Two'], "Two\n", null, '2'],
             'integer default' => [['1' => 'One', '2' => 'Two'], "\n", '2', '2'],
             'key before value' => [['1' => '2', '2' => 'Two'], "2\n", null, '2'],
+            'empty key as default' => [['' => 'None', 'a' => 'Apple'], "\n", '', ''],
         ];
     }
 
