@@ -659,36 +659,39 @@ install_raw() {
     install_completion "${tmp_dir}/completion"
 }
 
-# Copy a completion file into a directory that the shell loads by itself.
-# Arguments: shell, source file, destination directory, destination file name
+# Copy a completion file, if its shell is available.
+# Arguments: shell, source file, destination directory, destination file name, [message suffix]
 copy_completion() {
     if [ ! -f "$2" ] || ! command -v "$1" >/dev/null 2>&1; then
-        return
+        return 1
     fi
     if mkdir -p "$3" && cp "$2" "$3/$4"; then
-        output "  Installed $1 completion in $3/$4"
+        output "  Installed $1 completion in $3/$4${5:-}"
     else
         output "  Could not install $1 completion in $3" "warning"
+        return 1
     fi
 }
 
 # Set up shell completion for the current user, without editing shell config files.
 install_completion() {
-    if is_ci; then
+    if is_ci || [ -z "${HOME:-}" ] || [ ! -d "$1" ]; then
         return
     fi
 
     output "\nSetting up shell completion" "heading"
 
-    # Loaded on demand by bash-completion 2.
+    data_dir="${XDG_DATA_HOME:-$HOME/.local/share}"
     copy_completion bash "$1/bash/${binary}.bash" \
-        "${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions" "${binary}"
+        "${data_dir}/bash-completion/completions" "${binary}" " (loaded by bash-completion 2)" || true
     copy_completion fish "$1/fish/${binary}.fish" \
-        "${XDG_CONFIG_HOME:-$HOME/.config}/fish/completions" "${binary}.fish"
+        "${XDG_CONFIG_HOME:-$HOME/.config}/fish/completions" "${binary}.fish" || true
 
-    # zsh has no user directory in fpath by default.
-    if echo "${SHELL:-}" | grep '/zsh' > /dev/null; then
-        completion_note='  To enable shell completion, add this line to ~/.zshrc (after compinit):\n    eval "$('"${run_cmd}"' completion zsh)"'
+    # zsh has no user directory in fpath by default, and Symfony's zsh script
+    # misses the first Tab when autoloaded from fpath, so it is sourced instead.
+    if copy_completion zsh "$1/zsh/_${binary}" "${data_dir}/${binary}" "completion.zsh" \
+        && echo "${SHELL:-}" | grep '/zsh' > /dev/null; then
+        completion_note='  To enable shell completion, add this line to ~/.zshrc (after compinit):\n    source "'"${data_dir}/${binary}/completion.zsh"'"'
     fi
 }
 
