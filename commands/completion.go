@@ -96,7 +96,8 @@ func newCompleteCommand(cnf *config.Config) *cobra.Command {
 }
 
 // holdStderr runs fn with a buffered stderr, which is only written out if fn
-// fails or debug mode is on. The bash completion script captures stderr along
+// fails or debug mode is on. As _complete does not parse flags, debug mode
+// can only be enabled with the <PREFIX>DEBUG environment variable. The bash completion script captures stderr along
 // with stdout and, on success, offers all of it as suggestions, so a warning
 // (e.g. from PHP) must not get through; on failure it prints the output as a
 // diagnostic.
