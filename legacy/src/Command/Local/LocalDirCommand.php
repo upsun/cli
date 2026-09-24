@@ -7,6 +7,7 @@ namespace Platformsh\Cli\Command\Local;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Exception\RootNotFoundException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
@@ -43,7 +44,7 @@ class LocalDirCommand extends CommandBase
             'web_root' => $this->config->getStr('local.web_root'),
         ];
 
-        $subDir = $input->getArgument('subdir');
+        $subDir = Argument::stringOrNull($input, 'subdir');
         if ($subDir) {
             if (!isset($subDirs[$subDir])) {
                 $this->stdErr->writeln("Unknown subdirectory: <error>$subDir</error>");

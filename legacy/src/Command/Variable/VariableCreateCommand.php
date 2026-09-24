@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Command\Variable;
 
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selection;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
@@ -68,24 +70,24 @@ class VariableCreateCommand extends CommandBase
         // against the list of environment IDs. Replace the default-environment
         // placeholder ('.') with the resolved environment ID so validation
         // succeeds. See CLI-164.
-        if ($selection->hasEnvironment() && $input->getOption('environment') === Selector::DEFAULT_ENVIRONMENT_CODE) {
+        if ($selection->hasEnvironment() && Option::stringOrNull($input, 'environment') === Selector::DEFAULT_ENVIRONMENT_CODE) {
             $input->setOption('environment', $selection->getEnvironment()->id);
         }
 
         // Merge the 'name' argument with the --name option.
-        if ($input->getArgument('name')) {
-            if ($input->getOption('name')) {
+        if ($nameArgument = Argument::stringOrNull($input, 'name')) {
+            if (Option::stringOrNull($input, 'name')) {
                 $this->stdErr->writeln('You cannot use both the <error>name</error> argument and <error>--name</error> option.');
 
                 return 1;
             }
-            $input->setOption('name', $input->getArgument('name'));
+            $input->setOption('name', $nameArgument);
         }
 
         // Check whether the variable already exists, if a name is provided.
-        if (($name = $input->getOption('name'))) {
-            if (($prefix = $input->getOption('prefix')) && $prefix !== 'none') {
-                $name = rtrim((string) $prefix, ':') . ':' . $name;
+        if (($name = Option::stringOrNull($input, 'name'))) {
+            if (($prefix = Option::string($input, 'prefix')) && $prefix !== 'none') {
+                $name = rtrim($prefix, ':') . ':' . $name;
             }
             $existing = $this->variableCommandUtil->getExistingVariable($name, $selection, $this->variableCommandUtil->getRequestedLevel($input), false);
             if ($existing) {

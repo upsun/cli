@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Db;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
@@ -48,7 +50,8 @@ class DbSqlCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        if (!$input->getArgument('query') && $this->runningViaMulti) {
+        $query = Argument::stringOrNull($input, 'query');
+        if (!$query && $this->runningViaMulti) {
             throw new InvalidArgumentException('The query argument is required when running via "multi"');
         }
 
@@ -68,7 +71,7 @@ class DbSqlCommand extends CommandBase
             return 1;
         }
 
-        $schema = $input->getOption('schema');
+        $schema = Option::stringOrNull($input, 'schema');
         if ($schema === null) {
             if ($selection->hasEnvironment()) {
                 // Get information about the deployed service associated with the
@@ -113,8 +116,6 @@ class DbSqlCommand extends CommandBase
                 $schema = $schema === '(none)' ? '' : $schema;
             }
         }
-
-        $query = $input->getArgument('query');
 
         switch ($database['scheme']) {
             case 'pgsql':

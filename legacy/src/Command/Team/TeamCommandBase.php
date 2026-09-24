@@ -10,6 +10,7 @@ use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\Api;
 use Symfony\Contracts\Service\Attribute\Required;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Cli\Exception\NoOrganizationsException;
 use Platformsh\Cli\Util\PaginationUtil;
@@ -64,13 +65,13 @@ class TeamCommandBase extends CommandBase
      */
     public function validateTeamInput(InputInterface $input, ?Organization $organization = null): false|Team
     {
-        if ($organization === null && $input->hasOption('org') && $input->getOption('org') !== null) {
+        if ($organization === null && $input->hasOption('org') && Option::stringOrNull($input, 'org') !== null) {
             $organization = $this->selectOrganization($input);
             if (!$organization) {
                 return false;
             }
         }
-        if ($teamInput = $input->getOption('team')) {
+        if ($teamInput = Option::stringOrNull($input, 'team')) {
             $team = $this->api->getClient()->getTeam($teamInput);
             if (!$team) {
                 $this->stdErr->writeln('Team not found: <error>' . $teamInput . '</error>');

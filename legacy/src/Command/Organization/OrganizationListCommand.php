@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Organization;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -65,12 +66,12 @@ class OrganizationListCommand extends OrganizationCommandBase
             $organizations = $client->listOrganizationsWithMember($userId);
         }
 
-        if ($input->hasOption('type') && ($type = $input->getOption('type'))) {
+        if ($input->hasOption('type') && ($type = Option::stringOrNull($input, 'type'))) {
             $organizations = array_filter($organizations, function (Organization $org) use ($type) {
                 return $org->getProperty('type', false) === $type;
             });
         }
-        if ($sortBy = $input->getOption('sort')) {
+        if ($sortBy = Option::stringOrNull($input, 'sort')) {
             $this->api->sortResources($organizations, $sortBy);
         }
         if ($input->getOption('reverse')) {

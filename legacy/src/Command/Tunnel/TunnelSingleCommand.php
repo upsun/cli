@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Tunnel;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Api;
@@ -83,7 +84,7 @@ class TunnelSingleCommand extends TunnelCommandBase
         $sshArgs = $this->ssh->getSshArgs($sshUrl, $sshOptions);
 
         $localPort = null;
-        if ($portOption = $input->getOption('port')) {
+        if ($portOption = Option::stringOrNull($input, 'port')) {
             if (!PortUtil::validatePort($portOption)) {
                 $this->stdErr->writeln(sprintf('Invalid port: <error>%s</error>', $portOption));
 

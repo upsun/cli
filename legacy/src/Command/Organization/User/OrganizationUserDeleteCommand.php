@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Organization\User;
 
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\QuestionHelper;
@@ -41,7 +42,7 @@ class OrganizationUserDeleteCommand extends OrganizationCommandBase
             return 1;
         }
 
-        $email = $input->getArgument('email');
+        $email = Argument::string($input, 'email');
 
         $member = $this->api->loadMemberByEmail($organization, $email);
         if (!$member) {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Service\MongoDB;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Selector\SelectorConfig;
@@ -54,8 +55,8 @@ class MongoRestoreCommand extends CommandBase
 
         $command = 'mongorestore ' . $this->relationships->getDbCommandArgs('mongorestore', $service);
 
-        if ($input->getOption('collection')) {
-            $command .= ' --collection ' . OsUtil::escapePosixShellArg($input->getOption('collection'));
+        if ($collection = Option::stringOrNull($input, 'collection')) {
+            $command .= ' --collection ' . OsUtil::escapePosixShellArg($collection);
         }
 
         $command .= ' --archive';

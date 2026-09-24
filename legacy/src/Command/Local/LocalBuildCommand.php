@@ -10,6 +10,8 @@ use Platformsh\Cli\Service\Filesystem;
 use Platformsh\Cli\Local\LocalBuild;
 use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Exception\RootNotFoundException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
@@ -129,7 +131,7 @@ class LocalBuildCommand extends CommandBase
     {
         $projectRoot = $this->selector->getProjectRoot();
 
-        $sourceDirOption = $input->getOption('source');
+        $sourceDirOption = Option::stringOrNull($input, 'source');
 
         // If no project root is found, ask the user for a source directory.
         if (!$projectRoot && !$sourceDirOption && $input->isInteractive()) {
@@ -154,7 +156,7 @@ class LocalBuildCommand extends CommandBase
             $sourceDir = $projectRoot;
         }
 
-        $destination = $input->getOption('destination');
+        $destination = Option::stringOrNull($input, 'destination');
 
         // If no project root is found, ask the user for a destination path.
         if (!$projectRoot && !$destination && $input->isInteractive()) {
@@ -196,7 +198,7 @@ class LocalBuildCommand extends CommandBase
             }
         }
 
-        $apps = $input->getArgument('app');
+        $apps = Argument::stringArray($input, 'app');
         $success = $this->localBuild->build($input->getOptions(), $sourceDir, $destination, $apps);
 
         return $success ? 0 : 1;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\SshKey;
 
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\QuestionHelper;
@@ -36,7 +37,7 @@ class SshKeyDeleteCommand extends SshKeyCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $id = $input->getArgument('id');
+        $id = Argument::stringOrNull($input, 'id');
         if (empty($id) && $input->isInteractive()) {
             $keys = $this->api->getSshKeys(true);
             if (empty($keys)) {

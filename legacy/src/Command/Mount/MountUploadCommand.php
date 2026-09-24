@@ -63,8 +63,8 @@ class MountUploadCommand extends CommandBase
             return 1;
         }
 
-        if ($input->getOption('mount')) {
-            $mountPath = $this->mount->matchMountPath($input->getOption('mount'), $mounts);
+        if ($mountPathOption = Option::stringOrNull($input, 'mount')) {
+            $mountPath = $this->mount->matchMountPath($mountPathOption, $mounts);
         } elseif ($input->isInteractive()) {
             $options = [];
             foreach ($mounts as $path => $definition) {
@@ -87,8 +87,8 @@ class MountUploadCommand extends CommandBase
 
         $source = null;
         $defaultSource = null;
-        if ($input->getOption('source')) {
-            $source = $input->getOption('source');
+        if ($sourceOption = Option::stringOrNull($input, 'source')) {
+            $source = $sourceOption;
         } elseif ($projectRoot = $this->selector->getProjectRoot()) {
             $sharedMounts = $this->mount->getSharedFileMounts($mounts);
             if (isset($sharedMounts[$mountPath])) {
@@ -141,8 +141,8 @@ class MountUploadCommand extends CommandBase
 
         $rsyncOptions = [
             'delete' => $input->getOption('delete'),
-            'exclude' => $input->getOption('exclude'),
-            'include' => $input->getOption('include'),
+            'exclude' => Option::stringArray($input, 'exclude'),
+            'include' => Option::stringArray($input, 'include'),
             'verbose' => $output->isVeryVerbose(),
             'quiet' => $output->isQuiet(),
         ];

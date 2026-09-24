@@ -168,7 +168,7 @@ class EnvironmentHttpAccessCommand extends CommandBase
         $accessOpts = [];
         $change = false;
 
-        $enabled = $input->getOption('enabled');
+        $enabled = Option::stringOrNull($input, 'enabled');
         if ($enabled !== null) {
             $change = true;
             $accessOpts['is_enabled'] = !in_array($enabled, ['0', 'false']);

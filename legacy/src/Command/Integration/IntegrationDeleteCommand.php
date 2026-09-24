@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Integration;
 
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
 use Platformsh\Cli\Service\QuestionHelper;
@@ -34,7 +35,7 @@ class IntegrationDeleteCommand extends IntegrationCommandBase
         $selection = $this->selector->getSelection($input);
         $project = $selection->getProject();
 
-        $integration = $this->selectIntegration($project, $input->getArgument('id'), $input->isInteractive());
+        $integration = $this->selectIntegration($project, Argument::stringOrNull($input, 'id'), $input->isInteractive());
         if (!$integration) {
             return 1;
         }

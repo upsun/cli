@@ -77,7 +77,7 @@ class EnvironmentInitCommand extends CommandBase
         $message = 'Initializing project ';
         $message .= $this->api->getProjectLabel($selection->getProject());
         $message .= ', environment ' . $this->api->getEnvironmentLabel($environment);
-        if ($input->getOption('profile')) {
+        if (Option::stringOrNull($input, 'profile')) {
             $message .= ' with profile <info>' . $profile . '</info> (' . $url . ')';
         } else {
             $message .= ' with repository <info>' . $url . '</info>.';

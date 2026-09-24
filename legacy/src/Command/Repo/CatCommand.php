@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Repo;
 
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Config;
@@ -43,7 +44,7 @@ class CatCommand extends RepoCommandBase
         $selection = $this->selector->getSelection($input, new SelectorConfig(selectDefaultEnv: true));
 
         try {
-            return $this->cat($input->getArgument('path'), $selection->getEnvironment(), $input, $output);
+            return $this->cat(Argument::string($input, 'path'), $selection->getEnvironment(), $input, $output);
         } catch (GitObjectTypeException $e) {
             $this->stdErr->writeln(sprintf(
                 '%s: <error>%s</error>',

@@ -2,6 +2,7 @@
 
 namespace Platformsh\Cli\Command\Autoscaling;
 
+use Platformsh\Cli\Console\Option;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -110,7 +111,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
         }
 
         // Validate the --service option.
-        $service = $input->getOption('service');
+        $service = Option::stringOrNull($input, 'service');
         if ($service !== null) {
             $service = $this->validateService($service, $services);
             $this->validateServiceSupportsAutoscaling($service, $services[$service], $selection->getProject());
@@ -119,52 +120,52 @@ class AutoscalingSettingsSetCommand extends CommandBase
         $supportedMetrics = $this->getSupportedMetrics($defaults);
 
         // Validate the --metric option.
-        $metric = $input->getOption('metric');
+        $metric = Option::stringOrNull($input, 'metric');
         if ($metric !== null) {
             $metric = $this->validateMetric($metric, $supportedMetrics);
         }
 
         // Validate the --enabled option.
-        $enabled = $input->getOption('enabled');
+        $enabled = Option::stringOrNull($input, 'enabled');
         if ($enabled !== null) {
             $enabled = $this->validateBoolean($enabled);
         }
 
         // Validate the --*-up options.
-        $thresholdUp = $input->getOption('threshold-up');
-        if (is_string($thresholdUp)) {
+        $thresholdUp = Option::stringOrNull($input, 'threshold-up');
+        if ($thresholdUp !== null) {
             $thresholdUp = $this->validateThreshold($thresholdUp, 'threshold-up');
         }
-        $durationUp = $input->getOption('duration-up');
+        $durationUp = Option::stringOrNull($input, 'duration-up');
         if ($durationUp !== null) {
             $durationUp = $this->validateDuration($durationUp);
         }
-        $cooldownUp = $input->getOption('cooldown-up');
+        $cooldownUp = Option::stringOrNull($input, 'cooldown-up');
         if ($cooldownUp !== null) {
             $cooldownUp = $this->validateDuration($cooldownUp);
         }
 
         // Validate the --*-down options.
-        $thresholdDown = $input->getOption('threshold-down');
-        if (is_string($thresholdDown)) {
+        $thresholdDown = Option::stringOrNull($input, 'threshold-down');
+        if ($thresholdDown !== null) {
             $thresholdDown = $this->validateThreshold($thresholdDown, 'threshold-down');
         }
-        $durationDown = $input->getOption('duration-down');
+        $durationDown = Option::stringOrNull($input, 'duration-down');
         if ($durationDown !== null) {
             $durationDown = $this->validateDuration($durationDown);
         }
-        $cooldownDown = $input->getOption('cooldown-down');
+        $cooldownDown = Option::stringOrNull($input, 'cooldown-down');
         if ($cooldownDown !== null) {
             $cooldownDown = $this->validateDuration($cooldownDown);
         }
 
         // Validate the --instances-* options.
         $instanceLimit = $defaults['instances']['max'];
-        $instancesMin = $input->getOption('instances-min');
+        $instancesMin = Option::stringOrNull($input, 'instances-min');
         if ($instancesMin !== null) {
             $instancesMin = $this->validateInstanceCount($instancesMin, $instanceLimit, 'instances-min');
         }
-        $instancesMax = $input->getOption('instances-max');
+        $instancesMax = Option::stringOrNull($input, 'instances-max');
         if ($instancesMax !== null) {
             $instancesMax = $this->validateInstanceCount($instancesMax, $instanceLimit, 'instances-max');
         }

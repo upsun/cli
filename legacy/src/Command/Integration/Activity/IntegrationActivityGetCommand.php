@@ -73,7 +73,8 @@ class IntegrationActivityGetCommand extends IntegrationCommandBase
         /** @var \Platformsh\Client\Model\Activity $activity */
         $properties = $activity->getProperties();
 
-        if (!$input->getOption('property') && !$this->table->formatIsMachineReadable()) {
+        $property = Option::stringOrNull($input, 'property');
+        if (!$property && !$this->table->formatIsMachineReadable()) {
             $properties['description'] = ActivityMonitor::getFormattedDescription($activity, true);
         } else {
             $properties['description'] = $activity->description;
@@ -84,7 +85,7 @@ class IntegrationActivityGetCommand extends IntegrationCommandBase
             $properties['duration'] = (new \Platformsh\Cli\Model\Activity())->getDuration($activity);
         }
 
-        if ($property = Option::stringOrNull($input, 'property')) {
+        if ($property) {
             $this->propertyFormatter->displayData($output, $properties, $property);
             return 0;
         }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Integration;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\PropertyFormatter;
@@ -38,12 +40,12 @@ class IntegrationGetCommand extends IntegrationCommandBase
 
         $project = $selection->getProject();
 
-        $integration = $this->selectIntegration($project, $input->getArgument('id'), $input->isInteractive());
+        $integration = $this->selectIntegration($project, Argument::stringOrNull($input, 'id'), $input->isInteractive());
         if (!$integration) {
             return 1;
         }
 
-        if ($property = $input->getOption('property')) {
+        if ($property = Option::stringOrNull($input, 'property')) {
             if ($property === 'hook_url' && $integration->hasLink('#hook')) {
                 $value = $integration->getLink('#hook');
             } else {

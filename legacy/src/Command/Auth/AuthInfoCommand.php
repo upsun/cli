@@ -8,6 +8,8 @@ use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Table;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
@@ -43,8 +45,8 @@ class AuthInfoCommand extends CommandBase
             return 0;
         }
 
-        $property = $input->getArgument('property');
-        if ($input->getOption('property')) {
+        $property = Argument::stringOrNull($input, 'property');
+        if ($propertyOption = Option::stringOrNull($input, 'property')) {
             if ($property) {
                 throw new InvalidArgumentException(
                     sprintf(
@@ -54,7 +56,7 @@ class AuthInfoCommand extends CommandBase
                     ),
                 );
             }
-            $property = $input->getOption('property');
+            $property = $propertyOption;
         }
 
         // Exit early if it's the user ID.

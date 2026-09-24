@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\Identifier;
@@ -173,8 +174,8 @@ class MultiCommand extends CommandBase
     protected function getAllProjectsBasicInfo(InputInterface $input): array
     {
         $projects = $this->api->getMyProjects();
-        if ($input->getOption('sort')) {
-            Sort::sortObjects($projects, $input->getOption('sort'));
+        if ($sort = Option::string($input, 'sort')) {
+            Sort::sortObjects($projects, $sort);
         }
         if ($input->getOption('reverse')) {
             $projects = array_reverse($projects, true);

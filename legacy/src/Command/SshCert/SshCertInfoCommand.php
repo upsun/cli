@@ -7,6 +7,7 @@ namespace Platformsh\Cli\Command\SshCert;
 use Platformsh\Cli\SshCert\Certifier;
 use Platformsh\Cli\Service\SshConfig;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
@@ -55,7 +56,7 @@ class SshCertInfoCommand extends CommandBase
             'extensions' => $cert->metadata()->getExtensions(),
         ];
 
-        $this->propertyFormatter->displayData($output, $properties, $input->getOption('property'));
+        $this->propertyFormatter->displayData($output, $properties, Option::stringOrNull($input, 'property'));
 
         return 0;
     }

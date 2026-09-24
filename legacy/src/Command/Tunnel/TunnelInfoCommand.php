@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Tunnel;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Config;
@@ -73,7 +74,7 @@ class TunnelInfoCommand extends TunnelCommandBase
         }
 
         if ($input->getOption('encode')) {
-            if ($input->getOption('property')) {
+            if (Option::stringOrNull($input, 'property')) {
                 $this->stdErr->writeln('You cannot combine --encode with --property.');
                 return 1;
             }
@@ -81,7 +82,7 @@ class TunnelInfoCommand extends TunnelCommandBase
             $output->writeln(base64_encode((string) json_encode($relationships)));
             return 0;
         }
-        $this->propertyFormatter->displayData($output, $relationships, $input->getOption('property'));
+        $this->propertyFormatter->displayData($output, $relationships, Option::stringOrNull($input, 'property'));
 
         return 0;
     }

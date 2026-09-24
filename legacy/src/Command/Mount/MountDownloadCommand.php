@@ -71,14 +71,14 @@ class MountDownloadCommand extends CommandBase
 
         $all = $input->getOption('all');
 
-        if ($input->getOption('mount')) {
+        if ($mountPathOption = Option::stringOrNull($input, 'mount')) {
             if ($all) {
                 $this->stdErr->writeln('You cannot combine the <error>--mount</error> option with <error>--all</error>.');
 
                 return 1;
             }
 
-            $mountPath = $this->mount->matchMountPath($input->getOption('mount'), $mounts);
+            $mountPath = $this->mount->matchMountPath($mountPathOption, $mounts);
         } elseif (!$all && $input->isInteractive()) {
             $mountOptions = [];
             foreach ($mounts as $path => $definition) {
@@ -106,8 +106,8 @@ class MountDownloadCommand extends CommandBase
         }
 
         $target = null;
-        if ($input->getOption('target')) {
-            $target = $input->getOption('target');
+        if ($targetOption = Option::stringOrNull($input, 'target')) {
+            $target = $targetOption;
         }
 
         if (empty($target) && $input->isInteractive()) {
@@ -141,8 +141,8 @@ class MountDownloadCommand extends CommandBase
 
         $rsyncOptions = [
             'delete' => $input->getOption('delete'),
-            'exclude' => $input->getOption('exclude'),
-            'include' => $input->getOption('include'),
+            'exclude' => Option::stringArray($input, 'exclude'),
+            'include' => Option::stringArray($input, 'include'),
             'verbose' => $output->isVeryVerbose(),
             'quiet' => $output->isQuiet(),
         ];

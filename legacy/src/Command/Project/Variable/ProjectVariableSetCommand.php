@@ -8,6 +8,7 @@ use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -49,8 +50,8 @@ class ProjectVariableSetCommand extends CommandBase
     {
         $selection = $this->selector->getSelection($input);
 
-        $variableName = $input->getArgument('name');
-        $variableValue = $input->getArgument('value');
+        $variableName = Argument::string($input, 'name');
+        $variableValue = Argument::string($input, 'value');
         $json = $input->getOption('json');
         $supressBuild = $input->getOption('no-visible-build');
         $supressRuntime = $input->getOption('no-visible-runtime');

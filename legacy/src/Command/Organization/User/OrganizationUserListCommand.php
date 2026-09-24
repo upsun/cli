@@ -8,6 +8,7 @@ use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Command\Organization\OrganizationCommandBase;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
@@ -66,7 +67,7 @@ class OrganizationUserListCommand extends OrganizationCommandBase
 
         $options = [];
 
-        $count = $input->getOption('count');
+        $count = Option::stringOrNull($input, 'count');
         $itemsPerPage = $this->config->getInt('pagination.count');
         if ($count !== null && $count !== '0') {
             if (!\is_numeric($count) || $count > 100) {
@@ -76,7 +77,7 @@ class OrganizationUserListCommand extends OrganizationCommandBase
             $itemsPerPage = $count;
         }
 
-        if ($sort = $input->getOption('sort')) {
+        if ($sort = Option::string($input, 'sort')) {
             if ($input->getOption('reverse')) {
                 $sort = '-' . $sort;
             }

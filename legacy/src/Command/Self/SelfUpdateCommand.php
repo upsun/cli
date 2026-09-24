@@ -33,8 +33,8 @@ class SelfUpdateCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $manifestUrl = $input->getOption('manifest') ?: $this->config->getStr('application.manifest_url');
-        $currentVersion = $input->getOption('current-version') ?: $this->config->getVersion();
+        $manifestUrl = Option::stringOrNull($input, 'manifest') ?: $this->config->getStr('application.manifest_url');
+        $currentVersion = Option::stringOrNull($input, 'current-version') ?: $this->config->getVersion();
         $this->selfUpdater->setAllowMajor(!$input->getOption('no-major'));
         $this->selfUpdater->setAllowUnstable((bool) $input->getOption('unstable'));
         $this->selfUpdater->setTimeout(Option::int($input, 'timeout'));

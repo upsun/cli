@@ -8,6 +8,7 @@ use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Console\AdaptiveTableCell;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Service\PropertyFormatter;
@@ -86,7 +87,9 @@ class ProjectListCommand extends CommandBase
     {
         $this->io->warnAboutDeprecatedOptions(['host'], 'The option --host is deprecated and replaced by --region. It will be removed in a future version.');
 
-        $refresh = $input->hasOption('refresh') && $input->getOption('refresh');
+        $refresh = $input->hasOption('refresh') && Option::int($input, 'refresh') > 0;
+        $pageOption = Option::intOrNull($input, 'page');
+        $countOption = Option::intOrNull($input, 'count');
 
         // Fetch the list of projects.
         $progress = new ProgressMessage($output);
@@ -96,26 +99,26 @@ class ProjectListCommand extends CommandBase
 
         // Filter the list of projects.
         $filters = [];
-        if ($region = $input->getOption('region') ?: $input->getOption('host')) {
+        if ($region = Option::stringOrNull($input, 'region') ?: Option::stringOrNull($input, 'host')) {
             $filters['region'] = $region;
         }
-        if (($title = $input->getOption('title')) !== null) {
+        if (($title = Option::stringOrNull($input, 'title')) !== null) {
             $filters['title'] = $title;
         }
         if ($input->getOption('my')) {
             $filters['my'] = true;
         }
-        if ($input->hasOption('org') && $input->getOption('org') !== null) {
-            $filters['org'] = $input->getOption('org');
+        if (($org = $input->hasOption('org') ? Option::stringOrNull($input, 'org') : null) !== null) {
+            $filters['org'] = $org;
         }
-        if ($input->hasOption('org-type') && $input->getOption('org-type') !== null) {
-            $filters['org-type'] = $input->getOption('org-type');
+        if (($orgType = $input->hasOption('org-type') ? Option::stringOrNull($input, 'org-type') : null) !== null) {
+            $filters['org-type'] = $orgType;
         }
         $this->filterProjects($projects, $filters);
 
         // Sort the list of projects.
-        if ($input->getOption('sort')) {
-            Sort::sortObjects($projects, $input->getOption('sort'));
+        if ($sort = Option::string($input, 'sort')) {
+            Sort::sortObjects($projects, $sort);
         }
         if ($input->getOption('reverse')) {
             $projects = array_reverse($projects, true);
@@ -153,14 +156,14 @@ class ProjectListCommand extends CommandBase
         }
 
         // Paginate the list.
-        if (!$this->config->getBool('pagination.enabled') && $input->getOption('page') === null) {
+        if (!$this->config->getBool('pagination.enabled') && $pageOption === null) {
             $itemsPerPage = 0;
-        } elseif ($input->getOption('count') !== null) {
-            $itemsPerPage = (int) $input->getOption('count');
+        } elseif ($countOption !== null) {
+            $itemsPerPage = $countOption;
         } else {
             $itemsPerPage = $this->config->getInt('pagination.count');
         }
-        $page = (new Pager())->page($projects, (int) $input->getOption('page') ?: 1, $itemsPerPage);
+        $page = (new Pager())->page($projects, $pageOption ?: 1, $itemsPerPage);
         /** @var BasicProjectInfo[] $projects */
         $projects = $page->items;
         if (\count($projects) === 0) {

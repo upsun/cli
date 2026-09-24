@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Variable;
 
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
 use Platformsh\Cli\Service\Api;
@@ -50,8 +51,8 @@ class VariableSetCommand extends CommandBase
     {
         $selection = $this->selector->getSelection($input);
 
-        $variableName = $input->getArgument('name');
-        $variableValue = $input->getArgument('value');
+        $variableName = Argument::string($input, 'name');
+        $variableValue = Argument::string($input, 'value');
         $json = $input->getOption('json');
         $enabled = !$input->getOption('disabled');
 

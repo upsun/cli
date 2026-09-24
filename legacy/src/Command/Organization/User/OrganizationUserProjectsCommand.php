@@ -9,6 +9,7 @@ use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Command\Organization\OrganizationCommandBase;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Cli\Model\ProjectRoles;
 use Platformsh\Cli\Service\PropertyFormatter;
@@ -77,7 +78,7 @@ class OrganizationUserProjectsCommand extends OrganizationCommandBase
                 return 1;
             }
         }
-        if ($email = $input->getArgument('email')) {
+        if ($email = Argument::stringOrNull($input, 'email')) {
             if (!$organization) {
                 $this->io->debug('Finding user by email address');
                 $user = $this->api->getUser('email=' . $email);

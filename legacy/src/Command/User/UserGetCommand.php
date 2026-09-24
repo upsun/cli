@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Command\User;
 
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\AccessApi;
 use Platformsh\Cli\Service\ActivityMonitor;
@@ -50,7 +52,7 @@ class UserGetCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        if ($input->getOption('role')) {
+        if (Option::stringOrNull($input, 'role')) {
             $this->stdErr->writeln('The <error>--role</error> option is no longer available for this command.');
             $this->stdErr->writeln("To change a user's roles use the <comment>user:update</comment> command.");
             return 1;
@@ -59,7 +61,7 @@ class UserGetCommand extends CommandBase
             $this->stdErr->writeln('The <comment>user:role</comment> command is deprecated. Use <comment>user:get</comment> or <comment>user:update</comment> instead.');
         }
 
-        $level = $input->getOption('level');
+        $level = Option::stringOrNull($input, 'level');
         if ($level !== null && $level !== 'project' && $level !== 'environment') {
             $this->stdErr->writeln("Invalid level: <error>$level</error>");
             return 1;
@@ -72,7 +74,7 @@ class UserGetCommand extends CommandBase
         $this->io->warnAboutDeprecatedOptions(['role']);
 
         // Load the user.
-        $email = $input->getArgument('email');
+        $email = Argument::stringOrNull($input, 'email');
         if ($email === null) {
             if (!$input->isInteractive()) {
                 $this->stdErr->writeln('An email address is required (in non-interactive mode).');

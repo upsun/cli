@@ -16,6 +16,7 @@ use Symfony\Component\Process\Exception\RuntimeException;
 use Cocur\Slugify\Slugify;
 use GuzzleHttp\Exception\BadResponseException;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Exception\RootNotFoundException;
 use Platformsh\Cli\Local\BuildFlavor\Drupal;
 use Platformsh\Cli\Service\Drush;
@@ -98,7 +99,7 @@ class LocalDrushAliasesCommand extends CommandBase
         }
 
         $aliases = $this->drush->getAliases($current_group);
-        $new_group = ltrim((string) $input->getOption('group'), '@');
+        $new_group = ltrim((string) Option::stringOrNull($input, 'group'), '@');
         if (empty($aliases) && !$new_group && $current_group === $project->id) {
             $new_group = (new Slugify())->slugify($project->title);
         }

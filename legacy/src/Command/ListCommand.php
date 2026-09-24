@@ -9,9 +9,11 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command;
 
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Console\CustomJsonDescriptor;
 use Platformsh\Cli\Console\CustomMarkdownDescriptor;
 use Platformsh\Cli\Console\CustomTextDescriptor;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Config;
 use Symfony\Component\Console\Helper\DescriptorHelper;
 use Symfony\Component\Console\Input\InputInterface;
@@ -69,9 +71,9 @@ class ListCommand extends CommandBase
             $output,
             $this->getApplication(),
             [
-                'format' => $input->getOption('format'),
+                'format' => Option::string($input, 'format'),
                 'raw_text' => $input->getOption('raw'),
-                'namespace' => $input->getArgument('namespace'),
+                'namespace' => Argument::stringOrNull($input, 'namespace'),
                 'all' => $input->getOption('all'),
             ],
         );

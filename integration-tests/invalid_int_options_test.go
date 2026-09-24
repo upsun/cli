@@ -10,7 +10,7 @@ import (
 )
 
 // TestInvalidIntegerOptions checks that non-integer values are rejected for
-// integer options that are otherwise passed to remote commands.
+// integer options, instead of being cast to 0 or passed on unvalidated.
 func TestInvalidIntegerOptions(t *testing.T) {
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
@@ -33,6 +33,7 @@ func TestInvalidIntegerOptions(t *testing.T) {
 
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
 
+	env := []string{"-p", projectID, "-e", "main"}
 	cases := []struct {
 		name    string
 		args    []string
@@ -40,18 +41,48 @@ func TestInvalidIntegerOptions(t *testing.T) {
 	}{
 		{
 			"log --lines",
-			[]string{"environment:log", "access", "--lines", "abc"},
+			append([]string{"environment:log", "access", "--lines", "abc"}, env...),
 			"The --lines value must be a non-negative integer.",
 		},
 		{
 			"xdebug --port",
-			[]string{"environment:xdebug", "--port", "abc"},
+			append([]string{"environment:xdebug", "--port", "abc"}, env...),
 			"The --port value must be a non-negative integer.",
+		},
+		{
+			"backup:list --limit",
+			append([]string{"backup:list", "--limit", "abc"}, env...),
+			"The --limit value must be a non-negative integer.",
+		},
+		{
+			"project:list --page",
+			[]string{"project:list", "--page", "abc"},
+			"The --page value must be a non-negative integer.",
+		},
+		{
+			"project:list --count",
+			[]string{"project:list", "--count", "abc"},
+			"The --count value must be a non-negative integer.",
+		},
+		{
+			"project:list --refresh",
+			[]string{"project:list", "--refresh", "false"},
+			"The --refresh value must be a non-negative integer.",
+		},
+		{
+			"environment:list --refresh",
+			[]string{"environment:list", "-p", projectID, "--refresh", "false"},
+			"The --refresh value must be a non-negative integer.",
+		},
+		{
+			"auth:browser-login --max-age",
+			[]string{"auth:browser-login", "--max-age", "abc"},
+			"The --max-age value must be a non-negative integer.",
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			_, stdErr, err := f.RunCombinedOutput(append(c.args, "-p", projectID, "-e", "main")...)
+			_, stdErr, err := f.RunCombinedOutput(c.args...)
 			assert.Error(t, err)
 			assert.Contains(t, stdErr, c.wantErr)
 		})

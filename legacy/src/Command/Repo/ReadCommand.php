@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Repo;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\GitDataApi;
@@ -39,8 +41,8 @@ class ReadCommand extends RepoCommandBase
         $selection = $this->selector->getSelection($input, new SelectorConfig(selectDefaultEnv: true));
         $environment = $selection->getEnvironment();
 
-        $path = $input->getArgument('path') ?: '/';
-        $object = $this->gitDataApi->getObject($path, $environment, $input->getOption('commit'));
+        $path = Argument::stringOrNull($input, 'path') ?: '/';
+        $object = $this->gitDataApi->getObject($path, $environment, Option::stringOrNull($input, 'commit'));
         if ($object === false) {
             $this->stdErr->writeln(sprintf('File or directory not found: <error>%s</error>', $path));
 

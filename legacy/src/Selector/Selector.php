@@ -147,7 +147,7 @@ class Selector implements CompleterInterface
         if ($input->hasArgument($envArgName)
             && $input->getArgument($envArgName) !== null
             && $input->getArgument($envArgName) !== []) {
-            if ($input->hasOption($envOptionName) && $input->getOption($envOptionName)) {
+            if ($input->hasOption($envOptionName) && Option::stringOrNull($input, $envOptionName)) {
                 throw new InvalidArgumentException(
                     sprintf(
                         'You cannot use both the <%s> argument and the --%s option',
@@ -1067,7 +1067,7 @@ class Selector implements CompleterInterface
             throw new \BadMethodCallException('Organizations are not enabled');
         }
 
-        $explicitProject = $input->hasOption('project') && $input->getOption('project');
+        $explicitProject = $input->hasOption('project') && Option::stringOrNull($input, 'project');
         $selection = $explicitProject ? $this->getSelection($input) : new Selection();
 
         if ($identifier = Option::stringOrNull($input, 'org')) {

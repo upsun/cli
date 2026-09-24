@@ -8,6 +8,7 @@ use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Console\AdaptiveTableCell;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
 use Platformsh\Cli\Util\OsUtil;
@@ -41,8 +42,8 @@ class TeamGetCommand extends TeamCommandBase
         }
         $data = array_merge(array_flip(['id', 'label', 'organization_id', 'counts', 'project_permissions']), $team->getProperties());
 
-        if ($input->getOption('property')) {
-            $this->propertyFormatter->displayData($output, $data, $input->getOption('property'));
+        if ($property = Option::stringOrNull($input, 'property')) {
+            $this->propertyFormatter->displayData($output, $data, $property);
             return 0;
         }
 

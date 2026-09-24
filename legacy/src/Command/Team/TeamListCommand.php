@@ -10,6 +10,7 @@ use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use GuzzleHttp\Exception\BadResponseException;
 use GuzzleHttp\Utils;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Cli\Model\ProjectRoles;
 use Platformsh\Cli\Service\PropertyFormatter;
@@ -68,20 +69,20 @@ class TeamListCommand extends TeamCommandBase
             return 1;
         }
         $selection = new Selection();
-        if ($input->getOption('project') || $this->selector->getCurrentProject()) {
+        if (Option::stringOrNull($input, 'project') || $this->selector->getCurrentProject()) {
             $selection = $this->selector->getSelection($input);
         }
 
         $params = [];
 
-        if ($sortBy = $input->getOption('sort')) {
+        if ($sortBy = Option::string($input, 'sort')) {
             if ($input->getOption('reverse')) {
                 $sortBy = '-' . $sortBy;
             }
             $params['sort'] = $sortBy;
         }
 
-        $count = $input->getOption('count');
+        $count = Option::stringOrNull($input, 'count');
         $fetchAllPages = $count === '0';
         if (!$fetchAllPages) {
             $params['page[size]'] = $count;

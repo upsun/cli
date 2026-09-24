@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -96,7 +97,7 @@ class EnvironmentUrlCommand extends CommandBase
     private function displayOrOpenUrls(array $urls, InputInterface $input, OutputInterface $output): void
     {
         // Just display the URLs if --browser is 0 or if --pipe is set.
-        if ($input->getOption('pipe') || $input->getOption('browser') === '0') {
+        if ($input->getOption('pipe') || Option::stringOrNull($input, 'browser') === '0') {
             $output->writeln($urls);
             return;
         }

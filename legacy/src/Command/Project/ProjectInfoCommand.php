@@ -9,6 +9,7 @@ use Platformsh\Cli\Service\ActivityMonitor;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Console\AdaptiveTableCell;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
 use Platformsh\Client\Model\Project;
@@ -53,7 +54,7 @@ class ProjectInfoCommand extends CommandBase
             $project->refresh();
         }
 
-        $property = $input->getArgument('property');
+        $property = Argument::stringOrNull($input, 'property');
 
         // Setting the pseudo-properties 'git' and 'url', and un-setting the
         // property 'entropy', are done twice in this command so that
@@ -67,7 +68,7 @@ class ProjectInfoCommand extends CommandBase
             return $this->listProperties($properties);
         }
 
-        $value = $input->getArgument('value');
+        $value = Argument::stringOrNull($input, 'value');
         if ($value !== null) {
             return $this->setProperty($property, $value, $project, !$this->activityMonitor->shouldWait($input));
         }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Command\Variable;
 
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\Selection;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
@@ -56,7 +57,7 @@ class VariableUpdateCommand extends CommandBase
         $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: $level !== VariableCommandUtil::LEVEL_PROJECT));
         $this->selection = $selection;
 
-        $name = $input->getArgument('name');
+        $name = Argument::string($input, 'name');
         $variable = $this->variableCommandUtil->getExistingVariable($name, $selection, $level);
         if (!$variable) {
             return 1;

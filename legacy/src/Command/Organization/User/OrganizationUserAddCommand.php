@@ -8,6 +8,7 @@ use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\QuestionHelper;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Console\ArrayArgument;
 use Platformsh\Cli\Util\OsUtil;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -51,7 +52,7 @@ class OrganizationUserAddCommand extends OrganizationUserCommandBase
         }
 
         if ($update) {
-            $email = $input->getArgument('email');
+            $email = Argument::stringOrNull($input, 'email');
             if (!empty($email)) {
                 $existingMember = $this->api->loadMemberByEmail($organization, $email);
                 if (!$existingMember) {
@@ -66,7 +67,7 @@ class OrganizationUserAddCommand extends OrganizationUserCommandBase
             }
         } else {
             $existingMember = null;
-            $email = $input->getArgument('email');
+            $email = Argument::stringOrNull($input, 'email');
             if ($email) {
                 $email = $this->validateEmail($email);
             } elseif (!$input->isInteractive()) {

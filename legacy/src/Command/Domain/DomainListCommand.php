@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Domain;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
@@ -78,7 +79,7 @@ class DomainListCommand extends DomainCommandBase
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: false));
-        $forEnvironment = $input->getOption('environment') !== null;
+        $forEnvironment = Option::stringOrNull($input, 'environment') !== null;
 
         $project = $selection->getProject();
         $executable = $this->config->getStr('application.executable');

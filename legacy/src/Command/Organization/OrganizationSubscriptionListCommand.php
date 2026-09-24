@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Organization;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -60,7 +61,7 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
         $options['query']['filter']['status']['value'][] = 'suspended';
         $options['query']['filter']['status']['operator'] = 'IN';
 
-        $count = $input->getOption('count');
+        $count = Option::stringOrNull($input, 'count');
         $itemsPerPage = max(1, min($this->config->getInt('pagination.count'), self::MAX_COUNT));
         if ($count !== null && $count !== '0') {
             if (!\is_numeric($count) || $count < 1 || $count > self::MAX_COUNT) {
@@ -78,7 +79,7 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
         $options['query']['page[size]'] = $itemsPerPage;
 
         $requestedPage = 1;
-        if (($pageOption = $input->getOption('page')) !== null) {
+        if (($pageOption = Option::stringOrNull($input, 'page')) !== null) {
             if (!\is_numeric($pageOption) || $pageOption < 1) {
                 $this->stdErr->writeln('The --page must be a number greater than 0.');
                 return 1;

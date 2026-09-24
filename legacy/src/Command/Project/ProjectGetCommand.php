@@ -18,6 +18,8 @@ use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Service\SshDiagnostics;
 use Cocur\Slugify\Slugify;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Exception\DependencyMissingException;
 use Platformsh\Cli\Exception\ProcessFailedException;
 use Platformsh\Cli\Local\BuildFlavor\Drupal;
@@ -69,8 +71,8 @@ class ProjectGetCommand extends CommandBase
 
         // If this is being run from inside a Git repository, suggest setting
         // or switching the remote project.
-        $insideCwd = !$input->getArgument('directory')
-            || basename((string) $input->getArgument('directory')) === $input->getArgument('directory');
+        $directory = Argument::stringOrNull($input, 'directory');
+        $insideCwd = !$directory || basename($directory) === $directory;
         if ($insideCwd && ($gitRoot = $this->git->getRoot()) !== false && $input->isInteractive()) {
             $oldProjectRoot = $this->localProject->getProjectRoot($gitRoot);
             $oldProjectConfig = $oldProjectRoot ? $this->localProject->getProjectConfig($oldProjectRoot) : false;
@@ -185,9 +187,9 @@ class ProjectGetCommand extends CommandBase
         if ($this->stdErr->isDecorated() && $this->io->isTerminal(STDERR)) {
             $cloneArgs[] = '--progress';
         }
-        if ($input->getOption('depth')) {
+        if ($depth = Option::stringOrNull($input, 'depth')) {
             $cloneArgs[] = '--depth';
-            $cloneArgs[] = $input->getOption('depth');
+            $cloneArgs[] = $depth;
             $cloneArgs[] = '--shallow-submodules';
         }
         $cloned = $this->git->cloneRepo($gitUrl, $projectRoot, $cloneArgs);
@@ -255,7 +257,8 @@ class ProjectGetCommand extends CommandBase
      */
     private function validateDepth(InputInterface $input): void
     {
-        if ($input->getOption('depth') !== null && !preg_match('/^[0-9]+$/', (string) $input->getOption('depth'))) {
+        $depth = Option::stringOrNull($input, 'depth');
+        if ($depth !== null && !preg_match('/^[0-9]+$/', $depth)) {
             throw new InvalidArgumentException('The --depth value must be an integer.');
         }
     }
@@ -267,10 +270,11 @@ class ProjectGetCommand extends CommandBase
      */
     private function mergeProjectArgument(InputInterface $input): void
     {
-        if ($input->getOption('project') && $input->getArgument('project')) {
+        $projectId = Argument::stringOrNull($input, 'project');
+        if (Option::stringOrNull($input, 'project') && $projectId) {
             throw new InvalidArgumentException('You cannot use both the --project option and the <project> argument.');
         }
-        if ($projectId = $input->getArgument('project')) {
+        if ($projectId) {
             $input->setOption('project', $projectId);
         }
     }
@@ -283,7 +287,7 @@ class ProjectGetCommand extends CommandBase
      */
     private function chooseDirectory(Project $project, InputInterface $input): string
     {
-        $directory = $input->getArgument('directory');
+        $directory = Argument::stringOrNull($input, 'directory');
         if (empty($directory)) {
             $slugify = new Slugify();
             $directory = $project->title ? $slugify->slugify($project->title) : $project->id;

@@ -62,7 +62,8 @@ class ActivityCancelCommand extends ActivityCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: !($input->getOption('all') || $input->getArgument('id'))));
+        $id = Argument::stringOrNull($input, 'id');
+        $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: !($input->getOption('all') || $id)));
 
         $executable = $this->config->getStr('application.executable');
 
@@ -72,7 +73,6 @@ class ActivityCancelCommand extends ActivityCommandBase
             $apiResource = $selection->getProject();
         }
 
-        $id = Argument::stringOrNull($input, 'id');
         if ($id) {
             $activity = $selection->getProject()
                 ->getActivity($id);

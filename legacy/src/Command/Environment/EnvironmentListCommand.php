@@ -159,7 +159,7 @@ class EnvironmentListCommand extends CommandBase
     {
         $selection = $this->selector->getSelection($input);
 
-        $refresh = $input->hasOption('refresh') && $input->getOption('refresh');
+        $refresh = $input->hasOption('refresh') && Option::int($input, 'refresh') > 0;
 
         $progress = new ProgressMessage($output);
         $progress->showIfOutputDecorated('Loading environments...');
@@ -182,7 +182,7 @@ class EnvironmentListCommand extends CommandBase
         }
         $this->filterEnvironments($environments, $filters);
 
-        if ($sort = Option::stringOrNull($input, 'sort')) {
+        if ($sort = Option::string($input, 'sort')) {
             $this->api->sortResources($environments, $sort);
         }
         if ($input->getOption('reverse')) {
