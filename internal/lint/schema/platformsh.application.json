@@ -917,7 +917,7 @@
       ]
     }
   },
-  "oneOf": [
+  "anyOf": [
     {
       "required": [
         "name",

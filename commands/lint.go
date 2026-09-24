@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"unicode"
@@ -79,6 +80,11 @@ func lintInput(cmd *cobra.Command, args []string, vendor lint.Vendor) (*lint.Res
 		abs, err := filepath.Abs(args[0])
 		if err != nil {
 			return nil, format, err
+		}
+		if fi, err := os.Stat(abs); err != nil {
+			return nil, format, err
+		} else if !fi.IsDir() {
+			return nil, format, fmt.Errorf("not a directory: %s", args[0])
 		}
 		root = abs
 	} else {

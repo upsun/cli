@@ -31,6 +31,15 @@ relationships:
 			wantNoErr: true,
 		},
 		{
+			name: "composable image with type and stack",
+			files: map[string]string{
+				".platform.app.yaml": `name: myapp
+type: "composable:25.11"
+stack: ["php@8.3"]`,
+			},
+			wantNoErr: true,
+		},
+		{
 			name: "composable image with stack and no type",
 			files: map[string]string{
 				".platform.app.yaml": `name: myapp
