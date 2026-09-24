@@ -67,7 +67,7 @@ func TestSSHCertAlgorithmSwitch(t *testing.T) {
 
 	// The ed25519 key files should have been removed.
 	var keyFiles []string
-	err := filepath.WalkDir(f.home, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(f.home, func(_ string, d fs.DirEntry, err error) error {
 		if err == nil && strings.HasPrefix(d.Name(), "id_") {
 			keyFiles = append(keyFiles, d.Name())
 		}
