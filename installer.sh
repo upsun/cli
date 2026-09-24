@@ -689,8 +689,9 @@ install_completion() {
 
     # zsh has no user directory in fpath by default, and Symfony's zsh script
     # misses the first Tab when autoloaded from fpath, so it is sourced instead.
-    if copy_completion zsh "$1/zsh/_${binary}" "${data_dir}/${binary}" "completion.zsh" \
-        && echo "${SHELL:-}" | grep '/zsh' > /dev/null; then
+    # The file does nothing until sourced, so it is only installed for zsh users.
+    if echo "${SHELL:-}" | grep '/zsh' > /dev/null \
+        && copy_completion zsh "$1/zsh/_${binary}" "${data_dir}/${binary}" "completion.zsh"; then
         completion_note='  To enable shell completion, add this line to ~/.zshrc (after compinit):\n    source "'"${data_dir}/${binary}/completion.zsh"'"'
     fi
 }
