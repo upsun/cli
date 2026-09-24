@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Service;
 
-use Platformsh\Client\Model\SshKey as SshKeyModel;
+use Platformsh\Cli\Model\SshKey as SshKeyModel;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -109,7 +109,7 @@ readonly class SshKey
     }
 
     /**
-     * Lists SSH key MD5 fingerprints in the user's account.
+     * Lists SSH key SHA-256 fingerprints in the user's account.
      *
      * @return string[]
      */
@@ -120,7 +120,10 @@ readonly class SshKey
             return [];
         }
 
-        return \array_map(fn(SshKeyModel $sshKey) => $sshKey->fingerprint, $keys);
+        return \array_map(
+            fn(SshKeyModel $sshKey) => $sshKey->sha256,
+            \array_filter($keys, fn(SshKeyModel $sshKey) => $sshKey->active),
+        );
     }
 
     /**
@@ -158,7 +161,10 @@ readonly class SshKey
     }
 
     /**
-     * Returns an MD5 hash of a public key that matches its server fingerprint.
+     * Returns the SHA-256 fingerprint of a public key, matching the API.
+     *
+     * The format is the one used by OpenSSH and reported by `ssh-keygen -l`:
+     * "SHA256:" followed by the unpadded base64 of the hash.
      *
      * @param string $filename An absolute path to the public key.
      *
@@ -181,6 +187,6 @@ readonly class SshKey
             throw new \RuntimeException('Failed to base64-decode public key: ' . $filename);
         }
 
-        return \md5($key);
+        return 'SHA256:' . \rtrim(\base64_encode(\hash('sha256', $key, true)), '=');
     }
 }

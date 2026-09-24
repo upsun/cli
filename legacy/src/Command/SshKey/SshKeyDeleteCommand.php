@@ -28,7 +28,7 @@ class SshKeyDeleteCommand extends SshKeyCommandBase
                 InputArgument::OPTIONAL,
                 'The ID of the SSH key to delete',
             );
-        $this->addExample('Delete the key 123', '123');
+        $this->addExample('Delete the key with the given ID', '01JX7Q8YV0N4W2S6TRK3M9BAEC');
         $help = 'This command lets you delete SSH keys from your account.'
             . "\n\n" . $this->certificateNotice($this->config);
         $this->setHelp($help);
@@ -37,7 +37,8 @@ class SshKeyDeleteCommand extends SshKeyCommandBase
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $id = $input->getArgument('id');
-        if (empty($id) && $input->isInteractive()) {
+        $id = is_string($id) ? $id : '';
+        if ($id === '' && $input->isInteractive()) {
             $keys = $this->api->getSshKeys(true);
             if (empty($keys)) {
                 $this->stdErr->writeln('You do not have any SSH keys in your account.');
@@ -45,11 +46,11 @@ class SshKeyDeleteCommand extends SshKeyCommandBase
             }
             $options = [];
             foreach ($keys as $key) {
-                $options[(string) $key->key_id] = sprintf('%s (%s)', $key->key_id, $key->title ?: $key->fingerprint);
+                $options[$key->id] = sprintf('%s (%s)', $key->id, $key->label ?: $key->sha256);
             }
             $id = $this->questionHelper->choose($options, 'Enter a number to choose a key to delete:', null, false);
         }
-        if (empty($id) || !is_numeric($id)) {
+        if ($id === '') {
             $this->stdErr->writeln('<error>You must specify the ID of the SSH key to delete.</error>');
             $this->stdErr->writeln('');
             $this->stdErr->writeln(
@@ -59,15 +60,14 @@ class SshKeyDeleteCommand extends SshKeyCommandBase
             return 1;
         }
 
-        $key = $this->api->getClient()
-                    ->getSshKey((string) $id);
+        $key = $this->api->getSshKey($id);
         if (!$key) {
             $this->stdErr->writeln("SSH key not found: <error>$id</error>");
 
             return 1;
         }
 
-        $key->delete();
+        $this->api->deleteSshKey($key->id);
 
         $this->stdErr->writeln(sprintf(
             'The SSH key <info>%s</info> has been deleted from your %s account.',

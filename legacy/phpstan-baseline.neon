@@ -4387,22 +4387,10 @@ parameters:
 			path: src/Command/SshKey/SshKeyAddCommand.php
 
 		-
-			message: '#^Parameter \#2 \$title of method Platformsh\\Client\\PlatformClient\:\:addSshKey\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/SshKey/SshKeyAddCommand.php
-
-		-
 			message: '#^Part \$publicKeyPath \(mixed\) of encapsed string cannot be cast to string\.$#'
 			identifier: encapsedStringPart.nonString
 			count: 3
 			path: src/Command/SshKey/SshKeyAddCommand.php
-
-		-
-			message: '#^Parameter \#1 \$items of method Platformsh\\Cli\\Service\\QuestionHelper\:\:choose\(\) expects array\<string, string\>, array\<int, string\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/SshKey/SshKeyDeleteCommand.php
 
 		-
 			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:loadSubscription\(\) expects string, mixed given\.$#'
@@ -5321,18 +5309,6 @@ parameters:
 			identifier: missingType.iterableValue
 			count: 1
 			path: src/CredentialHelper/SessionStorage.php
-
-		-
-			message: '#^Parameter \#1 \$argument of static method Platformsh\\Cli\\Util\\OsUtil\:\:escapeShellArg\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Event/LoginRequiredEvent.php
-
-		-
-			message: '#^Parameter \#2 \$array of function implode expects array\<string\>, array\<mixed, mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Event/LoginRequiredEvent.php
 
 		-
 			message: '#^Property Platformsh\\Cli\\Exception\\ConnectionFailedException\:\:\$code has no type specified\.$#'
@@ -6326,12 +6302,6 @@ parameters:
 
 		-
 			message: '#^Method Platformsh\\Cli\\Service\\Api\:\:getEnvironmentTasks\(\) should return array\<string, array\<string, mixed\>\> but returns array\<string, mixed\>\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/Api.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Service\\Api\:\:getLegacyAccountInfo\(\) should return array\{id\: string, username\: string, mail\: string, display_name\: string, ssh_keys\: array\<string, mixed\>\} but returns mixed\.$#'
 			identifier: return.type
 			count: 1
 			path: src/Service/Api.php
