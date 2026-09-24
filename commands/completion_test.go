@@ -1,11 +1,15 @@
 package commands
 
 import (
+	"errors"
+	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/platformsh/platformify/vendorization"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -93,6 +97,38 @@ func TestCompleteCommandPassesArgsThrough(t *testing.T) {
 
 			assert.False(t, helpCalled, "the help page was printed instead of completions")
 			assert.Equal(t, c.args, got)
+		})
+	}
+}
+
+// TestHoldStderr checks that the legacy CLI's stderr only reaches the
+// completion script when the request fails (or in debug mode), as the bash
+// script would otherwise offer it as suggestions.
+func TestHoldStderr(t *testing.T) {
+	cases := []struct {
+		name     string
+		err      error
+		debug    bool
+		expected string
+	}{
+		{name: "success", expected: ""},
+		{name: "failure", err: errors.New("failed"), expected: "warning\n"},
+		{name: "debug", debug: true, expected: "warning\n"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			viper.Set("debug", c.debug)
+			t.Cleanup(func() { viper.Set("debug", false) })
+
+			var stderr strings.Builder
+			err := holdStderr(&stderr, func(w io.Writer) error {
+				fmt.Fprintln(w, "warning")
+				return c.err
+			})
+
+			assert.Equal(t, c.err, err)
+			assert.Equal(t, c.expected, stderr.String())
 		})
 	}
 }

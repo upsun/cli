@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/upsun/cli/internal/config"
 )
@@ -82,12 +84,30 @@ func newCompleteCommand(cnf *config.Config) *cobra.Command {
 		DisableFlagParsing: true,
 		SilenceErrors:      true,
 		Run: func(cmd *cobra.Command, args []string) {
-			c := makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), cmd.ErrOrStderr(), cmd.InOrStdin())
-			if err := c.Exec(cmd.Context(), append([]string{completeCommandName}, args...)...); err != nil {
+			err := holdStderr(cmd.ErrOrStderr(), func(stderr io.Writer) error {
+				c := makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), stderr, cmd.InOrStdin())
+				return c.Exec(cmd.Context(), append([]string{completeCommandName}, args...)...)
+			})
+			if err != nil {
 				exitSilently(err)
 			}
 		},
 	}
+}
+
+// holdStderr runs fn with a buffered stderr, which is only written out if fn
+// fails or debug mode is on. The bash completion script captures stderr along
+// with stdout and, on success, offers all of it as suggestions, so a warning
+// (e.g. from PHP) must not get through; on failure it prints the output as a
+// diagnostic.
+func holdStderr(stderr io.Writer, fn func(stderr io.Writer) error) error {
+	var b bytes.Buffer
+	err := fn(&b)
+	if err != nil || viper.GetBool("debug") {
+		_, _ = stderr.Write(b.Bytes())
+	}
+
+	return err
 }
 
 // isCompletionRequest reports whether the command was run by a completion
