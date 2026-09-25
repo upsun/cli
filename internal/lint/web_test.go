@@ -17,6 +17,20 @@ func TestCheckWebConfig(t *testing.T) {
 		errMatch string
 	}{
 		{
+			name: "rule with a PCRE named group",
+			content: `
+applications:
+  app1:
+    type: php:8.4
+    web:
+      locations:
+        "/":
+          rules:
+            '(?P<asset>.*)\.css$':
+              allow: true
+`,
+		},
+		{
 			name: "location key without leading slash",
 			content: `
 applications:

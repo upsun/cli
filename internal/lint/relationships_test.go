@@ -141,6 +141,30 @@ services:
     type: mariadb:11.4`,
 		},
 		{
+			name: "service_used_by_mounts",
+			// A network-storage service used only through mounts is not unused.
+			content: `
+applications:
+  app:
+    type: php:8.4
+    mounts:
+      /files:
+        source: service
+        service: files
+tasks:
+  agent:
+    type: python:3.14
+    mounts:
+      /shared:
+        source: service
+        service: shared
+services:
+  files:
+    type: network-storage:2.0
+  shared:
+    type: network-storage:2.0`,
+		},
+		{
 			name: "task_relationships",
 			// A service used only by a task is not reported as unused.
 			content: `

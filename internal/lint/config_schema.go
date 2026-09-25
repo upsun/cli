@@ -31,7 +31,8 @@ type Config struct {
 			Locations map[string]WebLocation `yaml:"locations,omitempty"`
 		} `yaml:"web,omitempty"`
 
-		Relationships map[string]any `yaml:"relationships,omitempty"`
+		Relationships map[string]any   `yaml:"relationships,omitempty"`
+		Mounts        map[string]Mount `yaml:"mounts,omitempty"`
 
 		Crons map[string]struct {
 			Commands struct {
@@ -41,8 +42,9 @@ type Config struct {
 		} `yaml:"crons,omitempty"`
 
 		Workers map[string]struct {
-			Type           string          `yaml:"type,omitempty"`
-			Authorizations []Authorization `yaml:"authorizations,omitempty"`
+			Type           string           `yaml:"type,omitempty"`
+			Authorizations []Authorization  `yaml:"authorizations,omitempty"`
+			Mounts         map[string]Mount `yaml:"mounts,omitempty"`
 
 			Commands struct {
 				PreStart  string `yaml:"pre_start,omitempty"`
@@ -89,12 +91,9 @@ type Task struct {
 		Deploy string `yaml:"deploy,omitempty"`
 	} `yaml:"hooks,omitempty"`
 
-	Relationships map[string]any `yaml:"relationships,omitempty"`
-	Mounts        map[string]struct {
-		Source  string `yaml:"source,omitempty"`
-		Service string `yaml:"service,omitempty"`
-	} `yaml:"mounts,omitempty"`
-	Authorizations []Authorization `yaml:"authorizations,omitempty"`
+	Relationships  map[string]any   `yaml:"relationships,omitempty"`
+	Mounts         map[string]Mount `yaml:"mounts,omitempty"`
+	Authorizations []Authorization  `yaml:"authorizations,omitempty"`
 
 	// fields lists the keys set on the task, to check that "base" is used alone.
 	fields []string
@@ -110,6 +109,12 @@ func (t *Task) UnmarshalYAML(node *yaml.Node) error {
 		t.fields = append(t.fields, node.Content[i].Value)
 	}
 	return nil
+}
+
+// Mount is a writable directory in a container.
+type Mount struct {
+	Source  string `yaml:"source,omitempty"`
+	Service string `yaml:"service,omitempty"`
 }
 
 // Authorization grants a workload access to the Upsun API at runtime.

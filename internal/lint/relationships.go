@@ -75,6 +75,25 @@ func CheckRelationships(cfg *Config) *Result {
 		checkRelationships("task", taskName, "tasks."+taskName, cfg.Tasks[taskName].Relationships)
 	}
 
+	// A service can also be used through a mount (e.g. network storage).
+	linkMounts := func(mounts map[string]Mount) {
+		for _, m := range mounts {
+			if m.Source == "service" && m.Service != "" {
+				linkedServices[m.Service] = struct{}{}
+			}
+		}
+	}
+	for appName := range cfg.Applications {
+		app := cfg.Applications[appName]
+		linkMounts(app.Mounts)
+		for _, w := range app.Workers {
+			linkMounts(w.Mounts)
+		}
+	}
+	for taskName := range cfg.Tasks {
+		linkMounts(cfg.Tasks[taskName].Mounts)
+	}
+
 	for name := range cfg.Services {
 		if _, linked := linkedServices[name]; !linked {
 			result.AddError("services."+name, fmt.Sprintf("no application or task has a relationship to service '%s'", name))

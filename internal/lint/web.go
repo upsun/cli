@@ -78,8 +78,9 @@ func CheckWebConfig(cfg *Config) *Result {
 					continue
 				}
 
-				// Use regexp2 to validate PCRE regex syntax (Nginx uses PCRE)
-				_, err := regexp2.Compile(rulePattern)
+				// Nginx uses PCRE. regexp2 is closer to it than RE2, and its RE2 mode
+				// adds the (?P<name>...) group syntax.
+				_, err := regexp2.Compile(rulePattern, regexp2.RE2)
 				if err != nil {
 					path := "applications." + appName + ".web.locations[\"" + locName + "\"].rules"
 					result.AddError(path, "invalid regular expression: "+err.Error())
