@@ -59,6 +59,7 @@ services:
   foo: {}`,
 			expectErrorMessage: "linter errors:" +
 				"\n  - services.foo: duplicate name found: 'foo' in 'services' (previous in 'applications')" +
+				"\nlinter warnings:" +
 				"\n  - services.foo: no application or task has a relationship to service 'foo'",
 		},
 		{

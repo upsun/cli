@@ -32,6 +32,19 @@ relationships:
 			wantNoErr: true,
 		},
 		{
+			name: "app with runtime operations",
+			files: map[string]string{
+				".platform.app.yaml": `name: myapp
+type: "php:8.4"
+operations:
+  clear-cache:
+    role: admin
+    commands:
+      start: php bin/console cache:clear`,
+			},
+			wantNoErr: true,
+		},
+		{
 			name: "app with env authorization",
 			files: map[string]string{
 				".platform.app.yaml": `name: myapp

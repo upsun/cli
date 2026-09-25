@@ -96,7 +96,7 @@ func CheckRelationships(cfg *Config) *Result {
 
 	for name := range cfg.Services {
 		if _, linked := linkedServices[name]; !linked {
-			result.AddError("services."+name, fmt.Sprintf("no application or task has a relationship to service '%s'", name))
+			result.AddWarning("services."+name, fmt.Sprintf("no application or task has a relationship to service '%s'", name))
 		}
 	}
 

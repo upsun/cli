@@ -1029,6 +1029,44 @@
         ],
         "additionalProperties": false
       }
+    },
+    "operations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "commands": {
+            "type": "object",
+            "properties": {
+              "start": {
+                "type": "string",
+                "title": "The command used to start the application",
+                "description": "It will be restarted if it terminates. Do not use on PHP unless using a custom persistent process like React PHP."
+              }
+            },
+            "required": [
+              "start"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "title": "which users can trigger it according to their user role",
+            "description": "More information: \nhttps://docs.upsun.com/anchors/app/runtime-operations/define/",
+            "enum": [
+              "viewer",
+              "contributor",
+              "admin"
+            ]
+          }
+        },
+        "required": [
+          "commands"
+        ],
+        "additionalProperties": false
+      },
+      "title": "Runtime operations that can be executed in the application container",
+      "description": "More information: \nhttps://docs.upsun.com/anchors/app/runtime-operations/",
+      "default": {}
     }
   },
   "anyOf": [
