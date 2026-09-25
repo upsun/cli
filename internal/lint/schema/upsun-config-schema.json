@@ -75,9 +75,15 @@
               "root": null
             }
           },
-          "resources": {"$ref": "#/definitions/deprecated/resources"},
-          "relationships": {"$ref": "#/definitions/relationships"},
-          "mounts": {"$ref": "#/definitions/mounts"},
+          "resources": {
+            "$ref": "#/definitions/deprecated/resources"
+          },
+          "relationships": {
+            "$ref": "#/definitions/relationships"
+          },
+          "mounts": {
+            "$ref": "#/definitions/mounts"
+          },
           "web": {
             "type": "object",
             "title": "How the web application is served",
@@ -97,8 +103,12 @@
                 "title": "The timezone of the application",
                 "description": "This primarily affects the timezone in which cron tasks will run. It will not affect the application itself. Defaults to UTC if not specified."
               },
-              "mounts": {"$ref": "#/definitions/mounts"},
-              "relationships": {"$ref": "#/definitions/relationships"},
+              "mounts": {
+                "$ref": "#/definitions/mounts"
+              },
+              "relationships": {
+                "$ref": "#/definitions/relationships"
+              },
               "access": {
                 "type": "object",
                 "additionalProperties": {
@@ -107,8 +117,12 @@
                 "title": "Access information, a mapping between access type and roles",
                 "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/access/"
               },
-              "size": {"$ref": "#/definitions/deprecated/size"},
-              "resources": {"$ref": "#/definitions/deprecated/resources"},
+              "size": {
+                "$ref": "#/definitions/deprecated/size"
+              },
+              "resources": {
+                "$ref": "#/definitions/deprecated/resources"
+              },
               "locations": {
                 "type": "object",
                 "additionalProperties": {
@@ -121,7 +135,10 @@
                       "default": "public"
                     },
                     "expires": {
-                      "type": ["integer", "string"],
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
                       "title": "Amount of time to cache static assets",
                       "description": "How long static assets are cached. The default means no caching. Setting it to a value enables the `Cache-Control` and `Expires` headers. Times can be suffixed with `ms` = milliseconds, `s` = seconds, `m` = minutes, `h` = hours, `d` = days, `w` = weeks, `M` = months/30d, or `y` = years/365d. If a `Cache-Control` appears on the `headers` configuration, `expires`, if set, will be ignored. Thus, make sure to set the `Cache-Control`’s `max-age` value when specifying a the header.",
                       "default": -1
@@ -169,7 +186,10 @@
                         "type": "object",
                         "properties": {
                           "expires": {
-                            "type": ["integer", "string"],
+                            "type": [
+                              "integer",
+                              "string"
+                            ],
                             "title": "Amount of time to cache static assets",
                             "description": "How long static assets are cached. The default means no caching. Setting it to a value enables the `Cache-Control` and `Expires` headers. Times can be suffixed with `ms` = milliseconds, `s` = seconds, `m` = minutes, `h` = hours, `d` = days, `w` = weeks, `M` = months/30d, or `y` = years/365d. If a `Cache-Control` appears on the `headers` configuration, `expires`, if set, will be ignored. Thus, make sure to set the `Cache-Control`’s `max-age` value when specifying a the header.",
                             "default": -1
@@ -312,7 +332,10 @@
                 "deprecationMessage": "Deprecated"
               },
               "expires": {
-                "type": ["integer", "string"],
+                "type": [
+                  "integer",
+                  "string"
+                ],
                 "title": "Amount of time to cache static assets",
                 "deprecationMessage": "Deprecated"
               },
@@ -333,7 +356,9 @@
             "additionalProperties": {
               "type": "object",
               "properties": {
-                "firewall": {"$ref": "#/definitions/firewall"},
+                "firewall": {
+                  "$ref": "#/definitions/firewall"
+                },
                 "variables": {
                   "type": "object",
                   "additionalProperties": {
@@ -387,7 +412,9 @@
                   "description": "Directories that are writable even after the app is built. Allocated disk for mounts is defined with a separate resource configuration call using `upsun resources:set`. \nContains a dictionary of mounts: \nhttps://docs.upsun.com/anchors/app/reference/mounts/",
                   "default": {}
                 },
-                "relationships": {"$ref": "#/definitions/relationships"},
+                "relationships": {
+                  "$ref": "#/definitions/relationships"
+                },
                 "access": {
                   "type": "object",
                   "additionalProperties": {
@@ -399,9 +426,15 @@
                     "ssh": "contributor"
                   }
                 },
-                "size": {"$ref": "#/definitions/deprecated/size"},
-                "resources": {"$ref": "#/definitions/deprecated/resources"},
-                "container_profile": {"$ref": "#/definitions/container_profile"},
+                "size": {
+                  "$ref": "#/definitions/deprecated/size"
+                },
+                "resources": {
+                  "$ref": "#/definitions/deprecated/resources"
+                },
+                "container_profile": {
+                  "$ref": "#/definitions/container_profile"
+                },
                 "commands": {
                   "type": "object",
                   "properties": {
@@ -459,7 +492,9 @@
             "description": "Variables provide environment-sensitive information to control how your application behaves. To set a Unix environment variable, specify a key of `env:`, and then each sub-item of that is a key/value pair that will be injected into the environment. \nMore information: \nhttps://docs.upsun.com/anchors/app/reference/variables/",
             "default": {}
           },
-          "firewall": {"$ref": "#/definitions/firewall"},
+          "firewall": {
+            "$ref": "#/definitions/firewall"
+          },
           "build": {
             "type": "object",
             "properties": {
@@ -634,7 +669,9 @@
               }
             }
           },
-          "container_profile": {"$ref": "#/definitions/container_profile"},
+          "container_profile": {
+            "$ref": "#/definitions/container_profile"
+          },
           "additional_hosts": {
             "type": "object",
             "additionalProperties": {
@@ -768,13 +805,27 @@
             "title": "Route identifier",
             "description": "More information: \nhttps://docs.upsun.com/anchors/routes/identifiers/",
             "properties": {
-              "primary": {"$ref": "#/definitions/routes/primary"},
-              "id": {"$ref": "#/definitions/routes/id"},
-              "attributes": {"$ref": "#/definitions/routes/attributes"},
-              "type": {"$ref": "#/definitions/routes/route_type"},
-              "redirects": {"$ref": "#/definitions/routes/redirects"},
-              "tls": {"$ref": "#/definitions/routes/tls"},
-              "to": {"$ref": "#/definitions/routes/to"}
+              "primary": {
+                "$ref": "#/definitions/routes/primary"
+              },
+              "id": {
+                "$ref": "#/definitions/routes/id"
+              },
+              "attributes": {
+                "$ref": "#/definitions/routes/attributes"
+              },
+              "type": {
+                "$ref": "#/definitions/routes/route_type"
+              },
+              "redirects": {
+                "$ref": "#/definitions/routes/redirects"
+              },
+              "tls": {
+                "$ref": "#/definitions/routes/tls"
+              },
+              "to": {
+                "$ref": "#/definitions/routes/to"
+              }
             },
             "required": [
               "type",
@@ -785,15 +836,33 @@
           {
             "type": "object",
             "properties": {
-              "primary": {"$ref": "#/definitions/routes/primary"},
-              "id": {"$ref": "#/definitions/routes/id"},
-              "attributes": {"$ref": "#/definitions/routes/attributes"},
-              "type": {"$ref": "#/definitions/routes/route_type"},
-              "redirects": {"$ref": "#/definitions/routes/redirects"},
-              "tls": {"$ref": "#/definitions/routes/tls"},
-              "cache": {"$ref": "#/definitions/routes/cache"},
-              "ssi": {"$ref": "#/definitions/routes/ssi"},
-              "upstream": {"$ref": "#/definitions/routes/upstream"}
+              "primary": {
+                "$ref": "#/definitions/routes/primary"
+              },
+              "id": {
+                "$ref": "#/definitions/routes/id"
+              },
+              "attributes": {
+                "$ref": "#/definitions/routes/attributes"
+              },
+              "type": {
+                "$ref": "#/definitions/routes/route_type"
+              },
+              "redirects": {
+                "$ref": "#/definitions/routes/redirects"
+              },
+              "tls": {
+                "$ref": "#/definitions/routes/tls"
+              },
+              "cache": {
+                "$ref": "#/definitions/routes/cache"
+              },
+              "ssi": {
+                "$ref": "#/definitions/routes/ssi"
+              },
+              "upstream": {
+                "$ref": "#/definitions/routes/upstream"
+              }
             },
             "required": [
               "type",
@@ -820,7 +889,9 @@
             "description": "One of the available services in the format `type:version`. \nMore information:  \nhttps://docs.upsun.com/anchors/services/available/",
             "default": {}
           },
-          "size": {"$ref": "#/definitions/deprecated/size"},
+          "size": {
+            "$ref": "#/definitions/deprecated/size"
+          },
           "access": {
             "type": "object",
             "title": "The configuration of the service",
@@ -833,10 +904,18 @@
             "description": "Some services have additional specific configuration options that can be defined here, such as specific endpoints. \nSee the given service page for more details:  \nhttps://docs.upsun.com/anchors/services/available/.",
             "default": {}
           },
-          "relationships": {"$ref": "#/definitions/relationships"},
-          "firewall": {"$ref": "#/definitions/firewall"},
-          "resources": {"$ref": "#/definitions/deprecated/resources"},
-          "container_profile": {"$ref": "#/definitions/container_profile"}
+          "relationships": {
+            "$ref": "#/definitions/relationships"
+          },
+          "firewall": {
+            "$ref": "#/definitions/firewall"
+          },
+          "resources": {
+            "$ref": "#/definitions/deprecated/resources"
+          },
+          "container_profile": {
+            "$ref": "#/definitions/container_profile"
+          }
         },
         "required": [
           "type"
@@ -915,7 +994,10 @@
         "description": "Defines redirects for partial routes. For definition and options, see the redirect rules: \nhttps://docs.upsun.com/anchors/routes/redirects/",
         "properties": {
           "expires": {
-            "type": ["integer", "string"],
+            "type": [
+              "integer",
+              "string"
+            ],
             "title": "The duration the redirect is cached",
             "description": "Examples of valid values include 3600s, 1d, 2w, 3m. \nTo disable caching for all your redirects, set expires to 0. You can also disable caching on a specific redirect:  \nhttps://docs.upsun.com/anchors/routes/redirects/caching/disable/",
             "default": -1
@@ -957,7 +1039,10 @@
                   "default": 302
                 },
                 "expires": {
-                  "type": ["integer", "string"],
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
                   "title": "The amount of time, in seconds, to cache the redirects",
                   "description": "The duration the redirect is cached for.  \nMore information: \nhttps://docs.upsun.com/anchors/routes/redirects/caching/manage/",
                   "default": null
@@ -1013,7 +1098,10 @@
             }
           },
           "min_version": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "enum": [
               "TLSv1.0",
               "TLSv1.1",
@@ -1026,8 +1114,15 @@
             "default": null
           },
           "client_authentication": {
-            "type": ["string", "null"],
-            "enum": ["request", "require", null],
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "request",
+              "require",
+              null
+            ],
             "description": "The type of client authentication to request.",
             "default": null
           },
@@ -1241,7 +1336,7 @@
           "service": {
             "type": "string",
             "title": "The name of the service that the volume will be mounted from",
-            "description":" Must be a service in `services.yaml` of type `network-storage`. \nMore information: \nhttps://docs.upsun.com/anchors/app/reference/mounts/"
+            "description": " Must be a service in `services.yaml` of type `network-storage`. \nMore information: \nhttps://docs.upsun.com/anchors/app/reference/mounts/"
           }
         },
         "required": [
