@@ -71,9 +71,8 @@ type Config struct {
 
 // WebLocation configures how requests under a web location are served.
 type WebLocation struct {
-	Root     string         `yaml:"root,omitempty"`
-	Passthru any            `yaml:"passthru,omitempty"` // A boolean or a URL path.
-	Rules    map[string]any `yaml:"rules,omitempty"`
+	Root  string         `yaml:"root,omitempty"`
+	Rules map[string]any `yaml:"rules,omitempty"`
 }
 
 // Task is an on-demand, run-to-completion workload (Flex only).

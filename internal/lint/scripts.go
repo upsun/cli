@@ -15,14 +15,6 @@ func CheckScripts(cfg *Config) *Result {
 		app := cfg.Applications[appName]
 		keyPrefix := "applications." + appName + "."
 
-		// Warn if the start command is not set for non-PHP applications, unless
-		// they only serve static files.
-		// Skip composable applications for now as they could potentially also use a PHP-FPM default. // TODO check this
-		if app.Web.Commands.Start == "" && !strings.HasPrefix(app.Type, "php:") &&
-			!strings.HasPrefix(app.Type, "composable:") && !servesStaticOnly(app.Web.Locations) {
-			result.AddWarning(keyPrefix+"web.commands.start", "a start command is needed for non-PHP applications")
-		}
-
 		// Group all scripts for shell syntax checking.
 		scripts[keyPrefix+"hooks.build"] = app.Hooks.Build
 		scripts[keyPrefix+"hooks.deploy"] = app.Hooks.Deploy
@@ -61,25 +53,4 @@ func CheckScripts(cfg *Config) *Result {
 	}
 
 	return result
-}
-
-// servesStaticOnly reports whether web locations are defined and none passes
-// requests through to the application.
-func servesStaticOnly(locations map[string]WebLocation) bool {
-	if len(locations) == 0 {
-		return false
-	}
-	for _, l := range locations {
-		switch p := l.Passthru.(type) {
-		case bool:
-			if p {
-				return false
-			}
-		case string:
-			if p != "" {
-				return false
-			}
-		}
-	}
-	return true
 }

@@ -10,10 +10,9 @@ import (
 
 func TestCheckScripts(t *testing.T) {
 	tests := []struct {
-		name                 string
-		yamlContent          string
-		expectErrorMessage   string
-		expectWarningMessage string
+		name               string
+		yamlContent        string
+		expectErrorMessage string
 	}{
 		{
 			name: "all valid scripts",
@@ -160,19 +159,9 @@ applications: {}`,
 			expectErrorMessage: "failed to parse YAML: yaml: did not find expected node content",
 		},
 		{
-			name: "missing start command for non-PHP application",
-			yamlContent: `
-applications:
-  app1:
-    type: "nodejs:20"
-    hooks:
-      build: "echo 'Building app1'"
-`,
-			expectWarningMessage: "linter warnings:\n  - applications.app1.web.commands.start: " +
-				"a start command is needed for non-PHP applications",
-		},
-		{
-			name: "static site without start command - no warning",
+			// A start command is optional: without one, nothing runs, and the
+			// application can still serve static files.
+			name: "static single-page application without start command",
 			yamlContent: `
 applications:
   app1:
@@ -180,57 +169,9 @@ applications:
     web:
       locations:
         "/":
-          root: dist
+          root: dist/client
+          passthru: /index.html
           scripts: false
-          passthru: false
-`,
-		},
-		{
-			name: "non-PHP application with passthru and no start command",
-			yamlContent: `
-applications:
-  app1:
-    type: "nodejs:24"
-    web:
-      locations:
-        "/":
-          root: dist
-          passthru: true
-`,
-			expectWarningMessage: "linter warnings:\n  - applications.app1.web.commands.start: " +
-				"a start command is needed for non-PHP applications",
-		},
-		{
-			name: "PHP application without start command - no warning",
-			yamlContent: `
-applications:
-  app1:
-    type: "php:8.2"
-    hooks:
-      build: "echo 'Building PHP app'"
-`,
-		},
-		{
-			name: "composable application without start command - no warning",
-			yamlContent: `
-applications:
-  app1:
-    type: "composable:nginx"
-    hooks:
-      build: "echo 'Building composable app'"
-`,
-		},
-		{
-			name: "non-PHP application with start command - no warning",
-			yamlContent: `
-applications:
-  app1:
-    type: "nodejs:20"
-    hooks:
-      build: "echo 'Building app1'"
-    web:
-      commands:
-        start: "node server.js"
 `,
 		},
 	}
@@ -251,12 +192,7 @@ applications:
 				assert.False(t, result.HasErrors())
 			}
 
-			if tt.expectWarningMessage != "" {
-				assert.True(t, result.HasWarnings())
-				assert.Equal(t, tt.expectWarningMessage, result.Error())
-			} else {
-				assert.False(t, result.HasWarnings())
-			}
+			assert.False(t, result.HasWarnings(), "unexpected warnings: %s", result)
 		})
 	}
 }
