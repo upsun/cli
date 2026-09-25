@@ -58,9 +58,9 @@ func TestEnvironmentDelete(t *testing.T) {
 		},
 		{
 			name:        "ignores an unknown branch variable",
-			args:        []string{"test-1"},
+			args:        []string{"--type", "development"},
 			extraEnv:    []string{"PLATFORM_BRANCH=missing"},
-			wantStdErr:  []string{"1 environment found by ID.", "Selected environment: test-1"},
+			wantStdErr:  []string{"3 environments found matching type(s): development"},
 			wantMissing: []string{"Specified environment not found"},
 		},
 		{
