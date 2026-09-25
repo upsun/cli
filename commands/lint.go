@@ -1,12 +1,15 @@
 package commands
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -143,8 +146,8 @@ func printLintResult(cmd *cobra.Command, result *lint.Result, format string) err
 	}
 
 	w := cmd.ErrOrStderr()
-	printIssueSection(w, color.New(color.FgRed, color.Bold), "Linter errors:", result.ErrorLines())
-	printIssueSection(w, color.New(color.FgYellow, color.Bold), "Linter warnings:", result.WarningLines())
+	printIssues(w, color.New(color.FgRed, color.Bold), "Errors", result.Errors)
+	printIssues(w, color.New(color.FgYellow, color.Bold), "Warnings", result.Warnings)
 	if result.HasErrors() {
 		return errLintFailed
 	}
@@ -154,12 +157,63 @@ func printLintResult(cmd *cobra.Command, result *lint.Result, format string) err
 	return nil
 }
 
-// printIssueSection prints a colored heading followed by the issue lines in the
-// default color. It is a no-op when there are no lines.
-func printIssueSection(w io.Writer, heading *color.Color, title string, lines []string) {
-	if len(lines) == 0 {
+// printIssues prints a colored heading followed by the issues grouped by file,
+// each with its line number and path, and the message below. For example:
+//
+//	Errors:
+//	  .upsun/config.yaml
+//	     28  applications.app.authorizations.0.action
+//	         authorization type 'env' only allows the action 'view'
+//
+// It is a no-op when there are no issues.
+func printIssues(w io.Writer, heading *color.Color, title string, issues []lint.Issue) {
+	if len(issues) == 0 {
 		return
 	}
-	fmt.Fprintln(w, heading.Sprint(title))
-	fmt.Fprintln(w, strings.Join(lines, "\n"))
+	sorted := slices.Clone(issues)
+	slices.SortStableFunc(sorted, func(a, b lint.Issue) int {
+		return cmp.Or(cmp.Compare(a.File, b.File), cmp.Compare(a.Line, b.Line),
+			cmp.Compare(a.Path, b.Path), cmp.Compare(a.Message, b.Message))
+	})
+
+	fmt.Fprintln(w, heading.Sprint(title+":"))
+	for len(sorted) > 0 {
+		n := 1
+		for n < len(sorted) && sorted[n].File == sorted[0].File {
+			n++
+		}
+		group := sorted[:n]
+		sorted = sorted[n:]
+		indent := "  "
+		if file := group[0].File; file != "" {
+			fmt.Fprintln(w, "  "+color.New(color.Bold).Sprint(file))
+			indent = "    "
+		}
+		// Right-align the line numbers within the file.
+		width := 0
+		for _, issue := range group {
+			if issue.Line > 0 {
+				width = max(width, len(strconv.Itoa(issue.Line)))
+			}
+		}
+		msgIndent := indent + "  "
+		if width > 0 {
+			msgIndent = indent + strings.Repeat(" ", width+2)
+		}
+		for _, issue := range group {
+			var line string
+			if width > 0 {
+				line = strings.Repeat(" ", width+2)
+				if issue.Line > 0 {
+					line = color.New(color.Faint).Sprintf("%*d", width, issue.Line) + "  "
+				}
+			}
+			if issue.Path == "" {
+				fmt.Fprintln(w, indent+line+issue.Message)
+				continue
+			}
+			fmt.Fprintln(w, indent+line+color.CyanString(issue.Path))
+			fmt.Fprintln(w, msgIndent+issue.Message)
+		}
+	}
 }

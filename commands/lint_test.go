@@ -6,6 +6,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,4 +57,39 @@ func TestPrintLintResult_JSONWithIssues(t *testing.T) {
 	assert.Equal(t, []lint.Issue{
 		{Path: "applications.app1.web.commands.start", Message: "a start command is needed"},
 	}, decoded.Warnings)
+}
+
+//nolint:lll
+func TestPrintLintResult_Text(t *testing.T) {
+	color.NoColor = true
+	cmd := &cobra.Command{}
+	var out bytes.Buffer
+	cmd.SetErr(&out)
+
+	result := &lint.Result{}
+	result.Errors = []lint.Issue{
+		{File: ".upsun/config.yaml", Line: 632, Path: "applications.b.mounts.m.source", Message: "must be one of the following"},
+		{File: ".upsun/config.yaml", Line: 28, Path: "applications.a.type", Message: "type not found"},
+		{Path: "applications", Message: "no application configuration found"},
+		{File: ".upsun/tasks.yaml", Message: "unknown top-level key"},
+	}
+	result.Warnings = []lint.Issue{
+		{File: "sub/.upsun", Message: "this .upsun directory is not at the project root and will be ignored"},
+	}
+
+	require.ErrorIs(t, printLintResult(cmd, result, "text"), errLintFailed)
+	assert.Equal(t, `Errors:
+  applications
+    no application configuration found
+  .upsun/config.yaml
+     28  applications.a.type
+         type not found
+    632  applications.b.mounts.m.source
+         must be one of the following
+  .upsun/tasks.yaml
+    unknown top-level key
+Warnings:
+  sub/.upsun
+    this .upsun directory is not at the project root and will be ignored
+`, out.String())
 }

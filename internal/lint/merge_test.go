@@ -50,11 +50,15 @@ routes:
 	require.Contains(t, merged, "foo")
 	require.Contains(t, merged, "db")
 	require.Contains(t, merged, "/:")
+	files := map[string]string{}
+	for key, src := range sources {
+		files[key] = src.file
+	}
 	assert.Equal(t, map[string]string{
 		"applications.foo": "a.yaml",
 		"routes./":         "a.yaml",
 		"services.db":      "b.yml",
-	}, sources)
+	}, files)
 }
 
 func TestMergeConfigFiles_Tasks(t *testing.T) {
@@ -67,7 +71,7 @@ func TestMergeConfigFiles_Tasks(t *testing.T) {
 	merged, sources, err := mergeConfigFiles(fsys, []string{"a.yaml", "b.yaml"})
 	require.NoError(t, err)
 	require.Contains(t, merged, "agent")
-	assert.Equal(t, "b.yaml", sources["tasks.agent"])
+	assert.Equal(t, source{file: "b.yaml", line: 2, node: sources["tasks.agent"].node}, sources["tasks.agent"])
 }
 
 func TestMergeConfigFiles_TopLevelKeys(t *testing.T) {
@@ -77,7 +81,7 @@ func TestMergeConfigFiles_TopLevelKeys(t *testing.T) {
 		wantErr string
 	}{
 		{"dot-prefixed key is ignored", ".anchors: {a: 1}\napplications:\n  foo: {type: go}", ""},
-		{"unknown key", "applications:\n  foo: {type: go}\nworkers: {}", "unknown top-level key 'workers' in a.yaml"},
+		{"unknown key", "applications:\n  foo: {type: go}\nworkers: {}", "a.yaml:3: unknown top-level key 'workers'"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -93,7 +97,6 @@ func TestMergeConfigFiles_TopLevelKeys(t *testing.T) {
 	}
 }
 
-//nolint:lll
 func TestMergeConfigFiles_DuplicateKey(t *testing.T) {
 	fsys := fstest.MapFS{
 		"a.yaml": &fstest.MapFile{Data: []byte(`applications:
@@ -103,7 +106,7 @@ func TestMergeConfigFiles_DuplicateKey(t *testing.T) {
 	}
 	_, _, err := mergeConfigFiles(fsys, []string{"a.yaml", "b.yml"})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "duplicate key 'foo' in section 'applications' found in file b.yml (already defined in a.yaml)")
+	require.Contains(t, err.Error(), "b.yml:2: duplicate key 'foo' in section 'applications' (already defined in a.yaml)")
 }
 
 func TestGetMergedConfigFiles_Success(t *testing.T) {

@@ -1,7 +1,9 @@
 package lint
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,21 +29,21 @@ var flexTopKeys = []string{keyApplications, keyServices, keyRoutes, keyTasks}
 // cfg: per-app config files (cfg.app) and/or cfg.dir/applications.yaml, plus
 // optional cfg.dir/routes.yaml and cfg.dir/services.yaml.
 func lintFixed(dir string, cfg fixedNames) (*Result, error) {
-	result := &Result{}
+	l := &fixedLoader{dir: dir, fsys: os.DirFS(dir), result: &Result{}, sources: sourceIndex{}}
 
-	apps, err := loadFixedApplications(dir, cfg, result)
+	apps, err := l.loadApplications(cfg)
 	if err != nil {
 		return nil, err
 	}
-
-	services, err := loadFixedSection(dir, cfg.dir, keyServices, schema.LoadServices, result)
+	services, err := l.loadSection(cfg.dir, keyServices, schema.LoadServices)
 	if err != nil {
 		return nil, err
 	}
-	routes, err := loadFixedSection(dir, cfg.dir, keyRoutes, schema.LoadRoutes, result)
+	routes, err := l.loadSection(cfg.dir, keyRoutes, schema.LoadRoutes)
 	if err != nil {
 		return nil, err
 	}
+	result := l.result
 
 	if len(apps) == 0 && !result.HasErrors() {
 		result.AddError("", "no application configuration found")
@@ -73,126 +75,154 @@ func lintFixed(dir string, cfg fixedNames) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	l.sources.locate(checks)
 	result.Merge(checks)
 	return result, nil
 }
 
-// loadFixedApplications collects applications from per-app config files and
+// fixedLoader reads Fixed-style files, collecting issues and where each
+// application, service and route is defined.
+type fixedLoader struct {
+	dir     string
+	fsys    fs.FS
+	result  *Result
+	sources sourceIndex
+}
+
+// load reads a YAML file (an absolute path under the project), reporting a
+// problem as an issue and returning a nil node.
+func (l *fixedLoader) load(abs string) (file string, node *yaml.Node) {
+	file = filepath.ToSlash(relTo(l.dir, abs))
+	node, err := loadYAML(l.fsys, file)
+	var srcErr *sourceError
+	if errors.As(err, &srcErr) {
+		l.result.Errors = append(l.result.Errors, srcErr.issue())
+		return file, nil
+	} else if err != nil {
+		l.result.Errors = append(l.result.Errors, Issue{File: file, Message: err.Error()})
+		return file, nil
+	}
+	return file, node
+}
+
+// check validates data against a schema, locating issues within node.
+func (l *fixedLoader) check(data any, sch *gojsonschema.Schema, key string, src source) {
+	checked := CheckSchemaAt(data, sch, key)
+	sourceIndex{key: src}.locate(checked)
+	l.result.Merge(checked)
+}
+
+// loadApplications collects applications from per-app config files and
 // cfg.dir/applications.yaml, validating each against the application schema.
-func loadFixedApplications(dir string, cfg fixedNames, result *Result) (map[string]any, error) {
+func (l *fixedLoader) loadApplications(cfg fixedNames) (map[string]any, error) {
 	appSchema, err := schema.LoadApplication()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load application schema: %w", err)
 	}
 
 	apps := map[string]any{}
-	sources := map[string]string{}
-	add := func(name, source string, data map[string]any) {
-		if _, dup := apps[name]; dup {
-			result.AddError(source, fmt.Sprintf(
-				"duplicate application name %q (already defined in %s)", name, sources[name]))
+	add := func(name string, data map[string]any, src source) {
+		key := keyApplications + "." + name
+		if prev, dup := l.sources[key]; dup {
+			l.result.Errors = append(l.result.Errors, Issue{
+				File:    src.file,
+				Line:    max(src.line, src.node.Line),
+				Message: fmt.Sprintf("duplicate application name %q (already defined in %s)", name, prev.file),
+			})
 			return
 		}
+		l.check(data, appSchema, key, src)
 		apps[name] = data
-		sources[name] = source
+		l.sources[key] = src
+	}
+	decodeApp := func(file string, node *yaml.Node) (map[string]any, bool) {
+		var data map[string]any
+		if node.Kind != yaml.MappingNode || node.Decode(&data) != nil {
+			l.result.Errors = append(l.result.Errors, Issue{File: file, Line: node.Line,
+				Message: "application must be a map"})
+			return nil, false
+		}
+		return data, true
 	}
 
 	// Individual per-app config files (e.g. .platform.app.yaml).
-	for _, abs := range findFixedAppFiles(dir, cfg.app) {
-		source := relTo(dir, abs)
-		data, err := readYAMLMap(abs)
-		if err != nil {
-			result.AddError(source, err.Error())
+	for _, abs := range findFixedAppFiles(l.dir, cfg.app) {
+		file, node := l.load(abs)
+		if node == nil {
 			continue
 		}
-		if data == nil {
+		data, ok := decodeApp(file, node)
+		if !ok {
 			continue
 		}
 		if hasAnyKey(data, flexTopKeys) {
-			result.AddError(source, "this looks like Flex configuration in a Fixed-style file")
+			l.result.Errors = append(l.result.Errors, Issue{File: file, Line: node.Line,
+				Message: "this looks like Flex configuration in a Fixed-style file"})
 			continue
 		}
-		result.Merge(CheckSchemaScoped(data, appSchema, source))
-		add(fixedAppName(data), source, data)
+		add(fixedAppName(data), data, source{file: file, node: node})
 	}
 
 	// cfg.dir/applications.yaml (a list of apps, or a map keyed by app name).
-	appsFile, ok := firstExistingYAML(dir, cfg.dir, keyApplications)
+	appsFile, ok := firstExistingYAML(l.dir, cfg.dir, keyApplications)
 	if !ok {
 		return apps, nil
 	}
-	label := relTo(dir, appsFile)
-	raw, err := os.ReadFile(appsFile)
-	if err != nil {
-		result.AddError(label, err.Error())
+	file, node := l.load(appsFile)
+	if node == nil {
 		return apps, nil
 	}
-	var doc any
-	if err := yaml.Unmarshal(raw, &doc); err != nil {
-		result.AddError(label, interpretYAMLError(err))
-		return apps, nil
-	}
-	switch v := doc.(type) {
-	case []any:
-		for i, item := range v {
-			data, ok := toStringMap(item)
-			if !ok {
-				result.AddError(fmt.Sprintf("%s[%d]", label, i), "application must be a map")
-				continue
+	switch node.Kind {
+	case yaml.SequenceNode:
+		for _, item := range node.Content {
+			if data, ok := decodeApp(file, item); ok {
+				add(fixedAppName(data), data, source{file: file, node: item})
 			}
-			src := fmt.Sprintf("%s[%d]", label, i)
-			result.Merge(CheckSchemaScoped(data, appSchema, src))
-			add(fixedAppName(data), src, data)
 		}
-	case map[string]any:
-		for name, item := range v {
+	case yaml.MappingNode:
+		for i := 0; i+1 < len(node.Content); i += 2 {
+			name, item := node.Content[i].Value, node.Content[i+1]
 			if strings.HasPrefix(name, ".") {
 				continue
 			}
-			data, ok := toStringMap(item)
+			data, ok := decodeApp(file, item)
 			if !ok {
-				result.AddError(label+": "+name, "application must be a map")
 				continue
 			}
-			src := label + ": " + name
 			// In map form the name comes from the key and must not be set in the value.
 			if _, ok := data["name"]; ok {
-				result.AddError(src, "the application name must not be set here; it is taken from the key")
+				l.result.Errors = append(l.result.Errors, Issue{File: file, Line: lineOf(item, ".name"),
+					Message: "the application name must not be set here; it is taken from the key"})
 				continue
 			}
 			data["name"] = name
-			result.Merge(CheckSchemaScoped(data, appSchema, src))
-			add(name, src, data)
+			add(name, data, source{file: file, line: node.Content[i].Line, node: item})
 		}
-	case nil:
-		// Empty file.
 	default:
-		result.AddError(label, "contents must be a YAML list or map")
+		l.result.Errors = append(l.result.Errors, Issue{File: file, Line: node.Line,
+			Message: "contents must be a YAML list or map"})
 	}
 
 	return apps, nil
 }
 
-// loadFixedSection reads and schema-validates an optional cfg.dir/<base>.{yaml,yml},
+// loadSection reads and schema-validates an optional <configDir>/<section>.{yaml,yml},
 // returning its decoded map (keyed by name/URL).
-func loadFixedSection(
-	dir, configDir, base string,
+func (l *fixedLoader) loadSection(
+	configDir, section string,
 	loadSchema func() (*gojsonschema.Schema, error),
-	result *Result,
 ) (map[string]any, error) {
-	path, ok := firstExistingYAML(dir, configDir, base)
+	abs, ok := firstExistingYAML(l.dir, configDir, section)
 	if !ok {
 		return nil, nil
 	}
-	label := relTo(dir, path)
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		result.AddError(label, err.Error())
+	file, node := l.load(abs)
+	if node == nil {
 		return nil, nil
 	}
 	data := map[string]any{}
-	if err := yaml.Unmarshal(raw, &data); err != nil {
-		result.AddError(label, interpretYAMLError(err))
+	if node.Kind != yaml.MappingNode || node.Decode(&data) != nil {
+		l.result.Errors = append(l.result.Errors, Issue{File: file, Line: node.Line, Message: "contents must be a YAML map"})
 		return nil, nil
 	}
 	if len(data) == 0 {
@@ -200,9 +230,15 @@ func loadFixedSection(
 	}
 	sch, err := loadSchema()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load %s schema: %w", base, err)
+		return nil, fmt.Errorf("failed to load %s schema: %w", section, err)
 	}
-	result.Merge(CheckSchemaScoped(data, sch, label))
+	l.sources[section] = source{file: file, node: node}
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		l.sources[section+"."+node.Content[i].Value] = source{file: file, line: node.Content[i].Line, node: node.Content[i+1]}
+	}
+	checked := CheckSchemaAt(data, sch, section)
+	l.sources.locate(checked)
+	l.result.Merge(checked)
 	return data, nil
 }
 
@@ -214,18 +250,6 @@ func fixedAppName(data map[string]any) string {
 	return "app"
 }
 
-func readYAMLMap(path string) (map[string]any, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	data := map[string]any{}
-	if err := yaml.Unmarshal(raw, &data); err != nil {
-		return nil, fmt.Errorf("%s", interpretYAMLError(err))
-	}
-	return data, nil
-}
-
 func hasAnyKey(m map[string]any, keys []string) bool {
 	for _, k := range keys {
 		if _, ok := m[k]; ok {
@@ -233,13 +257,6 @@ func hasAnyKey(m map[string]any, keys []string) bool {
 		}
 	}
 	return false
-}
-
-// toStringMap asserts that v is a YAML map. yaml.v3 always decodes mappings to
-// map[string]any, so a plain type assertion suffices.
-func toStringMap(v any) (map[string]any, bool) {
-	m, ok := v.(map[string]any)
-	return m, ok
 }
 
 // relTo returns abs relative to dir, falling back to abs on error.

@@ -107,7 +107,6 @@ services:
 	}
 }
 
-//nolint:lll
 func TestLint_Schema(t *testing.T) {
 	cases := []struct {
 		name string
@@ -210,7 +209,7 @@ tasks:
         start: python agent.py
 `,
 			wantErrors: `linter errors:
-  - applications.myapp.authorizations.0.type: applications.myapp.authorizations.0.type must be one of the following: "env", "task"
+  - applications.myapp.authorizations.0.type: must be one of the following: "env", "task"
   - applications.myapp.authorizations.0: Additional property scope is not allowed
   - tasks.myagent.run.timeout: Must be less than or equal to 86400
   - tasks.myagent: Additional property web is not allowed`,

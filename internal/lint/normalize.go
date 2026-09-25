@@ -1,6 +1,7 @@
 package lint
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -82,14 +83,19 @@ func CheckDir(dir string, vendor Vendor) (*Result, Style, error) {
 	switch {
 	case flexOK:
 		content, sources, err := getMergedConfigFiles(os.DirFS(dir), ".", flexDir)
-		if err != nil {
+		var result *Result
+		var srcErr *sourceError
+		switch {
+		case errors.As(err, &srcErr):
+			result = &Result{Errors: []Issue{srcErr.issue()}}
+		case err != nil:
 			return nil, StyleFlex, err
+		default:
+			if result, err = CheckContent(content); err != nil {
+				return nil, StyleFlex, err
+			}
+			sources.locate(result)
 		}
-		result, err := CheckContent(content)
-		if err != nil {
-			return nil, StyleFlex, err
-		}
-		attributeSources(result, sources)
 		addStrayWarnings(result, dir, flexDirs, fixedSet)
 		if fixedOK {
 			result.AddWarning("", fmt.Sprintf(
@@ -186,8 +192,10 @@ func addStrayWarnings(result *Result, root string, flexDirs []string, fixed []fi
 		// A known config directory below the root (not a root-level copy, which
 		// detection already handles) is ignored by the platform.
 		if d.IsDir() && configDirs[d.Name()] && filepath.Dir(path) != root {
-			result.AddWarning(relTo(root, path),
-				fmt.Sprintf("this %s directory is not at the project root and will be ignored", d.Name()))
+			result.Warnings = append(result.Warnings, Issue{
+				File:    filepath.ToSlash(relTo(root, path)),
+				Message: fmt.Sprintf("this %s directory is not at the project root and will be ignored", d.Name()),
+			})
 		}
 	})
 }
@@ -258,31 +266,6 @@ func firstExistingYAML(root, dir, base string) (string, bool) {
 func yamlVariants(base string) []string {
 	base = strings.TrimSuffix(strings.TrimSuffix(base, ".yaml"), ".yml")
 	return []string{base + ".yaml", base + ".yml"}
-}
-
-// attributeSources prefixes each issue path with the file that defines it, given
-// the files keyed by "<section>.<name>" (see mergeConfigFiles).
-func attributeSources(result *Result, sources map[string]string) {
-	attribute := func(issues []Issue) {
-		for i, issue := range issues {
-			// Route keys are URLs that may contain dots, so the longest match wins.
-			// Route issues may also use the form routes["<url>"].
-			var match string
-			for key := range sources {
-				section, name, _ := strings.Cut(key, ".")
-				for _, prefix := range []string{key, fmt.Sprintf("%s[%q]", section, name)} {
-					if (issue.Path == prefix || strings.HasPrefix(issue.Path, prefix+".")) && len(key) > len(match) {
-						match = key
-					}
-				}
-			}
-			if match != "" {
-				issues[i].Path = scopePath(sources[match], issue.Path)
-			}
-		}
-	}
-	attribute(result.Errors)
-	attribute(result.Warnings)
 }
 
 // isSeparateCheckout reports whether dir is a Git checkout other than a

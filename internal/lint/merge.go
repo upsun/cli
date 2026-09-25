@@ -37,45 +37,53 @@ func findFlexConfigFiles(fsys fs.FS, dir, configDir string) ([]string, error) {
 
 // mergeConfigFiles merges the given YAML files, combining the top-level sections
 // (flexTopKeys). A key duplicated across files, or an unknown top-level key, is
-// an error. It returns the merged YAML and the file that defines each entry,
-// keyed by "<section>.<name>" (e.g. "applications.app").
-func mergeConfigFiles(fsys fs.FS, files []string) (merged string, sources map[string]string, err error) {
+// an error. It returns the merged YAML and where each entry is defined.
+func mergeConfigFiles(fsys fs.FS, files []string) (merged string, sources sourceIndex, err error) {
 	sections := map[string]map[string]any{}
-	sources = map[string]string{}
+	sources = sourceIndex{}
 	for _, file := range files {
-		b, err := fs.ReadFile(fsys, file)
+		doc, err := loadYAML(fsys, file)
 		if err != nil {
-			return "", nil, fmt.Errorf("failed to read %s: %w", file, err)
+			return "", nil, err
 		}
-		var doc map[string]any
-		if err := yaml.Unmarshal(b, &doc); err != nil {
-			return "", nil, fmt.Errorf("failed to parse YAML in %s: %w", file, err)
+		if doc == nil {
+			continue
 		}
-		for key, section := range doc {
+		if doc.Kind != yaml.MappingNode {
+			return "", nil, &sourceError{file: file, line: doc.Line, msg: "contents should be a YAML map"}
+		}
+		for i := 0; i+1 < len(doc.Content); i += 2 {
+			keyNode, section := doc.Content[i], doc.Content[i+1]
+			key := keyNode.Value
 			if strings.HasPrefix(key, ".") {
 				continue
 			}
 			if !slices.Contains(flexTopKeys, key) {
-				return "", nil, fmt.Errorf("unknown top-level key '%s' in %s: it must be one of: %s",
-					key, file, strings.Join(flexTopKeys, ", "))
+				return "", nil, &sourceError{file: file, line: keyNode.Line, msg: fmt.Sprintf(
+					"unknown top-level key '%s': it must be one of: %s", key, strings.Join(flexTopKeys, ", "))}
 			}
-			if section == nil {
+			if section.Tag == "!!null" {
 				continue
 			}
-			sectionMap, ok := section.(map[string]any)
-			if !ok {
-				return "", nil, fmt.Errorf("%s in %s is not a map", key, file)
+			if section.Kind != yaml.MappingNode {
+				return "", nil, &sourceError{file: file, line: keyNode.Line, msg: key + " is not a map"}
 			}
 			if sections[key] == nil {
 				sections[key] = map[string]any{}
 			}
-			for k, v := range sectionMap {
-				if _, exists := sections[key][k]; exists {
-					return "", nil, fmt.Errorf("duplicate key '%s' in section '%s' found in file %s (already defined in %s)",
-						k, key, file, sources[key+"."+k])
+			for j := 0; j+1 < len(section.Content); j += 2 {
+				nameNode, valueNode := section.Content[j], section.Content[j+1]
+				name := nameNode.Value
+				if prev, exists := sources[key+"."+name]; exists {
+					return "", nil, &sourceError{file: file, line: nameNode.Line, msg: fmt.Sprintf(
+						"duplicate key '%s' in section '%s' (already defined in %s)", name, key, prev.file)}
 				}
-				sections[key][k] = v
-				sources[key+"."+k] = file
+				var v any
+				if err := valueNode.Decode(&v); err != nil {
+					return "", nil, &sourceError{file: file, line: nameNode.Line, msg: err.Error()}
+				}
+				sections[key][name] = v
+				sources[key+"."+name] = source{file: file, line: nameNode.Line, node: valueNode}
 			}
 		}
 	}
@@ -94,7 +102,7 @@ func mergeConfigFiles(fsys fs.FS, files []string) (merged string, sources map[st
 
 // getMergedConfigFiles merges all Flex config files in the given directory.
 // It is a convenience wrapper for findFlexConfigFiles + mergeConfigFiles.
-func getMergedConfigFiles(fsys fs.FS, dir, configDir string) (merged string, sources map[string]string, err error) {
+func getMergedConfigFiles(fsys fs.FS, dir, configDir string) (merged string, sources sourceIndex, err error) {
 	files, err := findFlexConfigFiles(fsys, dir, configDir)
 	if err != nil {
 		return "", nil, err

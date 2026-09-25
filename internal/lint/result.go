@@ -14,8 +14,18 @@ type Result struct {
 
 // Issue represents a single linting problem with its location in the content.
 type Issue struct {
-	Path    string `json:"path"` // e.g., "applications.foo.type", "services.database"
+	File    string `json:"file,omitempty"` // The file, relative to the project root, if known.
+	Line    int    `json:"line,omitempty"` // The line in the file, if known.
+	Path    string `json:"path"`           // e.g., "applications.foo.type", "services.database"
 	Message string `json:"message"`
+}
+
+// Location returns the file and line of the issue, e.g. ".upsun/config.yaml:12".
+func (i Issue) Location() string {
+	if i.Line > 0 {
+		return fmt.Sprintf("%s:%d", i.File, i.Line)
+	}
+	return i.File
 }
 
 // AddError adds an error to the linter result.
@@ -53,11 +63,13 @@ func issueLines(issues []Issue) []string {
 
 	messages := make([]string, 0, len(issues))
 	for _, issue := range issues {
-		if issue.Path != "" {
-			messages = append(messages, fmt.Sprintf("  - %s: %s", issue.Path, issue.Message))
-		} else {
-			messages = append(messages, fmt.Sprintf("  - %s", issue.Message))
+		var parts []string
+		for _, part := range []string{issue.Location(), issue.Path, issue.Message} {
+			if part != "" {
+				parts = append(parts, part)
+			}
 		}
+		messages = append(messages, "  - "+strings.Join(parts, ": "))
 	}
 
 	// Sort the issue messages for consistent ordering.

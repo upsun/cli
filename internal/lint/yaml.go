@@ -10,31 +10,18 @@ import (
 
 // CheckYAMLSchema checks that YAML content matches a JSON schema.
 func CheckYAMLSchema(content string, schema *gojsonschema.Schema) *Result {
-	result := &Result{}
-
 	var data = make(map[string]any)
 	if err := yaml.Unmarshal([]byte(content), &data); err != nil {
+		result := &Result{}
 		result.AddError("", interpretYAMLError(err))
 		return result
 	}
-
-	schemaResult, err := schema.Validate(gojsonschema.NewGoLoader(data))
-	if err != nil {
-		result.AddError("", err.Error())
-		return result
-	}
-	if !schemaResult.Valid() {
-		for _, e := range schemaResult.Errors() {
-			result.AddError(scopePath("", e.Field()), e.Description())
-		}
-	}
-
-	return result
+	return CheckSchemaAt(data, schema, "")
 }
 
-// CheckSchemaScoped validates already-parsed data against a JSON schema,
-// prefixing each issue's path with pathPrefix (e.g. a source file or app name).
-func CheckSchemaScoped(data any, schema *gojsonschema.Schema, pathPrefix string) *Result {
+// CheckSchemaAt validates already-parsed data against a JSON schema, prefixing
+// each issue's path with pathPrefix (e.g. "applications.app").
+func CheckSchemaAt(data any, schema *gojsonschema.Schema, pathPrefix string) *Result {
 	result := &Result{}
 
 	schemaResult, err := schema.Validate(gojsonschema.NewGoLoader(data))
@@ -42,25 +29,24 @@ func CheckSchemaScoped(data any, schema *gojsonschema.Schema, pathPrefix string)
 		result.AddError(pathPrefix, err.Error())
 		return result
 	}
-	if !schemaResult.Valid() {
-		for _, e := range schemaResult.Errors() {
-			result.AddError(scopePath(pathPrefix, e.Field()), e.Description())
+	for _, e := range schemaResult.Errors() {
+		field := e.Field()
+		if field == "(root)" {
+			field = ""
 		}
+		// Some descriptions repeat the field, which is already in the path.
+		msg := strings.TrimPrefix(e.Description(), field+" ")
+		switch {
+		case pathPrefix == "":
+		case field == "":
+			field = pathPrefix
+		default:
+			field = pathPrefix + "." + field
+		}
+		result.AddError(field, msg)
 	}
 
 	return result
-}
-
-// scopePath joins a path prefix and a schema field path.
-func scopePath(prefix, field string) string {
-	switch {
-	case field == "" || field == "(root)":
-		return prefix
-	case prefix == "":
-		return field
-	default:
-		return prefix + ": " + field
-	}
 }
 
 func interpretYAMLError(err error) string {

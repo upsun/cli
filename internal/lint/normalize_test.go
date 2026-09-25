@@ -209,7 +209,7 @@ func TestLintDir_FlexSourceFiles(t *testing.T) {
 	result, _, err := CheckDir(dir, upsunVendor())
 	require.NoError(t, err)
 	assert.Equal(t, `Linter errors:
-  - .upsun/tasks.yaml: tasks.agent: Additional property extra is not allowed`, result.String())
+  - .upsun/tasks.yaml:2: tasks.agent: Additional property extra is not allowed`, result.String())
 
 	// Semantic checks run once the schema passes.
 	writeFile(t, filepath.Join(dir, ".upsun", "tasks.yaml"), `tasks:
@@ -220,8 +220,8 @@ func TestLintDir_FlexSourceFiles(t *testing.T) {
 `)
 	result, _, err = CheckDir(dir, upsunVendor())
 	require.NoError(t, err)
-	assert.Contains(t, result.String(), ".upsun/apps.yaml: applications.app.authorizations.0.resource: task 'missing' is not found")
-	assert.Contains(t, result.String(), `.upsun/routes.yaml: routes["https://{default}/api"].upstream: upstream target 'missing' does not exist`)
+	assert.Contains(t, result.String(), ".upsun/apps.yaml:6: applications.app.authorizations.0.resource: task 'missing' is not found")
+	assert.Contains(t, result.String(), `.upsun/routes.yaml:4: routes["https://{default}/api"].upstream: upstream target 'missing' does not exist`)
 }
 
 func TestLintDir_SkipsSeparateCheckouts(t *testing.T) {
@@ -239,7 +239,7 @@ func TestLintDir_SkipsSeparateCheckouts(t *testing.T) {
 	result, _, err := CheckDir(dir, upsunVendor())
 	require.NoError(t, err)
 	assert.Equal(t, []Issue{{
-		Path:    filepath.Join("sub", ".upsun"),
+		File:    "sub/.upsun",
 		Message: "this .upsun directory is not at the project root and will be ignored",
 	}}, result.Warnings)
 }
@@ -256,4 +256,59 @@ func TestLintFixed_WorktreeAppFileIgnored(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, StyleFixed, style)
 	assert.False(t, result.HasErrors(), "unexpected errors: %s", result)
+}
+
+func TestLintDir_Includes(t *testing.T) {
+	t.Run("flex", func(t *testing.T) {
+		dir := t.TempDir()
+		writeFile(t, filepath.Join(dir, ".upsun", "config.yaml"), `applications:
+  app: !include apps/app.yaml
+  other: !include apps/missing.yaml
+`)
+		writeFile(t, filepath.Join(dir, ".upsun", "apps", "app.yaml"), `type: "php:8.4"
+hooks:
+  build: !include {type: string, path: ../build.sh}
+`)
+		writeFile(t, filepath.Join(dir, ".upsun", "build.sh"), "set -e\ncomposer install\n")
+
+		result, _, err := CheckDir(dir, upsunVendor())
+		require.NoError(t, err)
+		assert.Equal(t, []Issue{{
+			File: ".upsun/config.yaml", Line: 3, Message: "'apps/missing.yaml' doesn't exist in the repository",
+		}}, result.Errors)
+
+		writeFile(t, filepath.Join(dir, ".upsun", "config.yaml"), "applications:\n  app: !include apps/app.yaml\n")
+		writeFile(t, filepath.Join(dir, ".upsun", "build.sh"), "set -e\ncomposer install (\n")
+		result, _, err = CheckDir(dir, upsunVendor())
+		require.NoError(t, err)
+		require.Len(t, result.Errors, 1)
+		assert.Equal(t, ".upsun/config.yaml", result.Errors[0].File)
+		assert.Equal(t, 2, result.Errors[0].Line)
+		assert.Equal(t, "applications.app.hooks.build", result.Errors[0].Path)
+	})
+
+	t.Run("fixed", func(t *testing.T) {
+		dir := t.TempDir()
+		writeFile(t, filepath.Join(dir, "search", ".platform.app.yaml"), `name: search
+type: "python:3.14"
+hooks:
+  build: !include
+    type: string
+    path: build.sh
+`)
+		writeFile(t, filepath.Join(dir, "search", "build.sh"), "pip install -r requirements.txt\n")
+		writeFile(t, filepath.Join(dir, ".platform", "routes.yaml"), `"https://{default}/":
+  type: upstream
+  upstream: "missing:http"
+`)
+
+		result, _, err := CheckDir(dir, upsunVendor())
+		require.NoError(t, err)
+		assert.Equal(t, []Issue{{
+			File:    ".platform/routes.yaml",
+			Line:    3,
+			Path:    `routes["https://{default}/"].upstream`,
+			Message: "upstream target 'missing' does not exist, available targets: search",
+		}}, result.Errors)
+	})
 }

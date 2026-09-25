@@ -140,7 +140,7 @@ type: "php:999"`,
 			files: map[string]string{
 				".platform.app.yaml": `type: "php:8.3"`,
 			},
-			wantErrors: []string{".platform.app.yaml: name is required"},
+			wantErrors: []string{".platform.app.yaml:1: applications.app: name is required"},
 		},
 	}
 
