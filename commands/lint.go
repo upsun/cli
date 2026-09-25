@@ -160,8 +160,13 @@ func printLintResult(cmd *cobra.Command, result *lint.Result, format string) err
 	if result.HasErrors() {
 		return errLintFailed
 	}
-	if !result.HasWarnings() {
+	switch n := len(result.Warnings); n {
+	case 0:
 		fmt.Fprintln(w, color.GreenString("✓")+" The configuration is valid.")
+	case 1:
+		fmt.Fprintln(w, color.GreenString("✓")+" The configuration is valid, with 1 warning.")
+	default:
+		fmt.Fprintf(w, "%s The configuration is valid, with %d warnings.\n", color.GreenString("✓"), n)
 	}
 	return nil
 }

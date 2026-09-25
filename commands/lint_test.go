@@ -152,3 +152,18 @@ func TestLintCommand(t *testing.T) {
 		})
 	}
 }
+
+func TestPrintLintResult_ValidWithWarnings(t *testing.T) {
+	color.NoColor = true
+	cmd := &cobra.Command{}
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+
+	result := &lint.Result{}
+	result.AddWarning("", "both .upsun and .platform configuration found")
+	require.NoError(t, printLintResult(cmd, result, "text"))
+	assert.Equal(t, `Warnings:
+  both .upsun and .platform configuration found
+✓ The configuration is valid, with 1 warning.
+`, out.String())
+}
