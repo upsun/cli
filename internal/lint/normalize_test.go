@@ -312,3 +312,36 @@ hooks:
 		}}, result.Errors)
 	})
 }
+
+func TestLintDir_Aliases(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".upsun", "config.yaml"), `.apps: &apps
+  app:
+    type: "php:1.0"
+applications: *apps
+`)
+	result, _, err := CheckDir(dir, upsunVendor())
+	require.NoError(t, err)
+	require.Len(t, result.Errors, 1)
+	assert.Equal(t, Issue{
+		File: ".upsun/config.yaml", Line: 3, Path: "applications.app.type",
+		Message: result.Errors[0].Message,
+	}, result.Errors[0])
+}
+
+func TestLintDir_IncludeSymlinkOutsideProject(t *testing.T) {
+	outside := t.TempDir()
+	writeFile(t, filepath.Join(outside, "secret.txt"), "php:secret")
+	dir := t.TempDir()
+	require.NoError(t, os.Symlink(outside, filepath.Join(dir, "link")))
+	writeFile(t, filepath.Join(dir, ".upsun", "config.yaml"), `applications:
+  app:
+    type: !include {type: string, path: ../link/secret.txt}
+`)
+	result, _, err := CheckDir(dir, upsunVendor())
+	require.NoError(t, err)
+	require.Len(t, result.Errors, 1)
+	assert.Equal(t, Issue{
+		File: ".upsun/config.yaml", Line: 3, Message: "'../link/secret.txt' is outside the project",
+	}, result.Errors[0])
+}

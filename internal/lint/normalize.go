@@ -82,7 +82,13 @@ func CheckDir(dir string, vendor Vendor) (*Result, Style, error) {
 
 	switch {
 	case flexOK:
-		content, sources, err := getMergedConfigFiles(os.DirFS(dir), ".", flexDir)
+		root, err := os.OpenRoot(dir)
+		if err != nil {
+			return nil, StyleFlex, err
+		}
+		defer root.Close()
+		// The root keeps !include tags from following symbolic links out of the project.
+		content, sources, err := getMergedConfigFiles(root.FS(), ".", flexDir)
 		var result *Result
 		var srcErr *sourceError
 		switch {

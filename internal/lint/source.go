@@ -2,6 +2,7 @@ package lint
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io/fs"
 	"path"
@@ -51,6 +52,11 @@ func loadYAMLIncluding(fsys fs.FS, name string, including []string) (*yaml.Node,
 		return nil, nil
 	}
 	root := doc.Content[0]
+	// Decoding checks for duplicate keys, which the node tree allows.
+	var v any
+	if err := root.Decode(&v); err != nil {
+		return nil, &sourceError{file: name, msg: interpretYAMLError(err)}
+	}
 	r := &tagResolver{fsys: fsys, file: name, including: append(including, name)}
 	if err := r.resolve(root); err != nil {
 		return nil, err
@@ -182,8 +188,11 @@ func (r *tagResolver) lookup(node *yaml.Node, rel string) (p string, isDir bool,
 		return "", false, r.errorf(node, "'%s' is outside the project", rel)
 	}
 	fi, err := fs.Stat(r.fsys, p)
-	if err != nil {
+	if errors.Is(err, fs.ErrNotExist) {
 		return "", false, r.errorf(node, "'%s' doesn't exist in the repository", rel)
+	} else if err != nil {
+		// E.g. a symbolic link out of the project, which os.Root refuses.
+		return "", false, r.errorf(node, "'%s' is outside the project", rel)
 	}
 	return p, fi.IsDir(), nil
 }
@@ -266,6 +275,7 @@ func lineOf(node *yaml.Node, p string) int {
 	}
 	line := node.Line
 	for p != "" {
+		node = resolveAlias(node)
 		switch node.Kind {
 		case yaml.MappingNode:
 			var key string
@@ -278,8 +288,8 @@ func lineOf(node *yaml.Node, p string) int {
 			} else {
 				p = strings.TrimPrefix(p, ".")
 				// Keys may contain dots, so the longest matching key wins.
-				for i := 0; i+1 < len(node.Content); i += 2 {
-					k := node.Content[i].Value
+				for _, e := range mappingEntries(node) {
+					k := e.key.Value
 					if (p == k || strings.HasPrefix(p, k+".") || strings.HasPrefix(p, k+"[")) && len(k) > len(key) {
 						key = k
 					}
@@ -320,10 +330,53 @@ type mappingEntry struct {
 
 // mappingValue returns the value for key in a mapping node, or nil.
 func mappingValue(node *yaml.Node, key string) *mappingEntry {
-	for i := 0; i+1 < len(node.Content); i += 2 {
-		if node.Content[i].Value == key {
-			return &mappingEntry{keyLine: node.Content[i].Line, node: node.Content[i+1]}
+	for _, e := range mappingEntries(node) {
+		if e.key.Value == key {
+			return &mappingEntry{keyLine: e.key.Line, node: e.value}
 		}
 	}
 	return nil
+}
+
+// resolveAlias returns the node that an alias refers to, or node itself.
+func resolveAlias(node *yaml.Node) *yaml.Node {
+	for node != nil && node.Kind == yaml.AliasNode {
+		node = node.Alias
+	}
+	return node
+}
+
+type keyValue struct {
+	key, value *yaml.Node
+}
+
+// mappingEntries returns the entries of a mapping node, including those merged
+// with "<<" keys, which explicit keys override.
+func mappingEntries(node *yaml.Node) []keyValue {
+	node = resolveAlias(node)
+	if node == nil || node.Kind != yaml.MappingNode {
+		return nil
+	}
+	var entries, merged []keyValue
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		k, v := node.Content[i], node.Content[i+1]
+		if k.Tag != "!!merge" {
+			entries = append(entries, keyValue{k, v})
+			continue
+		}
+		v = resolveAlias(v)
+		sources := []*yaml.Node{v}
+		if v.Kind == yaml.SequenceNode {
+			sources = v.Content
+		}
+		for _, src := range sources {
+			merged = append(merged, mappingEntries(src)...)
+		}
+	}
+	for _, m := range merged {
+		if !slices.ContainsFunc(entries, func(e keyValue) bool { return e.key.Value == m.key.Value }) {
+			entries = append(entries, m)
+		}
+	}
+	return entries
 }

@@ -130,3 +130,37 @@ routes:
 		})
 	}
 }
+
+func TestLoadYAML_DuplicateKeys(t *testing.T) {
+	fsys := fstest.MapFS{"c.yaml": {Data: []byte("applications:\n  app: {}\napplications: null\n")}}
+	_, err := loadYAML(fsys, "c.yaml")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `mapping key "applications" already defined`)
+}
+
+func TestMappingEntries_AliasesAndMergeKeys(t *testing.T) {
+	var doc yaml.Node
+	require.NoError(t, yaml.Unmarshal([]byte(`.base: &base
+  type: php:8.4
+  size: S
+.apps: &apps
+  app:
+    <<: *base
+    size: M
+applications: *apps
+`), &doc))
+	root := doc.Content[0]
+	apps := resolveAlias(mappingValue(root, "applications").node)
+	require.NotNil(t, apps)
+	app := mappingValue(apps, "app")
+	require.NotNil(t, app)
+	assert.Equal(t, 5, app.keyLine)
+
+	values := map[string]string{}
+	for _, e := range mappingEntries(resolveAlias(app.node)) {
+		values[e.key.Value] = e.value.Value
+	}
+	// An explicit key overrides a merged one.
+	assert.Equal(t, map[string]string{"type": "php:8.4", "size": "M"}, values)
+	assert.Equal(t, 2, lineOf(root, ".applications.app.type"))
+}

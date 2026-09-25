@@ -29,7 +29,12 @@ var flexTopKeys = []string{keyApplications, keyServices, keyRoutes, keyTasks}
 // cfg: per-app config files (cfg.app) and/or cfg.dir/applications.yaml, plus
 // optional cfg.dir/routes.yaml and cfg.dir/services.yaml.
 func lintFixed(dir string, cfg fixedNames) (*Result, error) {
-	l := &fixedLoader{dir: dir, fsys: os.DirFS(dir), result: &Result{}, sources: sourceIndex{}}
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	l := &fixedLoader{dir: dir, fsys: root.FS(), result: &Result{}, sources: sourceIndex{}}
 
 	apps, err := l.loadApplications(cfg)
 	if err != nil {
@@ -137,7 +142,7 @@ func (l *fixedLoader) loadApplications(cfg fixedNames) (map[string]any, error) {
 	}
 	decodeApp := func(file string, node *yaml.Node) (map[string]any, bool) {
 		var data map[string]any
-		if node.Kind != yaml.MappingNode || node.Decode(&data) != nil {
+		if resolveAlias(node).Kind != yaml.MappingNode || node.Decode(&data) != nil {
 			l.result.Errors = append(l.result.Errors, Issue{File: file, Line: node.Line,
 				Message: "application must be a map"})
 			return nil, false
@@ -172,7 +177,7 @@ func (l *fixedLoader) loadApplications(cfg fixedNames) (map[string]any, error) {
 	if node == nil {
 		return apps, nil
 	}
-	switch node.Kind {
+	switch node = resolveAlias(node); node.Kind {
 	case yaml.SequenceNode:
 		for _, item := range node.Content {
 			if data, ok := decodeApp(file, item); ok {
@@ -180,8 +185,8 @@ func (l *fixedLoader) loadApplications(cfg fixedNames) (map[string]any, error) {
 			}
 		}
 	case yaml.MappingNode:
-		for i := 0; i+1 < len(node.Content); i += 2 {
-			name, item := node.Content[i].Value, node.Content[i+1]
+		for _, entry := range mappingEntries(node) {
+			name, item := entry.key.Value, entry.value
 			if strings.HasPrefix(name, ".") {
 				continue
 			}
@@ -196,7 +201,7 @@ func (l *fixedLoader) loadApplications(cfg fixedNames) (map[string]any, error) {
 				continue
 			}
 			data["name"] = name
-			add(name, data, source{file: file, line: node.Content[i].Line, node: item})
+			add(name, data, source{file: file, line: entry.key.Line, node: item})
 		}
 	default:
 		l.result.Errors = append(l.result.Errors, Issue{File: file, Line: node.Line,
@@ -221,7 +226,7 @@ func (l *fixedLoader) loadSection(
 		return nil, nil
 	}
 	data := map[string]any{}
-	if node.Kind != yaml.MappingNode || node.Decode(&data) != nil {
+	if resolveAlias(node).Kind != yaml.MappingNode || node.Decode(&data) != nil {
 		l.result.Errors = append(l.result.Errors, Issue{File: file, Line: node.Line, Message: "contents must be a YAML map"})
 		return nil, nil
 	}
@@ -233,8 +238,8 @@ func (l *fixedLoader) loadSection(
 		return nil, fmt.Errorf("failed to load %s schema: %w", section, err)
 	}
 	l.sources[section] = source{file: file, node: node}
-	for i := 0; i+1 < len(node.Content); i += 2 {
-		l.sources[section+"."+node.Content[i].Value] = source{file: file, line: node.Content[i].Line, node: node.Content[i+1]}
+	for _, entry := range mappingEntries(node) {
+		l.sources[section+"."+entry.key.Value] = source{file: file, line: entry.key.Line, node: entry.value}
 	}
 	checked := CheckSchemaAt(data, sch, section)
 	l.sources.locate(checked)

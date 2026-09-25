@@ -46,14 +46,14 @@ func mergeConfigFiles(fsys fs.FS, files []string) (merged string, sources source
 		if err != nil {
 			return "", nil, err
 		}
-		if doc == nil {
+		if doc = resolveAlias(doc); doc == nil {
 			continue
 		}
 		if doc.Kind != yaml.MappingNode {
 			return "", nil, &sourceError{file: file, line: doc.Line, msg: "contents should be a YAML map"}
 		}
-		for i := 0; i+1 < len(doc.Content); i += 2 {
-			keyNode, section := doc.Content[i], doc.Content[i+1]
+		for _, top := range mappingEntries(doc) {
+			keyNode, section := top.key, resolveAlias(top.value)
 			key := keyNode.Value
 			if strings.HasPrefix(key, ".") {
 				continue
@@ -71,8 +71,8 @@ func mergeConfigFiles(fsys fs.FS, files []string) (merged string, sources source
 			if sections[key] == nil {
 				sections[key] = map[string]any{}
 			}
-			for j := 0; j+1 < len(section.Content); j += 2 {
-				nameNode, valueNode := section.Content[j], section.Content[j+1]
+			for _, entry := range mappingEntries(section) {
+				nameNode, valueNode := entry.key, entry.value
 				name := nameNode.Value
 				if prev, exists := sources[key+"."+name]; exists {
 					return "", nil, &sourceError{file: file, line: nameNode.Line, msg: fmt.Sprintf(
