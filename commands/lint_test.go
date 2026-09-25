@@ -102,9 +102,8 @@ Warnings:
 func TestLintCommand(t *testing.T) {
 	color.NoColor = true
 	valid := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(valid, ".upsun"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(valid, ".upsun", "config.yaml"),
-		[]byte("applications:\n  app:\n    type: \"php:8.4\"\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(valid, ".platform.app.yaml"),
+		[]byte("name: app\ntype: \"php:8.4\"\n"), 0o600))
 	missing := filepath.Join(t.TempDir(), "missing")
 
 	cases := []struct {
@@ -129,8 +128,7 @@ func TestLintCommand(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			cnf := &config.Config{}
-			cnf.Service.ProjectConfigFlavor = "upsun"
-			cnf.Service.ProjectConfigDir = ".upsun"
+			cnf.Service.ProjectConfigDir = ".platform"
 			cmd := newLintCommand(cnf)
 			var stdout, stderr bytes.Buffer
 			cmd.SetOut(&stdout)
