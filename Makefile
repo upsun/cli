@@ -142,6 +142,16 @@ lint-gomod:
 lint-golangci:
 	golangci-lint run --timeout=2m
 
+# The embedded lint registry is transformed from https://meta.upsun.com/images by gen.go.
+# The schemas in internal/lint/schema are maintained in this repository.
+.PHONY: lint-assets
+lint-assets: ## Refresh the embedded lint registry from upstream
+	cd internal/lint/registry && go run gen.go
+
+.PHONY: lint-assets-check
+lint-assets-check: lint-assets ## Fail if the embedded lint registry is stale
+	git diff --exit-code -- internal/lint/registry/registry.json
+
 .goreleaser.vendor.yaml: check-vendor ## Generate the goreleaser vendor config
 	cat .goreleaser.vendor.yaml.tpl | envsubst > .goreleaser.vendor.yaml
 
