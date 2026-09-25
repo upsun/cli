@@ -39,6 +39,7 @@ func TestEnvironmentDelete(t *testing.T) {
 	cases := []struct {
 		name        string
 		args        []string
+		extraEnv    []string
 		wantErr     bool
 		wantStdErr  []string
 		wantMissing []string
@@ -56,6 +57,13 @@ func TestEnvironmentDelete(t *testing.T) {
 			wantMissing: []string{"Specified environment not found"},
 		},
 		{
+			name:        "ignores an unknown branch variable",
+			args:        []string{"test-1"},
+			extraEnv:    []string{"PLATFORM_BRANCH=missing"},
+			wantStdErr:  []string{"1 environment found by ID.", "Selected environment: test-1"},
+			wantMissing: []string{"Specified environment not found"},
+		},
+		{
 			name:        "missing environment",
 			args:        []string{"missing"},
 			wantErr:     true,
@@ -65,6 +73,7 @@ func TestEnvironmentDelete(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			f.extraEnv = c.extraEnv
 			args := append([]string{"environment:delete", "-p", projectID}, c.args...)
 			// Decline any confirmation, so nothing is deleted.
 			_, stdErr, err := f.RunInteractive("n\nn\n", args...)

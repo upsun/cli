@@ -77,12 +77,8 @@ class EnvironmentDeleteCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        // Select the current project, deliberately ignoring the 'environment'
-        // argument and option, as those will be processed separately.
-        $inputCopy = clone $input;
-        $inputCopy->setArgument('environment', null);
-        $inputCopy->setOption('environment', null);
-        $selection = $this->selector->getSelection($inputCopy, new SelectorConfig(envRequired: false));
+        // Select only the project: the 'environment' argument and option are processed separately.
+        $selection = $this->selector->getSelection($input, new SelectorConfig(selectEnv: false));
 
         $environments = $this->api->getEnvironments($selection->getProject());
 
