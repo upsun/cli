@@ -27,6 +27,7 @@ jobs:
           # These are needed so that the linter does not complain
           mkdir -p internal/legacy/archives
           touch internal/legacy/archives/platform.phar
+          touch internal/legacy/archives/commands.json
           touch internal/legacy/archives/php_windows_amd64
           touch internal/legacy/archives/php_linux_amd64
           touch internal/legacy/archives/php_linux_arm64
@@ -163,6 +164,7 @@ jobs:
           curl -fSL https://curl.se/ca/cacert.pem -o internal/legacy/archives/cacert.pem
           # Only needed so that the package builds.
           touch internal/legacy/archives/platform.phar
+          touch internal/legacy/archives/commands.json
 
       - name: Run Windows tests
         shell: bash
