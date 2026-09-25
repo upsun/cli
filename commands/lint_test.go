@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/fatih/color"
@@ -11,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/lint"
 )
 
@@ -64,7 +68,8 @@ func TestPrintLintResult_Text(t *testing.T) {
 	color.NoColor = true
 	cmd := &cobra.Command{}
 	var out bytes.Buffer
-	cmd.SetErr(&out)
+	cmd.SetOut(&out)
+	cmd.SetErr(io.Discard)
 
 	result := &lint.Result{}
 	result.Errors = []lint.Issue{
@@ -92,4 +97,58 @@ Warnings:
   sub/.upsun
     this .upsun directory is not at the project root and will be ignored
 `, out.String())
+}
+
+func TestLintCommand(t *testing.T) {
+	color.NoColor = true
+	valid := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(valid, ".upsun"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(valid, ".upsun", "config.yaml"),
+		[]byte("applications:\n  app:\n    type: \"php:8.4\"\n"), 0o600))
+	missing := filepath.Join(t.TempDir(), "missing")
+
+	cases := []struct {
+		name       string
+		args       []string
+		wantErr    bool
+		wantStdout string
+	}{
+		{"report on stdout", []string{valid}, false, "✓ The configuration is valid.\n"},
+		{"stdin with a path", []string{"--stdin", valid}, true, ""},
+		{"JSON for an operational error", []string{"--format", "json", missing}, true, `{
+  "errors": [
+    {
+      "path": "",
+      "message": "stat ` + missing + `: no such file or directory"
+    }
+  ],
+  "warnings": []
+}
+`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cnf := &config.Config{}
+			cnf.Service.ProjectConfigFlavor = "upsun"
+			cnf.Service.ProjectConfigDir = ".upsun"
+			cmd := newLintCommand(cnf)
+			var stdout, stderr bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+			cmd.SetIn(strings.NewReader(""))
+			cmd.SetArgs(c.args)
+			err := cmd.Execute()
+			if c.wantErr {
+				require.ErrorIs(t, err, errLintFailed)
+			} else {
+				require.NoError(t, err)
+			}
+			if c.wantStdout != "" {
+				assert.Equal(t, c.wantStdout, stdout.String())
+			}
+			if c.name == "stdin with a path" {
+				assert.Contains(t, stderr.String(), "--stdin cannot be used with a path")
+			}
+		})
+	}
 }

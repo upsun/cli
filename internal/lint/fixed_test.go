@@ -32,6 +32,22 @@ relationships:
 			wantNoErr: true,
 		},
 		{
+			name: "rule overriding passthru with a boolean",
+			files: map[string]string{
+				".platform.app.yaml": `name: myapp
+type: "php:8.4"
+web:
+  locations:
+    "/":
+      root: public
+      passthru: /index.php
+      rules:
+        '\.php$':
+          passthru: false`,
+			},
+			wantNoErr: true,
+		},
+		{
 			name: "app with runtime operations",
 			files: map[string]string{
 				".platform.app.yaml": `name: myapp

@@ -57,6 +57,11 @@ func vendorFromConfig(cnf *config.Config) lint.Vendor {
 func runLint(cmd *cobra.Command, args []string, vendor lint.Vendor) error {
 	result, format, err := lintInput(cmd, args, vendor)
 	if err != nil {
+		// Report operational errors as lint errors in JSON, so there is always a document.
+		if format == "json" {
+			result = &lint.Result{Errors: []lint.Issue{{Message: err.Error()}}}
+			return printLintResult(cmd, result, format)
+		}
 		// Print operational errors ourselves, since the command silences errors.
 		// Go error strings are lowercase by convention; capitalize for display.
 		fmt.Fprintln(cmd.ErrOrStderr(), color.RedString(capitalizeFirst(err.Error())))
@@ -72,6 +77,9 @@ func lintInput(cmd *cobra.Command, args []string, vendor lint.Vendor) (*lint.Res
 		return nil, "", fmt.Errorf("invalid --format %q: must be \"text\" or \"json\"", format)
 	}
 
+	if explicitStdin && len(args) > 0 {
+		return nil, format, errors.New("--stdin cannot be used with a path")
+	}
 	if explicitStdin {
 		result, err := lintStdin(cmd)
 		return result, format, err
@@ -145,7 +153,8 @@ func printLintResult(cmd *cobra.Command, result *lint.Result, format string) err
 		return nil
 	}
 
-	w := cmd.ErrOrStderr()
+	// The report is the command's output, so it is not hidden by --quiet.
+	w := cmd.OutOrStdout()
 	printIssues(w, color.New(color.FgRed, color.Bold), "Errors", result.Errors)
 	printIssues(w, color.New(color.FgYellow, color.Bold), "Warnings", result.Warnings)
 	if result.HasErrors() {

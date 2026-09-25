@@ -511,7 +511,10 @@
                       "title": "Amount of time to cache static assets."
                     },
                     "passthru": {
-                      "type": "string",
+                      "type": [
+                        "string",
+                        "boolean"
+                      ],
                       "title": "Whether to forward disallowed and missing resources from this location to the application. On PHP, set to the PHP front controller script, as a URL fragment. Otherwise set to `true`/`false`."
                     },
                     "scripts": {
