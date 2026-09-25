@@ -1,7 +1,7 @@
 stages:
   - test
 
-image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/cimg/go:1.25
+image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/cimg/go:1.27
 
 workflow:
   auto_cancel:
@@ -40,7 +40,7 @@ test:
 golangci-lint:
   stage: test
   extends: .go-setup
-  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/golangci/golangci-lint:v2.4
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/golangci/golangci-lint:v2.14
   script: golangci-lint run --timeout 0 --verbose
 
 legacy-php:
