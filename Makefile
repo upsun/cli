@@ -1,4 +1,4 @@
-PHP_VERSION = 8.4.23
+PHP_VERSION = 8.4.26
 
 GOOS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 GOARCH := $(shell uname -m)
