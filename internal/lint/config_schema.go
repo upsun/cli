@@ -2,15 +2,15 @@ package lint
 
 import (
 	"fmt"
-	"reflect"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
 	Applications map[string]struct {
-		Type  string `yaml:"type"`
-		Stack any    `yaml:"stack,omitempty"` // The stack can be an object, string, or array.
+		Type  string    `yaml:"type"`
+		Stack any       `yaml:"stack,omitempty"`
+		Image *OCIImage `yaml:"image,omitempty"`
 
 		Hooks struct {
 			Build      string `yaml:"build,omitempty"`
@@ -77,9 +77,10 @@ type WebLocation struct {
 
 // Task is an on-demand, run-to-completion workload (Flex only).
 type Task struct {
-	Type  string `yaml:"type,omitempty"`
-	Base  string `yaml:"base,omitempty"`
-	Stack any    `yaml:"stack,omitempty"`
+	Type  string    `yaml:"type,omitempty"`
+	Base  string    `yaml:"base,omitempty"`
+	Stack any       `yaml:"stack,omitempty"`
+	Image *OCIImage `yaml:"image,omitempty"`
 
 	Run struct {
 		Command string `yaml:"command,omitempty"`
@@ -110,6 +111,12 @@ func (t *Task) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
+// OCIImage configures the image of a container with a docker: type.
+type OCIImage struct {
+	Name      string `yaml:"name,omitempty"`
+	Buildfile string `yaml:"buildfile,omitempty"`
+}
+
 // Mount is a writable directory in a container.
 type Mount struct {
 	Source  string `yaml:"source,omitempty"`
@@ -131,21 +138,32 @@ func DecodeConfig(content string) (*Config, error) {
 	return &c, nil
 }
 
-// isStackEmpty checks if the stack field is empty, handling all possible types.
+// isStackEmpty reports whether a stack declares no runtimes or packages. The
+// stack is a mapping of "runtimes" and "packages", each a name, a mapping or a
+// list; the schema rejects other forms.
 func isStackEmpty(stack any) bool {
-	if stack == nil {
-		return true
+	m, ok := stack.(map[string]any)
+	if !ok {
+		return stack == nil
 	}
-
-	v := reflect.ValueOf(stack)
-	switch v.Kind() {
-	case reflect.String:
-		return v.String() == ""
-	case reflect.Slice, reflect.Array, reflect.Map:
-		return v.Len() == 0
-	case reflect.Pointer, reflect.Interface:
-		return v.IsNil()
-	default:
-		return v.IsZero()
+	for _, v := range m {
+		switch v := v.(type) {
+		case nil:
+		case string:
+			if v != "" {
+				return false
+			}
+		case []any:
+			if len(v) > 0 {
+				return false
+			}
+		case map[string]any:
+			if len(v) > 0 {
+				return false
+			}
+		default:
+			return false
+		}
 	}
+	return true
 }

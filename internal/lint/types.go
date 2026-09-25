@@ -22,8 +22,24 @@ func CheckTypes(cfg *Config, reg registry.Registry) *Result {
 		}
 	}
 
-	// checkRuntime checks the type and stack of an application or task at path.
-	checkRuntime := func(path, t string, stack any) {
+	// checkRuntime checks the type, stack and image of an application or task at path.
+	checkRuntime := func(path, t string, stack any, image *OCIImage) {
+		// A docker: type is built from an OCI image rather than a registry image.
+		if strings.HasPrefix(t, "docker:") {
+			switch {
+			case image == nil || image.Name == "" && image.Buildfile == "":
+				result.AddError(path+".image", "either name or buildfile must be provided, both are missing")
+			case image.Name != "" && image.Buildfile != "":
+				result.AddError(path+".image", "either name or buildfile must be provided, not both")
+			}
+			if !isStackEmpty(stack) {
+				result.AddWarning(path+".stack", "'stack' is only used with a composable image type")
+			}
+			return
+		}
+		if image != nil {
+			result.AddError(path+".image", "'image' is only used with a docker: type")
+		}
 		check(path+".type", t, true)
 		isComposable := strings.HasPrefix(t, "composable")
 		if isComposable && isStackEmpty(stack) {
@@ -41,12 +57,12 @@ func CheckTypes(cfg *Config, reg registry.Registry) *Result {
 				"'type' should be specified (as a composable image) when using 'stack'")
 			continue
 		}
-		checkRuntime("applications."+appName, app.Type, app.Stack)
+		checkRuntime("applications."+appName, app.Type, app.Stack, app.Image)
 	}
 	for taskName := range cfg.Tasks {
 		// A task using a built-in definition ('base') has no type of its own.
 		if task := cfg.Tasks[taskName]; task.Base == "" {
-			checkRuntime("tasks."+taskName, task.Type, task.Stack)
+			checkRuntime("tasks."+taskName, task.Type, task.Stack, task.Image)
 		}
 	}
 	for appName := range cfg.Applications {

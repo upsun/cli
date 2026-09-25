@@ -675,6 +675,74 @@
             ],
             "additionalProperties": false
           }
+        },
+        "egress": {
+          "type": "object",
+          "title": "Egress proxy allowlists",
+          "description": "Routes outbound traffic through the egress proxy, allowing only the listed domains, per phase (`build` or `runtime`).",
+          "properties": {
+            "build": {
+              "type": "object",
+              "properties": {
+                "allowed_domains": {
+                  "type": "array",
+                  "description": "The domains that outbound traffic may reach.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "host": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "port": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 65535
+                      }
+                    },
+                    "required": [
+                      "host"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "runtime": {
+              "type": "object",
+              "properties": {
+                "allowed_domains": {
+                  "type": "array",
+                  "description": "The domains that outbound traffic may reach.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "host": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "port": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 65535
+                      }
+                    },
+                    "required": [
+                      "host"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "container_profile": {
+          "type": "string",
+          "title": "The container profile for this container"
         }
       },
       "additionalProperties": false,
@@ -742,6 +810,12 @@
           "cmd": {
             "type": "string",
             "title": "The command to execute."
+          },
+          "timeout": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 86400,
+            "description": "The maximum duration in seconds."
           }
         },
         "required": [
@@ -958,6 +1032,74 @@
               ],
               "additionalProperties": false
             }
+          },
+          "egress": {
+            "type": "object",
+            "title": "Egress proxy allowlists",
+            "description": "Routes outbound traffic through the egress proxy, allowing only the listed domains, per phase (`build` or `runtime`).",
+            "properties": {
+              "build": {
+                "type": "object",
+                "properties": {
+                  "allowed_domains": {
+                    "type": "array",
+                    "description": "The domains that outbound traffic may reach.",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "host": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "port": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 65535
+                        }
+                      },
+                      "required": [
+                        "host"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "runtime": {
+                "type": "object",
+                "properties": {
+                  "allowed_domains": {
+                    "type": "array",
+                    "description": "The domains that outbound traffic may reach.",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "host": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "port": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 65535
+                        }
+                      },
+                      "required": [
+                        "host"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "container_profile": {
+            "type": "string",
+            "title": "The container profile for this container"
           }
         },
         "required": [
@@ -976,27 +1118,68 @@
       "title": "Resolve additional IPs to domain names."
     },
     "stack": {
-      "oneOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "object"
-        },
-        {
-          "type": "array",
-          "items": {
-            "oneOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "object"
+      "type": "object",
+      "title": "Composable image definition",
+      "description": "The runtimes and packages that make up the composable image. Each is a name, a mapping, or a list of them.",
+      "properties": {
+        "runtimes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "minProperties": 1,
+              "maxProperties": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object",
+                    "minProperties": 1,
+                    "maxProperties": 1
+                  }
+                ]
               }
-            ]
-          }
+            }
+          ]
+        },
+        "packages": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "required": [
+                "package"
+              ]
+            },
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "package"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
         }
-      ]
+      },
+      "additionalProperties": false
     },
     "authorizations": {
       "type": "array",
@@ -1045,6 +1228,10 @@
                 "type": "string",
                 "title": "The command used to start the application",
                 "description": "It will be restarted if it terminates. Do not use on PHP unless using a custom persistent process like React PHP."
+              },
+              "stop": {
+                "type": "string",
+                "description": "The command used to stop the operation."
               }
             },
             "required": [
@@ -1060,6 +1247,12 @@
               "contributor",
               "admin"
             ]
+          },
+          "timeout": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 86400,
+            "description": "The maximum duration in seconds."
           }
         },
         "required": [
@@ -1070,6 +1263,88 @@
       "title": "Runtime operations that can be executed in the application container",
       "description": "More information: \nhttps://docs.upsun.com/anchors/app/runtime-operations/",
       "default": {}
+    },
+    "egress": {
+      "type": "object",
+      "title": "Egress proxy allowlists",
+      "description": "Routes outbound traffic through the egress proxy, allowing only the listed domains, per phase (`build` or `runtime`).",
+      "properties": {
+        "build": {
+          "type": "object",
+          "properties": {
+            "allowed_domains": {
+              "type": "array",
+              "description": "The domains that outbound traffic may reach.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "host": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  }
+                },
+                "required": [
+                  "host"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "runtime": {
+          "type": "object",
+          "properties": {
+            "allowed_domains": {
+              "type": "array",
+              "description": "The domains that outbound traffic may reach.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "host": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  }
+                },
+                "required": [
+                  "host"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "image": {
+      "type": "object",
+      "title": "OCI image configuration",
+      "description": "For a `docker:` type: either `name` (an image reference) or `buildfile`.",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "buildfile": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "container_profile": {
+      "type": "string",
+      "title": "The container profile for this container"
     }
   },
   "anyOf": [

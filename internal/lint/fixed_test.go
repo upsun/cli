@@ -48,6 +48,61 @@ web:
 			wantNoErr: true,
 		},
 		{
+			name: "container features",
+			files: map[string]string{
+				".platform.app.yaml": `name: myapp
+type: "composable:25.11"
+container_profile: HIGH_CPU
+stack:
+  runtimes: ["php@8.4"]
+  packages: [{package: jq}]
+egress:
+  build:
+    allowed_domains:
+      - host: repo.packagist.org
+web:
+  container_profile: BALANCED
+workers:
+  queue:
+    container_profile: HIGH_MEMORY
+    commands:
+      start: php worker.php
+    egress:
+      runtime:
+        allowed_domains:
+          - host: queue.example.com
+            port: 443
+crons:
+  report:
+    spec: "0 * * * *"
+    timeout: 600
+    commands:
+      start: php report.php
+operations:
+  rebuild:
+    timeout: 3600
+    commands:
+      start: php rebuild.php
+      stop: pkill -f rebuild.php
+relationships:
+  db: "db:mysql"`,
+				".platform/services.yaml": `db:
+  type: "mariadb:11.4"
+  container_profile: HIGH_MEMORY`,
+			},
+			wantNoErr: true,
+		},
+		{
+			name: "OCI image",
+			files: map[string]string{
+				".platform.app.yaml": `name: myapp
+type: "docker:1"
+image:
+  name: ghcr.io/example/app:1.0`,
+			},
+			wantNoErr: true,
+		},
+		{
 			name: "app with runtime operations",
 			files: map[string]string{
 				".platform.app.yaml": `name: myapp
@@ -89,7 +144,7 @@ authorizations:
 			files: map[string]string{
 				".platform.app.yaml": `name: myapp
 type: "composable:25.11"
-stack: ["php@8.3"]`,
+stack: {runtimes: ["php@8.3"]}`,
 			},
 			wantNoErr: true,
 		},
@@ -97,7 +152,7 @@ stack: ["php@8.3"]`,
 			name: "composable image with stack and no type",
 			files: map[string]string{
 				".platform.app.yaml": `name: myapp
-stack: ["php@8.3"]`,
+stack: {runtimes: ["php@8.3"]}`,
 			},
 			wantNoErr: true,
 		},

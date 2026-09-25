@@ -123,7 +123,7 @@ applications:
     type: php:8.4
 tasks:
   bad:
-    stack: ["php@8.4"]`,
+    stack: {runtimes: ["php@8.4"]}`,
 			expectErrorMessage: `linter errors:
   - tasks.bad.type: type cannot be empty
 linter warnings:
@@ -135,7 +135,7 @@ linter warnings:
 applications:
   foo:
     type: php:8.4
-    stack: ["php@8.4"]`,
+    stack: {runtimes: ["php@8.4"]}`,
 			expectErrorMessage: `linter warnings:
   - applications.foo.stack: 'stack' is only used with a composable image type`,
 		},

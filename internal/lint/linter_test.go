@@ -174,7 +174,7 @@ tasks:
         action: view
   composed:
     type: composable:25.11
-    stack: ["python@3.14"]
+    stack: {runtimes: ["python@3.14"]}
     run:
       command: python run.py
   perf:
@@ -224,6 +224,182 @@ workers: {}
 `,
 			wantErrors: `linter errors:
   - Additional property workers is not allowed`,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			result, err := CheckContent(c.content)
+			require.NoError(t, err)
+			if c.wantErrors == "" {
+				assert.False(t, result.HasErrors(), "unexpected errors: %s", result)
+				assert.False(t, result.HasWarnings(), "unexpected warnings: %s", result)
+				return
+			}
+			assert.Equal(t, c.wantErrors, result.Error())
+		})
+	}
+}
+
+func TestLint_ContainerFeatures(t *testing.T) {
+	cases := []struct {
+		name       string
+		content    string
+		wantErrors string
+	}{
+		{
+			name: "egress, container profiles, operations and cron timeouts",
+			content: `
+applications:
+  app:
+    type: php:8.4
+    container_profile: HIGH_CPU
+    relationships:
+      db: "db:mysql"
+    egress:
+      build:
+        allowed_domains:
+          - host: repo.packagist.org
+      runtime:
+        allowed_domains:
+          - host: api.example.com
+            port: 443
+    web:
+      container_profile: BALANCED
+      egress:
+        runtime:
+          allowed_domains:
+            - host: api.example.com
+    workers:
+      queue:
+        container_profile: HIGH_MEMORY
+        commands:
+          start: php worker.php
+        egress:
+          runtime:
+            allowed_domains:
+              - host: queue.example.com
+    crons:
+      report:
+        spec: "0 * * * *"
+        timeout: 600
+        commands:
+          start: php report.php
+    operations:
+      rebuild:
+        role: admin
+        timeout: 3600
+        commands:
+          start: php rebuild.php
+          stop: pkill -f rebuild.php
+services:
+  db:
+    type: mariadb:11.4
+    container_profile: HIGH_MEMORY
+tasks:
+  agent:
+    type: python:3.14
+    container_profile: HIGH_CPU
+    run:
+      command: python agent.py
+    egress:
+      runtime:
+        allowed_domains:
+          - host: api.example.com
+`,
+		},
+		{
+			name: "structured stack forms",
+			content: `
+applications:
+  listed:
+    type: composable:25.11
+    stack:
+      runtimes: ["php@8.4", {"nodejs@24": {}}]
+      packages: [yarn, {package: jq, channel: unstable}]
+  scalar:
+    type: composable:25.11
+    stack:
+      runtimes: php@8.4
+      packages: yarn
+routes:
+  "https://{default}/":
+    type: upstream
+    upstream: "listed:http"
+`,
+		},
+		{
+			name: "OCI images",
+			content: `
+applications:
+  named:
+    type: docker:1
+    image:
+      name: ghcr.io/example/app:1.0
+  built:
+    type: docker:1
+    image:
+      buildfile: Dockerfile
+tasks:
+  job:
+    type: docker:1
+    image:
+      name: ghcr.io/example/job:1.0
+    run:
+      command: ./job
+routes:
+  "https://{default}/":
+    type: upstream
+    upstream: "named:http"
+`,
+		},
+		{
+			name: "invalid container features",
+			content: `
+applications:
+  app:
+    type: composable:25.11
+    stack: ["php@8.4"]
+    egress:
+      runtime:
+        allowed_domains:
+          - port: 443
+    crons:
+      report:
+        spec: "0 * * * *"
+        timeout: 100000
+        commands:
+          start: php report.php
+`,
+			wantErrors: `linter errors:
+  - applications.app.crons.report.timeout: Must be less than or equal to 86400
+  - applications.app.egress.runtime.allowed_domains.0: host is required
+  - applications.app.stack: Invalid type. Expected: object, given: array`,
+		},
+		{
+			name: "invalid images",
+			content: `
+applications:
+  none:
+    type: docker:1
+  both:
+    type: docker:1
+    image:
+      name: example/app
+      buildfile: Dockerfile
+  classic:
+    type: php:8.4
+    image:
+      name: example/app
+routes:
+  "https://{default}/":
+    type: upstream
+    upstream: "classic:http"
+`,
+			wantErrors: `linter errors:
+  - applications.both.image: either name or buildfile must be provided, not both
+  - applications.classic.image: 'image' is only used with a docker: type
+  - applications.none.image: either name or buildfile must be provided, both are missing`,
 		},
 	}
 
