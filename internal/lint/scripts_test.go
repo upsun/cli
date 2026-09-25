@@ -131,6 +131,25 @@ applications:
 				"invalid syntax: 1:6: reached EOF without closing quote `'`",
 		},
 		{
+			name: "invalid task scripts",
+			yamlContent: `
+applications:
+  app1:
+    type: "php:8.4"
+tasks:
+  agent:
+    type: "python:3.14"
+    hooks:
+      build: "pip install -r requirements.txt"
+      deploy: "echo 'unterminated"
+    run:
+      command: "python agent.py && ("
+`,
+			expectErrorMessage: "linter errors:\n" +
+				"  - tasks.agent.hooks.deploy: invalid syntax: 1:6: reached EOF without closing quote `'`\n" +
+				"  - tasks.agent.run.command: invalid syntax: 1:20: `(` must be followed by a statement list",
+		},
+		{
 			name: "empty YAML",
 			yamlContent: `
 applications: {}`,
@@ -148,6 +167,35 @@ applications:
     type: "nodejs:20"
     hooks:
       build: "echo 'Building app1'"
+`,
+			expectWarningMessage: "linter warnings:\n  - applications.app1.web.commands.start: " +
+				"a start command is needed for non-PHP applications",
+		},
+		{
+			name: "static site without start command - no warning",
+			yamlContent: `
+applications:
+  app1:
+    type: "nodejs:24"
+    web:
+      locations:
+        "/":
+          root: dist
+          scripts: false
+          passthru: false
+`,
+		},
+		{
+			name: "non-PHP application with passthru and no start command",
+			yamlContent: `
+applications:
+  app1:
+    type: "nodejs:24"
+    web:
+      locations:
+        "/":
+          root: dist
+          passthru: true
 `,
 			expectWarningMessage: "linter warnings:\n  - applications.app1.web.commands.start: " +
 				"a start command is needed for non-PHP applications",

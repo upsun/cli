@@ -5,90 +5,97 @@ import (
 	"strings"
 )
 
-// CheckRelationships checks that application relationships correspond to existing services.
+// CheckRelationships checks that application, service and task names are unique,
+// and that application and task relationships correspond to existing services or
+// applications.
 func CheckRelationships(cfg *Config) *Result {
 	result := &Result{}
 
-	var serviceNames = make(map[string]string)
-	addService := func(name, source string) string {
-		if prevSource, exists := serviceNames[name]; exists {
-			return fmt.Sprintf("duplicate name found: '%s' in '%s' (previous in '%s')", name, source, prevSource)
+	// Applications, services and tasks share a namespace.
+	sections := make(map[string]string)
+	addName := func(name, section string) {
+		if prev, exists := sections[name]; exists {
+			result.AddError(section+"."+name,
+				fmt.Sprintf("duplicate name found: '%s' in '%s' (previous in '%s')", name, section, prev))
+			return
 		}
-		serviceNames[name] = source
-		return ""
+		sections[name] = section
 	}
+	for name := range cfg.Applications {
+		addName(name, keyApplications)
+	}
+	for name := range cfg.Services {
+		addName(name, keyServices)
+	}
+	for name := range cfg.Tasks {
+		addName(name, keyTasks)
+	}
+
 	// Worker names are scoped to their application, so they are tracked
 	// separately: two applications may each define a worker with the same name,
 	// and a worker may share a name with an application or service.
-	var workerNames = make(map[string]struct{})
+	workerNames := make(map[string]struct{})
 	for appName := range cfg.Applications {
-		app := cfg.Applications[appName]
-		if msg := addService(appName, "applications"); msg != "" {
-			result.AddError("applications."+appName, msg)
-		}
-		for name := range app.Workers {
+		for name := range cfg.Applications[appName].Workers {
 			workerNames[name] = struct{}{}
 		}
 	}
-	for name := range cfg.Services {
-		if msg := addService(name, "services"); msg != "" {
-			result.AddError("services."+name, msg)
-		}
-	}
 
-	var linkedServices = make(map[string]struct{})
-	for appName := range cfg.Applications {
-		appConfig := cfg.Applications[appName]
-		for relName, value := range appConfig.Relationships {
-			// By default, the relationship links to the service with the same name.
-			var relationshipService = relName
-			var explicit bool
-
-			// The service name can also be specified explicitly, via a map or a string.
-			// TODO validate the endpoint
-			switch details := value.(type) {
-			case map[string]any:
-				if s, ok := details["service"].(string); ok {
-					relationshipService = s
-					explicit = true
-				}
-			case string:
-				relationshipService = strings.SplitN(details, ":", 2)[0]
-				explicit = true
-			}
-
-			_, isNamed := serviceNames[relationshipService]
-			if _, isWorker := workerNames[relationshipService]; isNamed || isWorker {
-				linkedServices[relationshipService] = struct{}{}
-			} else {
-				var msg string
+	linkedServices := make(map[string]struct{})
+	checkRelationships := func(kind, name, path string, relationships map[string]any) {
+		for relName, value := range relationships {
+			target, explicit := relationshipTarget(relName, value)
+			relPath := path + ".relationships." + relName
+			section, isNamed := sections[target]
+			_, isWorker := workerNames[target]
+			switch {
+			case section == keyTasks:
+				result.AddError(relPath, fmt.Sprintf(
+					"relationship '%s' in %s '%s' points to task '%s', but a task cannot be a relationship target",
+					relName, kind, name, target))
+			case isNamed || isWorker:
+				linkedServices[target] = struct{}{}
+			default:
+				msg := fmt.Sprintf("relationship '%s' in %s '%s' does not match any service (or app)", relName, kind, name)
 				if explicit {
-					msg = fmt.Sprintf(
-						"relationship '%s' in application '%s' points to a service (or app) named '%s' which is not found",
-						relName,
-						appName,
-						relationshipService,
-					)
-				} else {
-					msg = fmt.Sprintf(
-						"relationship '%s' in application '%s' does not match any service (or app)",
-						relName,
-						appName,
-					)
+					msg = fmt.Sprintf("relationship '%s' in %s '%s' points to a service (or app) named '%s' which is not found",
+						relName, kind, name, target)
 				}
 				if len(cfg.Services) == 0 {
 					msg += " (did you forget to define services?)"
 				}
-				result.AddError("applications."+appName+".relationships."+relName, msg)
+				result.AddError(relPath, msg)
 			}
 		}
+	}
+	for appName := range cfg.Applications {
+		checkRelationships("application", appName, "applications."+appName, cfg.Applications[appName].Relationships)
+	}
+	for taskName := range cfg.Tasks {
+		checkRelationships("task", taskName, "tasks."+taskName, cfg.Tasks[taskName].Relationships)
 	}
 
 	for name := range cfg.Services {
 		if _, linked := linkedServices[name]; !linked {
-			result.AddError("services."+name, fmt.Sprintf("no application has a relationship to service '%s'", name))
+			result.AddError("services."+name, fmt.Sprintf("no application or task has a relationship to service '%s'", name))
 		}
 	}
 
 	return result
+}
+
+// relationshipTarget returns the service (or application) that a relationship
+// points to, and whether it is named explicitly. By default, the relationship
+// links to the service with the same name.
+// TODO validate the endpoint
+func relationshipTarget(relName string, value any) (target string, explicit bool) {
+	switch details := value.(type) {
+	case map[string]any:
+		if s, ok := details["service"].(string); ok {
+			return s, true
+		}
+	case string:
+		return strings.SplitN(details, ":", 2)[0], true
+	}
+	return relName, false
 }

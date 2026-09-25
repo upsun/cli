@@ -81,7 +81,7 @@ func CheckDir(dir string, vendor Vendor) (*Result, Style, error) {
 
 	switch {
 	case flexOK:
-		content, err := getMergedConfigFiles(os.DirFS(dir), ".", flexDir)
+		content, sources, err := getMergedConfigFiles(os.DirFS(dir), ".", flexDir)
 		if err != nil {
 			return nil, StyleFlex, err
 		}
@@ -89,6 +89,7 @@ func CheckDir(dir string, vendor Vendor) (*Result, Style, error) {
 		if err != nil {
 			return nil, StyleFlex, err
 		}
+		attributeSources(result, sources)
 		addStrayWarnings(result, dir, flexDirs, fixedSet)
 		if fixedOK {
 			result.AddWarning("", fmt.Sprintf(
@@ -195,8 +196,9 @@ func addStrayWarnings(result *Result, root string, flexDirs []string, fixed []fi
 // files. It mirrors the legacy CLI's safeguard against slow, over-broad searches.
 const maxFixedAppDepth = 5
 
-// walkProject walks root, pruning VCS/dependency directories and limiting depth,
-// invoking visit for each remaining entry (files and directories).
+// walkProject walks root, pruning VCS/dependency directories, separate Git
+// checkouts, and limiting depth, invoking visit for each remaining entry (files
+// and directories).
 func walkProject(root string, visit func(path string, d fs.DirEntry)) {
 	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -209,6 +211,9 @@ func walkProject(root string, visit func(path string, d fs.DirEntry)) {
 			}
 			if rel, err := filepath.Rel(root, path); err == nil &&
 				len(strings.Split(filepath.ToSlash(rel), "/")) >= maxFixedAppDepth {
+				return fs.SkipDir
+			}
+			if isSeparateCheckout(path) {
 				return fs.SkipDir
 			}
 		}
@@ -253,4 +258,51 @@ func firstExistingYAML(root, dir, base string) (string, bool) {
 func yamlVariants(base string) []string {
 	base = strings.TrimSuffix(strings.TrimSuffix(base, ".yaml"), ".yml")
 	return []string{base + ".yaml", base + ".yml"}
+}
+
+// attributeSources prefixes each issue path with the file that defines it, given
+// the files keyed by "<section>.<name>" (see mergeConfigFiles).
+func attributeSources(result *Result, sources map[string]string) {
+	attribute := func(issues []Issue) {
+		for i, issue := range issues {
+			// Route keys are URLs that may contain dots, so the longest match wins.
+			// Route issues may also use the form routes["<url>"].
+			var match string
+			for key := range sources {
+				section, name, _ := strings.Cut(key, ".")
+				for _, prefix := range []string{key, fmt.Sprintf("%s[%q]", section, name)} {
+					if (issue.Path == prefix || strings.HasPrefix(issue.Path, prefix+".")) && len(key) > len(match) {
+						match = key
+					}
+				}
+			}
+			if match != "" {
+				issues[i].Path = scopePath(sources[match], issue.Path)
+			}
+		}
+	}
+	attribute(result.Errors)
+	attribute(result.Warnings)
+}
+
+// isSeparateCheckout reports whether dir is a Git checkout other than a
+// submodule: a separate clone (a .git directory) or a linked worktree (a .git
+// file pointing into another repository's "worktrees" directory). These are not
+// part of the project. Submodules also have a .git file, pointing into
+// "modules", and are kept since they are deployed with the project.
+func isSeparateCheckout(dir string) bool {
+	gitPath := filepath.Join(dir, ".git")
+	fi, err := os.Lstat(gitPath)
+	if err != nil {
+		return false
+	}
+	if fi.IsDir() {
+		return true
+	}
+	b, err := os.ReadFile(gitPath)
+	if err != nil {
+		return false
+	}
+	gitDir, ok := strings.CutPrefix(strings.TrimSpace(string(b)), "gitdir:")
+	return ok && strings.Contains(filepath.ToSlash(strings.TrimSpace(gitDir)), "/worktrees/")
 }

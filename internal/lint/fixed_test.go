@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+//nolint:lll
 func TestLintDir_Fixed(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -29,6 +30,30 @@ relationships:
   upstream: "myapp:http"`,
 			},
 			wantNoErr: true,
+		},
+		{
+			name: "app with env authorization",
+			files: map[string]string{
+				".platform.app.yaml": `name: myapp
+type: "php:8.4"
+authorizations:
+  - type: env
+    action: view`,
+			},
+			wantNoErr: true,
+		},
+		{
+			// Tasks are only available with Flex-style configuration.
+			name: "app authorizing a task",
+			files: map[string]string{
+				".platform.app.yaml": `name: myapp
+type: "php:8.4"
+authorizations:
+  - type: task
+    resource: myagent
+    action: operate`,
+			},
+			wantErrors: []string{"applications.myapp.authorizations.0.resource: task 'myagent' is not found (no tasks are defined)"},
 		},
 		{
 			name: "composable image with type and stack",

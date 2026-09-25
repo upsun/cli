@@ -8,6 +8,7 @@ import (
 	"github.com/upsun/cli/internal/lint"
 )
 
+//nolint:lll
 func TestCheckRelationships(t *testing.T) {
 	cases := []struct {
 		name               string
@@ -58,7 +59,7 @@ services:
   foo: {}`,
 			expectErrorMessage: "linter errors:" +
 				"\n  - services.foo: duplicate name found: 'foo' in 'services' (previous in 'applications')" +
-				"\n  - services.foo: no application has a relationship to service 'foo'",
+				"\n  - services.foo: no application or task has a relationship to service 'foo'",
 		},
 		{
 			name: "correct_multiapp",
@@ -138,6 +139,78 @@ applications:
 services:
   database:
     type: mariadb:11.4`,
+		},
+		{
+			name: "task_relationships",
+			// A service used only by a task is not reported as unused.
+			content: `
+applications:
+  app:
+    type: php:8.4
+services:
+  db:
+    type: mariadb:11.4
+tasks:
+  agent:
+    type: python:3.14
+    relationships:
+      database: "db:mysql"
+      site: "app:http"
+      implicit:
+        service: db`,
+		},
+		{
+			name: "task_relationship_not_found",
+			content: `
+applications:
+  app:
+    type: php:8.4
+tasks:
+  agent:
+    type: python:3.14
+    relationships:
+      cache:`,
+			expectErrorMessage: `linter errors:
+  - tasks.agent.relationships.cache: relationship 'cache' in task 'agent' does not match any service (or app) (did you forget to define services?)`, //nolint:lll
+		},
+		{
+			name: "relationship_to_task",
+			content: `
+applications:
+  app:
+    type: php:8.4
+    relationships:
+      agent: "agent:http"
+tasks:
+  agent:
+    type: python:3.14
+  other:
+    type: python:3.14
+    relationships:
+      agent:`,
+			expectErrorMessage: `linter errors:
+  - applications.app.relationships.agent: relationship 'agent' in application 'app' points to task 'agent', but a task cannot be a relationship target
+  - tasks.other.relationships.agent: relationship 'agent' in task 'other' points to task 'agent', but a task cannot be a relationship target`, //nolint:lll
+		},
+		{
+			name: "task_name_collisions",
+			content: `
+applications:
+  app:
+    type: php:8.4
+    relationships:
+      db:
+services:
+  db:
+    type: mariadb:11.4
+tasks:
+  app:
+    type: python:3.14
+  db:
+    type: python:3.14`,
+			expectErrorMessage: `linter errors:
+  - tasks.app: duplicate name found: 'app' in 'tasks' (previous in 'applications')
+  - tasks.db: duplicate name found: 'db' in 'tasks' (previous in 'services')`,
 		},
 	}
 

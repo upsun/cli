@@ -344,6 +344,9 @@
                 "title": "Whether to move the whole root of the app to the document root",
                 "default": false,
                 "deprecationMessage": "Deprecated"
+              },
+              "authorizations": {
+                "$ref": "#/definitions/authorizations"
               }
             },
             "additionalProperties": false,
@@ -383,9 +386,10 @@
                       "source": {
                         "type": "string",
                         "title": "The type of mount that will provide the data",
-                        "description": "- By design, `storage` mounts can be shared between instances of the same app \n- `instance` mounts are local mounts \n- `tmp` (or `temporary`) mounts are local ephemeral mounts \n- `service` mounts can be useful if you want to explicitly define and use a Network Storage service",
+                        "description": "- By design, `storage` mounts can be shared between instances of the same app \n- `instance` (or `local`) mounts are local mounts \n- `tmp` (or `temporary`) mounts are local ephemeral mounts \n- `service` mounts can be useful if you want to explicitly define and use a Network Storage service",
                         "enum": [
                           "instance",
+                          "local",
                           "service",
                           "storage",
                           "temporary",
@@ -460,6 +464,9 @@
                   "additionalProperties": false,
                   "title": "The commands to manage the worker",
                   "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/workers/"
+                },
+                "authorizations": {
+                  "$ref": "#/definitions/authorizations"
                 }
               },
               "required": [
@@ -750,6 +757,9 @@
             "title": "Runtime operations that can be executed in the application container",
             "description": "More information: \nhttps://docs.upsun.com/anchors/app/runtime-operations/",
             "default": {}
+          },
+          "authorizations": {
+            "$ref": "#/definitions/authorizations"
           }
         },
         "anyOf": [
@@ -922,12 +932,222 @@
         ],
         "additionalProperties": false
       }
+    },
+    "tasks": {
+      "title": "The tasks of the project",
+      "description": "On-demand, run-to-completion workloads.\nMore information:\nhttps://developer.upsun.com/docs/configure-apps/tasks",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "additional_hosts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Maps of hostnames to IP addresses",
+            "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/additional-hosts/"
+          },
+          "authorizations": {
+            "$ref": "#/definitions/authorizations"
+          },
+          "base": {
+            "type": "string",
+            "title": "A built-in task definition to use",
+            "description": "When set, no other property is allowed."
+          },
+          "container_profile": {
+            "$ref": "#/definitions/container_profile"
+          },
+          "dependencies": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            },
+            "title": "External global dependencies of this application",
+            "description": "What global dependencies to install before the build `hook` is run. They will be downloaded by the language's package manager.  \nMore information: \nhttps://docs.upsun.com/anchors/app/reference/dependencies/",
+            "default": {}
+          },
+          "hooks": {
+            "type": "object",
+            "properties": {
+              "build": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Run during the environment build, producing a slug reused across runs."
+              },
+              "deploy": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Run before the task's run command."
+              }
+            },
+            "additionalProperties": false
+          },
+          "mounts": {
+            "$ref": "#/definitions/mounts"
+          },
+          "relationships": {
+            "$ref": "#/definitions/relationships"
+          },
+          "resources": {
+            "$ref": "#/definitions/deprecated/resources"
+          },
+          "run": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The command to execute. It runs to completion, not as a daemon."
+              },
+              "timeout": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 86400,
+                "description": "The maximum duration in seconds. Defaults to 3600."
+              }
+            },
+            "required": [
+              "command"
+            ],
+            "additionalProperties": false
+          },
+          "runtime": {
+            "type": "object",
+            "title": "Runtime-specific configuration",
+            "description": "Customizations to your PHP or Lisp runtime. \nContains a runtime dictionary: \nhttps://docs.upsun.com/anchors/app/reference/runtime/",
+            "properties": {
+              "extensions": {
+                "type": "array",
+                "title": "PHP extensions to enable",
+                "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/extensions/",
+                "default": []
+              },
+              "disabled_extensions": {
+                "type": "array",
+                "title": "PHP extensions to disable",
+                "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/extensions/",
+                "default": []
+              },
+              "request_terminate_timeout": {
+                "type": "integer",
+                "title": "PHP timeout to terminate requests",
+                "description": "The timeout in seconds for serving a single request after which the PHP-FPM worker process is killed."
+              },
+              "sizing_hints": {
+                "type": "object",
+                "title": "A sizing hints definition",
+                "description": "The assumptions for setting the number of workers in your PHP-FPM runtime. \nMore information: \nhttps://docs.upsun.com/anchors/app/reference/runtime/sizing-hints/",
+                "properties": {
+                  "request_memory": {
+                    "type": "integer",
+                    "title": "The average memory consumed per request in MB",
+                    "description": "Minimum to 10",
+                    "default": 45,
+                    "minimum": 10
+                  },
+                  "reserved_memory": {
+                    "type": "integer",
+                    "title": "The amount of memory reserved in MB",
+                    "description": "Minimum to 70",
+                    "default": 70,
+                    "minimum": 70
+                  }
+                },
+                "additionalProperties": false
+              },
+              "xdebug": {
+                "type": "object",
+                "title": "An Xdebug definition",
+                "description": "The setting to turn on Xdebug. \nMore information: \nhttps://docs.upsun.com/anchors/languages/php/xdebug/",
+                "properties": {
+                  "idekey": {
+                    "type": "string",
+                    "title": "Your Xdebug key"
+                  }
+                }
+              },
+              "quicklisp": {
+                "type": "object",
+                "title": "Distributions for QuickLisp to use",
+                "description": "More information: \nhttps://docs.upsun.com/anchors/languages/lisp/",
+                "deprecationMessage": "Lisp image no longer exists, please see \nhttps://devcenter.upsun.com/posts/deploying-with-lisp/ \n for more information"
+              }
+            }
+          },
+          "source": {
+            "type": "object",
+            "properties": {
+              "root": {
+                "type": "string",
+                "description": "The subdirectory containing the task's code. Defaults to `/`."
+              }
+            },
+            "additionalProperties": false
+          },
+          "stack": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            ],
+            "title": "Composable Image definition",
+            "description": "A list of packages from the Upsun collection of supported runtimes and/or from NixPkgs.  \nMore information: \nhttps://docs.upsun.com/anchors/app/composable/"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "The timezone of the application",
+            "description": "This primarily affects the timezone in which cron tasks will run. It will not affect the application itself. Defaults to UTC if not specified. \nSee also: \nhttps://docs.upsun.com/anchors/app/timezone/",
+            "default": null
+          },
+          "type": {
+            "type": "string",
+            "title": "The runtime image and version to use for this task",
+            "description": "The base image to use with a specific app language.  \nFormat: runtime:version. \nMore information: \nhttps://docs.upsun.com/anchors/app/reference/type/"
+          },
+          "variables": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            "title": "Variables to control the environment",
+            "description": "Variables provide environment-sensitive information to control how your application behaves. To set a Unix environment variable, specify a key of `env:`, and then each sub-item of that is a key/value pair that will be injected into the environment. \nMore information: \nhttps://docs.upsun.com/anchors/app/reference/variables/",
+            "default": {}
+          }
+        },
+        "additionalProperties": false
+      }
     }
   },
   "required": [
     "applications"
   ],
-  "additionalProperties": true,
+  "additionalProperties": false,
   "definitions": {
     "container_profile": {
       "type": [
@@ -1319,9 +1539,10 @@
           "source": {
             "type": "string",
             "title": "The type of mount that will provide the data",
-            "description": "- By design, `storage` mounts can be shared between instances of the same app \n- `instance` mounts are local mounts \n- `tmp` (or `temporary`) mounts are local ephemeral mounts \n- `service` mounts can be useful if you want to explicitly define and use a Network Storage service",
+            "description": "- By design, `storage` mounts can be shared between instances of the same app \n- `instance` (or `local`) mounts are local mounts \n- `tmp` (or `temporary`) mounts are local ephemeral mounts \n- `service` mounts can be useful if you want to explicitly define and use a Network Storage service",
             "enum": [
               "instance",
+              "local",
               "service",
               "storage",
               "temporary",
@@ -1376,6 +1597,44 @@
         "title": "Resources",
         "deprecationMessage": "Deprecated"
       }
+    },
+    "authorizations": {
+      "type": "array",
+      "title": "Workload authorizations",
+      "description": "Grants the container short-lived, narrowly-scoped access to the Upsun API at runtime.\nMore information:\nhttps://developer.upsun.com/docs/configure-apps/image-properties/authorizations",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "env",
+              "task"
+            ],
+            "description": "The type of resource to access: `task` (a task defined in the project) or `env` (the environment API)."
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "operate",
+              "view"
+            ],
+            "description": "`operate` allows triggering and managing a task; `view` grants read-only access to the environment API."
+          },
+          "resource": {
+            "type": "string",
+            "description": "The name of the task. Required when `type` is `task`."
+          }
+        },
+        "required": [
+          "type",
+          "action"
+        ],
+        "additionalProperties": false
+      }
     }
+  },
+  "patternProperties": {
+    "^\\.": {}
   }
 }

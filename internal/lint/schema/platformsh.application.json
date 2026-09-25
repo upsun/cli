@@ -637,6 +637,41 @@
           "type": "boolean",
           "title": "Whether to move the whole root of the app to the document root.",
           "default": false
+        },
+        "authorizations": {
+          "type": "array",
+          "title": "Workload authorizations",
+          "description": "Grants the container short-lived, narrowly-scoped access to the Upsun API at runtime.\nMore information:\nhttps://developer.upsun.com/docs/configure-apps/image-properties/authorizations",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "env",
+                  "task"
+                ],
+                "description": "The type of resource to access: `task` (a task defined in the project) or `env` (the environment API)."
+              },
+              "action": {
+                "type": "string",
+                "enum": [
+                  "operate",
+                  "view"
+                ],
+                "description": "`operate` allows triggering and managing a task; `view` grants read-only access to the environment API."
+              },
+              "resource": {
+                "type": "string",
+                "description": "The name of the task. Required when `type` is `task`."
+              }
+            },
+            "required": [
+              "type",
+              "action"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "additionalProperties": false,
@@ -885,6 +920,41 @@
             ],
             "additionalProperties": false,
             "title": "The commands to manage the worker."
+          },
+          "authorizations": {
+            "type": "array",
+            "title": "Workload authorizations",
+            "description": "Grants the container short-lived, narrowly-scoped access to the Upsun API at runtime.\nMore information:\nhttps://developer.upsun.com/docs/configure-apps/image-properties/authorizations",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "env",
+                    "task"
+                  ],
+                  "description": "The type of resource to access: `task` (a task defined in the project) or `env` (the environment API)."
+                },
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "operate",
+                    "view"
+                  ],
+                  "description": "`operate` allows triggering and managing a task; `view` grants read-only access to the environment API."
+                },
+                "resource": {
+                  "type": "string",
+                  "description": "The name of the task. Required when `type` is `task`."
+                }
+              },
+              "required": [
+                "type",
+                "action"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -924,6 +994,41 @@
           }
         }
       ]
+    },
+    "authorizations": {
+      "type": "array",
+      "title": "Workload authorizations",
+      "description": "Grants the container short-lived, narrowly-scoped access to the Upsun API at runtime.\nMore information:\nhttps://developer.upsun.com/docs/configure-apps/image-properties/authorizations",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "env",
+              "task"
+            ],
+            "description": "The type of resource to access: `task` (a task defined in the project) or `env` (the environment API)."
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "operate",
+              "view"
+            ],
+            "description": "`operate` allows triggering and managing a task; `view` grants read-only access to the environment API."
+          },
+          "resource": {
+            "type": "string",
+            "description": "The name of the task. Required when `type` is `task`."
+          }
+        },
+        "required": [
+          "type",
+          "action"
+        ],
+        "additionalProperties": false
+      }
     }
   },
   "anyOf": [

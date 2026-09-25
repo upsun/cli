@@ -182,3 +182,78 @@ func TestLintDir_BothPresentPrefersFlex(t *testing.T) {
 	assert.True(t, result.HasWarnings())
 	assert.Contains(t, result.String(), "both .upsun and .platform")
 }
+
+//nolint:lll
+func TestLintDir_FlexSourceFiles(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".upsun", "apps.yaml"), `applications:
+  app:
+    type: "php:8.4"
+    authorizations:
+      - type: task
+        resource: missing
+        action: operate
+`)
+	writeFile(t, filepath.Join(dir, ".upsun", "tasks.yaml"), `tasks:
+  agent:
+    type: "python:3.14"
+    run:
+      command: ./run
+    extra: true
+`)
+	writeFile(t, filepath.Join(dir, ".upsun", "routes.yaml"), `routes:
+  "https://{default}/api":
+    type: upstream
+    upstream: "missing:http"
+`)
+	result, _, err := CheckDir(dir, upsunVendor())
+	require.NoError(t, err)
+	assert.Equal(t, `Linter errors:
+  - .upsun/tasks.yaml: tasks.agent: Additional property extra is not allowed`, result.String())
+
+	// Semantic checks run once the schema passes.
+	writeFile(t, filepath.Join(dir, ".upsun", "tasks.yaml"), `tasks:
+  agent:
+    type: "python:3.14"
+    run:
+      command: ./run
+`)
+	result, _, err = CheckDir(dir, upsunVendor())
+	require.NoError(t, err)
+	assert.Contains(t, result.String(), ".upsun/apps.yaml: applications.app.authorizations.0.resource: task 'missing' is not found")
+	assert.Contains(t, result.String(), `.upsun/routes.yaml: routes["https://{default}/api"].upstream: upstream target 'missing' does not exist`)
+}
+
+func TestLintDir_SkipsSeparateCheckouts(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".upsun", "config.yaml"), "applications:\n  app:\n    type: \"php:8.4\"\n")
+	// A linked worktree, a separate clone, and a submodule, each with its own config.
+	writeFile(t, filepath.Join(dir, ".claude", "worktrees", "wt", ".git"),
+		"gitdir: "+filepath.Join(dir, ".git", "worktrees", "wt")+"\n")
+	writeFile(t, filepath.Join(dir, ".claude", "worktrees", "wt", ".upsun", "config.yaml"), "applications: {}")
+	writeFile(t, filepath.Join(dir, "clone", ".git", "HEAD"), "ref: refs/heads/main")
+	writeFile(t, filepath.Join(dir, "clone", ".upsun", "config.yaml"), "applications: {}")
+	writeFile(t, filepath.Join(dir, "sub", ".git"), "gitdir: ../.git/modules/sub\n")
+	writeFile(t, filepath.Join(dir, "sub", ".upsun", "config.yaml"), "applications: {}")
+
+	result, _, err := CheckDir(dir, upsunVendor())
+	require.NoError(t, err)
+	assert.Equal(t, []Issue{{
+		Path:    filepath.Join("sub", ".upsun"),
+		Message: "this .upsun directory is not at the project root and will be ignored",
+	}}, result.Warnings)
+}
+
+func TestLintFixed_WorktreeAppFileIgnored(t *testing.T) {
+	dir := t.TempDir()
+	app := "name: app\ntype: \"php:8.4\"\n"
+	writeFile(t, filepath.Join(dir, ".platform.app.yaml"), app)
+	// A worktree of the same repository would otherwise be read as a duplicate app.
+	writeFile(t, filepath.Join(dir, "wt", ".git"), "gitdir: /elsewhere/.git/worktrees/wt\n")
+	writeFile(t, filepath.Join(dir, "wt", ".platform.app.yaml"), app)
+
+	result, style, err := CheckDir(dir, upsunVendor())
+	require.NoError(t, err)
+	assert.Equal(t, StyleFixed, style)
+	assert.False(t, result.HasErrors(), "unexpected errors: %s", result)
+}

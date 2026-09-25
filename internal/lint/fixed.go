@@ -17,10 +17,11 @@ const (
 	keyApplications = "applications"
 	keyServices     = "services"
 	keyRoutes       = "routes"
+	keyTasks        = "tasks"
 )
 
-// flexTopKeys are the top-level keys that indicate Flex-style configuration.
-var flexTopKeys = []string{keyApplications, keyServices, keyRoutes}
+// flexTopKeys are the top-level keys of Flex-style configuration.
+var flexTopKeys = []string{keyApplications, keyServices, keyRoutes, keyTasks}
 
 // lintFixed lints Fixed-style configuration in dir using the resolved names in
 // cfg: per-app config files (cfg.app) and/or cfg.dir/applications.yaml, plus

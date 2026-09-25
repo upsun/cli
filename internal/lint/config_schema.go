@@ -18,16 +18,17 @@ type Config struct {
 			PostDeploy string `yaml:"post_deploy,omitempty"`
 		} `yaml:"hooks,omitempty"`
 
+		Authorizations []Authorization `yaml:"authorizations,omitempty"`
+
 		Web struct {
+			Authorizations []Authorization `yaml:"authorizations,omitempty"`
+
 			Commands struct {
 				Start     string `yaml:"start,omitempty"`
 				PostStart string `yaml:"post_start,omitempty"`
 			} `yaml:"commands,omitempty"`
 
-			Locations map[string]struct {
-				Root  string         `yaml:"root,omitempty"`
-				Rules map[string]any `yaml:"rules,omitempty"`
-			} `yaml:"locations,omitempty"`
+			Locations map[string]WebLocation `yaml:"locations,omitempty"`
 		} `yaml:"web,omitempty"`
 
 		Relationships map[string]any `yaml:"relationships,omitempty"`
@@ -40,7 +41,8 @@ type Config struct {
 		} `yaml:"crons,omitempty"`
 
 		Workers map[string]struct {
-			Type string `yaml:"type,omitempty"`
+			Type           string          `yaml:"type,omitempty"`
+			Authorizations []Authorization `yaml:"authorizations,omitempty"`
 
 			Commands struct {
 				PreStart  string `yaml:"pre_start,omitempty"`
@@ -61,6 +63,60 @@ type Config struct {
 		Upstream string `yaml:"upstream,omitempty"`
 		To       string `yaml:"to,omitempty"`
 	} `yaml:"routes,omitempty"`
+
+	Tasks map[string]Task `yaml:"tasks,omitempty"`
+}
+
+// WebLocation configures how requests under a web location are served.
+type WebLocation struct {
+	Root     string         `yaml:"root,omitempty"`
+	Passthru any            `yaml:"passthru,omitempty"` // A boolean or a URL path.
+	Rules    map[string]any `yaml:"rules,omitempty"`
+}
+
+// Task is an on-demand, run-to-completion workload (Flex only).
+type Task struct {
+	Type  string `yaml:"type,omitempty"`
+	Base  string `yaml:"base,omitempty"`
+	Stack any    `yaml:"stack,omitempty"`
+
+	Run struct {
+		Command string `yaml:"command,omitempty"`
+	} `yaml:"run,omitempty"`
+
+	Hooks struct {
+		Build  string `yaml:"build,omitempty"`
+		Deploy string `yaml:"deploy,omitempty"`
+	} `yaml:"hooks,omitempty"`
+
+	Relationships map[string]any `yaml:"relationships,omitempty"`
+	Mounts        map[string]struct {
+		Source  string `yaml:"source,omitempty"`
+		Service string `yaml:"service,omitempty"`
+	} `yaml:"mounts,omitempty"`
+	Authorizations []Authorization `yaml:"authorizations,omitempty"`
+
+	// fields lists the keys set on the task, to check that "base" is used alone.
+	fields []string
+}
+
+// UnmarshalYAML decodes a task and records which keys it sets.
+func (t *Task) UnmarshalYAML(node *yaml.Node) error {
+	type plain Task
+	if err := node.Decode((*plain)(t)); err != nil {
+		return err
+	}
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		t.fields = append(t.fields, node.Content[i].Value)
+	}
+	return nil
+}
+
+// Authorization grants a workload access to the Upsun API at runtime.
+type Authorization struct {
+	Type     string `yaml:"type"`
+	Action   string `yaml:"action"`
+	Resource string `yaml:"resource,omitempty"`
 }
 
 func DecodeConfig(content string) (*Config, error) {

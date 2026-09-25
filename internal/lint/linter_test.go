@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 //nolint:lll
@@ -102,6 +103,141 @@ services:
 			} else {
 				assert.False(t, result.HasErrors(), "expected no errors but got: %s", result.Error())
 			}
+		})
+	}
+}
+
+//nolint:lll
+func TestLint_Schema(t *testing.T) {
+	cases := []struct {
+		name string
+		// content is merged Flex configuration.
+		content string
+		// wantErrors is the formatted error output, empty when none is expected.
+		wantErrors string
+	}{
+		{
+			// Based on the documented examples for tasks and authorizations.
+			name: "tasks and authorizations",
+			content: `
+applications:
+  myapp:
+    type: python:3.14
+    web:
+      commands:
+        start: python app.py
+    relationships:
+      database: "db:postgresql"
+    mounts:
+      config:
+        source: local
+        source_path: config
+    authorizations:
+      - type: task
+        resource: myagent
+        action: operate
+      - type: env
+        action: view
+    workers:
+      queue:
+        commands:
+          start: python queue.py
+        authorizations:
+          - type: env
+            action: view
+services:
+  db:
+    type: postgresql:18
+tasks:
+  myagent:
+    type: python:3.14
+    source:
+      root: /agent
+    hooks:
+      build: pip install -r requirements.txt
+    run:
+      command: python setup.py && python agent.py
+      timeout: 1200
+    relationships:
+      database: "db:postgresql"
+      app: "myapp:http"
+    mounts:
+      cache:
+        source: tmp
+      shared:
+        source: storage
+        service: myapp
+    variables:
+      env:
+        BATCH_SIZE: "100"
+    authorizations:
+      - type: env
+        action: view
+  composed:
+    type: composable:25.11
+    stack: ["python@3.14"]
+    run:
+      command: python run.py
+  perf:
+    base: performance-agent
+routes:
+  "https://{default}/":
+    type: upstream
+    upstream: "myapp:http"
+`,
+		},
+		{
+			name: "invalid authorization and task properties",
+			content: `
+applications:
+  myapp:
+    type: python:3.14
+    web:
+      commands:
+        start: python app.py
+    authorizations:
+      - type: project
+        action: view
+        scope: all
+tasks:
+  myagent:
+    type: python:3.14
+    run:
+      command: python agent.py
+      timeout: 100000
+    web:
+      commands:
+        start: python agent.py
+`,
+			wantErrors: `linter errors:
+  - applications.myapp.authorizations.0.type: applications.myapp.authorizations.0.type must be one of the following: "env", "task"
+  - applications.myapp.authorizations.0: Additional property scope is not allowed
+  - tasks.myagent.run.timeout: Must be less than or equal to 86400
+  - tasks.myagent: Additional property web is not allowed`,
+		},
+		{
+			name: "unknown top-level key",
+			content: `
+applications:
+  myapp:
+    type: php:8.4
+workers: {}
+`,
+			wantErrors: `linter errors:
+  - Additional property workers is not allowed`,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			result, err := CheckContent(c.content)
+			require.NoError(t, err)
+			if c.wantErrors == "" {
+				assert.False(t, result.HasErrors(), "unexpected errors: %s", result)
+				assert.False(t, result.HasWarnings(), "unexpected warnings: %s", result)
+				return
+			}
+			assert.Equal(t, c.wantErrors, result.Error())
 		})
 	}
 }

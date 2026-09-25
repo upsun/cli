@@ -130,6 +130,20 @@ services:
 				`services.averylongservicenamethatexceedsthirtytwocharacters: "averylongservicenamethatexceedsthirtytwocharacters" is not a valid service name, it should be no longer than 32 characters.`,                 //nolint:lll
 			},
 		},
+		{
+			name: "task_names",
+			content: `
+applications:
+  foo:
+tasks:
+  my-agent:
+    type: python:3.14
+  Bad_Task:
+    type: python:3.14`,
+			expectErrorValues: []string{
+				`tasks.Bad_Task: "Bad_Task" is not a valid task name, it can only contain lowercase alphanumeric characters, dashes, or underscores.`, //nolint:lll
+			},
+		},
 	}
 
 	for _, c := range cases {

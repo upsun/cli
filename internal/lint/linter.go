@@ -49,5 +49,6 @@ func runChecks(cfg *Config) (*Result, error) {
 		CheckWebConfig(cfg),
 		CheckDependencies(cfg),
 		CheckRoutes(cfg),
+		CheckTasks(cfg),
 	), nil
 }

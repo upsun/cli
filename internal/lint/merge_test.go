@@ -4,6 +4,7 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,13 +45,55 @@ routes:
 		"b.yml": &fstest.MapFile{Data: []byte(`services:
   db: {type: mariadb}`)},
 	}
-	merged, err := mergeConfigFiles(fsys, []string{"a.yaml", "b.yml"})
+	merged, sources, err := mergeConfigFiles(fsys, []string{"a.yaml", "b.yml"})
 	require.NoError(t, err)
 	require.Contains(t, merged, "foo")
 	require.Contains(t, merged, "db")
 	require.Contains(t, merged, "/:")
+	assert.Equal(t, map[string]string{
+		"applications.foo": "a.yaml",
+		"routes./":         "a.yaml",
+		"services.db":      "b.yml",
+	}, sources)
 }
 
+func TestMergeConfigFiles_Tasks(t *testing.T) {
+	fsys := fstest.MapFS{
+		"a.yaml": &fstest.MapFile{Data: []byte(`applications:
+  foo: {type: go}`)},
+		"b.yaml": &fstest.MapFile{Data: []byte(`tasks:
+  agent: {type: "python:3.14", run: {command: ./run}}`)},
+	}
+	merged, sources, err := mergeConfigFiles(fsys, []string{"a.yaml", "b.yaml"})
+	require.NoError(t, err)
+	require.Contains(t, merged, "agent")
+	assert.Equal(t, "b.yaml", sources["tasks.agent"])
+}
+
+func TestMergeConfigFiles_TopLevelKeys(t *testing.T) {
+	cases := []struct {
+		name    string
+		content string
+		wantErr string
+	}{
+		{"dot-prefixed key is ignored", ".anchors: {a: 1}\napplications:\n  foo: {type: go}", ""},
+		{"unknown key", "applications:\n  foo: {type: go}\nworkers: {}", "unknown top-level key 'workers' in a.yaml"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fsys := fstest.MapFS{"a.yaml": &fstest.MapFile{Data: []byte(c.content)}}
+			merged, _, err := mergeConfigFiles(fsys, []string{"a.yaml"})
+			if c.wantErr != "" {
+				require.ErrorContains(t, err, c.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.NotContains(t, merged, "anchors")
+		})
+	}
+}
+
+//nolint:lll
 func TestMergeConfigFiles_DuplicateKey(t *testing.T) {
 	fsys := fstest.MapFS{
 		"a.yaml": &fstest.MapFile{Data: []byte(`applications:
@@ -58,9 +101,9 @@ func TestMergeConfigFiles_DuplicateKey(t *testing.T) {
 		"b.yml": &fstest.MapFile{Data: []byte(`applications:
   foo: {type: node}`)},
 	}
-	_, err := mergeConfigFiles(fsys, []string{"a.yaml", "b.yml"})
+	_, _, err := mergeConfigFiles(fsys, []string{"a.yaml", "b.yml"})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "duplicate key 'foo'")
+	require.Contains(t, err.Error(), "duplicate key 'foo' in section 'applications' found in file b.yml (already defined in a.yaml)")
 }
 
 func TestGetMergedConfigFiles_Success(t *testing.T) {
@@ -70,7 +113,7 @@ func TestGetMergedConfigFiles_Success(t *testing.T) {
 		".upsun/b.yml": &fstest.MapFile{Data: []byte(`services:
   db: {type: mariadb}`)},
 	}
-	merged, err := getMergedConfigFiles(fsys, ".", ".upsun")
+	merged, _, err := getMergedConfigFiles(fsys, ".", ".upsun")
 	require.NoError(t, err)
 	require.Contains(t, merged, "foo")
 	require.Contains(t, merged, "db")
@@ -78,7 +121,7 @@ func TestGetMergedConfigFiles_Success(t *testing.T) {
 
 func TestGetMergedConfigFiles_NoUpsunDir(t *testing.T) {
 	fsys := fstest.MapFS{}
-	_, err := getMergedConfigFiles(fsys, ".", ".upsun")
+	_, _, err := getMergedConfigFiles(fsys, ".", ".upsun")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), ".upsun")
 }
@@ -87,7 +130,7 @@ func TestGetMergedConfigFiles_NoYamlFiles(t *testing.T) {
 	fsys := fstest.MapFS{
 		".upsun/notyaml.txt": &fstest.MapFile{Data: []byte("not yaml")},
 	}
-	_, err := getMergedConfigFiles(fsys, ".", ".upsun")
+	_, _, err := getMergedConfigFiles(fsys, ".", ".upsun")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no configuration files found")
 }

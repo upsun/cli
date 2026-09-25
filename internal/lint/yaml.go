@@ -25,7 +25,7 @@ func CheckYAMLSchema(content string, schema *gojsonschema.Schema) *Result {
 	}
 	if !schemaResult.Valid() {
 		for _, e := range schemaResult.Errors() {
-			result.AddError(e.Field(), e.Description())
+			result.AddError(scopePath("", e.Field()), e.Description())
 		}
 	}
 
@@ -54,10 +54,10 @@ func CheckSchemaScoped(data any, schema *gojsonschema.Schema, pathPrefix string)
 // scopePath joins a path prefix and a schema field path.
 func scopePath(prefix, field string) string {
 	switch {
-	case prefix == "":
-		return field
 	case field == "" || field == "(root)":
 		return prefix
+	case prefix == "":
+		return field
 	default:
 		return prefix + ": " + field
 	}

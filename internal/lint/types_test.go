@@ -99,6 +99,37 @@ applications:
   - applications.foo: 'stack' should be specified when using a composable image`,
 		},
 		{
+			name: "task_types",
+			// A task using a built-in definition ('base') has no type to check.
+			content: `
+applications:
+  foo:
+    type: php:8.4
+tasks:
+  good:
+    type: php:8.4
+  perf:
+    base: performance-agent
+  bad:
+    type: php:1.0`,
+			expectErrorMessage: `linter errors:
+  - tasks.bad.type: version '1.0' is not supported for type 'php'; it must be exactly one of: 8.4, 8.3, 8.2, 8.1`,
+		},
+		{
+			name: "task_without_type",
+			content: `
+applications:
+  foo:
+    type: php:8.4
+tasks:
+  bad:
+    stack: ["php@8.4"]`,
+			expectErrorMessage: `linter errors:
+  - tasks.bad.type: type cannot be empty
+linter warnings:
+  - tasks.bad.stack: 'stack' is only used with a composable image type`,
+		},
+		{
 			name: "stack_with_non_composable_type",
 			content: `
 applications:

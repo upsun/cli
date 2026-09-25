@@ -8,7 +8,7 @@ import (
 	"github.com/upsun/cli/internal/lint/registry"
 )
 
-// CheckTypes checks that application, service and worker types are supported images and versions.
+// CheckTypes checks that application, worker, task and service types are supported images and versions.
 func CheckTypes(cfg *Config, reg registry.Registry) *Result {
 	result := &Result{}
 
@@ -22,6 +22,17 @@ func CheckTypes(cfg *Config, reg registry.Registry) *Result {
 		}
 	}
 
+	// checkRuntime checks the type and stack of an application or task at path.
+	checkRuntime := func(path, t string, stack any) {
+		check(path+".type", t, true)
+		isComposable := strings.HasPrefix(t, "composable")
+		if isComposable && isStackEmpty(stack) {
+			result.AddWarning(path, "'stack' should be specified when using a composable image")
+		} else if !isComposable && !isStackEmpty(stack) {
+			result.AddWarning(path+".stack", "'stack' is only used with a composable image type")
+		}
+	}
+
 	for appName := range cfg.Applications {
 		app := cfg.Applications[appName]
 		if app.Type == "" && !isStackEmpty(app.Stack) {
@@ -30,12 +41,12 @@ func CheckTypes(cfg *Config, reg registry.Registry) *Result {
 				"'type' should be specified (as a composable image) when using 'stack'")
 			continue
 		}
-		check("applications."+appName+".type", app.Type, true)
-		isComposable := strings.HasPrefix(app.Type, "composable")
-		if isComposable && isStackEmpty(app.Stack) {
-			result.AddWarning("applications."+appName, "'stack' should be specified when using a composable image")
-		} else if !isComposable && !isStackEmpty(app.Stack) {
-			result.AddWarning("applications."+appName+".stack", "'stack' is only used with a composable image type")
+		checkRuntime("applications."+appName, app.Type, app.Stack)
+	}
+	for taskName := range cfg.Tasks {
+		// A task using a built-in definition ('base') has no type of its own.
+		if task := cfg.Tasks[taskName]; task.Base == "" {
+			checkRuntime("tasks."+taskName, task.Type, task.Stack)
 		}
 	}
 	for appName := range cfg.Applications {

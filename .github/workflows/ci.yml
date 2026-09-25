@@ -50,7 +50,7 @@ jobs:
       - name: Check goreleaser config
         run: make goreleaser-check
 
-  # Checks that the embedded lint registry and schemas match upstream.
+  # Checks that the embedded lint registry matches upstream.
   # Fails when upstream publishes changes; run `make lint-assets` to refresh.
   # Non-blocking, since upstream changes are unrelated to the pull request.
   lint-assets:
