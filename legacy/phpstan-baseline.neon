@@ -7149,7 +7149,7 @@ parameters:
 		-
 			message: '#^Parameter \#2 \$array of function implode expects array, mixed given\.$#'
 			identifier: argument.type
-			count: 5
+			count: 4
 			path: src/Service/SshConfig.php
 
 		-

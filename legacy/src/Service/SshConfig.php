@@ -7,6 +7,7 @@ namespace Platformsh\Cli\Service;
 use Platformsh\Cli\SshCert\Certifier;
 use Platformsh\Cli\Util\OsUtil;
 use Platformsh\Cli\Util\Snippeter;
+use Platformsh\Cli\Util\SshConfigInspector;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Filesystem\Exception\IOException;
@@ -284,13 +285,16 @@ class SshConfig
         $filename = $this->getUserSshConfigFilename();
 
         $wildcards = $this->config->getWithDefault('ssh.domain_wildcards', []);
-        if (!$wildcards) {
+        if (!\is_array($wildcards) || !$wildcards) {
             return false;
         }
+        $wildcards = \array_values(\array_filter($wildcards, 'is_string'));
+
+        $includePaths = $this->formattedPaths($this->getCliSshDir() . DIRECTORY_SEPARATOR . '*.config');
 
         $lines = [];
         $lines[] = 'Host ' . \implode(' ', $wildcards);
-        foreach ($this->formattedPaths($this->getCliSshDir() . DIRECTORY_SEPARATOR . '*.config') as $path) {
+        foreach ($includePaths as $path) {
             $lines[] = '  Include ' . $path;
         }
         $lines[] = 'Host *';
@@ -312,7 +316,7 @@ class SshConfig
                 $this->stdErr->writeln('Failed to read file: <comment>' . $filename . '</comment>');
                 return false;
             }
-            if (str_contains($currentContents, $suggestedConfig)) {
+            if (SshConfigInspector::includesPath($currentContents, $wildcards, $includePaths, $this->config->getHomeDirectory())) {
                 $this->stdErr->writeln('Validated SSH configuration file: <info>' . $filename . '</info>', OutputInterface::VERBOSITY_VERBOSE);
                 return true;
             }
