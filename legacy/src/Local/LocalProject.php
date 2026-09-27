@@ -362,6 +362,9 @@ class LocalProject
     {
         $filesToExclude = ['/' . $this->config->getStr('local.local_dir'), '/' . $this->config->getStr('local.web_root')];
         $excludeFilename = $this->getGitExcludePath($dir);
+        if ($excludeFilename === null) {
+            return;
+        }
         $existing = '';
 
         // Skip writing anything if the contents already include the
@@ -400,12 +403,14 @@ class LocalProject
      * .git/info/exclude; git resolves it to the shared common directory.
      *
      * @param string $dir The repository (or worktree) directory.
+     *
+     * @return string|null The path, or null if $dir is not in a Git repository.
      */
-    private function getGitExcludePath(string $dir): string
+    private function getGitExcludePath(string $dir): ?string
     {
         $path = $this->git->execute(['rev-parse', '--git-path', 'info/exclude'], $dir);
         if (!is_string($path) || $path === '') {
-            return $dir . '/.git/info/exclude';
+            return null;
         }
         // The path may be returned relative to the repository directory.
         if (!preg_match('#^(/|[a-zA-Z]:[\\\\/])#', $path)) {
