@@ -65,7 +65,7 @@ class EnvironmentLogCommand extends CommandBase
     // How far behind the current time to read when tailing, so that late-arriving logs are not skipped.
     private const TAIL_DELAY = 15;
 
-    private const TAIL_INTERVAL = 2;
+    private const TAIL_INTERVAL = 5;
 
     // Limits for the time windows queried by fetchRecent().
     private const MIN_WINDOW = 60;
@@ -114,7 +114,7 @@ class EnvironmentLogCommand extends CommandBase
             For structured (JSON) log lines, the text format also shows the fields of the line as key=value pairs.
             Use --format json to see everything.
 
-            Logs take a few seconds to become available, so the --tail option shows them with a delay of about 15 seconds.
+            Logs take a few seconds to become available, so the --tail option shows them with a delay of about 15-20 seconds.
 
             Logs are read over SSH if the API is not available for the environment,
             or if the --worker, --instance or --task option is used, or if the type is not listed above.
@@ -205,7 +205,7 @@ class EnvironmentLogCommand extends CommandBase
             throw new InvalidArgumentException('The --until option cannot be used with --tail');
         }
 
-        $filters = $this->buildFilters($input, $logType);
+        $filters = $this->buildFilters($input, $selection, $logType);
 
         $now = time();
         $to = $this->parseTime($input, 'until', $now) ?? ($tail ? $now - self::TAIL_DELAY : $now);
@@ -235,24 +235,26 @@ class EnvironmentLogCommand extends CommandBase
             return 0;
         }
 
-        // Poll for newer logs (oldest first), starting from the newest printed line.
+        // Poll for newer logs (oldest first), after the newest printed line.
+        // Each poll starts a second before the previous one ended (the cursor prevents duplicates).
         $last = end($rows);
         $cursor = $last !== false ? $last['cursor'] : null;
-        $from = $last !== false ? $last['timestamp'] - 1 : $to - 1;
+        $from = $to - 1;
         while (true) { // @phpstan-ignore while.alwaysTrue
             sleep(self::TAIL_INTERVAL);
-            $to = time() - self::TAIL_DELAY;
-            if ($to <= $from) {
+            // Limit the window, e.g. to catch up gradually after the computer was suspended.
+            $to = min(time() - self::TAIL_DELAY, $from + self::MAX_WINDOW);
+            if ($to <= $from + 1) {
                 continue;
             }
             do {
                 $page = $this->queryPage($url, $filters, $from, $to, 'ASC', $cursor);
                 foreach ($page['data'] as $row) {
                     $this->printRow($output, $row, $format, $showKind);
-                    $from = $row['timestamp'] - 1;
                 }
                 $cursor = $page['_cursor'] ?? $cursor;
             } while ($page['_has_more_results']);
+            $from = $to - 1;
         }
     }
 
@@ -306,7 +308,7 @@ class EnvironmentLogCommand extends CommandBase
      *
      * @return list<array{string, string}> A list of key-value pairs.
      */
-    private function buildFilters(InputInterface $input, ?string $logType): array
+    private function buildFilters(InputInterface $input, Selection $selection, ?string $logType): array
     {
         $params = [];
         if ($logType === null || $logType === 'error') {
@@ -333,7 +335,8 @@ class EnvironmentLogCommand extends CommandBase
         }
 
         $services = ArrayArgument::getOption($input, 'service');
-        if (($app = Option::stringOrNull($input, 'app')) !== null) {
+        // The app may also come from the project URL or an environment variable.
+        if (($app = $selection->getAppName()) !== null) {
             $services[] = $app;
         }
         if ($services !== []) {
