@@ -7,13 +7,13 @@ namespace Platformsh\Cli\Command\Organization\Billing;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use GuzzleHttp\Exception\BadResponseException;
-use Platformsh\Cli\Command\Organization\OrganizationCommandBase;
 use Platformsh\Cli\Console\AdaptiveTableCell;
 use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
 use Platformsh\Client\Model\Organization\Address;
 use Platformsh\Client\Model\Organization\Organization;
+use Platformsh\Client\Model\Organization\Profile;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Input\InputArgument;
@@ -21,7 +21,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(name: 'organization:billing:address', description: "View or change an organization's billing address")]
-class OrganizationAddressCommand extends OrganizationCommandBase
+class OrganizationAddressCommand extends BillingCommandBase
 {
     public function __construct(private readonly Api $api, private readonly PropertyFormatter $propertyFormatter, private readonly Selector $selector, private readonly Table $table)
     {
@@ -42,16 +42,19 @@ class OrganizationAddressCommand extends OrganizationCommandBase
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $property = Argument::stringOrNull($input, 'property');
-        $updates = $this->parseUpdates($input);
 
-        // The 'orders' link depends on the billing permission.
-        $org = $this->selector->selectOrganization($input, 'orders');
-        $address = $org->getAddress();
+        // These links depend on the billing permission.
+        $org = $this->selector->selectOrganization($input, self::BILLING_LINKS);
+        $newBilling = $this->isNewBilling($org);
+        $updates = $this->parseUpdates($input, $newBilling);
+
+        // On the new billing system, the address is part of the billing profile.
+        $address = $newBilling ? $this->loadBillingProfile($org) : $org->getAddress();
 
         $result = 0;
         if ($property !== null) {
             if (empty($updates)) {
-                $this->propertyFormatter->displayData($output, $address->getProperties(), $property);
+                $this->propertyFormatter->displayData($output, $this->addressProperties($address), $property);
                 return $result;
             }
             $result = $this->setProperties($updates, $address);
@@ -63,11 +66,25 @@ class OrganizationAddressCommand extends OrganizationCommandBase
         return $result;
     }
 
-    protected function display(Address $address, Organization $org, InputInterface $input): void
+    /**
+     * @return array<string, mixed>
+     */
+    private function addressProperties(Address|Profile $address): array
+    {
+        $properties = [];
+        foreach ($address->getProperties() as $key => $value) {
+            if ($address instanceof Profile ? \in_array($key, self::PROFILE_ADDRESS_PROPERTIES, true) : \is_string($key)) {
+                $properties[$key] = $value;
+            }
+        }
+        return $properties;
+    }
+
+    protected function display(Address|Profile $address, Organization $org, InputInterface $input): void
     {
         $headings = [];
         $values = [];
-        foreach ($address->getProperties() as $key => $value) {
+        foreach ($this->addressProperties($address) as $key => $value) {
             $headings[] = new AdaptiveTableCell($key, ['wrap' => false]);
             $values[] = $this->propertyFormatter->format($value, $key);
         }
@@ -87,7 +104,7 @@ class OrganizationAddressCommand extends OrganizationCommandBase
     /**
      * @return array<string, mixed>
      */
-    protected function parseUpdates(InputInterface $input): array
+    protected function parseUpdates(InputInterface $input, bool $newBilling): array
     {
         $property = Argument::stringOrNull($input, 'property');
         $value = Argument::stringOrNull($input, 'value');
@@ -96,6 +113,9 @@ class OrganizationAddressCommand extends OrganizationCommandBase
         }
         $properties = Argument::stringArray($input, 'properties');
         if (empty($properties)) {
+            if (!$this->validateValue($property, $value, $newBilling)) {
+                throw new InvalidArgumentException(\sprintf('Invalid value for %s: %s', $property, $value));
+            }
             return [$property => $value];
         }
         if (count($properties) % 2 !== 0) {
@@ -113,7 +133,7 @@ class OrganizationAddressCommand extends OrganizationCommandBase
             if (isset($updates[$tempPropertyName])) {
                 throw new InvalidArgumentException('Property defined twice: ' . $tempPropertyName);
             }
-            if (!$this->validateValue($tempPropertyName, $arg)) {
+            if (!$this->validateValue($tempPropertyName, $arg, $newBilling)) {
                 throw new InvalidArgumentException(\sprintf('Invalid value for %s: %s', $tempPropertyName, $arg));
             }
             $updates[$tempPropertyName] = $arg;
@@ -124,11 +144,8 @@ class OrganizationAddressCommand extends OrganizationCommandBase
 
     /**
      * @param array<string, mixed> $updates
-     * @param Address $address
-     *
-     * @return int
      */
-    protected function setProperties(array $updates, Address $address): int
+    protected function setProperties(array $updates, Address|Profile $address): int
     {
         $currentValues = \array_intersect_key($address->getProperties(), $updates);
         if ($currentValues == $updates) {
@@ -136,12 +153,22 @@ class OrganizationAddressCommand extends OrganizationCommandBase
             $this->stdErr->writeln('');
             return 0;
         }
+        if ($address instanceof Profile && !$address->hasLink('update-address')) {
+            $this->stdErr->writeln('You do not have permission to update the billing address. It cannot be edited for contracted customers.');
+            return 1;
+        }
         try {
             $this->stdErr->writeln('Updating the address with values: ' . \json_encode($updates, JSON_UNESCAPED_SLASHES));
             $address->update($updates);
             $this->stdErr->writeln('');
             return 0;
         } catch (BadResponseException $e) {
+            if ($address instanceof Profile) {
+                if ($this->printBillingProfileError($e)) {
+                    return 1;
+                }
+                throw $e;
+            }
             // Translate validation error messages.
             if ($e->getResponse()->getStatusCode() === 400 && ($body = $e->getResponse()->getBody())) {
                 $detail = \json_decode((string) $body, true);
@@ -169,8 +196,20 @@ class OrganizationAddressCommand extends OrganizationCommandBase
      *
      * @return string|false
      */
-    private function getType(string $property): string|false
+    private function getType(string $property, bool $newBilling): string|false
     {
+        if ($newBilling) {
+            // The API silently ignores country changes, except from staff.
+            $writableProperties = [
+                'billing_street_1' => 'string',
+                'billing_street_2' => 'string',
+                'locality' => 'string',
+                'administrative_area' => 'string',
+                'postal_code' => 'string',
+            ];
+
+            return $writableProperties[$property] ?? false;
+        }
         $writableProperties = [
             'country' => 'string',
             'name_line' => 'string',
@@ -187,9 +226,9 @@ class OrganizationAddressCommand extends OrganizationCommandBase
         return $writableProperties[$property] ?? false;
     }
 
-    private function validateValue(string $property, string &$value): bool
+    private function validateValue(string $property, string &$value, bool $newBilling): bool
     {
-        $type = $this->getType($property);
+        $type = $this->getType($property, $newBilling);
         if (!$type) {
             $this->stdErr->writeln("Property not writable: <error>$property</error>");
 

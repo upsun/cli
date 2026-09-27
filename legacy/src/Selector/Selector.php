@@ -29,6 +29,7 @@ use Platformsh\Cli\Service\Identifier;
 use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Client\Exception\EnvironmentStateException;
 use Platformsh\Client\Model\Activity;
+use Platformsh\Client\Model\ApiResourceBase;
 use Platformsh\Client\Model\BasicProjectInfo;
 use Platformsh\Client\Model\Deployment\WebApp;
 use Platformsh\Client\Model\Environment;
@@ -1047,10 +1048,10 @@ class Selector implements CompleterInterface
      * Returns the selected organization according to the --org option.
      *
      * @param InputInterface $input
-     * @param string $filterByLink
+     * @param string|string[] $filterByLink
      *    If no organization is specified, this filters the list of the organizations presented by the name of a HAL
      *    link. For example, 'create-subscription' will list organizations under which the user has the permission to
-     *    create a subscription.
+     *    create a subscription. If a list is given, organizations with any of the links are included.
      * @param string $filterByCapability
      *   If no organization is specified, this filters the list of the organizations presented to those with the given
      *   capability.
@@ -1063,11 +1064,14 @@ class Selector implements CompleterInterface
      *
      * @todo include this in getSelection according to config
      */
-    public function selectOrganization(InputInterface $input, string $filterByLink = '', string $filterByCapability = '', bool $skipCache = false): Organization
+    public function selectOrganization(InputInterface $input, string|array $filterByLink = '', string $filterByCapability = '', bool $skipCache = false): Organization
     {
         if (!$this->config->getBool('api.organizations')) {
             throw new \BadMethodCallException('Organizations are not enabled');
         }
+
+        $filterLinks = \array_filter((array) $filterByLink, fn(string $link): bool => $link !== '');
+        $hasFilterLink = fn(ApiResourceBase $org): bool => $filterLinks === [] || \array_any($filterLinks, $org->hasLink(...));
 
         $explicitProject = $input->hasOption('project') && Option::stringOrNull($input, 'project');
         $selection = $explicitProject ? $this->getSelection($input) : new Selection();
@@ -1112,7 +1116,7 @@ class Selector implements CompleterInterface
                 $organization = false;
             }
             if ($organization) {
-                if ($filterByLink === '' || $organization->hasLink($filterByLink)) {
+                if ($hasFilterLink($organization)) {
                     if ($this->stdErr->isVerbose()) {
                         $this->ensurePrintedSelection(new Selection(project: $currentProject));
                         $this->stdErr->writeln(\sprintf('Project organization: %s', $this->api->getOrganizationLabel($organization)));
@@ -1122,7 +1126,7 @@ class Selector implements CompleterInterface
                     $this->stdErr->writeln(sprintf(
                         'Not auto-selecting project organization %s (it does not have the link <comment>%s</comment>)',
                         $this->api->getOrganizationLabel($organization, 'comment'),
-                        $filterByLink,
+                        \implode('</comment> or <comment>', $filterLinks),
                     ));
                 }
             }
@@ -1143,7 +1147,7 @@ class Selector implements CompleterInterface
         $byId = [];
         $owned = [];
         foreach ($organizations as $organization) {
-            if ($filterByLink !== '' && !$organization->hasLink($filterByLink)) {
+            if (!$hasFilterLink($organization)) {
                 continue;
             }
             if ($filterByCapability !== '' && !in_array($filterByCapability, $organization->capabilities, true)) {
@@ -1158,8 +1162,8 @@ class Selector implements CompleterInterface
         if (empty($options)) {
             $message = 'No organizations found.';
             $filters = [];
-            if ($filterByLink !== '') {
-                $filters[] = sprintf('access to the link "%s"', $filterByLink);
+            if ($filterLinks !== []) {
+                $filters[] = sprintf('access to the link "%s"', \implode('" or "', $filterLinks));
             }
             if ($filterByCapability !== '') {
                 $filters[] = sprintf('capability "%s"', $filterByCapability);

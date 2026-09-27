@@ -66,6 +66,9 @@ func NewHandler(t *testing.T) *Handler {
 		_ = json.NewEncoder(w).Encode(map[string]any{"total": "$1,000 USD"})
 	})
 
+	h.Get("/billing/profiles/{billing_profile_id}", h.handleGetBillingProfile)
+	h.Patch("/billing/profiles/{billing_profile_id}", h.handlePatchBillingProfile)
+
 	h.Get("/projects/{project_id}", h.handleGetProject)
 	h.Patch("/projects/{project_id}", h.handlePatchProject)
 	h.Get("/projects/{project_id}/environments", h.handleListEnvironments)

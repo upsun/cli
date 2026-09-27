@@ -2395,12 +2395,6 @@ parameters:
 			path: src/Command/Organization/Billing/OrganizationAddressCommand.php
 
 		-
-			message: '#^Parameter \#2 \$data of method Platformsh\\Cli\\Service\\PropertyFormatter\:\:displayData\(\) expects array\<string, mixed\>, array given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Organization/Billing/OrganizationAddressCommand.php
-
-		-
 			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
 			count: 1
