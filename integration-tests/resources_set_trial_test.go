@@ -3,8 +3,6 @@ package tests
 import (
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,91 +19,24 @@ func setUpResourcesSetOrg(apiHandler *mockapi.Handler, orgID string) (projectID 
 
 // setUpResourcesSetOrgWithSize is setUpResourcesSetOrg with the app's current profile size.
 func setUpResourcesSetOrgWithSize(apiHandler *mockapi.Handler, orgID, currentSize string) (projectID string) {
-	myUserID := "my-user-id"
-	apiHandler.SetMyUser(&mockapi.User{ID: myUserID})
-	apiHandler.SetOrgs([]*mockapi.Org{{
-		ID:           orgID,
-		Type:         "flexible",
-		Name:         "acme",
-		Label:        "Acme",
-		Owner:        myUserID,
-		Capabilities: []string{},
-		Links: mockapi.MakeHALLinks(
-			"self=/organizations/" + url.PathEscape(orgID),
-		),
-	}})
-
-	projectID = mockapi.ProjectID()
-	apiHandler.SetProjects([]*mockapi.Project{{
-		ID:           projectID,
-		Organization: orgID,
-		Links: mockapi.MakeHALLinks(
-			"self=/projects/"+projectID,
-			"environments=/projects/"+projectID+"/environments",
-		),
-		DefaultBranch: "main",
-	}})
-
-	apiHandler.SetEnvironments([]*mockapi.Environment{
-		makeEnv(projectID, "main", "production", "active", nil),
-	})
-
-	apiHandler.Get("/projects/"+projectID+"/settings", func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"sizing_api_enabled": true,
-		})
-	})
-
-	nextDeploymentPath := "/projects/" + projectID + "/environments/main/deployments/next"
-	apiHandler.Get(nextDeploymentPath, func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"webapps": map[string]any{
-				"app": map[string]any{
-					"name":              "app",
-					"type":              "golang:1.23",
-					"container_profile": "BALANCED",
-					"resources": map[string]any{
-						"profile_size": currentSize,
-					},
-					"instance_count": 1,
-					"disk":           512,
-				},
-			},
-			"services": map[string]any{},
-			"workers":  map[string]any{},
-			"routes":   map[string]any{},
-			"project_info": map[string]any{
-				"settings":     map[string]any{},
-				"capabilities": map[string]any{},
-			},
-			"container_profiles": map[string]any{
-				"BALANCED": map[string]any{
-					"0.1": map[string]any{
-						"cpu":      "0.1",
-						"memory":   "64",
-						"cpu_type": "shared",
-					},
-					"0.5": map[string]any{
-						"cpu":      "0.5",
-						"memory":   "128",
-						"cpu_type": "shared",
-					},
-					"1": map[string]any{
-						"cpu":      "1",
-						"memory":   "256",
-						"cpu_type": "shared",
-					},
-					// Filtered out: the project does not support guaranteed CPU.
-					"2": map[string]any{
-						"cpu":      "2",
-						"memory":   "512",
-						"cpu_type": "guaranteed",
-					},
-				},
-			},
-		})
-	})
-
+	projectID, _ = setUpResourcesProject(apiHandler, orgID, nextDeployment(map[string]any{
+		"app": map[string]any{
+			"name":              "app",
+			"type":              "golang:1.23",
+			"container_profile": "BALANCED",
+			"resources":         map[string]any{"profile_size": currentSize},
+			"instance_count":    1,
+			"disk":              512,
+		},
+	}, map[string]any{
+		"BALANCED": map[string]any{
+			"0.1": map[string]any{"cpu": "0.1", "memory": "64", "cpu_type": "shared"},
+			"0.5": map[string]any{"cpu": "0.5", "memory": "128", "cpu_type": "shared"},
+			"1":   map[string]any{"cpu": "1", "memory": "256", "cpu_type": "shared"},
+			// Filtered out: the project does not support guaranteed CPU.
+			"2": map[string]any{"cpu": "2", "memory": "512", "cpu_type": "guaranteed"},
+		},
+	}))
 	return projectID
 }
 
@@ -167,15 +98,7 @@ func runResourcesSet(
 func runResourcesSetArgs(
 	t *testing.T, apiHandler *mockapi.Handler, projectID string, args ...string,
 ) (stdout, stderr string, err error) {
-	authServer := mockapi.NewAuthServer(t)
-	defer authServer.Close()
-
-	apiServer := httptest.NewServer(apiHandler)
-	defer apiServer.Close()
-
-	f := newCommandFactory(t, apiServer.URL, authServer.URL)
-
-	return f.RunCombinedOutput(append([]string{
+	return serveAPI(t, apiHandler).RunCombinedOutput(append([]string{
 		"resources:set",
 		"-p", projectID,
 		"-e", "main",

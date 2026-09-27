@@ -2,11 +2,7 @@ package tests
 
 import (
 	"encoding/json"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
-	"sync/atomic"
+	"maps"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,167 +11,67 @@ import (
 	"github.com/upsun/cli/pkg/mockapi"
 )
 
-// setupResourcesSetContainers serves a project whose next deployment has an
-// app, two workers, three services and a task. The "app--mail" worker has
+// setUpResourcesSetContainers configures a project whose next deployment has
+// an app, two workers, three services and a task. The "app--mail" worker has
 // autoscaling enabled, and "replica" supports horizontal scaling but has no
-// instance_count. It returns the command factory, the project ID and a
-// holder for the deployment PATCH body.
-func setupResourcesSetContainers(t *testing.T) (f *cmdFactory, projectID string, patchBody *atomic.Value) {
-	authServer := mockapi.NewAuthServer(t)
-	t.Cleanup(authServer.Close)
-
-	myUserID := "my-user-id"
-	apiHandler := mockapi.NewHandler(t)
-	apiHandler.SetMyUser(&mockapi.User{ID: myUserID})
-
-	orgID := "org-id-1"
-	apiHandler.SetOrgs([]*mockapi.Org{{
-		ID:           orgID,
-		Type:         "flexible",
-		Name:         "acme",
-		Label:        "Acme",
-		Owner:        myUserID,
-		Capabilities: []string{},
-		Links: mockapi.MakeHALLinks(
-			"self=/organizations/"+url.PathEscape(orgID),
-			"profile=/organizations/"+url.PathEscape(orgID)+"/profile",
-		),
-	}})
-
-	projectID = mockapi.ProjectID()
-	apiHandler.SetProjects([]*mockapi.Project{{
-		ID:           projectID,
-		Organization: orgID,
-		Links: mockapi.MakeHALLinks(
-			"self=/projects/"+projectID,
-			"environments=/projects/"+projectID+"/environments",
-		),
-		DefaultBranch: "main",
-	}})
-
-	envPath := "/projects/" + projectID + "/environments/main"
-	autoscalingPath := envPath + "/autoscaling"
-	main := makeEnv(projectID, "main", "production", "active", nil)
-	main.Links["#autoscaling"] = mockapi.HALLink{HREF: autoscalingPath}
-	apiHandler.SetEnvironments([]*mockapi.Environment{main})
-
-	apiHandler.Get("/projects/"+projectID+"/settings", func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{"sizing_api_enabled": true})
-	})
-	apiHandler.Get("/organizations/"+orgID+"/profile", func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{})
-	})
-	apiHandler.Get(autoscalingPath, func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"services": map[string]any{
-				"app":       map[string]any{"enabled": false},
-				"app--mail": map[string]any{"enabled": true},
-			},
-			"_links": mockapi.MakeHALLinks("self=" + autoscalingPath),
-		})
-	})
-
+// instance_count.
+func setUpResourcesSetContainers(apiHandler *mockapi.Handler) (projectID string) {
 	disk := map[string]any{"minimum": map[string]any{"disk": 256}, "default": map[string]any{"disk": 512}}
-	withSize := func(size string, extra map[string]any) map[string]any {
+	resources := func(size string, extra map[string]any) map[string]any {
 		r := map[string]any{"profile_size": size}
-		for k, v := range extra {
-			r[k] = v
-		}
+		maps.Copy(r, extra)
 		return r
 	}
-	nextPath := envPath + "/deployments/next"
-	apiHandler.Get(nextPath, func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"webapps": map[string]any{
-				"app": map[string]any{
-					"name":              "app",
-					"type":              "golang:1.23",
-					"container_profile": "BALANCED",
-					"resources":         withSize("0.5", disk),
-					"instance_count":    1,
-					"disk":              512,
-				},
-			},
-			"workers": map[string]any{
-				"app--queue": map[string]any{
-					"name":              "app--queue",
-					"type":              "golang:1.23",
-					"container_profile": "BALANCED",
-					"resources":         withSize("0.5", nil),
-					"instance_count":    1,
-				},
-				"app--mail": map[string]any{
-					"name":              "app--mail",
-					"type":              "golang:1.23",
-					"container_profile": "BALANCED",
-					"resources":         withSize("0.5", nil),
-					"instance_count":    2,
-				},
-			},
-			"services": map[string]any{
-				"db": map[string]any{
-					"type":                        "mariadb:11.4",
-					"container_profile":           "BALANCED",
-					"resources":                   withSize("1", disk),
-					"instance_count":              1,
-					"disk":                        1024,
-					"supports_horizontal_scaling": false,
-				},
-				// No instance_count, which means 1.
-				"replica": map[string]any{
-					"type":                        "mariadb-replica:11.4",
-					"container_profile":           "BALANCED",
-					"resources":                   withSize("0.5", disk),
-					"disk":                        1024,
-					"supports_horizontal_scaling": true,
-				},
-				// No minimum disk, so no disk can be set.
-				"cache": map[string]any{
-					"type":              "redis:7.2",
-					"container_profile": "BALANCED",
-					"resources":         withSize("0.5", nil),
-					"instance_count":    1,
-				},
-			},
-			"tasks": map[string]any{
-				"cleanup": map[string]any{
-					"name":      "cleanup",
-					"type":      "golang:1.23",
-					"resources": withSize("0.5", nil),
-				},
-			},
-			"routes": map[string]any{},
-			"project_info": map[string]any{
-				"settings":     map[string]any{},
-				"capabilities": map[string]any{"instance_limit": 4},
-			},
-			"container_profiles": map[string]any{
-				"BALANCED": map[string]any{
-					"0.5": map[string]any{"cpu": 0.5, "memory": 1024, "cpu_type": "shared"},
-					"1":   map[string]any{"cpu": 1, "memory": 2048, "cpu_type": "shared"},
-					"2":   map[string]any{"cpu": 2, "memory": 4096, "cpu_type": "shared"},
-				},
-			},
-			"_links": mockapi.MakeHALLinks("self="+nextPath, "#edit="+nextPath),
-		})
+	container := func(typ, size string, extra map[string]any) map[string]any {
+		c := map[string]any{"type": typ, "container_profile": "BALANCED", "resources": resources(size, nil)}
+		maps.Copy(c, extra)
+		return c
+	}
+
+	next := nextDeployment(map[string]any{
+		"app": container("golang:1.23", "0.5", map[string]any{
+			"resources": resources("0.5", disk), "instance_count": 1, "disk": 512,
+		}),
+	}, map[string]any{
+		"BALANCED": map[string]any{
+			"0.5": map[string]any{"cpu": 0.5, "memory": 1024, "cpu_type": "shared"},
+			"1":   map[string]any{"cpu": 1, "memory": 2048, "cpu_type": "shared"},
+			"2":   map[string]any{"cpu": 2, "memory": 4096, "cpu_type": "shared"},
+		},
 	})
+	next["workers"] = map[string]any{
+		"app--queue": container("golang:1.23", "0.5", map[string]any{"instance_count": 1}),
+		"app--mail":  container("golang:1.23", "0.5", map[string]any{"instance_count": 2}),
+	}
+	next["services"] = map[string]any{
+		"db": container("mariadb:11.4", "1", map[string]any{
+			"resources": resources("1", disk), "instance_count": 1, "disk": 1024,
+			"supports_horizontal_scaling": false,
+		}),
+		// No instance_count, which means 1.
+		"replica": container("mariadb-replica:11.4", "0.5", map[string]any{
+			"resources": resources("0.5", disk), "disk": 1024,
+			"supports_horizontal_scaling": true,
+		}),
+		// No minimum disk, so no disk can be set.
+		"cache": container("redis:7.2", "0.5", map[string]any{"instance_count": 1}),
+	}
+	next["tasks"] = map[string]any{
+		"cleanup": map[string]any{"name": "cleanup", "type": "golang:1.23", "resources": resources("0.5", nil)},
+	}
+	next["project_info"] = map[string]any{
+		"settings":     map[string]any{},
+		"capabilities": map[string]any{"instance_limit": 4},
+	}
 
-	patchBody = &atomic.Value{}
-	apiHandler.Patch(nextPath, func(w http.ResponseWriter, r *http.Request) {
-		b, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
-		var body map[string]any
-		require.NoError(t, json.Unmarshal(b, &body))
-		patchBody.Store(body)
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"_embedded": map[string]any{"activities": []any{}},
-		})
+	projectID, main := setUpResourcesProject(apiHandler, "org-id-1", next)
+	main.SetAutoscalingSettings(map[string]any{
+		"services": map[string]any{
+			"app":       map[string]any{"enabled": false},
+			"app--mail": map[string]any{"enabled": true},
+		},
 	})
-
-	apiServer := httptest.NewServer(apiHandler)
-	t.Cleanup(apiServer.Close)
-
-	return newCommandFactory(t, apiServer.URL, authServer.URL), projectID, patchBody
+	return projectID
 }
 
 // TestResourcesSet_Containers checks resources:set options across apps,
@@ -317,7 +213,9 @@ func TestResourcesSet_Containers(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			f, projectID, patchBody := setupResourcesSetContainers(t)
+			apiHandler := mockapi.NewHandler(t)
+			projectID := setUpResourcesSetContainers(apiHandler)
+			f := serveAPI(t, apiHandler)
 
 			args := append([]string{"resources:set", "-p", projectID, "-e", "main", "--no-wait", "--yes"}, c.args...)
 			stdout, stderr, err := f.RunCombinedOutput(args...)
@@ -331,14 +229,10 @@ func TestResourcesSet_Containers(t *testing.T) {
 			}
 
 			if c.wantPatch == nil {
-				assert.Nil(t, patchBody.Load(), "no deployment update should be sent")
+				assert.Empty(t, apiHandler.DeploymentPatches(projectID, "main"), "no deployment update should be sent")
 				return
 			}
-			want, err := json.Marshal(c.wantPatch)
-			require.NoError(t, err)
-			got, err := json.Marshal(patchBody.Load())
-			require.NoError(t, err)
-			assert.JSONEq(t, string(want), string(got))
+			assertJSONEq(t, c.wantPatch, deploymentPatch(t, apiHandler, projectID))
 		})
 	}
 }
@@ -363,7 +257,9 @@ func TestResourcesSet_ContainersInteractive(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			f, projectID, patchBody := setupResourcesSetContainers(t)
+			apiHandler := mockapi.NewHandler(t)
+			projectID := setUpResourcesSetContainers(apiHandler)
+			f := serveAPI(t, apiHandler)
 
 			stdout, stderr, err := f.RunInteractive(
 				c.input,
@@ -379,14 +275,19 @@ func TestResourcesSet_ContainersInteractive(t *testing.T) {
 
 			if c.wantPatch == nil {
 				assert.Contains(t, stderr, "nothing to update")
-				assert.Nil(t, patchBody.Load(), "no deployment update should be sent")
+				assert.Empty(t, apiHandler.DeploymentPatches(projectID, "main"), "no deployment update should be sent")
 				return
 			}
-			want, err := json.Marshal(c.wantPatch)
-			require.NoError(t, err)
-			got, err := json.Marshal(patchBody.Load())
-			require.NoError(t, err)
-			assert.JSONEq(t, string(want), string(got))
+			assertJSONEq(t, c.wantPatch, deploymentPatch(t, apiHandler, projectID))
 		})
 	}
+}
+
+// assertJSONEq asserts that two values are equal once encoded as JSON.
+func assertJSONEq(t *testing.T, want, got any) {
+	wantJSON, err := json.Marshal(want)
+	require.NoError(t, err)
+	gotJSON, err := json.Marshal(got)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(wantJSON), string(gotJSON))
 }

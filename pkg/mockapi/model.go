@@ -3,6 +3,7 @@ package mockapi
 // TODO unify these models with the 'api' package, and/or use OpenAPI or similar to generate them
 
 import (
+	"net/url"
 	"strings"
 	"time"
 )
@@ -64,6 +65,9 @@ type Project struct {
 	Subscription ProjectSubscriptionInfo `json:"subscription,omitempty"`
 
 	SubscriptionID string `json:"-"`
+
+	// Settings are served at the project's /settings path, if set.
+	Settings map[string]any `json:"-"`
 }
 
 type ProjectSubscriptionInfo struct {
@@ -108,12 +112,34 @@ type Environment struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 	Links       HalLinks  `json:"_links"`
 
-	currentDeployment *Deployment
-	settings          map[string]any
+	currentDeployment   *Deployment
+	nextDeployment      map[string]any
+	deploymentPatches   []map[string]any
+	autoscalingSettings map[string]any
+	settings            map[string]any
 }
 
 func (e *Environment) SetCurrentDeployment(d *Deployment) {
 	e.currentDeployment = d
+}
+
+// SetNextDeployment sets the next deployment, which is served as raw data so
+// that tests can include fields the Deployment type lacks. PATCH requests to
+// it are recorded, and returned by Handler.DeploymentPatches.
+func (e *Environment) SetNextDeployment(d map[string]any) {
+	e.nextDeployment = d
+}
+
+// SetAutoscalingSettings sets the autoscaling settings, and the environment
+// links needed to read and manage them.
+func (e *Environment) SetAutoscalingSettings(s map[string]any) {
+	e.autoscalingSettings = s
+	if e.Links == nil {
+		e.Links = make(HalLinks)
+	}
+	path := "/projects/" + url.PathEscape(e.Project) + "/environments/" + url.PathEscape(e.ID) + "/autoscaling"
+	e.Links["#autoscaling"] = HALLink{HREF: path}
+	e.Links["#manage-autoscaling"] = HALLink{HREF: path}
 }
 
 func (e *Environment) SetSetting(key string, val any) {
