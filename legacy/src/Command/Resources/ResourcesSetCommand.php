@@ -293,21 +293,23 @@ class ResourcesSetCommand extends ResourcesCommandBase
             // Set the instance count.
             // This is not applicable to a Task or a non-scalable Service, and unavailable when autoscaling is enabled.
             if ($this->supportsInstanceCount($service) && empty($autoscalingEnabled[$name])) {
+                // An unset instance count means 1.
+                $currentCount = $properties['instance_count'] ?? 1;
                 if (isset($givenCounts[$name])) {
                     $instanceCount = $givenCounts[$name];
-                    if ($instanceCount !== $properties['instance_count'] && !($instanceCount === 1 && !isset($properties['instance_count']))) {
+                    if ($instanceCount !== $currentCount) {
                         $updates[$group][$name]['instance_count'] = $instanceCount;
                     }
                 } elseif ($showCompleteForm) {
                     $ensureHeader();
-                    $default = (string) ($properties['instance_count'] ?: 1);
+                    $default = (string) ($currentCount ?: 1);
                     $instanceCount = $this->questionHelper->askInput(
                         'Enter the number of instances',
                         $default,
                         [],
                         fn($v) => $this->validateInstanceCount($v, $name, $service, $instanceLimit, false)
                     );
-                    if ($instanceCount !== $properties['instance_count']) {
+                    if ($instanceCount !== $currentCount) {
                         $updates[$group][$name]['instance_count'] = $instanceCount;
                     }
                 }
