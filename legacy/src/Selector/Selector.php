@@ -1071,7 +1071,14 @@ class Selector implements CompleterInterface
         }
 
         $filterLinks = \array_filter((array) $filterByLink, fn(string $link): bool => $link !== '');
-        $hasFilterLink = fn(ApiResourceBase $org): bool => $filterLinks === [] || \array_any($filterLinks, $org->hasLink(...));
+        $hasFilterLink = function (ApiResourceBase $org) use ($filterLinks): bool {
+            foreach ($filterLinks as $link) {
+                if ($org->hasLink($link)) {
+                    return true;
+                }
+            }
+            return $filterLinks === [];
+        };
 
         $explicitProject = $input->hasOption('project') && Option::stringOrNull($input, 'project');
         $selection = $explicitProject ? $this->getSelection($input) : new Selection();
