@@ -54,6 +54,14 @@ class EnvironmentLogCommand extends CommandBase
 
     private const FORMATS = ['text', 'raw', 'json'];
 
+    // Top-level keys of structured log lines that are not displayed in the text format.
+    private const SKIP_CONTEXT_KEYS = [
+        'time', 'timestamp', 'ts', '@timestamp', 'datetime',
+        'level', 'level_name', 'lvl', 'severity',
+        'msg', 'message',
+        'trace_id', 'traceid', 'span_id', 'spanid',
+    ];
+
     // How far behind the current time to read when tailing, so that late-arriving logs are not skipped.
     private const TAIL_DELAY = 15;
 
@@ -102,6 +110,9 @@ class EnvironmentLogCommand extends CommandBase
 
             The <comment>error</comment> type shows logs of any type with a severity of ERROR or higher.
             Without a type, all logs are shown except for "platform" logs.
+
+            For structured (JSON) log lines, the text format also shows the fields of the line as key=value pairs.
+            Use --format json to see everything.
 
             Logs take a few seconds to become available, so the --tail option shows them with a delay of about 15 seconds.
 
@@ -415,7 +426,48 @@ class EnvironmentLogCommand extends CommandBase
         }
         $parts[] = $severityTag !== null ? "<$severityTag>" . OutputFormatter::escape($severity) . '</>' : OutputFormatter::escape($severity);
         $parts[] = OutputFormatter::escape($row['content']);
+        foreach ($this->contextFields($row['raw']['context'] ?? null) as $key => $value) {
+            $parts[] = '<fg=gray>' . OutputFormatter::escape($key) . '=</>' . OutputFormatter::escape($value);
+        }
         $output->writeln(implode(' ', $parts));
+    }
+
+    /**
+     * Extracts fields from a structured (JSON) log line, as key-value strings.
+     *
+     * Fields that are already displayed, or that are only useful in tracing tools, are skipped.
+     *
+     * @return array<string, string>
+     */
+    private function contextFields(mixed $context): array
+    {
+        if (!is_string($context) || $context === '' || $context[0] !== '{') {
+            return [];
+        }
+        $decoded = json_decode($context, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+        $fields = [];
+        $flatten = function (array $data, string $prefix) use (&$flatten, &$fields): void {
+            foreach ($data as $key => $value) {
+                $key = $prefix . $key;
+                if ($prefix === '' && in_array(strtolower($key), self::SKIP_CONTEXT_KEYS, true)) {
+                    continue;
+                }
+                if (is_array($value) && $value !== [] && !array_is_list($value)) {
+                    $flatten($value, $key . '.');
+                } elseif ($value !== null && $value !== '' && $value !== []) {
+                    // Quote strings that would be ambiguous in key=value output; encode other values as JSON.
+                    $fields[$key] = is_string($value) && !preg_match('/[\s"=]/', $value)
+                        ? $value
+                        : (string) json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                }
+            }
+        };
+        $flatten($decoded, '');
+
+        return $fields;
     }
 
     /**

@@ -45,6 +45,7 @@ func TestEnvironmentLogAPI(t *testing.T) {
 		Service  string `json:"service"`
 		LogKind  string `json:"log_kind"`
 		Content  string `json:"content"`
+		Context  string `json:"context,omitempty"`
 	}
 	lines := make([]logLine, 0, 150)
 	for i := range 150 {
@@ -62,6 +63,9 @@ func TestEnvironmentLogAPI(t *testing.T) {
 			Content:  fmt.Sprintf("line %d", i),
 		})
 	}
+
+	lines[100].Context = `{"time":"x","level":"ERROR","msg":"line 100","status":500,"path":"/a b","trace_id":"abc",` +
+		`"req":{"method":"GET"},"keys":["k"]}`
 
 	var (
 		mu      sync.Mutex
@@ -146,7 +150,9 @@ func TestEnvironmentLogAPI(t *testing.T) {
 	// The "error" type filters by severity.
 	out = f.Run("log", "error", "-p", projectID, "-e", "main")
 	assert.Equal(t, 3, strings.Count(out, "\n"))
-	assert.Contains(t, out, lines[100].Datetime+" app access ERROR line 100\n")
+	assert.Contains(t, out, lines[100].Datetime+
+		` app access ERROR line 100 status=500 path="/a b" req.method=GET keys=["k"]`+"\n")
+	assert.Contains(t, out, lines[50].Datetime+" app access ERROR line 50\n")
 
 	// JSON lines.
 	out = f.Run("log", "-p", projectID, "-e", "main", "--lines", "1", "--format", "json")
