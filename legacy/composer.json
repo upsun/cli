@@ -3,7 +3,7 @@
     "description": "Platform.sh CLI",
     "license": "MIT",
     "require": {
-        "php": ">=8.2",
+        "php": ">=8.4",
         "doctrine/cache": "~1.5",
         "guzzlehttp/guzzle": "^7",
         "platformsh/console-form": "^1@beta",
@@ -58,7 +58,7 @@
     ],
     "config": {
         "platform": {
-            "php": "8.2"
+            "php": "8.4"
         }
     },
     "scripts": {
