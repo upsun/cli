@@ -175,6 +175,14 @@ func TestEnvironmentLogAPI(t *testing.T) {
 	assert.Equal(t, []string{"EMERGENCY", "ALERT", "CRITICAL", "ERROR", "WARNING"}, last["severities[]"])
 	from, _ := strconv.ParseInt(last.Get("from"), 10, 64)
 	assert.InDelta(t, time.Now().Add(-5*time.Minute).Unix(), from, 60)
+
+	// The app can be selected by an environment variable.
+	f.extraEnv = []string{"PLATFORM_APPLICATION_NAME=app"}
+	f.Run("log", "-p", projectID, "-e", "main")
+	mu.Lock()
+	last = queries[len(queries)-1]
+	mu.Unlock()
+	assert.Equal(t, []string{"app"}, last["services[]"])
 }
 
 func TestEnvironmentLogSSHFallback(t *testing.T) {
