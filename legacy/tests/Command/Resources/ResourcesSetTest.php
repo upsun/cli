@@ -8,7 +8,12 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Platformsh\Cli\Command\Resources\ResourcesSetCommand;
 use Platformsh\Cli\Tests\MockApp;
+use Platformsh\Client\Model\Deployment\Service;
+use Platformsh\Client\Model\Deployment\Task;
+use Platformsh\Client\Model\Deployment\WebApp;
+use Platformsh\Client\Model\Deployment\Worker;
 use Symfony\Component\Console\Command\LazyCommand;
+use Symfony\Component\Console\Exception\InvalidArgumentException;
 
 #[Group('commands')]
 class ResourcesSetTest extends TestCase
@@ -21,6 +26,36 @@ class ResourcesSetTest extends TestCase
         }
         /** @var ResourcesSetCommand $command */
         return $command;
+    }
+
+    public function testValidateInstanceCount(): void
+    {
+        $command = $this->getCommandInstance();
+        $m = new \ReflectionMethod($command, 'validateInstanceCount');
+
+        $cases = [
+            'app' => [WebApp::fromData([]), false, '2', 2],
+            'worker' => [Worker::fromData([]), false, '3', 3],
+            'app with autoscaling' => [WebApp::fromData([]), true, '2', 'cannot be changed when autoscaling is enabled'],
+            'task' => [Task::fromData([]), false, '2', 'cannot be changed'],
+            'service without flag' => [Service::fromData([]), false, '2', 'does not support horizontal scaling'],
+            'service not supporting' => [Service::fromData(['supports_horizontal_scaling' => false]), false, '2', 'does not support horizontal scaling'],
+            'service supporting' => [Service::fromData(['supports_horizontal_scaling' => true]), false, '2', 2],
+            'service supporting with autoscaling' => [Service::fromData(['supports_horizontal_scaling' => true]), true, '2', 'cannot be changed when autoscaling is enabled'],
+            'service supporting over limit' => [Service::fromData(['supports_horizontal_scaling' => true]), false, '9', 'exceeds the limit 8'],
+        ];
+        foreach ($cases as $name => [$service, $autoscalingEnabled, $value, $expected]) {
+            if (is_int($expected)) {
+                $this->assertSame($expected, $m->invoke($command, $value, 'foo', $service, 8, $autoscalingEnabled), $name);
+                continue;
+            }
+            try {
+                $m->invoke($command, $value, 'foo', $service, 8, $autoscalingEnabled);
+                $this->fail('Expected an exception: ' . $name);
+            } catch (InvalidArgumentException $e) {
+                $this->assertStringContainsString($expected, $e->getMessage(), $name);
+            }
+        }
     }
 
     /**
