@@ -23,6 +23,8 @@ class SelectorConfig
         public bool $requireApiOnLocal = false,
         /** @var callable|null */
         public mixed $chooseEnvFilter = null,
+        // Set to false to defer selecting the app or worker; see Selector::withRemoteContainer().
+        public bool $selectRemoteContainer = true,
     ) {}
 
     public function with(

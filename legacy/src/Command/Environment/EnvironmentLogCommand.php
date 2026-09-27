@@ -5,64 +5,469 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Command\Environment;
 
 use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\ArrayArgument;
 use Platformsh\Cli\Console\Option;
+use Platformsh\Cli\Selector\Selection;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
+use Platformsh\Cli\Service\Observability;
 use Platformsh\Cli\Selector\Selector;
 use Doctrine\Common\Cache\CacheProvider;
+use GuzzleHttp\Exception\RequestException;
 use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Util\OsUtil;
 use Platformsh\Cli\Util\StringUtil;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Platformsh\Cli\Console\HiddenAliases;
 
+/**
+ * @phpstan-type LogRow array{cursor: string, datetime: string, timestamp: int, severity: string, service: string, log_kind: string, content: string, raw: array<mixed>}
+ */
 #[AsCommand(name: 'environment:logs', description: "Read an environment's logs", aliases: ['log'])]
 #[HiddenAliases(['logs'])]
 class EnvironmentLogCommand extends CommandBase
 {
-    public function __construct(private readonly CacheProvider $cacheProvider, private readonly Io $io, private readonly QuestionHelper $questionHelper, private readonly Selector $selector)
-    {
+    // Log types mapped to the API's log kinds.
+    private const LOG_KINDS = [
+        'access' => 'access',
+        'app' => 'application',
+        'application' => 'application',
+        'cron' => 'cron',
+        'deploy' => 'deployment',
+        'deployment' => 'deployment',
+        'post-deploy' => 'deployment',
+        'platform' => 'platform',
+    ];
+
+    // Severities, from most to least severe.
+    private const SEVERITIES = ['EMERGENCY', 'ALERT', 'CRITICAL', 'ERROR', 'WARNING', 'NOTICE', 'INFO', 'DEBUG'];
+
+    // Options that only work with the logs API.
+    private const API_OPTIONS = ['service', 'severity', 'since', 'until'];
+
+    private const FORMATS = ['text', 'raw', 'json'];
+
+    // How far behind the current time to read when tailing, so that late-arriving logs are not skipped.
+    private const TAIL_DELAY = 15;
+
+    private const TAIL_INTERVAL = 2;
+
+    // Limits for the time windows queried by fetchRecent().
+    private const MIN_WINDOW = 60;
+    private const MAX_WINDOW = 7 * 86400;
+    private const WINDOW_GROWTH = 4;
+
+    public function __construct(
+        private readonly CacheProvider $cacheProvider,
+        private readonly Io $io,
+        private readonly Observability $observability,
+        private readonly QuestionHelper $questionHelper,
+        private readonly Selector $selector,
+    ) {
         parent::__construct();
     }
 
     protected function configure(): void
     {
         $this
-            ->addArgument('type', InputArgument::OPTIONAL, 'The log type, e.g. "access" or "error"', null, [
+            ->addArgument('type', InputArgument::OPTIONAL, 'The log type: "access", "app", "cron", "deploy", "error" or "platform"', null, [
                 'access',
-                'error',
+                'app',
                 'cron',
                 'deploy',
-                'app',
+                'error',
+                'platform',
             ])
             ->addOption('lines', null, InputOption::VALUE_REQUIRED, 'The number of lines to show', 100)
-            ->addOption('tail', null, InputOption::VALUE_NONE, 'Continuously tail the log');
+            ->addOption('tail', null, InputOption::VALUE_NONE, 'Continuously tail the log')
+            ->addOption('service', 's', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Filter by service or application name. ' . ArrayArgument::SPLIT_HELP)
+            ->addOption('severity', null, InputOption::VALUE_REQUIRED, 'The minimum severity, e.g. "error" or "warning"', null, array_map('strtolower', self::SEVERITIES))
+            ->addOption('since', null, InputOption::VALUE_REQUIRED, 'Show logs since this time, e.g. "30m", "2h", "1d", or a date/time')
+            ->addOption('until', null, InputOption::VALUE_REQUIRED, 'Show logs until this time, in the same format as --since')
+            ->addOption('format', null, InputOption::VALUE_REQUIRED, 'The output format: "text", "raw" (message only), or "json" (one object per line)', 'text', self::FORMATS);
         $this->selector->addProjectOption($this->getDefinition());
         $this->selector->addEnvironmentOption($this->getDefinition());
         $this->selector->addRemoteContainerOptions($this->getDefinition());
         $this->selector->addTaskOption($this->getDefinition());
         $this->addCompleter($this->selector);
-        $this->addExample('Display a choice of logs that can be read');
+        $this->setHelp(<<<EOF
+            Logs are read from the Observability API, where available.
+
+            The <comment>error</comment> type shows logs of any type with a severity of ERROR or higher.
+            Without a type, all logs are shown except for "platform" logs.
+
+            Logs take a few seconds to become available, so the --tail option shows them with a delay of about 15 seconds.
+
+            Logs are read over SSH if the API is not available for the environment,
+            or if the --worker, --instance or --task option is used, or if the type is not listed above.
+            In that case the type is the name of a log file in /var/log (without the .log extension).
+            EOF);
+        $this->addExample('Display recent logs of all types');
         $this->addExample('Read the deploy log', 'deploy');
         $this->addExample('Read the access log continuously', 'access --tail');
         $this->addExample('Read the last 500 lines of the cron log', 'cron --lines 500');
+        $this->addExample('Read warnings and errors from the "app" service in the last hour', '--service app --severity warning --since 1h');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $selection = $this->selector->getSelection($input, new SelectorConfig(chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
+        $selection = $this->selector->getSelection($input, new SelectorConfig(
+            chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive(),
+            selectRemoteContainer: false,
+        ));
 
         if (Option::bool($input, 'tail') && $this->runningViaMulti) {
             throw new InvalidArgumentException('The --tail option cannot be used with "multi"');
         }
         $lines = Option::int($input, 'lines');
+        if ($lines < 1) {
+            throw new InvalidArgumentException('The --lines value must be at least 1');
+        }
+        $format = Option::string($input, 'format');
+        if (!in_array($format, self::FORMATS, true)) {
+            throw new InvalidArgumentException('Invalid --format: ' . $format);
+        }
 
+        $logType = Argument::stringOrNull($input, 'type');
+        if ($logType !== null && str_ends_with($logType, '.log')) {
+            $logType = substr($logType, 0, -4);
+        }
+
+        $sshReason = $this->sshReason($input, $logType);
+        $entrypoint = null;
+        if ($sshReason === null) {
+            $entrypoint = $this->observability->getEntrypoint($selection->getEnvironment());
+            if (Observability::getLink($entrypoint, 'logs_query') === null) {
+                $sshReason = 'the logs API is not available for this environment';
+            }
+        }
+
+        if ($sshReason === null) {
+            return $this->readFromApi($input, $output, $selection, (array) $entrypoint, $logType, $lines, $format);
+        }
+
+        $this->io->debug('Reading logs via SSH, because ' . $sshReason);
+        foreach (self::API_OPTIONS as $option) {
+            $used = $option === 'service' ? ArrayArgument::getOption($input, $option) !== [] : $input->getOption($option) !== null;
+            if ($used) {
+                throw new InvalidArgumentException(sprintf('The --%s option cannot be used: %s', $option, $sshReason));
+            }
+        }
+        if ($format !== 'text') {
+            throw new InvalidArgumentException(sprintf('The --format option cannot be used: %s', $sshReason));
+        }
+
+        return $this->readViaSsh($input, $this->selector->withRemoteContainer($input, $selection), $logType, $lines);
+    }
+
+    /**
+     * Returns why the logs must be read over SSH, or null if the API can be used.
+     */
+    private function sshReason(InputInterface $input, ?string $logType): ?string
+    {
+        foreach (['worker', 'instance', 'task'] as $option) {
+            if (Option::stringOrNull($input, $option) !== null) {
+                return sprintf('the --%s option is used', $option);
+            }
+        }
+        if ($logType !== null && $logType !== 'error' && !isset(self::LOG_KINDS[$logType])) {
+            return sprintf('the log type "%s" is not supported by the logs API', $logType);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<mixed> $entrypoint
+     */
+    private function readFromApi(InputInterface $input, OutputInterface $output, Selection $selection, array $entrypoint, ?string $logType, int $lines, string $format): int
+    {
+        $tail = Option::bool($input, 'tail');
+        if ($tail && $input->getOption('until') !== null) {
+            throw new InvalidArgumentException('The --until option cannot be used with --tail');
+        }
+
+        $filters = $this->buildFilters($input, $logType);
+
+        $now = time();
+        $to = $this->parseTime($input, 'until', $now) ?? ($tail ? $now - self::TAIL_DELAY : $now);
+        $from = $this->parseTime($input, 'since', $now) ?? $to - $this->defaultRange($entrypoint);
+        if ($from >= $to) {
+            throw new InvalidArgumentException('The --since time must be before the --until time');
+        }
+
+        $this->selector->ensurePrintedSelection($selection);
+
+        $url = (string) Observability::getLink($entrypoint, 'logs_query');
+        $showKind = $logType === null || $logType === 'error';
+
+        // Fetch the most recent lines (newest first), and print them oldest first.
+        $rows = $this->fetchRecent($url, $filters, $from, $to, $lines, $this->initialWindow($entrypoint));
+        $rows = array_reverse($rows);
+
+        if ($rows === [] && !$tail) {
+            $this->stdErr->writeln(sprintf('No logs found between %s and %s.', date('Y-m-d H:i:s T', $from), date('Y-m-d H:i:s T', $to)));
+
+            return 0;
+        }
+        foreach ($rows as $row) {
+            $this->printRow($output, $row, $format, $showKind);
+        }
+        if (!$tail) {
+            return 0;
+        }
+
+        // Poll for newer logs (oldest first), starting from the newest printed line.
+        $last = end($rows);
+        $cursor = $last !== false ? $last['cursor'] : null;
+        $from = $last !== false ? $last['timestamp'] - 1 : $to - 1;
+        while (true) { // @phpstan-ignore while.alwaysTrue
+            sleep(self::TAIL_INTERVAL);
+            $to = time() - self::TAIL_DELAY;
+            if ($to <= $from) {
+                continue;
+            }
+            do {
+                $page = $this->queryPage($url, $filters, $from, $to, 'ASC', $cursor);
+                foreach ($page['data'] as $row) {
+                    $this->printRow($output, $row, $format, $showKind);
+                    $from = $row['timestamp'] - 1;
+                }
+                $cursor = $page['_cursor'] ?? $cursor;
+            } while ($page['_has_more_results']);
+        }
+    }
+
+    /**
+     * Fetches up to $lines of the most recent logs, newest first.
+     *
+     * Large time ranges can be rejected by the API, so this queries windows
+     * of increasing size, moving back in time until enough lines are found.
+     *
+     * @param list<array{string, string}> $filters
+     *
+     * @return list<LogRow>
+     */
+    private function fetchRecent(string $url, array $filters, int $from, int $to, int $lines, int $window): array
+    {
+        $rows = [];
+        $end = $to;
+        while ($end > $from && count($rows) < $lines) {
+            $start = max($from, $end - $window);
+            $cursor = null;
+            do {
+                try {
+                    $page = $this->queryPage($url, $filters, $start, $end, 'DESC', $cursor);
+                } catch (RequestException $e) {
+                    // The API responds with 499 if a query would read too much data: retry with a smaller window.
+                    if ($e->getResponse()?->getStatusCode() !== 499 || $cursor !== null || $end - $start <= self::MIN_WINDOW) {
+                        throw $e;
+                    }
+                    $window = intdiv($end - $start, 2);
+                    $this->io->debug(sprintf('Too much data: retrying with a window of %d seconds', $window));
+                    continue 2;
+                }
+                foreach ($page['data'] as $row) {
+                    // Windows overlap by a second, so skip duplicates.
+                    $rows[$row['cursor']] ??= $row;
+                }
+                $cursor = $page['_cursor'];
+            } while (count($rows) < $lines && $page['_has_more_results']);
+            if ($start === $from) {
+                break;
+            }
+            $end = $start + 1;
+            $window = min($window * self::WINDOW_GROWTH, self::MAX_WINDOW);
+        }
+
+        return array_slice(array_values($rows), 0, $lines);
+    }
+
+    /**
+     * Builds query parameters for filtering logs.
+     *
+     * @return list<array{string, string}> A list of key-value pairs.
+     */
+    private function buildFilters(InputInterface $input, ?string $logType): array
+    {
+        $params = [];
+        if ($logType === null || $logType === 'error') {
+            $params[] = ['log_kinds[]', 'platform'];
+            $params[] = ['log_kinds_mode', '-1'];
+        } else {
+            $params[] = ['log_kinds[]', self::LOG_KINDS[$logType]];
+            $params[] = ['log_kinds_mode', '1'];
+        }
+
+        $severity = Option::stringOrNull($input, 'severity');
+        if ($severity === null && $logType === 'error') {
+            $severity = 'ERROR';
+        }
+        if ($severity !== null) {
+            $index = array_search(strtoupper($severity), self::SEVERITIES, true);
+            if ($index === false) {
+                throw new InvalidArgumentException(sprintf('Invalid --severity: %s (expected one of: %s)', $severity, strtolower(implode(', ', self::SEVERITIES))));
+            }
+            foreach (array_slice(self::SEVERITIES, 0, $index + 1) as $s) {
+                $params[] = ['severities[]', $s];
+            }
+            $params[] = ['severities_mode', '1'];
+        }
+
+        $services = ArrayArgument::getOption($input, 'service');
+        if (($app = Option::stringOrNull($input, 'app')) !== null) {
+            $services[] = $app;
+        }
+        if ($services !== []) {
+            foreach (array_unique($services) as $service) {
+                $params[] = ['services[]', $service];
+            }
+            $params[] = ['services_mode', '1'];
+        }
+
+        return $params;
+    }
+
+    /**
+     * Queries a page of logs.
+     *
+     * @param list<array{string, string}> $filters
+     *
+     * @return array{data: list<LogRow>, _cursor: ?string, _has_more_results: bool}
+     */
+    private function queryPage(string $url, array $filters, int $from, int $to, string $order, ?string $cursor): array
+    {
+        $params = [['from', (string) $from], ['to', (string) $to], ['order_by', $order], ...$filters];
+        if ($cursor !== null) {
+            $params[] = ['cursor', $cursor];
+        }
+        $query = implode('&', array_map(fn(array $p): string => rawurlencode($p[0]) . '=' . rawurlencode($p[1]), $params));
+        $page = $this->observability->get($url . (str_contains($url, '?') ? '&' : '?') . $query);
+
+        $data = is_array($page['data'] ?? null) ? $page['data'] : [];
+        $newCursor = $page['_cursor'] ?? null;
+
+        return [
+            'data' => array_values(array_map(fn($row): array => $this->normalizeRow($row), array_filter($data, 'is_array'))),
+            '_cursor' => is_string($newCursor) && $newCursor !== '' ? $newCursor : null,
+            // Guard against an unchanged cursor, which would repeat the same query.
+            '_has_more_results' => !empty($page['_has_more_results']) && $newCursor !== null && $newCursor !== $cursor,
+        ];
+    }
+
+    /**
+     * @param array<mixed> $row
+     *
+     * @return LogRow
+     */
+    private function normalizeRow(array $row): array
+    {
+        $str = fn(string $key): string => is_scalar($row[$key] ?? null) ? (string) $row[$key] : '';
+        $time = strtotime($str('datetime'));
+
+        return [
+            'cursor' => $str('cursor'),
+            'datetime' => $str('datetime'),
+            'timestamp' => $time !== false ? $time : time(),
+            'severity' => $str('severity'),
+            'service' => $str('service'),
+            'log_kind' => $str('log_kind'),
+            'content' => $str('content'),
+            'raw' => $row,
+        ];
+    }
+
+    /**
+     * @param LogRow $row
+     */
+    private function printRow(OutputInterface $output, array $row, string $format, bool $showKind): void
+    {
+        if ($format === 'json') {
+            $output->writeln((string) json_encode($row['raw'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), OutputInterface::OUTPUT_RAW);
+
+            return;
+        }
+        if ($format === 'raw') {
+            $output->writeln($row['content'], OutputInterface::OUTPUT_RAW);
+
+            return;
+        }
+
+        $severity = $row['severity'];
+        $severityTag = match (array_search($severity, self::SEVERITIES, true)) {
+            0, 1, 2, 3 => 'fg=red',
+            4, 5 => 'fg=yellow',
+            default => null,
+        };
+        $parts = [
+            '<comment>' . OutputFormatter::escape($row['datetime']) . '</comment>',
+            '<info>' . OutputFormatter::escape($row['service']) . '</info>',
+        ];
+        if ($showKind) {
+            $parts[] = OutputFormatter::escape($row['log_kind']);
+        }
+        $parts[] = $severityTag !== null ? "<$severityTag>" . OutputFormatter::escape($severity) . '</>' : OutputFormatter::escape($severity);
+        $parts[] = OutputFormatter::escape($row['content']);
+        $output->writeln(implode(' ', $parts));
+    }
+
+    /**
+     * Returns the size of the first time window to query, in seconds.
+     *
+     * @param array<mixed> $entrypoint
+     */
+    private function initialWindow(array $entrypoint): int
+    {
+        $minutes = Observability::nested($entrypoint, 'data_retention', 'logs', 'recommended_default_range');
+
+        return is_int($minutes) && $minutes > 0 ? min($minutes * 60, self::MAX_WINDOW) : 900;
+    }
+
+    /**
+     * Returns the default time range to search, in seconds.
+     *
+     * @param array<mixed> $entrypoint
+     */
+    private function defaultRange(array $entrypoint): int
+    {
+        $minutes = array_filter([
+            Observability::nested($entrypoint, 'data_retention', 'logs', 'retention_period'),
+            Observability::nested($entrypoint, 'data_retention', 'logs', 'max_range'),
+            Observability::nested($entrypoint, 'retention', 'logs'),
+        ], fn($v): bool => is_int($v) && $v > 0);
+
+        return $minutes !== [] ? min($minutes) * 60 : 86400;
+    }
+
+    /**
+     * Parses a time option, as a relative duration (e.g. "2h") or a date/time.
+     */
+    private function parseTime(InputInterface $input, string $option, int $now): ?int
+    {
+        $value = Option::stringOrNull($input, $option);
+        if ($value === null) {
+            return null;
+        }
+        if (preg_match('/^(\d+)([smhd])$/', $value, $matches)) {
+            return $now - (int) $matches[1] * ['s' => 1, 'm' => 60, 'h' => 3600, 'd' => 86400][$matches[2]];
+        }
+        $time = strtotime($value, $now);
+        if ($time === false) {
+            throw new InvalidArgumentException(sprintf('Invalid --%s time: %s', $option, $value));
+        }
+
+        return $time;
+    }
+
+    private function readViaSsh(InputInterface $input, Selection $selection, ?string $logType, int $lines): int
+    {
         $host = $this->selector->getHostFromSelection($input, $selection);
 
         $logDir = '/var/log';
@@ -75,11 +480,7 @@ class EnvironmentLogCommand extends CommandBase
         }
 
         // Select the log file that the user specified.
-        if ($logType = Argument::stringOrNull($input, 'type')) {
-            // @todo this might need to be cleverer
-            if (str_ends_with($logType, '.log')) {
-                $logType = substr($logType, 0, strlen($logType) - 4);
-            }
+        if ($logType !== null) {
             $logFilename = $logDir . '/' . OsUtil::escapePosixShellArg($logType . '.log');
         } elseif (!$input->isInteractive()) {
             $this->stdErr->writeln('No log type specified.');

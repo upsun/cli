@@ -200,7 +200,7 @@ class Selector implements CompleterInterface
             // The remote container can only be selected if an environment was
             // identified. When envRequired is false, the calling command is
             // responsible for handling the case where there is no environment.
-            if ($environment !== null) {
+            if ($environment !== null && $config->selectRemoteContainer) {
                 $remoteContainer = $this->selectRemoteContainer($environment, $input, $appName);
             }
         }
@@ -234,6 +234,16 @@ class Selector implements CompleterInterface
         if ($blankLine && $outputAnything) {
             $this->stdErr->writeln('');
         }
+    }
+
+    /**
+     * Selects the remote container, for a selection made with selectRemoteContainer: false.
+     */
+    public function withRemoteContainer(InputInterface $input, Selection $selection): Selection
+    {
+        $remoteContainer = $this->selectRemoteContainer($selection->getEnvironment(), $input, $selection->getAppName());
+
+        return new Selection($selection->config, $selection->getProject(), $selection->getEnvironment(), $selection->getAppName(), $remoteContainer);
     }
 
     public function getHostFromSelection(InputInterface $input, Selection $selection): HostInterface

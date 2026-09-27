@@ -2161,19 +2161,7 @@ parameters:
 			path: src/Command/Metrics/MetricsCommandBase.php
 
 		-
-			message: '#^Cannot access offset ''href'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/MetricsCommandBase.php
-
-		-
 			message: '#^Cannot access offset ''mountpoints'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/MetricsCommandBase.php
-
-		-
-			message: '#^Cannot access offset ''resources_overview'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
 			path: src/Command/Metrics/MetricsCommandBase.php
@@ -2242,12 +2230,6 @@ parameters:
 			message: '#^Method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:extractValue\(\) should return float\|null but returns mixed\.$#'
 			identifier: return.type
 			count: 3
-			path: src/Command/Metrics/MetricsCommandBase.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:getResourcesOverviewUrl\(\) should return string\|false but returns mixed\.$#'
-			identifier: return.type
-			count: 1
 			path: src/Command/Metrics/MetricsCommandBase.php
 
 		-
