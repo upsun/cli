@@ -28,8 +28,6 @@ services:
         public: true
     Platformsh\Cli\Service\SelfInstallChecker:
       public: true
-    Platformsh\Cli\Service\SelfUpdateChecker:
-        public: true
 
     # Configure the cache service, which is created via a factory.
     Doctrine\Common\Cache\CacheProvider:

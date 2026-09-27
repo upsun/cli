@@ -17,7 +17,6 @@ use Platformsh\Cli\Console\HiddenInputOption;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\LegacyMigration;
 use Platformsh\Cli\Service\SelfInstallChecker;
-use Platformsh\Cli\Service\SelfUpdateChecker;
 use Platformsh\Cli\Util\TimezoneUtil;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\Console\Application as ParentApplication;
@@ -549,14 +548,8 @@ class Application extends ParentApplication
             $input->setInteractive(false);
         }
 
-        // Check for automatic updates.
         $noChecks = $command->getName() == '_completion';
         $container = $this->container();
-        if ($input->isInteractive() && !$noChecks) {
-            /** @var SelfUpdateChecker $checker */
-            $checker = $container->get(SelfUpdateChecker::class);
-            $checker->checkUpdates();
-        }
 
         if (!$noChecks && $command->getName() !== 'legacy-migrate') {
             /** @var LegacyMigration $legacyMigration */

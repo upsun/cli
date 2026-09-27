@@ -56,7 +56,7 @@ is shown even when the user cannot act on it usefully:
 ## Non-goals
 
 - Silent or unattended self-update. Updates are only ever performed after an
-  explicit interactive prompt. `self:update` (the PHP command) stays disabled.
+  explicit interactive prompt. The PHP `self:update` command has been removed.
 - Auto-running privileged or remote-code upgrades (`sudo`, `curl … | sh`). For
   those channels we print the command rather than executing it (see Phase 2).
 - Changing the network-check throttle, the CI gate, or the TTY gate.
