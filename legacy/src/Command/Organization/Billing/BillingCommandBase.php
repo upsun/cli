@@ -50,9 +50,9 @@ abstract class BillingCommandBase extends OrganizationCommandBase
     {
         if (!$org->hasLink('billing-profile')) {
             if (empty($org->getProperty('billing_profile_id', false, false))) {
-                throw new \RuntimeException(\sprintf('No billing profile is attached to the organization %s.', $this->billingApi->getOrganizationLabel($org, 'comment')));
+                throw new \RuntimeException(\sprintf('No billing profile is attached to the organization %s.', $this->billingApi->getOrganizationLabel($org, false)));
             }
-            throw new \RuntimeException(\sprintf('You do not have access to the billing profile of the organization %s.', $this->billingApi->getOrganizationLabel($org, 'comment')));
+            throw new \RuntimeException(\sprintf('You do not have access to the billing profile of the organization %s.', $this->billingApi->getOrganizationLabel($org, false)));
         }
         $url = $org->getLink('billing-profile');
         $client = $this->billingApi->getHttpClient();
@@ -81,9 +81,11 @@ abstract class BillingCommandBase extends OrganizationCommandBase
         }
         $this->stdErr->writeln($detail['detail']);
         if (isset($detail['errors']) && \is_array($detail['errors'])) {
-            foreach ($detail['errors'] as $field => $message) {
-                if (\is_string($message)) {
-                    $this->stdErr->writeln(\sprintf('  <error>%s</error>: %s', $field, $message));
+            foreach ($detail['errors'] as $field => $messages) {
+                foreach ((array) $messages as $message) {
+                    if (\is_string($message)) {
+                        $this->stdErr->writeln(\sprintf('  <error>%s</error>: %s', $field, $message));
+                    }
                 }
             }
         }

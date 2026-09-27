@@ -230,9 +230,7 @@ class OrganizationAddressCommand extends BillingCommandBase
     {
         $type = $this->getType($property, $newBilling);
         if (!$type) {
-            $this->stdErr->writeln("Property not writable: <error>$property</error>");
-
-            return false;
+            throw new InvalidArgumentException('Property not writable: ' . $property);
         }
         return \settype($value, $type);
     }

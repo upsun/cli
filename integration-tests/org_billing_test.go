@@ -126,13 +126,15 @@ func TestOrgBillingAddress_NewBillingValidationError(t *testing.T) {
 			"status": http.StatusBadRequest,
 			"title":  "Bad Request",
 			"detail": "Invalid address",
-			"errors": map[string]string{"postal_code": "invalid postal code"},
+			"errors": map[string]any{"postal_code": "invalid postal code", "locality": []string{"required"}},
 		})
 	})
 
 	_, stdErr, err := f.RunCombinedOutput("org:billing:address", "-o", "acme", "postal_code", "invalid")
 	assert.Error(t, err)
-	assert.Contains(t, stdErr, "Invalid address\n  postal_code: invalid postal code")
+	assert.Contains(t, stdErr, "Invalid address\n")
+	assert.Contains(t, stdErr, "  postal_code: invalid postal code\n")
+	assert.Contains(t, stdErr, "  locality: required\n")
 }
 
 func TestOrgBilling_NewBillingReadOnly(t *testing.T) {
