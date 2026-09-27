@@ -35,8 +35,6 @@ func TestAutoscalingSettingsSetMissingDefaults(t *testing.T) {
 	}})
 
 	main := makeEnv(projectID, "main", "production", "active", nil)
-	main.Links["#autoscaling"] = mockapi.HALLink{HREF: "/projects/" + projectID + "/environments/main/autoscaling"}
-	main.Links["#manage-autoscaling"] = mockapi.HALLink{HREF: "/projects/" + projectID + "/environments/main/autoscaling"}
 	apiHandler.SetEnvironments([]*mockapi.Environment{main})
 
 	apiHandler.Get("/projects/"+projectID+"/capabilities", func(w http.ResponseWriter, _ *http.Request) {
@@ -73,14 +71,8 @@ func TestAutoscalingSettingsSetMissingDefaults(t *testing.T) {
 
 	// Autoscaling settings with no "defaults" key — the API payload is
 	// otherwise valid. The unfixed CLI assumed $defaults was always present.
-	autoscalingPath := "/projects/" + projectID + "/environments/main/autoscaling"
-	apiHandler.Get(autoscalingPath, func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"services": map[string]any{},
-			"_links": mockapi.MakeHALLinks(
-				"self=" + autoscalingPath,
-			),
-		})
+	main.SetAutoscalingSettings(map[string]any{
+		"services": map[string]any{},
 	})
 
 	apiServer := httptest.NewServer(apiHandler)
