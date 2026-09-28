@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Resources\Build;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\ResourcesUtil;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -79,8 +80,8 @@ class BuildResourcesSetCommand extends ResourcesCommandBase
 
         $this->stdErr->writeln('Update the build resources on the project: ' . $this->api->getProjectLabel($project));
 
-        $cpuOption = $input->getOption('cpu');
-        $memoryOption = $input->getOption('memory');
+        $cpuOption = Option::stringOrNull($input, 'cpu');
+        $memoryOption = Option::stringOrNull($input, 'memory');
 
         try {
             if ($cpuOption !== null) {

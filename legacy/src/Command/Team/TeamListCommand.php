@@ -10,6 +10,7 @@ use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use GuzzleHttp\Exception\BadResponseException;
 use GuzzleHttp\Utils;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Cli\Model\ProjectRoles;
 use Platformsh\Cli\Service\PropertyFormatter;
@@ -68,20 +69,20 @@ class TeamListCommand extends TeamCommandBase
             return 1;
         }
         $selection = new Selection();
-        if ($input->getOption('project') || $this->selector->getCurrentProject()) {
+        if (Option::stringOrNull($input, 'project') || $this->selector->getCurrentProject()) {
             $selection = $this->selector->getSelection($input);
         }
 
         $params = [];
 
-        if ($sortBy = $input->getOption('sort')) {
-            if ($input->getOption('reverse')) {
+        if ($sortBy = Option::string($input, 'sort')) {
+            if (Option::bool($input, 'reverse')) {
                 $sortBy = '-' . $sortBy;
             }
             $params['sort'] = $sortBy;
         }
 
-        $count = $input->getOption('count');
+        $count = Option::stringOrNull($input, 'count');
         $fetchAllPages = $count === '0';
         if (!$fetchAllPages) {
             $params['page[size]'] = $count;
@@ -90,7 +91,7 @@ class TeamListCommand extends TeamCommandBase
         $executable = $this->config->getStr('application.executable');
 
         // Fetch teams for a specific project.
-        $projectSpecific = !$input->getOption('all') && $selection->hasProject();
+        $projectSpecific = !Option::bool($input, 'all') && $selection->hasProject();
         if ($projectSpecific) {
             $teamsOnProject = $this->loadTeamsOnProject($selection->getProject());
             if (!$teamsOnProject) {

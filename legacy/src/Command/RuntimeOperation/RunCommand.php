@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\RuntimeOperation;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\ActivityMonitor;
@@ -52,7 +54,7 @@ class RunCommand extends CommandBase
         $deployment = $this->api->getCurrentDeployment($environment);
 
         try {
-            if ($input->getOption('app') || $input->getOption('worker')) {
+            if (Option::stringOrNull($input, 'app') || Option::stringOrNull($input, 'worker')) {
                 $selectedApp = $selection->getRemoteContainer();
                 $appName = $selectedApp->getName();
                 $operations = [
@@ -72,7 +74,7 @@ class RunCommand extends CommandBase
             return 0;
         }
 
-        $operationName = $input->getArgument('operation');
+        $operationName = Argument::stringOrNull($input, 'operation');
         if (!$operationName) {
             if (!$input->isInteractive()) {
                 $this->stdErr->writeln('The <error>operation</error> argument is required in non-interactive mode.');
@@ -125,7 +127,7 @@ class RunCommand extends CommandBase
         }
 
         try {
-            $result = $deployment->execRuntimeOperation($operationName, $appName, $input->getOption('parameter'));
+            $result = $deployment->execRuntimeOperation($operationName, $appName, Option::stringArray($input, 'parameter'));
         } catch (OperationUnavailableException) {
             throw new ApiFeatureMissingException('This project does not support runtime operations.');
         }

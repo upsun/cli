@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Project;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\SubCommandRunner;
@@ -127,7 +128,7 @@ class ProjectCreateCommand extends CommandBase
         }
 
         // Validate the --set-remote option.
-        $setRemote = (bool) $input->getOption('set-remote');
+        $setRemote = Option::bool($input, 'set-remote');
         $projectRoot = $this->selector->getProjectRoot();
         $gitRoot = $projectRoot !== false ? $projectRoot : $this->git->getRoot();
         if ($setRemote && $gitRoot === false) {
@@ -140,7 +141,7 @@ class ProjectCreateCommand extends CommandBase
         $form = Form::fromArray($this->getFields($setupOptions));
         $options = $form->resolveOptions($input, $output, $this->questionHelper);
 
-        if ($gitRoot !== false && !$input->getOption('no-set-remote')) {
+        if ($gitRoot !== false && !Option::bool($input, 'no-set-remote')) {
             try {
                 $currentProject = $this->selector->getCurrentProject();
             } catch (ProjectNotFoundException) {
@@ -631,7 +632,7 @@ class ProjectCreateCommand extends CommandBase
      */
     private function getTimeOption(InputInterface $input, string $optionName, int $min = 0, int $max = 3600): int
     {
-        $value = $this->getIntOption($input, $optionName);
+        $value = Option::int($input, $optionName);
         if ($value <= $min) {
             $value = $min;
         } elseif ($value > $max) {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Team\Project;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -56,7 +57,7 @@ class TeamProjectListCommand extends TeamCommandBase
         $options = [];
         $options['query']['sort'] = 'project_title';
 
-        $count = $input->getOption('count');
+        $count = Option::stringOrNull($input, 'count');
         $itemsPerPage = max(1, min($this->config->getInt('pagination.count'), self::MAX_COUNT));
         if ($count !== null && $count !== '0') {
             if (!\is_numeric($count) || $count < 1 || $count > self::MAX_COUNT) {

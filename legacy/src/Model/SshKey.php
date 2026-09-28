@@ -26,7 +26,7 @@ readonly class SshKey
     ) {}
 
     /**
-     * @param array<string, mixed> $data
+     * @param array<mixed> $data
      */
     public static function fromData(array $data): self
     {
@@ -43,7 +43,7 @@ readonly class SshKey
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param array<mixed> $data
      */
     private static function str(array $data, string $key): string
     {

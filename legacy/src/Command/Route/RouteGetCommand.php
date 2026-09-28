@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Route;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
@@ -60,7 +62,7 @@ class RouteGetCommand extends CommandBase
             $selection = $this->selector->getSelection($input);
             $environment = $selection->getEnvironment();
             $deployment = $this->api
-                ->getCurrentDeployment($environment, $input->getOption('refresh'));
+                ->getCurrentDeployment($environment, Option::bool($input, 'refresh'));
             $routes = Route::fromDeploymentApi($deployment->routes);
         }
 
@@ -69,7 +71,7 @@ class RouteGetCommand extends CommandBase
         /** @var Route|false $selectedRoute */
         $selectedRoute = false;
 
-        $id = $input->getOption('id');
+        $id = Option::stringOrNull($input, 'id');
         if ($id !== null) {
             foreach ($routes as $route) {
                 if ($route->id === $id) {
@@ -84,7 +86,7 @@ class RouteGetCommand extends CommandBase
             }
         }
 
-        if (!$selectedRoute && $input->getOption('primary')) {
+        if (!$selectedRoute && Option::bool($input, 'primary')) {
             foreach ($routes as $route) {
                 if ($route->primary) {
                     $selectedRoute = $route;
@@ -96,7 +98,7 @@ class RouteGetCommand extends CommandBase
             }
         }
 
-        $originalUrl = $input->getArgument('route');
+        $originalUrl = Argument::stringOrNull($input, 'route');
         if (!$selectedRoute && ($originalUrl === null || $originalUrl === '')) {
             if (!$input->isInteractive()) {
                 $this->stdErr->writeln('You must specify a route via the <comment>route</comment> argument, the <comment>--id</comment> option, or the <comment>--primary</comment> option.');
@@ -143,7 +145,7 @@ class RouteGetCommand extends CommandBase
         // Add defaults.
         $selectedRoute = $selectedRoute->getProperties();
 
-        $this->propertyFormatter->displayData($output, $selectedRoute, $input->getOption('property'));
+        $this->propertyFormatter->displayData($output, $selectedRoute, Option::stringOrNull($input, 'property'));
 
         return 0;
     }

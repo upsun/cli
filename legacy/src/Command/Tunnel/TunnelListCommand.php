@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Tunnel;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\Table;
@@ -58,7 +59,7 @@ class TunnelListCommand extends TunnelCommandBase
 
         // Filter tunnels according to the current project and environment, if
         // available.
-        if (!$input->getOption('all')) {
+        if (!Option::bool($input, 'all')) {
             $selection = $this->selector->getSelection($input);
             $tunnels = $this->tunnelManager->filterBySelection($tunnels, $selection);
             if (!count($tunnels)) {
@@ -88,7 +89,7 @@ class TunnelListCommand extends TunnelCommandBase
         if (!$this->table->formatIsMachineReadable()) {
             $this->stdErr->writeln('');
 
-            if (!$input->getOption('all') && count($tunnels) < $allTunnelsCount) {
+            if (!Option::bool($input, 'all') && count($tunnels) < $allTunnelsCount) {
                 $this->stdErr->writeln(sprintf(
                     'List all tunnels with: <info>%s tunnels --all</info>',
                     $executable,

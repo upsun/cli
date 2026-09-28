@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\Identifier;
@@ -83,7 +84,7 @@ class MultiCommand extends CommandBase
         }
 
         $success = true;
-        $continue = $input->getOption('continue');
+        $continue = Option::bool($input, 'continue');
         $this->stdErr->writeln(sprintf(
             "Running command on %d %s:  <info>%s</info>",
             count($projects),
@@ -173,10 +174,10 @@ class MultiCommand extends CommandBase
     protected function getAllProjectsBasicInfo(InputInterface $input): array
     {
         $projects = $this->api->getMyProjects();
-        if ($input->getOption('sort')) {
-            Sort::sortObjects($projects, $input->getOption('sort'));
+        if ($sort = Option::string($input, 'sort')) {
+            Sort::sortObjects($projects, $sort);
         }
-        if ($input->getOption('reverse')) {
+        if (Option::bool($input, 'reverse')) {
             $projects = array_reverse($projects, true);
         }
 

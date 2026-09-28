@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -12,8 +13,8 @@ use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Service\Ssh;
 use Symfony\Component\Console\Attribute\AsCommand;
-use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Process;
 
@@ -28,7 +29,7 @@ class EnvironmentXdebugCommand extends CommandBase
 
     protected function configure(): void
     {
-        $this->addOption('port', null, InputArgument::OPTIONAL, 'The local port', 9000);
+        $this->addOption('port', null, InputOption::VALUE_REQUIRED, 'The local port', 9000);
         $this->selector->addProjectOption($this->getDefinition());
         $this->selector->addEnvironmentOption($this->getDefinition());
         $this->selector->addRemoteContainerOptions($this->getDefinition());
@@ -80,10 +81,11 @@ class EnvironmentXdebugCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $port = Option::int($input, 'port');
         $selection = $this->selector->getSelection($input, new SelectorConfig(chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
 
         $container = $selection->getRemoteContainer();
-        $sshUrl = $container->getSshUrl($input->getOption('instance'));
+        $sshUrl = $container->getSshUrl(Option::stringOrNull($input, 'instance') ?? '');
 
         $config = $container->getConfig()->getNormalized();
         $ideKey = $config['runtime']['xdebug']['idekey'] ?? '';
@@ -117,8 +119,6 @@ class EnvironmentXdebugCommand extends CommandBase
         $this->stdErr->writeln("Opening a local tunnel for Xdebug.");
 
         // Set up the tunnel
-        $port = $input->getOption('port');
-
         $sshOptions = ['ExitOnForwardFailure yes', 'SessionType none', 'RequestTTY no'];
 
         $listenAddress = '127.0.0.1:' . $port;

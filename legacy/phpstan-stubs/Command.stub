@@ -1,0 +1,11 @@
+<?php
+
+namespace Symfony\Component\Console\Command;
+
+class Command
+{
+    /**
+     * @return string[]
+     */
+    public function getAliases(): array {}
+}

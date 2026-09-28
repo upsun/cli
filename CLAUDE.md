@@ -22,7 +22,7 @@ Run tests:
 ```bash
 make test
 # or directly:
-GOEXPERIMENT=jsonv2 go test -v -race -cover -count=1 ./...
+go test -v -race -cover -count=1 ./...
 ```
 
 Run linters:
@@ -56,6 +56,7 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 - Go layer: Handles new commands (init, list, version, config:install, project:convert) and core infrastructure
 - PHP layer: Legacy commands are proxied through `internal/legacy/CLIWrapper`
 - The PHP CLI (platform.phar) is embedded at build time via go:embed
+- An index of legacy commands (commands.json, from `list --all --format=json`) is embedded too, so the Go layer can resolve abbreviations like `p:init` in the same way as Symfony Console
 
 ### Key Components
 
@@ -163,4 +164,12 @@ PHP version is still injected via ldflags:
 
 ### Update Checks
 
-The CLI checks for updates from GitHub releases (when Wrapper.GitHubRepo is set in config). This runs in a background goroutine and prints a message after command execution.
+The CLI checks for updates from GitHub releases (when Wrapper.GitHubRepo is set in config). The network check runs in a background goroutine and caches the latest known version in `state.json`; the notice is shown before the command on a later run (see `internal/update.go`).
+
+Install-method detection (`internal/install.go`) tailors or suppresses the notice:
+- System package managers (apt, yum/dnf, apk) are detected via a marker file installed by the nfpm packages (`packaging/install-source` → `/usr/share/<slug>/install-source`). Before printing a notice, older package installs without the marker are also detected by querying dpkg/rpm/apk. The notice is suppressed because the OS handles updates.
+- Homebrew, Scoop, npm, and the bash installer get a tailored upgrade command, built from config fields (`Wrapper.HomebrewTap`, `Wrapper.NpmPackage`, `Wrapper.InstallerURL`, `Application.Executable`).
+- The notice is throttled to once a week (`LastNotified` in state) and only shown in an interactive terminal.
+- `<PREFIX>INSTALL_METHOD` forces the method; `<PREFIX>UPDATES_CHECK=0` disables checks entirely.
+
+See `docs/design/update-message-install-detection.md` for the full design, including the planned Phase 2 (opt-in self-update).

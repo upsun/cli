@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command;
 
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\Url;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -35,7 +36,7 @@ class DocsCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        if ($searchArguments = $input->getArgument('search')) {
+        if ($searchArguments = Argument::stringArray($input, 'search')) {
             $query = $this->getSearchQuery($searchArguments);
             $url = str_replace('{{ terms }}', rawurlencode($query), $this->config->getStr('service.docs_search_url'));
         } else {

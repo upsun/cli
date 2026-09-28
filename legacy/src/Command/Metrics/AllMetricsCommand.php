@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Metrics;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Model\Metrics\Aggregation;
 use Platformsh\Cli\Model\Metrics\Field;
 use Platformsh\Cli\Model\Metrics\Format;
@@ -112,7 +113,7 @@ class AllMetricsCommand extends MetricsCommandBase
             MetricKind::API_TYPE_INODES,
         ], [MetricKind::API_AGG_AVG]);
 
-        $bytes = $input->getOption('bytes');
+        $bytes = Option::bool($input, 'bytes');
 
         $fields = [
             'cpu_used' => new Field(

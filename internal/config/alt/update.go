@@ -52,8 +52,9 @@ func Update(ctx context.Context, cnf *config.Config, debugLog func(fmt string, i
 	}
 
 	defer func() {
-		s.ConfigUpdates.LastChecked = time.Now().Unix()
-		if err := state.Save(s, cnf); err != nil {
+		if err := state.Update(cnf, func(s *state.State) {
+			s.ConfigUpdates.LastChecked = time.Now().Unix()
+		}); err != nil {
 			debugLog("Error saving state: %s", err)
 		}
 	}()

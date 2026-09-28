@@ -11,6 +11,7 @@ use Platformsh\Cli\Service\Filesystem;
 use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Service\Shell;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\CredentialHelper\Manager;
 use Platformsh\Cli\Util\OsUtil;
 use Platformsh\Cli\Util\Snippeter;
@@ -19,8 +20,10 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'self:install', description: 'Install or update CLI configuration files')]
+#[HiddenAliases(['local:install'])]
 class SelfInstallCommand extends CommandBase
 {
     public const INSTALLED_FILENAME = 'self_installed';
@@ -33,7 +36,6 @@ class SelfInstallCommand extends CommandBase
     {
         $this
              ->addOption('shell-type', null, InputOption::VALUE_REQUIRED, 'The shell type for autocompletion (bash or zsh)');
-        $this->setHiddenAliases(['local:install']);
         $cliName = $this->config->getStr('application.name');
         $this->setHelp(
             <<<EOT
@@ -105,7 +107,7 @@ class SelfInstallCommand extends CommandBase
             $this->stdErr->writeln('');
         }
 
-        $shellType = $input->getOption('shell-type');
+        $shellType = Option::stringOrNull($input, 'shell-type');
         if ($shellType === null && getenv('SHELL') !== false) {
             $shellType = str_replace('.exe', '', basename(getenv('SHELL')));
             $this->io->debug('Detected shell type: ' . $shellType);

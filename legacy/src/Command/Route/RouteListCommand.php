@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Route;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
@@ -18,8 +19,10 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'route:list', description: 'List all routes for an environment', aliases: ['routes'])]
+#[HiddenAliases(['environment:routes'])]
 class RouteListCommand extends CommandBase
 {
     /** @var array<string, string> */
@@ -41,7 +44,6 @@ class RouteListCommand extends CommandBase
         $this
             ->addArgument('environment', InputArgument::OPTIONAL, 'The environment ID')
             ->addOption('refresh', null, InputOption::VALUE_NONE, 'Bypass the cache of routes');
-        $this->setHiddenAliases(['environment:routes']);
         Table::configureInput($this->getDefinition(), $this->tableHeader, $this->defaultColumns);
         $this->selector->addProjectOption($this->getDefinition());
         $this->selector->addEnvironmentOption($this->getDefinition());
@@ -64,7 +66,7 @@ class RouteListCommand extends CommandBase
         } else {
             $this->io->debug('Reading routes from the deployments API');
             $selection = $this->selector->getSelection($input);
-            $deployment = $this->api->getCurrentDeployment($selection->getEnvironment(), $input->getOption('refresh'));
+            $deployment = $this->api->getCurrentDeployment($selection->getEnvironment(), Option::bool($input, 'refresh'));
             $routes = Route::fromDeploymentApi($deployment->routes);
             $fromEnv = false;
         }

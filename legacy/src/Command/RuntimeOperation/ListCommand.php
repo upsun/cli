@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\RuntimeOperation;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Api;
@@ -57,7 +58,7 @@ class ListCommand extends CommandBase
         // Fetch a list of operations grouped by service name, either for one
         // service or all of the services in an environment.
         try {
-            if ($input->getOption('app') || $input->getOption('worker')) {
+            if (Option::stringOrNull($input, 'app') || Option::stringOrNull($input, 'worker')) {
                 $selectedApp = $selection->getRemoteContainer();
                 $operations = [
                     $selectedApp->getName() => $selectedApp->getRuntimeOperations(),
@@ -76,9 +77,9 @@ class ListCommand extends CommandBase
                 $row = [];
                 $row['service'] = $serviceName;
                 $row['name'] = new AdaptiveTableCell($name, ['wrap' => false]);
-                $row['start'] = $input->getOption('full') ? $op->commands['start'] : $this->truncateCommand($op->commands['start']);
+                $row['start'] = Option::bool($input, 'full') ? $op->commands['start'] : $this->truncateCommand($op->commands['start']);
                 $stop = $op->commands['stop'] ?? '';
-                $row['stop'] = $input->getOption('full') ? $stop : $this->truncateCommand($stop);
+                $row['stop'] = Option::bool($input, 'full') ? $stop : $this->truncateCommand($stop);
                 $row['role'] = $op->role;
                 $rows[] = $row;
             }

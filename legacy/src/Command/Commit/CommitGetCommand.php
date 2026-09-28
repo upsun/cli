@@ -8,6 +8,8 @@ use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\GitDataApi;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -55,7 +57,7 @@ class CommitGetCommand extends CommandBase
         $this->io->warnAboutDeprecatedOptions(['columns', 'format', 'no-header']);
         $selection = $this->selector->getSelection($input, new SelectorConfig(selectDefaultEnv: true));
 
-        $commitSha = $input->getArgument('commit');
+        $commitSha = Argument::string($input, 'commit');
         $commit = $this->gitDataApi->getCommit($selection->getEnvironment(), $commitSha);
         if (!$commit) {
             if ($commitSha) {
@@ -66,7 +68,7 @@ class CommitGetCommand extends CommandBase
 
             return 1;
         }
-        $this->propertyFormatter->displayData($output, $commit->getProperties(), $input->getOption('property'));
+        $this->propertyFormatter->displayData($output, $commit->getProperties(), Option::stringOrNull($input, 'property'));
 
         return 0;
     }

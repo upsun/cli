@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Team\Project;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\QuestionHelper;
@@ -52,7 +53,7 @@ class TeamProjectAddCommand extends TeamCommandBase
 
         $projectIds = ArrayArgument::getArgument($input, 'projects');
 
-        if ($input->getOption('all')) {
+        if (Option::bool($input, 'all')) {
             if ($projectIds) {
                 $this->stdErr->writeln('The <error>--all</error> option cannot be used when project(s) are specified.');
                 return 1;

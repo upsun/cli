@@ -6,6 +6,7 @@ namespace Platformsh\Cli\Command\Self;
 
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
@@ -29,7 +30,7 @@ class SelfConfigCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $this->propertyFormatter->displayData($output, $this->config->getAll(), $input->getArgument('value'));
+        $this->propertyFormatter->displayData($output, $this->config->getAll(), Argument::stringOrNull($input, 'value'));
         return 0;
     }
 }

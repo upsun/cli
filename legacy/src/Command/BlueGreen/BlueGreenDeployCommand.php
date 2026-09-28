@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\BlueGreen;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
@@ -28,7 +29,7 @@ class BlueGreenDeployCommand extends CommandBase
     protected function configure(): void
     {
         $this
-            ->addOption('routing-percentage', null, InputOption::VALUE_REQUIRED, "Set the latest version's routing percentage", 100)
+            ->addOption('routing-percentage', null, InputOption::VALUE_REQUIRED, "Set the latest version's routing percentage", '100')
             ->setHelp('Use this command to deploy the latest (green) version, or otherwise change its routing percentage, during a blue/green deployment.');
         $this->selector->addProjectOption($this->getDefinition());
         $this->selector->addEnvironmentOption($this->getDefinition());
@@ -61,9 +62,10 @@ class BlueGreenDeployCommand extends CommandBase
             return 1;
         }
 
-        $targetPercentage = rtrim((string) $input->getOption('routing-percentage'), '%');
+        $percentageOption = Option::string($input, 'routing-percentage');
+        $targetPercentage = rtrim($percentageOption, '%');
         if (!is_numeric($targetPercentage) || $targetPercentage > 100 || $targetPercentage < 0) {
-            $this->stdErr->writeln('Invalid percentage: <error>' . $input->getOption('routing-percentage') . '</error>');
+            $this->stdErr->writeln('Invalid percentage: <error>' . $percentageOption . '</error>');
             return 1;
         }
         $targetPercentage = (int) $targetPercentage;

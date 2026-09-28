@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Backup;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Command\CommandBase;
@@ -37,7 +39,7 @@ class BackupGetCommand extends CommandBase
         $selection = $this->selector->getSelection($input);
         $environment = $selection->getEnvironment();
 
-        if ($id = $input->getArgument('backup')) {
+        if ($id = Argument::stringOrNull($input, 'backup')) {
             $backup = $environment->getBackup($id);
             if (!$backup) {
                 $this->stdErr->writeln(sprintf('Backup not found: <error>%s</error>', $id));
@@ -64,7 +66,7 @@ class BackupGetCommand extends CommandBase
             $backup = $byId[$choice];
         }
 
-        $this->propertyFormatter->displayData($output, $backup->getProperties(), $input->getOption('property'));
+        $this->propertyFormatter->displayData($output, $backup->getProperties(), Option::stringOrNull($input, 'property'));
 
         return 0;
     }

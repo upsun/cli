@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Organization;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use GuzzleHttp\Exception\BadResponseException;
 use Platformsh\Cli\Console\AdaptiveTableCell;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Service\CountryService;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
@@ -41,9 +43,9 @@ class OrganizationInfoCommand extends OrganizationCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $property = $input->getArgument('property');
-        $value = $input->getArgument('value');
-        $skipCache = $value !== null || $input->getOption('refresh');
+        $property = Argument::stringOrNull($input, 'property');
+        $value = Argument::stringOrNull($input, 'value');
+        $skipCache = $value !== null || Option::bool($input, 'refresh');
         $organization = $this->selector->selectOrganization($input, '', '', $skipCache);
 
         if ($property === null) {

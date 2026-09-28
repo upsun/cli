@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\App;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -56,7 +57,7 @@ class AppConfigGetCommand extends CommandBase
             $this->io->warnAboutDeprecatedOptions(['identity-file']);
             $appConfig = $selection->getRemoteContainer()->getConfig();
         }
-        $this->propertyFormatter->displayData($output, $appConfig->getNormalized(), $input->getOption('property'));
+        $this->propertyFormatter->displayData($output, $appConfig->getNormalized(), Option::stringOrNull($input, 'property'));
         return 0;
     }
 }

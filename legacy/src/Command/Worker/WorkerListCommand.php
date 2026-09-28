@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Worker;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Api;
@@ -47,7 +48,7 @@ class WorkerListCommand extends CommandBase
         $selection = $this->selector->getSelection($input, new SelectorConfig(chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
 
         $deployment = $this->api
-            ->getCurrentDeployment($selection->getEnvironment(), $input->getOption('refresh'));
+            ->getCurrentDeployment($selection->getEnvironment(), Option::bool($input, 'refresh'));
 
         $workers = $deployment->workers;
         if (empty($workers)) {
@@ -57,7 +58,7 @@ class WorkerListCommand extends CommandBase
             return 0;
         }
 
-        if ($input->getOption('pipe')) {
+        if (Option::bool($input, 'pipe')) {
             $names = array_keys($workers);
             sort($names, SORT_NATURAL);
             $output->writeln($names);

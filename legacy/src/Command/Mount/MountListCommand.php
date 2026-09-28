@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Mount;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -88,7 +89,7 @@ class MountListCommand extends CommandBase
             }
         }
 
-        if ($input->getOption('paths')) {
+        if (Option::bool($input, 'paths')) {
             $output->writeln(array_keys($mounts));
 
             return 0;

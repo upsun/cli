@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Server;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Table;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -34,7 +35,7 @@ class ServerListCommand extends ServerCommandBase
         }
 
         $projectRoot = $this->selector->getProjectRoot();
-        $all = $input->getOption('all');
+        $all = Option::bool($input, 'all');
         if (!$all && $projectRoot) {
             $servers = array_filter($servers, fn($server): bool => $server['projectRoot'] === $projectRoot);
             if (!$servers) {

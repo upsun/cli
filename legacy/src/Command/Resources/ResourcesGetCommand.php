@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Resources;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\ResourcesUtil;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
@@ -114,7 +115,7 @@ class ResourcesGetCommand extends ResourcesCommandBase
         $containerProfiles = $this->sortContainerProfiles($nextDeployment->container_profiles);
 
         $rows = [];
-        $cpuTypeOption = $input->getOption('cpu-type');
+        $cpuTypeOption = Option::stringOrNull($input, 'cpu-type');
         $autoscalingIndicator = '<comment>(A)</comment>';
         $hasAutoscalingIndicator = false;
         $hasObjectStorage = false;

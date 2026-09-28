@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Mount;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Model\RemoteContainer\RemoteContainerInterface;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Local\ApplicationFinder;
@@ -60,7 +61,7 @@ class MountDownloadCommand extends CommandBase
         $selection = $this->selector->getSelection($input, new SelectorConfig(chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
         $container = $selection->getRemoteContainer();
         $mounts = $this->mount->mountsFromConfig($container->getConfig());
-        $sshUrl = $container->getSshUrl($input->getOption('instance'));
+        $sshUrl = $container->getSshUrl(Option::stringOrNull($input, 'instance') ?? '');
 
         if (empty($mounts)) {
             $this->stdErr->writeln(sprintf('No mounts found on host: <info>%s</info>', $sshUrl));
@@ -68,16 +69,16 @@ class MountDownloadCommand extends CommandBase
             return 1;
         }
 
-        $all = $input->getOption('all');
+        $all = Option::bool($input, 'all');
 
-        if ($input->getOption('mount')) {
+        if ($mountPathOption = Option::stringOrNull($input, 'mount')) {
             if ($all) {
                 $this->stdErr->writeln('You cannot combine the <error>--mount</error> option with <error>--all</error>.');
 
                 return 1;
             }
 
-            $mountPath = $this->mount->matchMountPath($input->getOption('mount'), $mounts);
+            $mountPath = $this->mount->matchMountPath($mountPathOption, $mounts);
         } elseif (!$all && $input->isInteractive()) {
             $mountOptions = [];
             foreach ($mounts as $path => $definition) {
@@ -105,8 +106,8 @@ class MountDownloadCommand extends CommandBase
         }
 
         $target = null;
-        if ($input->getOption('target')) {
-            $target = $input->getOption('target');
+        if ($targetOption = Option::stringOrNull($input, 'target')) {
+            $target = $targetOption;
         }
 
         if (empty($target) && $input->isInteractive()) {
@@ -139,9 +140,9 @@ class MountDownloadCommand extends CommandBase
         }
 
         $rsyncOptions = [
-            'delete' => $input->getOption('delete'),
-            'exclude' => $input->getOption('exclude'),
-            'include' => $input->getOption('include'),
+            'delete' => Option::bool($input, 'delete'),
+            'exclude' => Option::stringArray($input, 'exclude'),
+            'include' => Option::stringArray($input, 'include'),
             'verbose' => $output->isVeryVerbose(),
             'quiet' => $output->isQuiet(),
         ];
@@ -156,7 +157,7 @@ class MountDownloadCommand extends CommandBase
                 return 1;
             }
 
-            $useSourcePath = $input->getOption('source-path');
+            $useSourcePath = Option::bool($input, 'source-path');
 
             foreach ($mounts as $mountPath => $definition) {
                 $this->stdErr->writeln('');

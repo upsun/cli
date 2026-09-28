@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\SourceOperation;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
@@ -45,7 +47,7 @@ class RunCommand extends CommandBase
     {
         $selection = $this->selector->getSelection($input);
 
-        $variables = (new Variable())->parseMultiple($input->getOption('variable'));
+        $variables = (new Variable())->parseMultiple(Option::stringArray($input, 'variable'));
         $this->io->debug('Parsed variables: ' . json_encode($variables));
 
         $environment = $selection->getEnvironment();
@@ -55,7 +57,7 @@ class RunCommand extends CommandBase
             return 1;
         }
 
-        $operation = $input->getArgument('operation');
+        $operation = Argument::stringOrNull($input, 'operation');
         if (!$operation) {
             if (!$input->isInteractive()) {
                 $this->stdErr->writeln('The <error>operation</error> argument is required in non-interactive mode.');

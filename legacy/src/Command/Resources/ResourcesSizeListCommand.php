@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Resources;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\ResourcesUtil;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
@@ -68,14 +69,14 @@ class ResourcesSizeListCommand extends ResourcesCommandBase
 
         $containerProfiles = $this->sortContainerProfiles($nextDeployment->container_profiles);
 
-        if ($serviceOption = $input->getOption('service')) {
+        if ($serviceOption = Option::stringOrNull($input, 'service')) {
             if (!isset($services[$serviceOption])) {
                 $this->stdErr->writeln('Service not found: <error>' . $serviceOption . '</error>');
                 return 1;
             }
             $service = $services[$serviceOption];
             $profile = $service->container_profile;
-        } elseif ($profileOption = $input->getOption('profile')) {
+        } elseif ($profileOption = Option::stringOrNull($input, 'profile')) {
             $profile = $profileOption;
             if (!isset($containerProfiles[$profile])) {
                 $this->stdErr->writeln('Profile not found: ' . $profile);

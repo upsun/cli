@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Backup;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Service\ResourcesUtil;
 use Platformsh\Cli\Selector\Selector;
@@ -19,8 +21,10 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'backup:restore', description: 'Restore an environment backup')]
+#[HiddenAliases(['environment:restore', 'snapshot:restore'])]
 class BackupRestoreCommand extends CommandBase
 {
     /** @var string[] */
@@ -47,7 +51,6 @@ class BackupRestoreCommand extends CommandBase
         $this->selector->addEnvironmentOption($this->getDefinition());
         $this->addCompleter($this->selector);
         $this->activityMonitor->addWaitOptions($this->getDefinition());
-        $this->setHiddenAliases(['environment:restore', 'snapshot:restore']);
         $this->addExample('Restore the most recent backup');
         $this->addExample('Restore a specific backup', '92c9a4b2aa75422efb3d');
     }
@@ -61,7 +64,7 @@ class BackupRestoreCommand extends CommandBase
         $environment = $selection->getEnvironment();
         $project = $selection->getProject();
 
-        $backupName = $input->getArgument('backup');
+        $backupName = Argument::stringOrNull($input, 'backup');
         if (!empty($backupName)) {
             $backup = $environment->getBackup($backupName);
             if (!$backup) {
@@ -88,7 +91,7 @@ class BackupRestoreCommand extends CommandBase
         }
 
         // Validate the --branch-from option.
-        $branchFrom = $input->getOption('branch-from');
+        $branchFrom = Option::stringOrNull($input, 'branch-from');
         if ($branchFrom !== null && !$this->api->getEnvironment($branchFrom, $project)) {
             $this->stdErr->writeln(sprintf('Environment not found (in --branch-from): <error>%s</error>', $branchFrom));
 
@@ -102,7 +105,7 @@ class BackupRestoreCommand extends CommandBase
         }
 
         // Process the --target option, which does not have to be an existing environment.
-        $target = $input->getOption('target');
+        $target = Option::stringOrNull($input, 'target');
         $targetEnvironment = $target !== null ? $this->api->getEnvironment($target, $project) : $environment;
         $targetName = $target !== null ? $target : $environment->name;
         $targetLabel = $targetEnvironment
@@ -112,7 +115,7 @@ class BackupRestoreCommand extends CommandBase
         // Display a summary of the backup.
         $this->stdErr->writeln(\sprintf('Backup ID: <comment>%s</comment>', $backup->id));
         $this->stdErr->writeln(\sprintf('Created at: <comment>%s</comment>', $this->propertyFormatter->format($backup->created_at, 'created_at')));
-        if ($input->getOption('no-code')) {
+        if (Option::bool($input, 'no-code')) {
             $this->stdErr->writeln('Only data, not code, will be restored.');
         }
 
@@ -139,8 +142,8 @@ class BackupRestoreCommand extends CommandBase
             (new RestoreOptions())
                 ->setEnvironmentName($targetName)
                 ->setBranchFrom($branchFrom)
-                ->setRestoreCode($input->getOption('no-code') ? false : null)
-                ->setRestoreResources($input->hasOption('no-resources') && $input->getOption('no-resources') ? false : null)
+                ->setRestoreCode(Option::bool($input, 'no-code') ? false : null)
+                ->setRestoreResources($input->hasOption('no-resources') && Option::bool($input, 'no-resources') ? false : null)
                 ->setResourcesInit($resourcesInit),
         );
 

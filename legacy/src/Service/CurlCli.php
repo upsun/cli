@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Service;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputDefinition;
@@ -40,16 +42,16 @@ readonly class CurlCli implements InputConfiguringInterface
         $stdErr = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;
         $url = rtrim($baseUrl, '/');
 
-        if ($path = $input->getArgument('path')) {
-            if (parse_url((string) $path, PHP_URL_HOST)) {
+        if ($path = Argument::stringOrNull($input, 'path')) {
+            if (parse_url($path, PHP_URL_HOST)) {
                 $stdErr->writeln(sprintf('Invalid path: <error>%s</error>', $path));
 
                 return 1;
             }
-            $url .= '/' . ltrim((string) $path, '/');
+            $url .= '/' . ltrim($path, '/');
         }
 
-        $retryOn401 = !$input->getOption('no-retry-401');
+        $retryOn401 = !Option::bool($input, 'no-retry-401');
 
         $token = $this->api->getAccessToken();
 
@@ -147,43 +149,43 @@ readonly class CurlCli implements InputConfiguringInterface
 
         $passThroughFlags = ['head', 'include', 'fail'];
         foreach ($passThroughFlags as $flag) {
-            if ($input->getOption($flag)) {
+            if (Option::bool($input, $flag)) {
                 $commandline .= ' --' . $flag;
             }
         }
 
         // Set --fail-with-body by default.
-        if (!$input->getOption('fail')) {
+        if (!Option::bool($input, 'fail')) {
             $commandline .= ' --fail-with-body';
         }
 
-        if ($requestMethod = $input->getOption('request')) {
-            $commandline .= ' --request ' . escapeshellarg((string) $requestMethod);
+        if ($requestMethod = Option::stringOrNull($input, 'request')) {
+            $commandline .= ' --request ' . escapeshellarg($requestMethod);
         }
 
-        if ($data = $input->getOption('json')) {
-            if (\json_decode((string) $data) === null && \json_last_error() !== JSON_ERROR_NONE) {
+        if ($data = Option::stringOrNull($input, 'json')) {
+            if (\json_decode($data) === null && \json_last_error() !== JSON_ERROR_NONE) {
                 throw new InvalidArgumentException('The value of --json contains invalid JSON.');
             }
-            $commandline .= ' --data ' . escapeshellarg((string) $data);
+            $commandline .= ' --data ' . escapeshellarg($data);
             $commandline .= ' --header ' . escapeshellarg('Content-Type: application/json');
             $commandline .= ' --header ' . escapeshellarg('Accept: application/json');
         }
 
-        if ($data = $input->getOption('data')) {
-            $commandline .= ' --data ' . escapeshellarg((string) $data);
+        if ($data = Option::stringOrNull($input, 'data')) {
+            $commandline .= ' --data ' . escapeshellarg($data);
         }
 
-        if (!$input->getOption('disable-compression')) {
+        if (!Option::bool($input, 'disable-compression')) {
             $commandline .= ' --compressed';
         }
 
-        if (!$input->getOption('enable-glob')) {
+        if (!Option::bool($input, 'enable-glob')) {
             $commandline .= ' --globoff';
         }
 
-        foreach ($input->getOption('header') as $header) {
-            $commandline .= ' --header ' . escapeshellarg((string) $header);
+        foreach (Option::stringArray($input, 'header') as $header) {
+            $commandline .= ' --header ' . escapeshellarg($header);
         }
 
         $commandline .= ' --no-progress-meter';

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Command\SshKey;
 
 use GuzzleHttp\Exception\BadResponseException;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -55,7 +57,7 @@ class SshKeyAddCommand extends SshKeyCommandBase
         }
         $this->stdErr->writeln('');
 
-        $publicKeyPath = $input->getArgument('path');
+        $publicKeyPath = Argument::stringOrNull($input, 'path');
         if (empty($publicKeyPath)) {
             $defaultKeyPath = $sshDir . DIRECTORY_SEPARATOR . 'id_ed25519';
             $defaultPublicKeyPath = $defaultKeyPath . '.pub';
@@ -90,7 +92,7 @@ class SshKeyAddCommand extends SshKeyCommandBase
                 $this->stdErr->writeln('You must specify the path to a public SSH key');
                 return 1;
             }
-        } elseif (!str_contains((string) $publicKeyPath, '.pub') && \file_exists($publicKeyPath . '.pub')) {
+        } elseif (!str_contains($publicKeyPath, '.pub') && \file_exists($publicKeyPath . '.pub')) {
             $publicKeyPath .= '.pub';
             $this->io->debug('Using public key: ' . $publicKeyPath . '.pub');
         }
@@ -129,9 +131,8 @@ class SshKeyAddCommand extends SshKeyCommandBase
         }
 
         // Add the new key.
-        $name = $input->getOption('name');
         try {
-            $this->api->addSshKey($publicKey, is_string($name) ? $name : null);
+            $this->api->addSshKey($publicKey, Option::stringOrNull($input, 'name'));
         } catch (BadResponseException $e) {
             // The API rejects a key that is already registered, by anyone.
             if ($e->getResponse()->getStatusCode() === 409) {
@@ -143,7 +144,7 @@ class SshKeyAddCommand extends SshKeyCommandBase
 
         $this->stdErr->writeln(\sprintf(
             'The SSH key <info>%s</info> has been successfully added to your %s account.',
-            \basename((string) $publicKeyPath),
+            \basename($publicKeyPath),
             $this->config->getStr('service.name'),
         ));
 

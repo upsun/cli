@@ -14,6 +14,7 @@ use Platformsh\Cli\Service\Identifier;
 use Platformsh\Cli\Local\LocalProject;
 use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -38,10 +39,10 @@ class ProjectSetRemoteCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $projectArg = $input->getArgument('project');
+        $projectArg = Argument::stringOrNull($input, 'project');
         $unset = $projectArg === '-';
         $projectId = null;
-        if (!$unset && is_string($projectArg) && $projectArg !== '') {
+        if (!$unset && $projectArg !== null && $projectArg !== '') {
             $projectId = $this->identifier->identify($projectArg)['projectId'];
         }
         $cwd = getcwd();

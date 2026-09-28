@@ -8,20 +8,16 @@ use Doctrine\Common\Cache\CacheProvider;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'clear-cache', description: 'Clear the CLI cache', aliases: ['cc'])]
+#[HiddenAliases(['clearcache'])]
 class ClearCacheCommand extends CommandBase
 {
     public function __construct(private readonly CacheProvider $cacheProvider)
     {
         parent::__construct();
     }
-    protected function configure(): void
-    {
-        $this
-            ->setHiddenAliases(['clearcache']);
-    }
-
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $cache = $this->cacheProvider;

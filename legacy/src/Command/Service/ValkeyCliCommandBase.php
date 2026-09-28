@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Service;
 
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -44,7 +45,7 @@ abstract class ValkeyCliCommandBase extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        if ($this->runningViaMulti && !$input->getArgument('args')) {
+        if ($this->runningViaMulti && !Argument::stringArray($input, 'args')) {
             throw new \RuntimeException(sprintf('The %s command cannot run as a shell via multi', $this->dbCommand));
         }
 
@@ -65,7 +66,7 @@ abstract class ValkeyCliCommandBase extends CommandBase
             OsUtil::escapePosixShellArg($service['host']),
             $service['port'],
         );
-        if ($args = $input->getArgument('args')) {
+        if ($args = Argument::stringArray($input, 'args')) {
             if (count($args) === 1) {
                 $command .= ' ' . $args[0];
             } else {

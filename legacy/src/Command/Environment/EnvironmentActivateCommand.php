@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\ResourcesUtil;
 use Platformsh\Cli\Selector\Selector;
@@ -61,7 +63,7 @@ class EnvironmentActivateCommand extends CommandBase
             $toActivate = [$selection->getEnvironment()];
         } else {
             $environments = $this->api->getEnvironments($selection->getProject());
-            $environmentIds = $input->getArgument('environment');
+            $environmentIds = Argument::stringArray($input, 'environment');
             $toActivate = array_intersect_key($environments, array_flip($environmentIds));
             $notFound = array_diff($environmentIds, array_keys($environments));
             foreach ($notFound as $notFoundId) {
@@ -79,7 +81,7 @@ class EnvironmentActivateCommand extends CommandBase
      */
     protected function activateMultiple(array $environments, Project $project, InputInterface $input, OutputInterface $output): bool
     {
-        $parentId = $input->getOption('parent');
+        $parentId = Option::stringOrNull($input, 'parent');
         if ($parentId && !$this->api->getEnvironment($parentId, $project)) {
             $this->stdErr->writeln(sprintf('Parent environment not found: <error>%s</error>', $parentId));
             return false;
@@ -108,8 +110,8 @@ class EnvironmentActivateCommand extends CommandBase
                         return $this->subCommandRunner->run('environment:resume', [
                             '--project' => $environment->project,
                             '--environment' => $environment->id,
-                            '--wait' => $input->getOption('wait'),
-                            '--no-wait' => $input->getOption('no-wait'),
+                            '--wait' => Option::bool($input, 'wait'),
+                            '--no-wait' => Option::bool($input, 'no-wait'),
                             '--yes' => true,
                         ]) === 0;
                     }

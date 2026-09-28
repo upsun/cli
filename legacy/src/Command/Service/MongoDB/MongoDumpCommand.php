@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Service\MongoDB;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Config;
@@ -46,7 +47,7 @@ class MongoDumpCommand extends CommandBase
     {
         $projectRoot = $this->selector->getProjectRoot();
 
-        $gzip = $input->getOption('gzip');
+        $gzip = Option::bool($input, 'gzip');
 
         $envPrefix = $this->config->getStr('service.env_prefix');
         $selection = $this->selector->getSelection($input, new SelectorConfig(
@@ -62,8 +63,10 @@ class MongoDumpCommand extends CommandBase
 
         $dumpFile = false;
 
-        if (!$input->getOption('stdout')) {
-            $defaultFilename = $this->getDefaultFilename($selection->hasEnvironment() ? $selection->getEnvironment() : null, $appName, $input->getOption('collection'), $gzip);
+        $collection = Option::stringOrNull($input, 'collection');
+
+        if (!Option::bool($input, 'stdout')) {
+            $defaultFilename = $this->getDefaultFilename($selection->hasEnvironment() ? $selection->getEnvironment() : null, $appName, $collection, $gzip);
             $dumpFile = $projectRoot ? $projectRoot . '/' . $defaultFilename : $defaultFilename;
         }
 
@@ -86,8 +89,8 @@ class MongoDumpCommand extends CommandBase
 
         $command = 'mongodump ' . $this->relationships->getDbCommandArgs('mongodump', $service);
 
-        if ($input->getOption('collection')) {
-            $command .= ' --collection ' . OsUtil::escapePosixShellArg($input->getOption('collection'));
+        if ($collection) {
+            $command .= ' --collection ' . OsUtil::escapePosixShellArg($collection);
         }
 
         $command .= ' --archive';

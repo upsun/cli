@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Mount;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -140,7 +141,7 @@ class MountSizeCommand extends CommandBase
         // Build a table of results: one line per mount, one (multi-line) row
         // per filesystem.
         $rows = [];
-        $showInBytes = $input->getOption('bytes');
+        $showInBytes = Option::bool($input, 'bytes');
         foreach ($volumeInfo as $info) {
             $row = [];
             $row['mounts'] = implode("\n", $info['mounts']);

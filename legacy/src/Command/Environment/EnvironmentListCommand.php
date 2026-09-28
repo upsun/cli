@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -54,7 +55,7 @@ class EnvironmentListCommand extends CommandBase
             ->addOption('no-inactive', 'I', InputOption::VALUE_NONE, 'Do not show inactive environments')
             ->addOption('status', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Filter environments by status (active, inactive, dirty, paused, deleting).' . "\n" . ArrayArgument::SPLIT_HELP)
             ->addOption('pipe', null, InputOption::VALUE_NONE, 'Output a simple list of environment IDs.')
-            ->addOption('refresh', null, InputOption::VALUE_REQUIRED, 'Whether to refresh the list.', 1)
+            ->addOption('refresh', null, InputOption::VALUE_REQUIRED, 'Whether to refresh the list.', '1')
             ->addOption('sort', null, InputOption::VALUE_REQUIRED, 'A property to sort by', 'title', ['id', 'title', 'status', 'name', 'machine_name', 'parent', 'created_at', 'updated_at'])
             ->addOption('reverse', null, InputOption::VALUE_NONE, 'Sort in reverse (descending) order')
             ->addOption('type', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Filter the list by environment type(s).' . "\n" . ArrayArgument::SPLIT_HELP, null, ['development', 'staging', 'production']);
@@ -158,7 +159,7 @@ class EnvironmentListCommand extends CommandBase
     {
         $selection = $this->selector->getSelection($input);
 
-        $refresh = $input->hasOption('refresh') && $input->getOption('refresh');
+        $refresh = $input->hasOption('refresh') && Option::string($input, 'refresh');
 
         $progress = new ProgressMessage($output);
         $progress->showIfOutputDecorated('Loading environments...');
@@ -170,7 +171,7 @@ class EnvironmentListCommand extends CommandBase
 
         // Filter the list of environments.
         $filters = [];
-        if ($input->getOption('no-inactive')) {
+        if (Option::bool($input, 'no-inactive')) {
             $filters['no-inactive'] = true;
         }
         if ($types = ArrayArgument::getOption($input, 'type')) {
@@ -181,14 +182,14 @@ class EnvironmentListCommand extends CommandBase
         }
         $this->filterEnvironments($environments, $filters);
 
-        if ($input->getOption('sort')) {
-            $this->api->sortResources($environments, $input->getOption('sort'));
+        if ($sort = Option::string($input, 'sort')) {
+            $this->api->sortResources($environments, $sort);
         }
-        if ($input->getOption('reverse')) {
+        if (Option::bool($input, 'reverse')) {
             $environments = array_reverse($environments, true);
         }
 
-        if ($input->getOption('pipe')) {
+        if (Option::bool($input, 'pipe')) {
             $output->writeln(array_keys($environments));
 
             return 0;

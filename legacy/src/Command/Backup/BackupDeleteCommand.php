@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Backup;
 
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
 use Platformsh\Cli\Service\PropertyFormatter;
@@ -37,7 +38,7 @@ class BackupDeleteCommand extends CommandBase
         $selection = $this->selector->getSelection($input);
         $environment = $selection->getEnvironment();
 
-        if ($id = $input->getArgument('backup')) {
+        if ($id = Argument::stringOrNull($input, 'backup')) {
             $backup = $environment->getBackup($id);
             if (!$backup) {
                 $this->stdErr->writeln(sprintf('Backup not found: <error>%s</error>', $id));

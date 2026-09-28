@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Organization\User;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Command\Organization\OrganizationCommandBase;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Cli\Model\ProjectRoles;
 use Platformsh\Cli\Service\PropertyFormatter;
@@ -70,14 +72,14 @@ class OrganizationUserProjectsCommand extends OrganizationCommandBase
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $organization = null;
-        if (!$input->getOption('list-all')) {
+        if (!Option::bool($input, 'list-all')) {
             $organization = $this->selector->selectOrganization($input, 'members');
             if (!$organization->hasLink('members')) {
                 $this->stdErr->writeln('You do not have permission to view users in the organization ' . $this->api->getOrganizationLabel($organization, 'comment') . '.');
                 return 1;
             }
         }
-        if ($email = $input->getArgument('email')) {
+        if ($email = Argument::stringOrNull($input, 'email')) {
             if (!$organization) {
                 $this->io->debug('Finding user by email address');
                 $user = $this->api->getUser('email=' . $email);

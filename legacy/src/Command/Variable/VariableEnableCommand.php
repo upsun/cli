@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Variable;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
 use Platformsh\Cli\Service\SubCommandRunner;
@@ -46,13 +48,13 @@ class VariableEnableCommand extends CommandBase
         $selection = $this->selector->getSelection($input);
 
         return $this->subCommandRunner->run('variable:update', [
-            'name' => $input->getArgument('name'),
+            'name' => Argument::string($input, 'name'),
             '--enabled' => 'true',
             '--project' => $selection->getProject()->id,
             '--environment' => $selection->getEnvironment()->id,
         ] + array_filter([
-            '--wait' => $input->getOption('wait'),
-            '--no-wait' => $input->getOption('no-wait'),
+            '--wait' => Option::bool($input, 'wait'),
+            '--no-wait' => Option::bool($input, 'no-wait'),
         ]));
     }
 }

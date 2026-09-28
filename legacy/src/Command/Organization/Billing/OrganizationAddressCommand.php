@@ -9,6 +9,7 @@ use Platformsh\Cli\Service\Api;
 use GuzzleHttp\Exception\BadResponseException;
 use Platformsh\Cli\Command\Organization\OrganizationCommandBase;
 use Platformsh\Cli\Console\AdaptiveTableCell;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
 use Platformsh\Client\Model\Organization\Address;
@@ -40,7 +41,7 @@ class OrganizationAddressCommand extends OrganizationCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $property = $input->getArgument('property');
+        $property = Argument::stringOrNull($input, 'property');
         $updates = $this->parseUpdates($input);
 
         // The 'orders' link depends on the billing permission.
@@ -88,12 +89,12 @@ class OrganizationAddressCommand extends OrganizationCommandBase
      */
     protected function parseUpdates(InputInterface $input): array
     {
-        $property = $input->getArgument('property');
-        $value = $input->getArgument('value');
+        $property = Argument::stringOrNull($input, 'property');
+        $value = Argument::stringOrNull($input, 'value');
         if ($property === null || $value === null) {
             return [];
         }
-        $properties = $input->getArgument('properties');
+        $properties = Argument::stringArray($input, 'properties');
         if (empty($properties)) {
             return [$property => $value];
         }

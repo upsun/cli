@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Project;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Console\AdaptiveTableCell;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
 use Platformsh\Client\Model\Project;
@@ -17,8 +19,10 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'project:info', description: 'Read or set properties for a project')]
+#[HiddenAliases(['project:metadata'])]
 class ProjectInfoCommand extends CommandBase
 {
     public function __construct(private readonly ActivityMonitor $activityMonitor, private readonly Api $api, private readonly PropertyFormatter $propertyFormatter, private readonly Selector $selector, private readonly Table $table)
@@ -40,7 +44,6 @@ class ProjectInfoCommand extends CommandBase
         $this->addExample('Read all project properties')
              ->addExample("Show the project's Git URL", 'git')
              ->addExample("Change the project's title", 'title "My project"');
-        $this->setHiddenAliases(['project:metadata']);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -49,11 +52,11 @@ class ProjectInfoCommand extends CommandBase
 
         $project = $selection->getProject();
 
-        if ($input->getOption('refresh')) {
+        if (Option::bool($input, 'refresh')) {
             $project->refresh();
         }
 
-        $property = $input->getArgument('property');
+        $property = Argument::stringOrNull($input, 'property');
 
         // Setting the pseudo-properties 'git' and 'url', and un-setting the
         // property 'entropy', are done twice in this command so that
@@ -67,7 +70,7 @@ class ProjectInfoCommand extends CommandBase
             return $this->listProperties($properties);
         }
 
-        $value = $input->getArgument('value');
+        $value = Argument::stringOrNull($input, 'value');
         if ($value !== null) {
             return $this->setProperty($property, $value, $project, !$this->activityMonitor->shouldWait($input));
         }

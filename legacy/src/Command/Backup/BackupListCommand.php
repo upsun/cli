@@ -9,14 +9,17 @@ use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Console\AdaptiveTableCell;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Table;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'backup:list', description: 'List available backups of an environment', aliases: ['backups'])]
+#[HiddenAliases(['snapshots', 'snapshot:list'])]
 class BackupListCommand extends CommandBase
 {
     /** @var array<string, string> */
@@ -49,7 +52,6 @@ class BackupListCommand extends CommandBase
         $this->selector->addProjectOption($this->getDefinition());
         $this->selector->addEnvironmentOption($this->getDefinition());
         $this->addCompleter($this->selector);
-        $this->setHiddenAliases(['snapshots', 'snapshot:list']);
         $this->addExample('Display backups including the "live" and "commit_id" columns', '-c+live,commit_id');
     }
 
@@ -60,7 +62,7 @@ class BackupListCommand extends CommandBase
 
         $environment = $selection->getEnvironment();
 
-        $backups = $environment->getBackups((int) $input->getOption('limit'));
+        $backups = $environment->getBackups(Option::intOrNull($input, 'limit') ?? 0);
         if (!$backups) {
             $this->stdErr->writeln('No backups found');
             return 1;

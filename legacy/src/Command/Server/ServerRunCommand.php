@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Server;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Local\ApplicationFinder;
 use Platformsh\Cli\Service\Config;
@@ -43,13 +44,13 @@ class ServerRunCommand extends ServerCommandBase
             throw new RootNotFoundException();
         }
 
-        $ip = $input->getOption('ip');
+        $ip = Option::string($input, 'ip');
         if (!filter_var($ip, FILTER_VALIDATE_IP)) {
             $this->stdErr->writeln(sprintf('Invalid IP address: <error>%s</error>', $ip));
             return 1;
         }
 
-        $port = $input->getOption('port') ?: $this->getPort();
+        $port = Option::stringOrNull($input, 'port') ?: $this->getPort();
         if (!PortUtil::validatePort($port)) {
             $this->stdErr->writeln(sprintf('Invalid port: <error>%s</error>', $port));
             return 1;
@@ -62,7 +63,7 @@ class ServerRunCommand extends ServerCommandBase
             return 1;
         }
 
-        $appId = $input->getOption('app');
+        $appId = Option::stringOrNull($input, 'app');
         if (!$appId) {
             $appChoices = [];
             foreach ($apps as $appCandidate) {
@@ -91,7 +92,7 @@ class ServerRunCommand extends ServerCommandBase
             return 1;
         }
 
-        $logFile = $input->getOption('log');
+        $logFile = Option::stringOrNull($input, 'log');
         if ($logFile) {
             $log = $this->openLog($logFile);
             if (!$log) {
@@ -109,7 +110,7 @@ class ServerRunCommand extends ServerCommandBase
             $appConfig['drupal_7_workaround'] = true;
         }
 
-        $force = $input->getOption('force');
+        $force = Option::bool($input, 'force');
 
         if ($otherServer = $this->isServerRunningForApp($appId, $projectRoot)) {
             if (!$force) {
@@ -134,7 +135,7 @@ class ServerRunCommand extends ServerCommandBase
 
             // If the address was not manually specified, take the old server's
             // address.
-            if (!$input->getOption('port') && $input->getOption('ip') === '127.0.0.1') {
+            if (!Option::stringOrNull($input, 'port') && $ip === '127.0.0.1') {
                 $address = $otherServer['address'];
             }
         }

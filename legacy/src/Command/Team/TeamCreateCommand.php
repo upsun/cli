@@ -11,6 +11,7 @@ use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\QuestionHelper;
 use GuzzleHttp\Exception\BadResponseException;
 use Platformsh\Cli\Console\ArrayArgument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Cli\Util\PaginationUtil;
 use Platformsh\Cli\Util\Wildcard;
@@ -63,7 +64,7 @@ class TeamCreateCommand extends TeamCommandBase
             }
         }
 
-        $label = $input->getOption('label');
+        $label = Option::stringOrNull($input, 'label');
         if ($label === null) {
             if (!$existingTeam && !$input->isInteractive()) {
                 $this->stdErr->writeln('The <error>--label</error> option is required in non-interactive mode.');
@@ -79,7 +80,7 @@ class TeamCreateCommand extends TeamCommandBase
         }
 
         // Ensure the team label is unique (unless --no-check-unique is specified).
-        if (!$input->getOption('no-check-unique') && (!$existingTeam || $label !== $existingTeam->label)) {
+        if (!Option::bool($input, 'no-check-unique') && (!$existingTeam || $label !== $existingTeam->label)) {
             $options = [];
             $options['query']['filter[organization_id]'] = $organization->id;
             $client = $this->api->getHttpClient();
@@ -215,7 +216,7 @@ class TeamCreateCommand extends TeamCommandBase
             }
         }
 
-        if ($input->hasOption('output-id') && $input->getOption('output-id')) {
+        if ($input->hasOption('output-id') && Option::bool($input, 'output-id')) {
             $output->writeln($team->id);
             return 0;
         }

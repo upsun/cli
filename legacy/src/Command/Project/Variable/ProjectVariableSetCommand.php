@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Project\Variable;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -49,11 +51,11 @@ class ProjectVariableSetCommand extends CommandBase
     {
         $selection = $this->selector->getSelection($input);
 
-        $variableName = $input->getArgument('name');
-        $variableValue = $input->getArgument('value');
-        $json = $input->getOption('json');
-        $supressBuild = $input->getOption('no-visible-build');
-        $supressRuntime = $input->getOption('no-visible-runtime');
+        $variableName = Argument::string($input, 'name');
+        $variableValue = Argument::string($input, 'value');
+        $json = Option::bool($input, 'json');
+        $supressBuild = Option::bool($input, 'no-visible-build');
+        $supressRuntime = Option::bool($input, 'no-visible-runtime');
 
         if ($json && !$this->validateJson($variableValue)) {
             throw new \Exception("Invalid JSON: <error>$variableValue</error>");

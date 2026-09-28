@@ -1,6 +1,6 @@
 module github.com/upsun/cli
 
-go 1.26.2
+go 1.27.1
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
@@ -14,11 +14,12 @@ require (
 	github.com/oklog/ulid/v2 v2.1.2
 	github.com/platformsh/platformify v0.5.0
 	github.com/spf13/cobra v1.10.2
+	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.12.1
 	github.com/symfony-cli/terminal v1.0.9
 	github.com/upsun/lib-sun v0.3.16
-	github.com/upsun/whatsun v0.2.0
+	github.com/upsun/whatsun v0.2.1
 	github.com/wk8/go-ordered-map/v2 v2.1.8
 	golang.org/x/crypto v0.57.0
 	golang.org/x/oauth2 v0.37.0
@@ -65,13 +66,13 @@ require (
 	github.com/getsentry/sentry-go v0.46.0 // indirect
 	github.com/gitleaks/go-gitdiff v0.9.1 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
-	github.com/go-git/go-billy/v5 v5.8.0 // indirect
-	github.com/go-git/go-git/v5 v5.18.0 // indirect
+	github.com/go-git/go-billy/v5 v5.9.1 // indirect
+	github.com/go-git/go-git/v5 v5.19.2 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
-	github.com/google/cel-go v0.28.0 // indirect
+	github.com/google/cel-go v0.31.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/h2non/filetype v1.1.3 // indirect
 	github.com/hashicorp/go-version v1.9.0 // indirect
@@ -83,7 +84,7 @@ require (
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
-	github.com/klauspost/compress v1.18.5 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/leodido/go-urn v1.5.0 // indirect
@@ -102,7 +103,7 @@ require (
 	github.com/nwaples/rardecode/v2 v2.2.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.3.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.26 // indirect
-	github.com/pjbgf/sha1cd v0.5.0 // indirect
+	github.com/pjbgf/sha1cd v0.6.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rs/zerolog v1.35.1 // indirect
@@ -113,7 +114,6 @@ require (
 	github.com/sorairolake/lzip-go v0.3.8 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tetratelabs/wazero v1.11.0 // indirect
 	github.com/tidwall/jsonc v0.3.3 // indirect

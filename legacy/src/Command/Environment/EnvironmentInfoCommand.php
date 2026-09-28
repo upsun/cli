@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
@@ -20,8 +22,10 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'environment:info', description: 'Read or set properties for an environment')]
+#[HiddenAliases(['environment:metadata'])]
 class EnvironmentInfoCommand extends CommandBase
 {
     public function __construct(private readonly ActivityMonitor $activityMonitor, private readonly Api $api, private readonly Config $config, private readonly PropertyFormatter $propertyFormatter, private readonly Selector $selector, private readonly Table $table)
@@ -48,7 +52,6 @@ class EnvironmentInfoCommand extends CommandBase
              ->addExample('Change the environment title', 'title "New feature"')
              ->addExample("Change the environment's parent branch", 'parent sprint-2')
              ->addExample("Unset the environment's parent branch", 'parent -');
-        $this->setHiddenAliases(['environment:metadata']);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -56,17 +59,17 @@ class EnvironmentInfoCommand extends CommandBase
         $selection = $this->selector->getSelection($input);
 
         $environment = $selection->getEnvironment();
-        if ($input->getOption('refresh')) {
+        if (Option::bool($input, 'refresh')) {
             $environment->refresh();
         }
 
-        $property = $input->getArgument('property');
+        $property = Argument::stringOrNull($input, 'property');
 
         if (!$property) {
             return $this->listProperties($environment);
         }
 
-        $value = $input->getArgument('value');
+        $value = Argument::stringOrNull($input, 'value');
         if ($value !== null) {
             return $this->setProperty($property, $value, $environment, $selection->getProject(), !$this->activityMonitor->shouldWait($input));
         }

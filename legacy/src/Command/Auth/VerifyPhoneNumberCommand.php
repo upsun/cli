@@ -53,7 +53,10 @@ class VerifyPhoneNumberCommand extends CommandBase
         $channel = $this->questionHelper->choose($methods, 'Enter a number to choose a phone number verification method:', 'sms');
 
         $phoneUtil = PhoneNumberUtil::getInstance();
-        $number = $this->questionHelper->askInput('Please enter your phone number', null, [], function ($number) use ($phoneUtil, $defaultRegion) {
+        $number = $this->questionHelper->askInput('Please enter your phone number', null, [], function (?string $number) use ($phoneUtil, $defaultRegion): string {
+            if ($number === null || trim($number) === '') {
+                throw new InvalidArgumentException('A phone number is required.');
+            }
             try {
                 $parsed = $phoneUtil->parse($number, $defaultRegion);
             } catch (NumberParseException $e) {

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -43,7 +45,7 @@ class SubscriptionInfoCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $id = $input->getOption('id');
+        $id = Option::stringOrNull($input, 'id');
         $project = null;
         if (empty($id)) {
             $selection = $this->selector->getSelection($input);
@@ -58,13 +60,13 @@ class SubscriptionInfoCommand extends CommandBase
             return 1;
         }
 
-        $property = $input->getArgument('property');
+        $property = Argument::stringOrNull($input, 'property');
 
         if (!$property) {
             return $this->listProperties($subscription);
         }
 
-        $value = $input->getArgument('value');
+        $value = Argument::stringOrNull($input, 'value');
         if ($value !== null) {
             return $this->setProperty($property, $value, $subscription);
         }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Service\ResourcesUtil;
@@ -66,7 +68,7 @@ class EnvironmentBranchCommand extends CommandBase
     {
         $this->io->warnAboutDeprecatedOptions(['force', 'identity-file']);
 
-        $branchName = $input->getArgument('id');
+        $branchName = Argument::stringOrNull($input, 'id');
         $selectorConfig = new SelectorConfig(
             envRequired: $branchName !== null,
             envArgName: 'parent',
@@ -98,8 +100,8 @@ class EnvironmentBranchCommand extends CommandBase
         }
 
         $projectRoot = $this->selector->getProjectRoot();
-        $dryRun = $input->getOption('dry-run');
-        $checkoutLocally = $projectRoot && !$input->getOption('no-checkout');
+        $dryRun = Option::bool($input, 'dry-run');
+        $checkoutLocally = $projectRoot && !Option::bool($input, 'no-checkout');
 
         if ($environment = $this->api->getEnvironment($branchName, $selectedProject)) {
             if (!$checkoutLocally || $dryRun) {
@@ -150,13 +152,13 @@ class EnvironmentBranchCommand extends CommandBase
             return 1;
         }
 
-        $title = $input->getOption('title') !== null ? $input->getOption('title') : $branchName;
+        $title = Option::stringOrNull($input, 'title') ?? $branchName;
 
-        $newLabel = strlen((string) $title) > 0 && $title !== $branchName
+        $newLabel = strlen($title) > 0 && $title !== $branchName
             ? '<info>' . $title . '</info> (' . $branchName . ')'
             : '<info>' . $branchName . '</info>';
 
-        $type = $input->getOption('type');
+        $type = Option::stringOrNull($input, 'type');
         if ($type !== null) {
             $newLabel .= ' (type: <info>' . $type . '</info>)';
         }
@@ -164,7 +166,7 @@ class EnvironmentBranchCommand extends CommandBase
         $this->stdErr->writeln(sprintf('Creating a new environment: %s', $newLabel));
         $this->stdErr->writeln('');
 
-        $parentMessage = $input->getOption('no-clone-parent')
+        $parentMessage = Option::bool($input, 'no-clone-parent')
             ? 'Settings will be copied from the parent environment: %s'
             : 'Settings will be copied and data cloned from the parent environment: %s';
         $this->stdErr->writeln(sprintf($parentMessage, $this->api->getEnvironmentLabel($parentEnvironment, 'info', false)));
@@ -198,7 +200,7 @@ class EnvironmentBranchCommand extends CommandBase
             $params = [
                 'name' => $branchName,
                 'title' => $title,
-                'clone_parent' => !$input->getOption('no-clone-parent'),
+                'clone_parent' => !Option::bool($input, 'no-clone-parent'),
             ];
             if ($type !== null) {
                 $params['type'] = $type;

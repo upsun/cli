@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -18,8 +20,10 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'environment:logs', description: "Read an environment's logs", aliases: ['log'])]
+#[HiddenAliases(['logs'])]
 class EnvironmentLogCommand extends CommandBase
 {
     public function __construct(private readonly CacheProvider $cacheProvider, private readonly Io $io, private readonly QuestionHelper $questionHelper, private readonly Selector $selector)
@@ -44,7 +48,6 @@ class EnvironmentLogCommand extends CommandBase
         $this->selector->addRemoteContainerOptions($this->getDefinition());
         $this->selector->addTaskOption($this->getDefinition());
         $this->addCompleter($this->selector);
-        $this->setHiddenAliases(['logs']);
         $this->addExample('Display a choice of logs that can be read');
         $this->addExample('Read the deploy log', 'deploy');
         $this->addExample('Read the access log continuously', 'access --tail');
@@ -55,9 +58,10 @@ class EnvironmentLogCommand extends CommandBase
     {
         $selection = $this->selector->getSelection($input, new SelectorConfig(chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
 
-        if ($input->getOption('tail') && $this->runningViaMulti) {
+        if (Option::bool($input, 'tail') && $this->runningViaMulti) {
             throw new InvalidArgumentException('The --tail option cannot be used with "multi"');
         }
+        $lines = Option::int($input, 'lines');
 
         $host = $this->selector->getHostFromSelection($input, $selection);
 
@@ -71,10 +75,10 @@ class EnvironmentLogCommand extends CommandBase
         }
 
         // Select the log file that the user specified.
-        if ($logType = $input->getArgument('type')) {
+        if ($logType = Argument::stringOrNull($input, 'type')) {
             // @todo this might need to be cleverer
-            if (str_ends_with((string) $logType, '.log')) {
-                $logType = substr((string) $logType, 0, strlen((string) $logType) - 4);
+            if (str_ends_with($logType, '.log')) {
+                $logType = substr($logType, 0, strlen($logType) - 4);
             }
             $logFilename = $logDir . '/' . OsUtil::escapePosixShellArg($logType . '.log');
         } elseif (!$input->isInteractive()) {
@@ -107,8 +111,8 @@ class EnvironmentLogCommand extends CommandBase
             $logFilename = $this->questionHelper->choose($files, 'Enter a number to choose a log: ');
         }
 
-        $command = sprintf('tail -n %1$d %2$s', $input->getOption('lines'), $logFilename);
-        if ($input->getOption('tail')) {
+        $command = sprintf('tail -n %1$d %2$s', $lines, $logFilename);
+        if (Option::bool($input, 'tail')) {
             $command .= ' -f';
         }
 

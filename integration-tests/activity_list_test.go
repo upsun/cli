@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/upsun/cli/pkg/mockapi"
 )
 
@@ -135,4 +137,8 @@ act21	2014-04-01T10:20:00+00:00	Mock User created variable X21 on environment ma
 act20	2014-04-01T10:19:00+00:00	Mock User created variable X20 on environment main	100%	complete	success
 act19	2014-04-01T10:18:00+00:00	Mock User created variable X19 on environment main	100%	complete	success`,
 		f.Run("act", "-p", projectID, "-e", ".", "--format", "plain", "--limit", "12"))
+
+	_, stdErr, err := f.RunCombinedOutput("act", "-p", projectID, "-e", ".", "--limit", "abc")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, "The --limit value must be a non-negative integer.")
 }

@@ -7,17 +7,21 @@ namespace Platformsh\Cli\Command\Project\Variable;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\SubCommandRunner;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Table;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 /**
  * @deprecated Use variable:get and variable:list instead
  */
 #[AsCommand(name: 'project:variable:get', description: 'View variable(s) for a project', aliases: ['project-variables', 'pvget'])]
+#[HiddenAliases(['project:variable:list'])]
 class ProjectVariableGetCommand extends CommandBase
 {
     protected bool $hiddenInList = true;
@@ -39,7 +43,6 @@ class ProjectVariableGetCommand extends CommandBase
         Table::configureInput($this->getDefinition());
         $this->selector->addProjectOption($this->getDefinition());
         $this->addCompleter($this->selector);
-        $this->setHiddenAliases(['project:variable:list']);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -47,12 +50,12 @@ class ProjectVariableGetCommand extends CommandBase
         $selection = $this->selector->getSelection($input);
 
         return $this->subCommandRunner->run('variable:get', [
-            'name' => $input->getArgument('name'),
+            'name' => Argument::stringOrNull($input, 'name'),
             '--level' => 'project',
             '--project' => $selection->getProject()->id,
         ] + array_filter([
-            '--format' => $input->getOption('format'),
-            '--pipe' => $input->getOption('pipe'),
+            '--format' => Option::string($input, 'format'),
+            '--pipe' => Option::bool($input, 'pipe'),
         ]));
     }
 }

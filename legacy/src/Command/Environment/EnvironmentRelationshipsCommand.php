@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\PropertyFormatter;
@@ -45,7 +46,7 @@ class EnvironmentRelationshipsCommand extends CommandBase
         $selection = $this->selector->getSelection($input, new SelectorConfig(allowLocalHost: $this->relationships->hasLocalEnvVar(), chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
         $host = $this->selector->getHostFromSelection($input, $selection);
 
-        $relationships = $this->relationships->getRelationships($host, $input->getOption('refresh'));
+        $relationships = $this->relationships->getRelationships($host, Option::bool($input, 'refresh'));
 
         foreach ($relationships as $name => $relationship) {
             foreach ($relationship as $index => $instance) {
@@ -54,7 +55,7 @@ class EnvironmentRelationshipsCommand extends CommandBase
                 }
             }
         }
-        $this->propertyFormatter->displayData($output, $relationships, $input->getOption('property'));
+        $this->propertyFormatter->displayData($output, $relationships, Option::stringOrNull($input, 'property'));
 
         return 0;
     }

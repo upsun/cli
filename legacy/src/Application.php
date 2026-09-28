@@ -11,6 +11,8 @@ use Platformsh\Cli\Command\ListCommand;
 use Platformsh\Cli\Command\WelcomeCommand;
 use Platformsh\Cli\Command\MultiAwareInterface;
 use Platformsh\Cli\Console\EventSubscriber;
+use Platformsh\Cli\Console\HiddenAliasesCommandLoader;
+use Platformsh\Cli\Console\HiddenAliasesPass;
 use Platformsh\Cli\Console\HiddenInputOption;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\LegacyMigration;
@@ -54,6 +56,11 @@ class Application extends ParentApplication
 
     private bool $runningViaMulti = false;
 
+    /** @var string[] */
+    private array $hiddenAliases = [];
+
+    private ?CommandLoaderInterface $commandLoader = null;
+
     public function __construct(?Config $config = null)
     {
         // Initialize configuration (from config.yaml).
@@ -75,7 +82,13 @@ class Application extends ParentApplication
         // services tagged with "console.command").
         /** @var CommandLoaderInterface $loader */
         $loader = $this->container()->get('console.command_loader');
-        $this->setCommandLoader($loader);
+        /** @var string[] $hiddenAliases */
+        $hiddenAliases = $this->container()->hasParameter(HiddenAliasesPass::PARAMETER)
+            ? $this->container()->getParameter(HiddenAliasesPass::PARAMETER)
+            : [];
+        $this->hiddenAliases = $hiddenAliases;
+        $this->commandLoader = new HiddenAliasesCommandLoader($loader, $hiddenAliases);
+        $this->setCommandLoader($this->commandLoader);
 
         // Set "welcome" as the default command.
         $this->setDefaultCommand(WelcomeCommand::getDefaultName());
@@ -110,15 +123,39 @@ class Application extends ParentApplication
      * {@inheritdoc}
      *
      * Prevent commands being enabled, according to config.yaml configuration.
+     *
+     * Hidden aliases are removed, so that they are not used for abbreviations
+     * or namespaces.
+     *
+     * @see self::get()
      */
-    public function add(ConsoleCommand $command): ?ConsoleCommand
+    public function addCommand(callable|ConsoleCommand $command): ?ConsoleCommand
     {
-        if (!$this->config->isCommandEnabled($command->getName())) {
-            $command->setApplication(null);
-            return null;
+        if ($command instanceof ConsoleCommand) {
+            if (!$this->config->isCommandEnabled($command->getName())) {
+                $command->setApplication(null);
+                return null;
+            }
+            if (array_intersect($command->getAliases(), $this->hiddenAliases)) {
+                $command->setAliases(array_values(array_diff($command->getAliases(), $this->hiddenAliases)));
+            }
         }
 
-        return parent::add($command);
+        return parent::addCommand($command);
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * Gets commands by their hidden aliases, which only work in full.
+     */
+    public function get(string $name): ConsoleCommand
+    {
+        if (in_array($name, $this->hiddenAliases, true) && $this->commandLoader?->has($name)) {
+            $name = $this->commandLoader->get($name)->getName() ?? $name;
+        }
+
+        return parent::get($name);
     }
 
     /**
@@ -153,6 +190,7 @@ class Application extends ParentApplication
                         $e->getMessage(),
                     ));
                 }
+                $this->container->addCompilerPass(new HiddenAliasesPass());
                 $this->container->addCompilerPass(new AddConsoleCommandPass());
                 $this->container->compile();
                 $dumper = new PhpDumper($this->container);
@@ -231,7 +269,8 @@ class Application extends ParentApplication
                 continue;
             }
             $suggestions->suggestValue(new Suggestion($name, $command->getDescription()));
-            foreach ($command->getAliases() as $alias) {
+            $aliases = $command instanceof CommandBase ? $command->getVisibleAliases() : $command->getAliases();
+            foreach ($aliases as $alias) {
                 $suggestions->suggestValue(new Suggestion($alias, $command->getDescription()));
             }
         }

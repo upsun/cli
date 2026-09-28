@@ -27,6 +27,7 @@ jobs:
           # These are needed so that the linter does not complain
           mkdir -p internal/legacy/archives
           touch internal/legacy/archives/platform.phar
+          touch internal/legacy/archives/commands.json
           touch internal/legacy/archives/php_windows_amd64
           touch internal/legacy/archives/php_linux_amd64
           touch internal/legacy/archives/php_linux_arm64
@@ -40,7 +41,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.11
+          version: v2.14
           args: --timeout=5m
 
       - name: Run tests
@@ -163,15 +164,16 @@ jobs:
           curl -fSL https://curl.se/ca/cacert.pem -o internal/legacy/archives/cacert.pem
           # Only needed so that the package builds.
           touch internal/legacy/archives/platform.phar
+          touch internal/legacy/archives/commands.json
 
       - name: Run Windows tests
         shell: bash
         env:
           CLI_TEST_MODIFY_CERT_STORE: '1'
-        run: GOEXPERIMENT=jsonv2 go test -v -count=1 -timeout 3m -run TestWindows ./internal/legacy/
+        run: go test -v -count=1 -timeout 3m -run TestWindows ./internal/legacy/
 
       # Reading the certificate store happens before every legacy command.
       - name: Measure building the CA bundle
         if: always()
         shell: bash
-        run: GOEXPERIMENT=jsonv2 go test -run '^$' -bench BenchmarkWindows -benchmem ./internal/legacy/
+        run: go test -run '^$' -bench BenchmarkWindows -benchmem ./internal/legacy/

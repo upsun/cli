@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Self;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Config;
 use GuzzleHttp\Client;
 use GuzzleHttp\Utils;
@@ -52,8 +53,8 @@ class SelfStatsCommand extends CommandBase
                     'Accept' => 'application/vnd.github.v3+json',
                 ],
                 'query' => [
-                    'page' => (int) $input->getOption('page'),
-                    'per_page' => (int) $input->getOption('count'),
+                    'page' => Option::int($input, 'page'),
+                    'per_page' => Option::int($input, 'count'),
                 ],
             ]);
         $releases = (array) Utils::jsonDecode((string) $response->getBody(), true);

@@ -12,6 +12,7 @@ use Platformsh\Cli\Exception\RootNotFoundException;
 use Platformsh\Cli\Local\BuildFlavor\Drupal;
 use Platformsh\Cli\Service\Url;
 use Platformsh\Cli\Util\PortUtil;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Console\ProcessManager;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
@@ -49,17 +50,19 @@ class ServerStartCommand extends ServerCommandBase
             throw new RootNotFoundException();
         }
 
-        $ip = $input->getOption('ip');
+        $ip = Option::string($input, 'ip');
         if (!filter_var($ip, FILTER_VALIDATE_IP)) {
             $this->stdErr->writeln(sprintf('Invalid IP address: <error>%s</error>', $ip));
             return 1;
         }
 
-        $port = $input->getOption('port') ?: $this->getPort();
+        $portOption = Option::stringOrNull($input, 'port');
+        $port = $portOption ?: $this->getPort();
         if (!PortUtil::validatePort($port)) {
             $this->stdErr->writeln(sprintf('Invalid port: <error>%s</error>', $port));
             return 1;
         }
+        $port = (int) $port;
 
         $finder = $this->applicationFinder;
         $apps = $finder->findApplications($projectRoot);
@@ -97,7 +100,7 @@ class ServerStartCommand extends ServerCommandBase
                 $items[$appId]['config']['drupal_7_workaround'] = true;
             }
 
-            if ($input->getOption('tunnel')) {
+            if (Option::bool($input, 'tunnel')) {
                 $bufferedOutput = new BufferedOutput();
                 $result = $this->subCommandRunner->run(
                     'tunnel:info',
@@ -125,7 +128,7 @@ class ServerStartCommand extends ServerCommandBase
             return 1;
         }
 
-        $logFile = $input->getOption('log')
+        $logFile = Option::stringOrNull($input, 'log')
             ?: $projectRoot . '/' . $this->config->getStr('local.local_dir') . '/server.log';
         $log = $this->openLog($logFile);
         if (!$log) {
@@ -140,7 +143,7 @@ class ServerStartCommand extends ServerCommandBase
 
         $error = false;
         $processes = [];
-        $force = $input->getOption('force');
+        $force = Option::bool($input, 'force');
         foreach ($items as $appId => $item) {
             $appConfig = $item['config'];
             $address = $item['address'];
@@ -169,7 +172,7 @@ class ServerStartCommand extends ServerCommandBase
 
                 // If the address was not manually specified, take the old server's
                 // address.
-                if (!$input->getOption('port') && $input->getOption('ip') === '127.0.0.1') {
+                if (!$portOption && $ip === '127.0.0.1') {
                     $address = $otherServer['address'];
                 }
             } elseif ($otherPid = $this->isServerRunningForAddress($address)) {

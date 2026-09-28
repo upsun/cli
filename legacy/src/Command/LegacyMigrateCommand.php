@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\Filesystem;
@@ -79,7 +80,7 @@ class LegacyMigrateCommand extends CommandBase
             return 1;
         }
 
-        if (!$input->getOption('no-backup')) {
+        if (!Option::bool($input, 'no-backup')) {
             $backup = rtrim($legacyRoot, '\\/') . '-backup.tar.gz';
             if (file_exists($backup)) {
                 $this->stdErr->writeln('Backup destination already exists: <error>' . $backup . '</error>');

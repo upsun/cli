@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Service;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Client\Model\Activity;
 use Platformsh\Client\Model\ActivityLog\LogItem;
 use Platformsh\Client\Model\Project;
@@ -64,10 +65,10 @@ class ActivityMonitor
      */
     public function shouldWait(InputInterface $input): bool
     {
-        if ($input->hasOption('no-wait') && $input->getOption('no-wait')) {
+        if ($input->hasOption('no-wait') && Option::bool($input, 'no-wait')) {
             return false;
         }
-        if ($input->hasOption('wait') && $input->getOption('wait')) {
+        if ($input->hasOption('wait') && Option::bool($input, 'wait')) {
             return true;
         }
         if ($this->detectRunningInHook()) {

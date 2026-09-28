@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Command;
 
 use Platformsh\Cli\Console\CompleterInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 use Platformsh\Cli\Console\HiddenInputOption;
 use Platformsh\Cli\Service\Config;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Completion\CompletionInput;
 use Symfony\Component\Console\Completion\CompletionSuggestions;
-use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
@@ -42,12 +42,6 @@ abstract class CommandBase extends Command implements MultiAwareInterface
     protected string $stability = self::STABILITY_STABLE;
     protected bool $canBeRunMultipleTimes = true;
     protected bool $runningViaMulti = false;
-
-    /**
-     * @var string[]
-     * @see self::setHiddenAliases()
-     */
-    private array $hiddenAliases = [];
 
     /**
      * The command synopsis.
@@ -118,38 +112,15 @@ abstract class CommandBase extends Command implements MultiAwareInterface
     }
 
     /**
-     * Gets the value of a non-negative integer option.
+     * Get aliases that should be hidden from help.
      *
-     * @throws InvalidArgumentException if the value is not a non-negative integer
+     * @return string[]
      */
-    protected function getIntOption(InputInterface $input, string $name): int
+    public function getHiddenAliases(): array
     {
-        $value = $input->getOption($name);
-        if (is_int($value) && $value >= 0) {
-            return $value;
-        }
-        if (!is_string($value) || !preg_match('/^[0-9]+$/', $value)) {
-            throw new InvalidArgumentException(sprintf('The --%s value must be a non-negative integer.', $name));
-        }
+        $attribute = (new \ReflectionClass($this))->getAttributes(HiddenAliases::class)[0] ?? null;
 
-        return (int) $value;
-    }
-
-    /**
-     * Add aliases that should be hidden from help.
-     *
-     * @see parent::setAliases()
-     *
-     * @param string[] $hiddenAliases
-     *
-     * @return static
-     */
-    protected function setHiddenAliases(array $hiddenAliases): static
-    {
-        $this->hiddenAliases = $hiddenAliases;
-        $this->setAliases(array_merge($this->getAliases(), $hiddenAliases));
-
-        return $this;
+        return $attribute?->newInstance()->aliases ?? [];
     }
 
     /**
@@ -159,7 +130,7 @@ abstract class CommandBase extends Command implements MultiAwareInterface
      */
     public function getVisibleAliases(): array
     {
-        return array_diff($this->getAliases(), $this->hiddenAliases);
+        return array_values(array_diff($this->getAliases(), $this->getHiddenAliases()));
     }
 
     /**

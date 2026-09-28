@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Integration\Activity;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -21,8 +23,10 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'integration:activity:list', description: 'Get a list of activities for an integration', aliases: ['integration:activities'])]
+#[HiddenAliases(['int:act', 'i:act'])]
 class IntegrationActivityListCommand extends IntegrationCommandBase
 {
     /** @var array<string, string> */
@@ -50,7 +54,6 @@ class IntegrationActivityListCommand extends IntegrationCommandBase
     protected function configure(): void
     {
         $this
-            ->setHiddenAliases(['int:act', 'i:act'])
             ->addArgument('id', InputArgument::OPTIONAL, 'An integration ID. Leave blank to choose from a list.')
             ->addOption(
                 'type',
@@ -86,7 +89,7 @@ class IntegrationActivityListCommand extends IntegrationCommandBase
 
         $project = $selection->getProject();
 
-        $integration = $this->selectIntegration($project, $input->getArgument('id'), $input->isInteractive());
+        $integration = $this->selectIntegration($project, Argument::stringOrNull($input, 'id'), $input->isInteractive());
         if (!$integration) {
             return 1;
         }
@@ -132,7 +135,7 @@ class IntegrationActivityListCommand extends IntegrationCommandBase
         if (!$this->table->formatIsMachineReadable()) {
             $executable = $this->config->getStr('application.executable');
 
-            $max = $input->getOption('limit') ? (int) $input->getOption('limit') : self::DEFAULT_LIST_LIMIT;
+            $max = Option::int($input, 'limit') ?: self::DEFAULT_LIST_LIMIT;
             $maybeMoreAvailable = count($activities) === $max;
             if ($maybeMoreAvailable) {
                 $this->stdErr->writeln('');

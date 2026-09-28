@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Service;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -47,7 +48,7 @@ class ServiceListCommand extends CommandBase
 
         // Find a list of deployed services.
         $deployment = $this->api
-            ->getCurrentDeployment($selection->getEnvironment(), $input->getOption('refresh'));
+            ->getCurrentDeployment($selection->getEnvironment(), Option::bool($input, 'refresh'));
         $services = $deployment->services;
 
         if (!count($services)) {
@@ -57,7 +58,7 @@ class ServiceListCommand extends CommandBase
             return 0;
         }
 
-        if ($input->getOption('pipe')) {
+        if (Option::bool($input, 'pipe')) {
             $names = array_keys($services);
             sort($names, SORT_NATURAL);
             $output->writeln($names);

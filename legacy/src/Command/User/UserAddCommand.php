@@ -13,7 +13,9 @@ use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Client\Model\Environment;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Console\ArrayArgument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Util\OsUtil;
 use Platformsh\Cli\Util\Wildcard;
 use Platformsh\Client\Model\EnvironmentType;
@@ -143,7 +145,7 @@ class UserAddCommand extends CommandBase
         // When adding a new user, it must be a valid email address.
         $email = null;
         $update = stripos((string) $input->getFirstArgument(), ':u');
-        if ($emailOrId = $input->getArgument('email')) {
+        if ($emailOrId = Argument::stringOrNull($input, 'email')) {
             $selection = $this->accessApi->loadProjectUser($project, $emailOrId);
             if (!$selection) {
                 if ($update) {
@@ -242,7 +244,7 @@ class UserAddCommand extends CommandBase
 
         // Resolve or merge the project role.
         $desiredProjectRole = $specifiedProjectRole ?: ($existingProjectRole ?: ProjectUserAccess::ROLE_VIEWER);
-        $provideProjectForm = !$input->getOption('role') && $input->isInteractive();
+        $provideProjectForm = !Option::stringArray($input, 'role') && $input->isInteractive();
         if ($provideProjectForm) {
             if ($hasOutput) {
                 $this->stdErr->writeln('');
@@ -379,7 +381,7 @@ class UserAddCommand extends CommandBase
                 $permissions[] = new Permission($type, $role);
             }
             try {
-                $project->inviteUserByEmail($email, $desiredProjectRole, [], $input->getOption('force-invite'), $permissions);
+                $project->inviteUserByEmail($email, $desiredProjectRole, [], Option::bool($input, 'force-invite'), $permissions);
                 $this->stdErr->writeln('');
                 $this->stdErr->writeln(sprintf('An invitation has been sent to <info>%s</info>', $email));
             } catch (AlreadyInvitedException $e) {

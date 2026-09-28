@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Activity;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
@@ -61,17 +63,17 @@ class ActivityCancelCommand extends ActivityCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: !($input->getOption('all') || $input->getArgument('id'))));
+        $id = Argument::stringOrNull($input, 'id');
+        $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: !(Option::bool($input, 'all') || $id)));
 
         $executable = $this->config->getStr('application.executable');
 
-        if ($selection->hasEnvironment() && !$input->getOption('all')) {
+        if ($selection->hasEnvironment() && !Option::bool($input, 'all')) {
             $apiResource = $selection->getEnvironment();
         } else {
             $apiResource = $selection->getProject();
         }
 
-        $id = $input->getArgument('id');
         if ($id) {
             $activity = $selection->getProject()
                 ->getActivity($id);

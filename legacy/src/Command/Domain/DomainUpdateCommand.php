@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Domain;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
@@ -52,7 +53,7 @@ class DomainUpdateCommand extends DomainCommandBase
             return 1;
         }
 
-        $forEnvironment = $input->getOption('environment') !== null;
+        $forEnvironment = Option::stringOrNull($input, 'environment') !== null;
         $environment = $forEnvironment ? $selection->getEnvironment() : null;
 
         $project = $selection->getProject();

@@ -20,8 +20,11 @@ import (
 type Config struct {
 	// Fields only used by to the Go wrapper.
 	Wrapper struct {
-		HomebrewTap string `yaml:"homebrew_tap,omitempty"` // e.g. "upsun/tap/platformsh-cli"
-		GitHubRepo  string `yaml:"github_repo,omitempty"`  // e.g. "upsun/cli"
+		HomebrewTap   string `yaml:"homebrew_tap,omitempty"`   // e.g. "upsun/tap/platformsh-cli"
+		GitHubRepo    string `yaml:"github_repo,omitempty"`    // e.g. "upsun/cli"
+		NpmPackage    string `yaml:"npm_package,omitempty"`    // e.g. "upsun"
+		InstallerURL  string `yaml:"installer_url,omitempty"`  // e.g. "https://raw.githubusercontent.com/upsun/cli/main/installer.sh"
+		InstallMethod string `yaml:"install_method,omitempty"` // forces the detected install method (homebrew, scoop, npm, package, script)
 	} `yaml:"wrapper,omitempty"`
 
 	Application struct {
@@ -34,6 +37,10 @@ type Config struct {
 		UserStateFile   string `validate:"omitempty" yaml:"user_state_file,omitempty"`   // defaults to "state.json"
 		WritableUserDir string `validate:"omitempty" yaml:"writable_user_dir,omitempty"` // defaults to UserConfigDir
 		TempSubDir      string `validate:"omitempty" yaml:"tmp_sub_dir,omitempty"`       // defaults to Slug+"-tmp"
+
+		// Legacy commands disabled by config. As the Go layer always wraps the legacy CLI, both lists apply.
+		DisabledCommands        []string `validate:"omitempty" yaml:"disabled_commands,omitempty"`
+		WrappedDisabledCommands []string `validate:"omitempty" yaml:"wrapped_disabled_commands,omitempty"`
 	} `validate:"required"`
 	Updates struct {
 		Check         bool `validate:"omitempty"`                                 // defaults to true

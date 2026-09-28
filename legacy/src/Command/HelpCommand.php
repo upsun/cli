@@ -11,6 +11,7 @@ namespace Platformsh\Cli\Command;
 
 use Platformsh\Cli\Application as CliApplication;
 use Platformsh\Cli\Console\CustomJsonDescriptor;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Console\CustomMarkdownDescriptor;
 use Platformsh\Cli\Console\CustomTextDescriptor;
@@ -70,20 +71,18 @@ class HelpCommand extends CommandBase
         $name = $input->getArgument('command_name');
         if ($this->command === null && $application instanceof CliApplication && is_string($name)
             && ($namespace = $application->findDescribableNamespace($name)) !== null) {
-            $format = $input->getOption('format');
-
             return $application->listNamespace(
                 $namespace,
                 $output,
-                is_string($format) ? $format : null,
-                (bool) $input->getOption('raw'),
+                Option::string($input, 'format'),
+                Option::bool($input, 'raw'),
             );
         }
 
         $command = $this->command ?: $this->getApplication()->find($input->getArgument('command_name'));
 
-        $format = $input->getOption('format');
-        $options = ['format' => $format, 'raw_text' => $input->getOption('raw'), 'all' => true];
+        $format = Option::string($input, 'format');
+        $options = ['format' => $format, 'raw_text' => Option::bool($input, 'raw'), 'all' => true];
 
         switch ($format) {
             case 'md':

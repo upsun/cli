@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Team\Project;
 
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\QuestionHelper;
@@ -44,7 +45,7 @@ class TeamProjectDeleteCommand extends TeamCommandBase
             $projectLabels[$teamProject->project_id] = $this->api->getProjectLabel($teamProject, false);
         }
 
-        $projectId = $input->getArgument('project');
+        $projectId = Argument::stringOrNull($input, 'project');
         if (!$projectId && $input->isInteractive()) {
             $options = $projectLabels;
             if (!$options) {

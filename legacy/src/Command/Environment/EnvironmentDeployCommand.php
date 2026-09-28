@@ -2,6 +2,7 @@
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Platformsh\Cli\Service\Api;
@@ -98,7 +99,7 @@ class EnvironmentDeployCommand extends CommandBase
         ));
         $this->table->render($rows, $this->tableHeader);
 
-        $strategy = $input->getOption('strategy');
+        $strategy = Option::stringOrNull($input, 'strategy');
         $can_rolling_deploy = $environment->getProperty('can_rolling_deploy', false);
         if (is_null($strategy)) {
             if ($can_rolling_deploy) {

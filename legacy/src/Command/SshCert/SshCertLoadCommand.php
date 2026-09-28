@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\SshCert;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\SshCert\Certifier;
 use Platformsh\Cli\Service\Config;
@@ -49,7 +50,7 @@ class SshCertLoadCommand extends CommandBase
 
         $sshCert = $this->certifier->getExistingCertificate();
 
-        $refreshOnly = $input->getOption('refresh-only');
+        $refreshOnly = Option::bool($input, 'refresh-only');
 
         $refresh = true;
         if (getenv(Ssh::SSH_NO_REFRESH_ENV_VAR)) {
@@ -61,8 +62,8 @@ class SshCertLoadCommand extends CommandBase
         }
 
         if ($sshCert
-            && !$input->getOption('new')
-            && !$input->getOption('new-key')
+            && !Option::bool($input, 'new')
+            && !Option::bool($input, 'new-key')
             && $this->certifier->isValid($sshCert)) {
             if ($refreshOnly && $this->stdErr->isQuiet()) {
                 return 0;
@@ -77,11 +78,11 @@ class SshCertLoadCommand extends CommandBase
                 return 1;
             }
             if ($refreshOnly && $this->stdErr->isQuiet()) {
-                $this->certifier->generateCertificate($sshCert, $input->getOption('new-key'));
+                $this->certifier->generateCertificate($sshCert, Option::bool($input, 'new-key'));
                 return 0;
             }
             $this->stdErr->writeln('Generating SSH certificate...');
-            $sshCert = $this->certifier->generateCertificate($sshCert, $input->getOption('new-key'));
+            $sshCert = $this->certifier->generateCertificate($sshCert, Option::bool($input, 'new-key'));
             $this->displayCertificate($sshCert);
         }
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
@@ -49,10 +51,10 @@ class EnvironmentInitCommand extends CommandBase
 
         $environment = $selection->getEnvironment();
 
-        $url = $input->getArgument('url');
-        $profile = $input->getOption('profile') ?: basename((string) $url);
+        $url = Argument::string($input, 'url');
+        $profile = Option::stringOrNull($input, 'profile') ?: basename($url);
 
-        if (parse_url((string) $url) === false) {
+        if (parse_url($url) === false) {
             $this->stdErr->writeln(sprintf('Invalid repository URL: <error>%s</error>', $url));
 
             return 1;
@@ -75,7 +77,7 @@ class EnvironmentInitCommand extends CommandBase
         $message = 'Initializing project ';
         $message .= $this->api->getProjectLabel($selection->getProject());
         $message .= ', environment ' . $this->api->getEnvironmentLabel($environment);
-        if ($input->getOption('profile')) {
+        if (Option::stringOrNull($input, 'profile')) {
             $message .= ' with profile <info>' . $profile . '</info> (' . $url . ')';
         } else {
             $message .= ' with repository <info>' . $url . '</info>.';

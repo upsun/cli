@@ -973,12 +973,15 @@ class Api
                     throw ApiResponseException::wrapGuzzleException($e);
                 }
                 $data = (array) Utils::jsonDecode((string) $response->getBody(), true);
-                foreach ($data['items'] ?? [] as $item) {
-                    $items[] = $item;
+                if (isset($data['items']) && is_array($data['items'])) {
+                    foreach ($data['items'] as $item) {
+                        $items[] = $item;
+                    }
                 }
-                $next = $data['_links']['next']['href'] ?? null;
-                $url = $next !== null
-                    ? (string) UriResolver::resolve(new Uri($url), new Uri((string) $next))
+                $links = $data['_links'] ?? null;
+                $next = is_array($links) && is_array($links['next'] ?? null) ? $links['next']['href'] ?? null : null;
+                $url = is_string($next)
+                    ? (string) UriResolver::resolve(new Uri($url), new Uri($next))
                     : null;
             }
             $this->cache->save($cacheKey, $items, $this->config->getInt('api.users_ttl'));
@@ -986,7 +989,7 @@ class Api
             $this->io->debug('Loaded SSH keys from cache');
         }
 
-        return array_map(fn(array $item): SshKey => SshKey::fromData($item), $items);
+        return array_map(fn(array $item): SshKey => SshKey::fromData($item), array_filter($items, is_array(...)));
     }
 
     /**

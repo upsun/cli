@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Service;
 
+use Platformsh\Cli\Console\Option;
 use Symfony\Component\Console\Helper\QuestionHelper as BaseQuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
@@ -58,8 +59,8 @@ class QuestionHelper extends BaseQuestionHelper
 
         $questionText .= ' <question>' . ($default ? '[Y/n]' : '[y/N]') . '</question> ';
 
-        $yes = $this->input->hasOption('yes') && $this->input->getOption('yes');
-        $no = $this->input->hasOption('no') && $this->input->getOption('no');
+        $yes = $this->input->hasOption('yes') && Option::bool($this->input, 'yes');
+        $no = $this->input->hasOption('no') && Option::bool($this->input, 'no');
         if ($yes && !$no) {
             $this->output->writeln($questionText . 'y');
             return true;
@@ -136,7 +137,7 @@ class QuestionHelper extends BaseQuestionHelper
     /**
      * Provides an interactive choice question preserving the array keys.
      *
-     * @param array<string, string> $items     An associative array of choices.
+     * @param array<array-key, string> $items An associative array of choices.
      * @param string $text      Some text to precede the choices.
      * @param string|null  $default   A default (as a key in $items).
      * @param bool $skipOnOne Whether to skip the choice if there is only one
@@ -159,11 +160,29 @@ class QuestionHelper extends BaseQuestionHelper
         }
         $question = new ChoiceQuestion($text, $items, $default);
         $question->setMaxAttempts(5);
+        // PHP converts integer-like keys to ints, which makes ChoiceQuestion
+        // treat the items as a list and return values, so resolve answers to
+        // keys here. A key takes precedence over an identical value.
+        $question->setValidator(function (mixed $answer) use ($items): string {
+            // Symfony passes null for an empty answer with no default.
+            if ($answer === null) {
+                throw new \InvalidArgumentException('A choice is required');
+            }
+            $answer = is_scalar($answer) ? trim((string) $answer) : '';
+            if (array_key_exists($answer, $items)) {
+                return $answer;
+            }
+            $keys = array_keys($items, $answer, true);
+            if (count($keys) !== 1) {
+                throw new \InvalidArgumentException(sprintf('Value "%s" is invalid', $answer));
+            }
+            return (string) $keys[0];
+        });
         $choice = $this->ask($this->input, $this->output, $question);
         if ($newLine) {
             $this->output->writeln('');
         }
-        return $choice;
+        return is_string($choice) ? $choice : throw new \LogicException('Unexpected choice type: ' . get_debug_type($choice));
     }
 
     /**

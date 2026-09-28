@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Activity;
 
+use Platformsh\Cli\Console\Argument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityLoader;
@@ -80,15 +82,15 @@ class ActivityLogCommand extends ActivityCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: !($input->getOption('all') || $input->getArgument('id'))));
+        $id = Argument::stringOrNull($input, 'id');
+        $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: !(Option::bool($input, 'all') || $id)));
 
-        if ($selection->hasEnvironment() && !$input->getOption('all')) {
+        if ($selection->hasEnvironment() && !Option::bool($input, 'all')) {
             $apiResource = $selection->getEnvironment();
         } else {
             $apiResource = $selection->getProject();
         }
 
-        $id = $input->getArgument('id');
         if ($id) {
             $activity = $selection->getProject()
                 ->getActivity($id);
@@ -115,12 +117,12 @@ class ActivityLogCommand extends ActivityCommandBase
             '<info>Log: </info>',
         ]);
 
-        $refresh = $this->getIntOption($input, 'refresh');
-        $timestamps = $input->getOption('timestamps');
-        if ($timestamps && $input->hasOption('date-fmt') && $input->getOption('date-fmt') !== null) {
-            $timestamps = $input->getOption('date-fmt');
-        } elseif ($timestamps) {
-            $timestamps = $this->config->getStr('application.date_format');
+        $refresh = Option::int($input, 'refresh');
+        $timestamps = false;
+        if (Option::bool($input, 'timestamps')) {
+            $timestamps = $input->hasOption('date-fmt')
+                ? Option::string($input, 'date-fmt')
+                : $this->config->getStr('application.date_format');
         }
         if ($refresh > 0 && !$this->runningViaMulti && !$activity->isComplete() && $activity->state !== Activity::STATE_CANCELLED) {
             $this->activityMonitor->waitAndLog($activity, $refresh, $timestamps, false, $output);

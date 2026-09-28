@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Db;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -95,7 +96,7 @@ class DbSizeCommand extends CommandBase
         $estimatedUsage = $this->getEstimatedUsage($host, $database);
         $percentageUsed = round($estimatedUsage * 100 / $allocatedDisk);
         $machineReadable = $this->table->formatIsMachineReadable();
-        $showInBytes = $input->getOption('bytes') || $machineReadable;
+        $showInBytes = Option::bool($input, 'bytes') || $machineReadable;
 
         $values = [
             'max' => $showInBytes ? (string) $allocatedDisk : Helper::formatMemory($allocatedDisk),
@@ -110,7 +111,7 @@ class DbSizeCommand extends CommandBase
 
         $this->showInaccessibleSchemas($service, $database);
 
-        if ($database['scheme'] === 'mysql' && $estimatedUsage > 0 && $input->getOption('cleanup')) {
+        if ($database['scheme'] === 'mysql' && $estimatedUsage > 0 && Option::bool($input, 'cleanup')) {
             $this->checkInnoDbTablesInNeedOfOptimizing($host, $database, $input);
         }
 

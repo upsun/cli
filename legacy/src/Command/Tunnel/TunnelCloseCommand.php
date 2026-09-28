@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Tunnel;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Service\TunnelManager;
@@ -41,7 +42,7 @@ class TunnelCloseCommand extends TunnelCommandBase
 
         // Filter tunnels according to the current project and environment, if
         // available.
-        if (!$input->getOption('all')) {
+        if (!Option::bool($input, 'all')) {
             $tunnels = $this->tunnelManager->filterBySelection($tunnels, $this->selector->getSelection($input));
             if (!count($tunnels)) {
                 $this->stdErr->writeln('No tunnels found. Use --all to close all tunnels.');
@@ -66,7 +67,7 @@ class TunnelCloseCommand extends TunnelCommandBase
             }
         }
 
-        if (!$input->getOption('all') && count($tunnels) < $allTunnelsCount) {
+        if (!Option::bool($input, 'all') && count($tunnels) < $allTunnelsCount) {
             $this->stdErr->writeln('Use --all to close all tunnels.');
         }
 

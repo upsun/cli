@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Certificate;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
 use Platformsh\Cli\Command\CommandBase;
@@ -36,9 +37,9 @@ class CertificateAddCommand extends CommandBase
         $selection = $this->selector->getSelection($input);
         $project = $selection->getProject();
 
-        $certPath = $input->getOption('cert');
-        $keyPath = $input->getOption('key');
-        $chainPaths = $input->getOption('chain');
+        $certPath = Option::stringOrNull($input, 'cert');
+        $keyPath = Option::stringOrNull($input, 'key');
+        $chainPaths = Option::stringArray($input, 'chain');
         if (!isset($certPath, $keyPath)) {
             $this->stdErr->writeln('The --cert and --key options are required');
             return 1;

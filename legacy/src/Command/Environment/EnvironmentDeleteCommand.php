@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\ProjectSshInfo;
 use Platformsh\Cli\Selector\Selector;
@@ -21,8 +22,10 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'environment:delete', description: 'Delete one or more environments')]
+#[HiddenAliases(['environment:deactivate'])]
 class EnvironmentDeleteCommand extends CommandBase
 {
     public function __construct(
@@ -39,7 +42,6 @@ class EnvironmentDeleteCommand extends CommandBase
     protected function configure(): void
     {
         $this
-            ->setHiddenAliases(['environment:deactivate'])
             ->addArgument('environment', InputArgument::IS_ARRAY, "The environment(s) to delete.\n" . Wildcard::HELP . "\n" . ArrayArgument::SPLIT_HELP)
             ->addOption('delete-branch', null, InputOption::VALUE_NONE, 'Delete Git branch(es) for inactive environments, without confirmation')
             ->addOption('no-delete-branch', null, InputOption::VALUE_NONE, 'Do not delete any Git branch(es) (inactive environments)')
@@ -75,12 +77,8 @@ class EnvironmentDeleteCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        // Select the current project, deliberately ignoring the 'environment'
-        // argument and option, as those will be processed separately.
-        $inputCopy = clone $input;
-        $inputCopy->setArgument('environment', null);
-        $inputCopy->setOption('environment', null);
-        $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: false));
+        // Select only the project: the 'environment' argument and option are processed separately.
+        $selection = $this->selector->getSelection($input, new SelectorConfig(selectEnv: false));
 
         $environments = $this->api->getEnvironments($selection->getProject());
 
@@ -95,13 +93,15 @@ class EnvironmentDeleteCommand extends CommandBase
 
         // Add the environment(s) specified in the arguments or options.
         $specifiedEnvironmentIds = ArrayArgument::getArgument($input, 'environment');
-        if ($input->getOption('environment')) {
-            $specifiedEnvironmentIds = array_merge([$input->getOption('environment')], $specifiedEnvironmentIds);
+        if ($environmentOption = Option::stringOrNull($input, 'environment')) {
+            $specifiedEnvironmentIds = array_merge([$environmentOption], $specifiedEnvironmentIds);
         }
         if ($specifiedEnvironmentIds) {
             $anythingSpecified = true;
             $allIds = \array_map(fn(Environment $e) => $e->id, $environments);
-            $specifiedEnvironmentIds = Wildcard::select($allIds, $specifiedEnvironmentIds);
+            // Keep exact IDs even if they don't match, so they can be reported as not found.
+            $exactIds = array_filter($specifiedEnvironmentIds, fn(string $id): bool => !str_contains($id, '%') && !str_contains($id, '*'));
+            $specifiedEnvironmentIds = array_values(array_unique(array_merge(Wildcard::select($allIds, $specifiedEnvironmentIds), $exactIds)));
             $notFound = array_diff($specifiedEnvironmentIds, array_keys($environments));
             if (!empty($notFound)) {
                 // Refresh the environments list if any environment is not found.
@@ -121,9 +121,9 @@ class EnvironmentDeleteCommand extends CommandBase
         }
 
         // Gather inactive environments.
-        if ($input->getOption('inactive')) {
+        if (Option::bool($input, 'inactive')) {
             $anythingSpecified = true;
-            if ($input->getOption('no-delete-branch')) {
+            if (Option::bool($input, 'no-delete-branch')) {
                 $this->stdErr->writeln('The option --no-delete-branch cannot be combined with --inactive.');
 
                 return 1;
@@ -142,7 +142,7 @@ class EnvironmentDeleteCommand extends CommandBase
         }
 
         // Gather merged environments.
-        if ($input->getOption('merged')) {
+        if (Option::bool($input, 'merged')) {
             $anythingSpecified = true;
             $merged = [];
             foreach ($environments as $environment) {
@@ -238,7 +238,7 @@ class EnvironmentDeleteCommand extends CommandBase
         }
 
         // Exclude environments which have children.
-        if (!$input->getOption('allow-delete-parent')) {
+        if (!Option::bool($input, 'allow-delete-parent')) {
             $filtered = \array_filter($selectedEnvironments, function (Environment $environment) use ($environments): bool {
                 foreach ($environments as $potentialChild) {
                     if ($potentialChild->parent === $environment->id) {
@@ -334,7 +334,7 @@ class EnvironmentDeleteCommand extends CommandBase
                     }
                     if ($this->questionHelper->confirm($confirmText)) {
                         $toDeactivate += $environments;
-                        if ($input->getOption('delete-branch')) {
+                        if (Option::bool($input, 'delete-branch')) {
                             if (!$shouldWait) {
                                 if ($isSingle) {
                                     $this->stdErr->writeln('The Git branch cannot be deleted until the environment has been deactivated.');
@@ -345,7 +345,7 @@ class EnvironmentDeleteCommand extends CommandBase
                             } else {
                                 $toDeleteBranch += $environments;
                             }
-                        } elseif ($shouldWait && $input->isInteractive() && !$input->getOption('no-delete-branch') && !$integrationPrunesBranches && $this->questionHelper->confirm($deleteConfirmText)) {
+                        } elseif ($shouldWait && $input->isInteractive() && !Option::bool($input, 'no-delete-branch') && !$integrationPrunesBranches && $this->questionHelper->confirm($deleteConfirmText)) {
                             $toDeleteBranch += $environments;
                         }
                     } else {
@@ -354,7 +354,7 @@ class EnvironmentDeleteCommand extends CommandBase
                     $this->stdErr->writeln('');
                     break;
                 case 'inactive':
-                    if ($input->getOption('no-delete-branch')) {
+                    if (Option::bool($input, 'no-delete-branch')) {
                         if ($isSingle) {
                             $this->stdErr->writeln(sprintf('The environment %s is inactive and <comment>--no-delete-branch</comment> was specified, so it will not be deleted.', $this->api->getEnvironmentLabel(reset($environments), 'comment')));
                         } elseif ($isSubSet) {
@@ -379,7 +379,7 @@ class EnvironmentDeleteCommand extends CommandBase
                     } else {
                         $message = sprintf('Are you sure you want to delete <comment>%d</comment> inactive environment(s)?', count($environments));
                     }
-                    if ($input->getOption('delete-branch') || $this->questionHelper->confirm($message)) {
+                    if (Option::bool($input, 'delete-branch') || $this->questionHelper->confirm($message)) {
                         $toDeleteBranch += $environments;
                     } else {
                         $error = true;

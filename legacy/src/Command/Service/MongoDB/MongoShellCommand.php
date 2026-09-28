@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Service\MongoDB;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
@@ -54,8 +55,8 @@ class MongoShellCommand extends CommandBase
 
         $command = 'mongo ' . $this->relationships->getDbCommandArgs('mongo', $service);
 
-        if ($input->getOption('eval')) {
-            $command .= ' --eval ' . OsUtil::escapePosixShellArg($input->getOption('eval'));
+        if ($eval = Option::stringOrNull($input, 'eval')) {
+            $command .= ' --eval ' . OsUtil::escapePosixShellArg($eval);
         }
 
         if (!$output->isVerbose()) {

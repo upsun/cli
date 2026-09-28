@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Organization;
 
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -15,8 +16,10 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Platformsh\Cli\Console\HiddenAliases;
 
 #[AsCommand(name: 'organization:subscription:list', description: 'List subscriptions within an organization', aliases: ['org:subs'])]
+#[HiddenAliases(['organization:subscriptions'])]
 class OrganizationSubscriptionListCommand extends OrganizationCommandBase
 {
     /** The maximum page size allowed by the API. */
@@ -42,7 +45,7 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
 
     protected function configure(): void
     {
-        $this->setHiddenAliases(['organization:subscriptions'])
+        $this
             ->addOption('page', null, InputOption::VALUE_REQUIRED, 'Page number. This enables pagination, despite the configuration or --count 0.')
             ->addOption('count', 'c', InputOption::VALUE_REQUIRED, 'The number of items to display per page (max: ' . self::MAX_COUNT . '). Use 0 to disable pagination.');
         $this->selector->addOrganizationOptions($this->getDefinition(), true);
@@ -60,7 +63,7 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
         $options['query']['filter']['status']['value'][] = 'suspended';
         $options['query']['filter']['status']['operator'] = 'IN';
 
-        $count = $input->getOption('count');
+        $count = Option::stringOrNull($input, 'count');
         $itemsPerPage = max(1, min($this->config->getInt('pagination.count'), self::MAX_COUNT));
         if ($count !== null && $count !== '0') {
             if (!\is_numeric($count) || $count < 1 || $count > self::MAX_COUNT) {
@@ -78,7 +81,7 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
         $options['query']['page[size]'] = $itemsPerPage;
 
         $requestedPage = 1;
-        if (($pageOption = $input->getOption('page')) !== null) {
+        if (($pageOption = Option::stringOrNull($input, 'page')) !== null) {
             if (!\is_numeric($pageOption) || $pageOption < 1) {
                 $this->stdErr->writeln('The --page must be a number greater than 0.');
                 return 1;
