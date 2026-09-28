@@ -282,8 +282,8 @@ Update now? [Y/n]
   a week.
 
 Because the prompt and update run in `PersistentPreRun`, and the legacy PHP layer
-is already invoked with `<PREFIX>UPDATES_CHECK=0` (`internal/legacy/legacy.go:139`),
-there is no double-notification when delegating to PHP commands.
+has no update check of its own, there is no double-notification when delegating
+to PHP commands.
 
 ### The bash installer's destination (Phase 3, optional)
 
