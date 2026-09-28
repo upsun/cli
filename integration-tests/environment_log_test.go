@@ -208,9 +208,11 @@ func TestEnvironmentLogAPI(t *testing.T) {
 	_, stdErr, err := f.RunCombinedOutput("log", "-p", projectID, "-e", "main", "--since", "5s", "--until", "10s")
 	assert.Error(t, err)
 	assert.Contains(t, stdErr, "The --since time must be before the --until time")
-	_, stdErr, err = f.RunCombinedOutput("log", "-p", projectID, "-e", "main", "--since", "+1 hour")
-	assert.Error(t, err)
-	assert.Contains(t, stdErr, "The --since time must be in the past")
+	for _, args := range [][]string{{"--since", "+1 hour"}, {"--since", "+1 hour", "--tail"}} {
+		_, stdErr, err = f.RunCombinedOutput(append([]string{"log", "-p", projectID, "-e", "main"}, args...)...)
+		assert.Error(t, err)
+		assert.Contains(t, stdErr, "The --since time must be in the past")
+	}
 
 	// The app can be selected by an environment variable.
 	f.extraEnv = []string{"PLATFORM_APPLICATION_NAME=app"}
@@ -258,6 +260,8 @@ func TestEnvironmentLogSSHFallback(t *testing.T) {
 	apiServer := httptest.NewServer(apiHandler)
 	defer apiServer.Close()
 
+	// A pseudo status for a successful response that is not JSON.
+	const htmlBody = -1
 	var (
 		mu               sync.Mutex
 		entrypointStatus = http.StatusNotFound
@@ -267,6 +271,10 @@ func TestEnvironmentLogSSHFallback(t *testing.T) {
 		mu.Lock()
 		status := entrypointStatus
 		mu.Unlock()
+		if status == htmlBody {
+			_, _ = w.Write([]byte("<html></html>"))
+			return
+		}
 		if status != http.StatusOK {
 			w.WriteHeader(status)
 			return
@@ -299,6 +307,11 @@ func TestEnvironmentLogSSHFallback(t *testing.T) {
 	setStatus(http.StatusForbidden)
 	_, stdErr, _ = f.RunCombinedOutput("log", "access", "-p", projectID, "-e", "main")
 	assert.Contains(t, stdErr, "Warning: The logs API request failed (HTTP 403). Falling back to SSH.")
+	assert.Contains(t, stdErr, "Reading log file app--0@ssh.cli-tests.example.com:/var/log/access.log")
+
+	setStatus(htmlBody)
+	_, stdErr, _ = f.RunCombinedOutput("log", "access", "-p", projectID, "-e", "main")
+	assert.Contains(t, stdErr, "Warning: The logs API request failed. Falling back to SSH.")
 	assert.Contains(t, stdErr, "Reading log file app--0@ssh.cli-tests.example.com:/var/log/access.log")
 
 	// A file name is read over SSH, even if the API is available.
