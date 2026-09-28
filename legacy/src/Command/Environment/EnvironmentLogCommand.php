@@ -13,6 +13,7 @@ use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Service\Observability;
 use Platformsh\Cli\Selector\Selector;
 use Doctrine\Common\Cache\CacheProvider;
+use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
 use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Command\CommandBase;
@@ -117,8 +118,9 @@ class EnvironmentLogCommand extends CommandBase
             Logs take a few seconds to become available, so the --tail option shows them with a delay of about 15-20 seconds.
 
             Logs are read over SSH if the API is not available for the environment,
-            or if the --worker, --instance or --task option is used, or if the type is not listed above.
-            In that case the type is the name of a log file in /var/log (without the .log extension).
+            if the --worker, --instance or --task option is used,
+            or if the type is not listed above or ends in .log (e.g. "error.log").
+            In that case the type is the name of a log file in /var/log.
             EOF);
         $this->addExample('Display recent logs of all types');
         $this->addExample('Read the deploy log', 'deploy');
@@ -147,16 +149,26 @@ class EnvironmentLogCommand extends CommandBase
         }
 
         $logType = Argument::stringOrNull($input, 'type');
+        $sshReason = $this->sshReason($input, $logType);
         if ($logType !== null && str_ends_with($logType, '.log')) {
             $logType = substr($logType, 0, -4);
         }
 
-        $sshReason = $this->sshReason($input, $logType);
         $entrypoint = null;
         if ($sshReason === null) {
-            $entrypoint = $this->observability->getEntrypoint($selection->getEnvironment());
-            if (Observability::getLink($entrypoint, 'logs_query') === null) {
-                $sshReason = 'the logs API is not available for this environment';
+            try {
+                $entrypoint = $this->observability->getEntrypoint($selection->getEnvironment());
+                if (Observability::getLink($entrypoint, 'logs_query') === null) {
+                    $sshReason = 'the logs API is not available for this environment';
+                }
+            } catch (GuzzleException $e) {
+                if ($e instanceof RequestException && $e->getResponse()?->getStatusCode() === 401) {
+                    throw $e;
+                }
+                $status = $e instanceof RequestException ? $e->getResponse()?->getStatusCode() : null;
+                $sshReason = $status !== null ? sprintf('the logs API request failed (HTTP %d)', $status) : 'the logs API request failed';
+                $this->stdErr->writeln(sprintf('<comment>Warning:</comment> %s. Falling back to SSH.', ucfirst($sshReason)));
+                $this->io->debug($e->getMessage());
             }
         }
 
@@ -188,6 +200,9 @@ class EnvironmentLogCommand extends CommandBase
                 return sprintf('the --%s option is used', $option);
             }
         }
+        if ($logType !== null && str_ends_with($logType, '.log')) {
+            return 'a log file name was given';
+        }
         if ($logType !== null && $logType !== 'error' && !isset(self::LOG_KINDS[$logType])) {
             return sprintf('the log type "%s" is not supported by the logs API', $logType);
         }
@@ -211,7 +226,13 @@ class EnvironmentLogCommand extends CommandBase
         $to = $this->parseTime($input, 'until', $now) ?? ($tail ? $now - self::TAIL_DELAY : $now);
         $from = $this->parseTime($input, 'since', $now) ?? $to - $this->defaultRange($entrypoint);
         if ($from >= $to) {
-            throw new InvalidArgumentException('The --since time must be before the --until time');
+            if (!$tail) {
+                throw new InvalidArgumentException($input->getOption('until') !== null
+                    ? 'The --since time must be before the --until time'
+                    : 'The --since time must be in the past');
+            }
+            // With --tail, a recent --since time is covered by polling.
+            $from = $to - 1;
         }
 
         $this->selector->ensurePrintedSelection($selection);
@@ -271,6 +292,7 @@ class EnvironmentLogCommand extends CommandBase
     private function fetchRecent(string $url, array $filters, int $from, int $to, int $lines, int $window): array
     {
         $rows = [];
+        $noCursor = 0;
         $end = $to;
         while ($end > $from && count($rows) < $lines) {
             $start = max($from, $end - $window);
@@ -289,7 +311,7 @@ class EnvironmentLogCommand extends CommandBase
                 }
                 foreach ($page['data'] as $row) {
                     // Windows overlap by a second, so skip duplicates.
-                    $rows[$row['cursor']] ??= $row;
+                    $rows[$row['cursor'] !== '' ? $row['cursor'] : 'no-cursor-' . $noCursor++] ??= $row;
                 }
                 $cursor = $page['_cursor'];
             } while (count($rows) < $lines && $page['_has_more_results']);
