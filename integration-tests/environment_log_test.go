@@ -303,16 +303,18 @@ func TestEnvironmentLogSSHFallback(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, stdErr, "The --severity option cannot be used: the logs API is not available for this environment")
 
-	// Other errors fall back to SSH, with a warning.
+	// Other entrypoint errors are not a reason to fall back to SSH.
 	setStatus(http.StatusForbidden)
-	_, stdErr, _ = f.RunCombinedOutput("log", "access", "-p", projectID, "-e", "main")
-	assert.Contains(t, stdErr, "Warning: The logs API request failed (HTTP 403). Falling back to SSH.")
-	assert.Contains(t, stdErr, "Reading log file app--0@ssh.cli-tests.example.com:/var/log/access.log")
+	_, stdErr, err = f.RunCombinedOutput("log", "access", "-p", projectID, "-e", "main")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, "403")
+	assert.NotContains(t, stdErr, "Reading log file")
 
 	setStatus(htmlBody)
-	_, stdErr, _ = f.RunCombinedOutput("log", "access", "-p", projectID, "-e", "main")
-	assert.Contains(t, stdErr, "Warning: The logs API request failed. Falling back to SSH.")
-	assert.Contains(t, stdErr, "Reading log file app--0@ssh.cli-tests.example.com:/var/log/access.log")
+	_, stdErr, err = f.RunCombinedOutput("log", "access", "-p", projectID, "-e", "main")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, "Failed to decode observability API response")
+	assert.NotContains(t, stdErr, "Reading log file")
 
 	// A file name is read over SSH, even if the API is available.
 	setStatus(http.StatusOK)
