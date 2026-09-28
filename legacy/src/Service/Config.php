@@ -402,6 +402,7 @@ class Config
         }
         $overrideMap = \array_merge($overrideMap, [
             'TOKEN' => 'api.token',
+            'LOG_PROTOCOL' => 'api.log_protocol',
             'API_TOKEN' => 'api.access_token', // Deprecated
             'COPY_ON_WINDOWS' => 'local.copy_on_windows',
             'DEBUG' => 'api.debug',

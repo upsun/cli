@@ -64,6 +64,8 @@ func TestEnvironmentLogAPI(t *testing.T) {
 		})
 	}
 
+	lines[149].Context = `{"a":1,"b":2,"c":3,"d":4,"e":5,"f":6,"g":7,` +
+		`"long":"` + strings.Repeat("x", 100) + `","h":8,"i":9}`
 	lines[100].Context = `{"time":"x","level":"ERROR","msg":"line 100","status":500,"path":"/a b","trace_id":"abc",` +
 		`"req":{"method":"GET"},"keys":["k"]}`
 
@@ -139,6 +141,7 @@ func TestEnvironmentLogAPI(t *testing.T) {
 	})
 
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f.extraEnv = []string{EnvPrefix + "LOG_PROTOCOL=auto"}
 
 	// The default is 100 lines, oldest first.
 	out := f.Run("log", "access", "-p", projectID, "-e", "main", "--format", "raw")
@@ -214,8 +217,33 @@ func TestEnvironmentLogAPI(t *testing.T) {
 		assert.Contains(t, stdErr, "The --since time must be in the past")
 	}
 
+	// Context fields are limited in number and length.
+	out = f.Run("log", "-p", projectID, "-e", "main", "--lines", "1")
+	assert.Equal(t, lines[149].Datetime+" app access INFO line 149 a=1 b=2 c=3 d=4 e=5 f=6 g=7 long="+
+		strings.Repeat("x", 59)+"… (+2 more)\n", out)
+
+	// Specific fields.
+	out = f.Run("log", "error", "-p", projectID, "-e", "main",
+		"--fields", "datetime,content,context.status,context.req.method,context.missing")
+	assert.Contains(t, out, lines[100].Datetime+" line 100 status=500 req.method=GET\n")
+	out = f.Run("log", "-p", projectID, "-e", "main", "--lines", "1", "--fields", "context.long")
+	assert.Equal(t, "long="+strings.Repeat("x", 100)+"\n", out)
+
+	for _, c := range []struct {
+		args   []string
+		stdErr string
+	}{
+		{[]string{"--format", "foo"}, "Invalid --format: foo (expected one of: text, raw, json)"},
+		{[]string{"--fields", "foo"}, "Invalid field: foo"},
+		{[]string{"--fields", "content", "--format", "json"}, `The --fields option can only be used with the "text" format`},
+	} {
+		_, stdErr, err := f.RunCombinedOutput(append([]string{"log", "-p", projectID, "-e", "main"}, c.args...)...)
+		assert.Error(t, err)
+		assert.Contains(t, stdErr, c.stdErr)
+	}
+
 	// The app can be selected by an environment variable.
-	f.extraEnv = []string{"PLATFORM_APPLICATION_NAME=app"}
+	f.extraEnv = []string{EnvPrefix + "LOG_PROTOCOL=auto", "PLATFORM_APPLICATION_NAME=app"}
 	f.Run("log", "-p", projectID, "-e", "main")
 	mu.Lock()
 	last = queries[len(queries)-1]
@@ -295,8 +323,19 @@ func TestEnvironmentLogSSHFallback(t *testing.T) {
 		EnvPrefix + "SSH_HOST_KEYS=" + sshServer.HostKeyConfig(),
 	}
 
-	// The observability API responds with 404.
+	// The default protocol is SSH, even if the API is available.
+	setStatus(http.StatusOK)
 	_, stdErr, _ := f.RunCombinedOutput("log", "access", "-p", projectID, "-e", "main")
+	assert.Contains(t, stdErr, "Reading log file app--0@ssh.cli-tests.example.com:/var/log/access.log")
+	_, stdErr, err = f.RunCombinedOutput("log", "access", "-p", projectID, "-e", "main", "--since", "1h")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, `The --since option cannot be used: the log protocol is "ssh"`)
+
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"LOG_PROTOCOL=auto")
+
+	// The observability API responds with 404.
+	setStatus(http.StatusNotFound)
+	_, stdErr, _ = f.RunCombinedOutput("log", "access", "-p", projectID, "-e", "main")
 	assert.Contains(t, stdErr, "Reading log file app--0@ssh.cli-tests.example.com:/var/log/access.log")
 
 	_, stdErr, err = f.RunCombinedOutput("log", "access", "-p", projectID, "-e", "main", "--severity", "error")

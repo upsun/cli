@@ -271,6 +271,10 @@ api:
   # Whether the Metrics API is enabled.
   metrics: false
 
+  # How the "environment:logs" command reads logs: "ssh" (from log files over SSH), or
+  # "auto" (from the Observability API if it is available for the environment, otherwise SSH).
+  log_protocol: ssh
+
   # Whether to show network storage metrics (the "storage" mountpoint) in metrics commands.
   metrics_storage: true
 

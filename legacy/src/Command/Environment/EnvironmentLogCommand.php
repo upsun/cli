@@ -9,6 +9,7 @@ use Platformsh\Cli\Console\ArrayArgument;
 use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selection;
 use Platformsh\Cli\Selector\SelectorConfig;
+use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Service\Observability;
 use Platformsh\Cli\Selector\Selector;
@@ -50,11 +51,21 @@ class EnvironmentLogCommand extends CommandBase
     private const SEVERITIES = ['EMERGENCY', 'ALERT', 'CRITICAL', 'ERROR', 'WARNING', 'NOTICE', 'INFO', 'DEBUG'];
 
     // Options that only work with the logs API.
-    private const API_OPTIONS = ['service', 'severity', 'since', 'until'];
+    private const API_OPTIONS = ['service', 'severity', 'since', 'until', 'fields'];
 
     private const FORMATS = ['text', 'raw', 'json'];
 
-    // Top-level keys of structured log lines that are not displayed in the text format.
+    private const PROTOCOLS = ['ssh', 'auto'];
+
+    // Fields that can be displayed with --fields, as well as "context.<key>".
+    private const FIELDS = ['datetime', 'severity', 'service', 'unit', 'instance', 'host', 'command', 'container_id', 'container_image', 'log_kind', 'content', 'context'];
+
+    // Limits for the "context" field, to avoid excessively long lines.
+    private const MAX_CONTEXT_FIELDS = 8;
+    private const MAX_CONTEXT_VALUE_LENGTH = 60;
+    private const MAX_CONTEXT_LENGTH = 200;
+
+    // Top-level keys of structured log lines that are not displayed in the "context" field.
     private const SKIP_CONTEXT_KEYS = [
         'time', 'timestamp', 'ts', '@timestamp', 'datetime',
         'level', 'level_name', 'lvl', 'severity',
@@ -74,6 +85,7 @@ class EnvironmentLogCommand extends CommandBase
 
     public function __construct(
         private readonly CacheProvider $cacheProvider,
+        private readonly Config $config,
         private readonly Io $io,
         private readonly Observability $observability,
         private readonly QuestionHelper $questionHelper,
@@ -99,33 +111,37 @@ class EnvironmentLogCommand extends CommandBase
             ->addOption('severity', null, InputOption::VALUE_REQUIRED, 'The minimum severity, e.g. "error" or "warning"', null, array_map('strtolower', self::SEVERITIES))
             ->addOption('since', null, InputOption::VALUE_REQUIRED, 'Show logs since this time, e.g. "30m", "2h", "1d", or a date/time')
             ->addOption('until', null, InputOption::VALUE_REQUIRED, 'Show logs until this time, in the same format as --since')
-            ->addOption('format', null, InputOption::VALUE_REQUIRED, 'The output format: "text", "raw" (message only), or "json" (one object per line)', 'text', self::FORMATS);
+            ->addOption('format', null, InputOption::VALUE_REQUIRED, 'The output format: "text", "raw" (message only), or "json" (one object per line)', 'text', self::FORMATS)
+            ->addOption('fields', null, InputOption::VALUE_REQUIRED, 'The fields to display in the text format, e.g. "datetime,service,content,context.status". ' . ArrayArgument::SPLIT_HELP, null, self::FIELDS);
         $this->selector->addProjectOption($this->getDefinition());
         $this->selector->addEnvironmentOption($this->getDefinition());
         $this->selector->addRemoteContainerOptions($this->getDefinition());
         $this->selector->addTaskOption($this->getDefinition());
         $this->addCompleter($this->selector);
+        $envVar = $this->config->getStr('application.env_prefix') . 'LOG_PROTOCOL';
         $this->setHelp(<<<EOF
-            Logs are read from the Observability API, where available.
+            By default, logs are read over SSH, from files in /var/log.
+            The type is the name of a log file (without the .log extension).
 
-            The <comment>error</comment> type shows logs of any type with a severity of ERROR or higher.
-            Without a type, all logs are shown except for "platform" logs.
+            To read logs from the Observability API instead, set the log protocol to "auto",
+            using the <comment>$envVar</comment> environment variable, or the api.log_protocol config option.
+            The API is then used where it is available for the environment, and SSH otherwise.
 
-            For structured (JSON) log lines, the text format also shows the fields of the line as key=value pairs.
-            Use --format json to see everything.
-
-            Logs take a few seconds to become available, so the --tail option shows them with a delay of about 15-20 seconds.
-
-            Logs are read over SSH if the API is not available for the environment,
-            if the --worker, --instance or --task option is used,
-            or if the type is not listed above or ends in .log (e.g. "error.log").
-            In that case the type is the name of a log file in /var/log.
+            With the API:
+              The <comment>error</comment> type shows logs of any type with a severity of ERROR or higher.
+              Without a type, all logs are shown except for "platform" logs.
+              For structured (JSON) log lines, the text format also shows some of the line's fields as key=value pairs.
+              Use --fields to choose the fields, or --format json to see everything.
+              Logs take a few seconds to become available, so --tail shows them with a delay of about 15-20 seconds.
+              SSH is still used if the --worker, --instance or --task option is used,
+              or if the type is not listed above or ends in .log (e.g. "error.log").
             EOF);
-        $this->addExample('Display recent logs of all types');
+        $this->addExample('Display a choice of logs that can be read');
         $this->addExample('Read the deploy log', 'deploy');
         $this->addExample('Read the access log continuously', 'access --tail');
         $this->addExample('Read the last 500 lines of the cron log', 'cron --lines 500');
-        $this->addExample('Read warnings and errors from the "app" service in the last hour', '--service app --severity warning --since 1h');
+        $this->addExample('Read warnings and errors from the "app" service in the last hour (with the API)', '--service app --severity warning --since 1h');
+        $this->addExample('Read HTTP request details from structured logs (with the API)', 'app --fields datetime,service,content,context.method,context.path,context.status');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -144,11 +160,19 @@ class EnvironmentLogCommand extends CommandBase
         }
         $format = Option::string($input, 'format');
         if (!in_array($format, self::FORMATS, true)) {
-            throw new InvalidArgumentException('Invalid --format: ' . $format);
+            throw new InvalidArgumentException(sprintf('Invalid --format: %s (expected one of: %s)', $format, implode(', ', self::FORMATS)));
+        }
+        $fields = $this->parseFields($input, $format);
+
+        $protocol = $this->config->getStr('api.log_protocol');
+        if (!in_array($protocol, self::PROTOCOLS, true)) {
+            throw new InvalidArgumentException(sprintf('Invalid log protocol: %s (expected one of: %s)', $protocol, implode(', ', self::PROTOCOLS)));
         }
 
         $logType = Argument::stringOrNull($input, 'type');
-        $sshReason = $this->sshReason($input, $logType);
+        $sshReason = $protocol === 'ssh'
+            ? sprintf('the log protocol is "ssh" (set %sLOG_PROTOCOL=auto to use the logs API)', $this->config->getStr('application.env_prefix'))
+            : $this->sshReason($input, $logType);
         if ($logType !== null && str_ends_with($logType, '.log')) {
             $logType = substr($logType, 0, -4);
         }
@@ -162,7 +186,7 @@ class EnvironmentLogCommand extends CommandBase
         }
 
         if ($sshReason === null) {
-            return $this->readFromApi($input, $output, $selection, (array) $entrypoint, $logType, $lines, $format);
+            return $this->readFromApi($input, $output, $selection, (array) $entrypoint, $logType, $lines, $format, $fields);
         }
 
         $this->io->debug('Reading logs via SSH, because ' . $sshReason);
@@ -201,8 +225,9 @@ class EnvironmentLogCommand extends CommandBase
 
     /**
      * @param array<mixed> $entrypoint
+     * @param list<string>|null $fields
      */
-    private function readFromApi(InputInterface $input, OutputInterface $output, Selection $selection, array $entrypoint, ?string $logType, int $lines, string $format): int
+    private function readFromApi(InputInterface $input, OutputInterface $output, Selection $selection, array $entrypoint, ?string $logType, int $lines, string $format, ?array $fields): int
     {
         $tail = Option::bool($input, 'tail');
         if ($tail && $input->getOption('until') !== null) {
@@ -224,7 +249,9 @@ class EnvironmentLogCommand extends CommandBase
         $this->selector->ensurePrintedSelection($selection);
 
         $url = (string) Observability::getLink($entrypoint, 'logs_query');
-        $showKind = $logType === null || $logType === 'error';
+        $fields ??= $logType === null || $logType === 'error'
+            ? ['datetime', 'service', 'log_kind', 'severity', 'content', 'context']
+            : ['datetime', 'service', 'severity', 'content', 'context'];
 
         // Fetch the most recent lines (newest first), and print them oldest first.
         $rows = $from < $to ? $this->fetchRecent($url, $filters, $from, $to, $lines, $this->initialWindow($entrypoint)) : [];
@@ -236,7 +263,7 @@ class EnvironmentLogCommand extends CommandBase
             return 0;
         }
         foreach ($rows as $row) {
-            $this->printRow($output, $row, $format, $showKind);
+            $this->printRow($output, $row, $format, $fields);
         }
         if (!$tail) {
             return 0;
@@ -257,7 +284,7 @@ class EnvironmentLogCommand extends CommandBase
             do {
                 $page = $this->queryPage($url, $filters, $from, $to, 'ASC', $cursor);
                 foreach ($page['data'] as $row) {
-                    $this->printRow($output, $row, $format, $showKind);
+                    $this->printRow($output, $row, $format, $fields);
                 }
                 $cursor = $page['_cursor'] ?? $cursor;
             } while ($page['_has_more_results']);
@@ -407,9 +434,36 @@ class EnvironmentLogCommand extends CommandBase
     }
 
     /**
-     * @param LogRow $row
+     * Parses the --fields option.
+     *
+     * @return list<string>|null
      */
-    private function printRow(OutputInterface $output, array $row, string $format, bool $showKind): void
+    private function parseFields(InputInterface $input, string $format): ?array
+    {
+        if ($input->getOption('fields') === null) {
+            return null;
+        }
+        if ($format !== 'text') {
+            throw new InvalidArgumentException('The --fields option can only be used with the "text" format');
+        }
+        $fields = array_values(ArrayArgument::split([Option::string($input, 'fields')]));
+        foreach ($fields as $field) {
+            if (!in_array($field, self::FIELDS, true) && !preg_match('/^context\.[^.]+/', $field)) {
+                throw new InvalidArgumentException(sprintf('Invalid field: %s (expected one of: %s, or "context.<key>")', $field, implode(', ', self::FIELDS)));
+            }
+        }
+        if ($fields === []) {
+            throw new InvalidArgumentException('The --fields option must not be empty');
+        }
+
+        return $fields;
+    }
+
+    /**
+     * @param LogRow $row
+     * @param list<string> $fields
+     */
+    private function printRow(OutputInterface $output, array $row, string $format, array $fields): void
     {
         if ($format === 'json') {
             $output->writeln((string) json_encode($row['raw'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), OutputInterface::OUTPUT_RAW);
@@ -422,31 +476,86 @@ class EnvironmentLogCommand extends CommandBase
             return;
         }
 
-        $severity = $row['severity'];
-        $severityTag = match (array_search($severity, self::SEVERITIES, true)) {
+        $context = $this->contextFields($row['raw']['context'] ?? null);
+        $keyValue = fn(string $key, string $value): string => '<fg=gray>' . OutputFormatter::escape($key) . '=</>' . OutputFormatter::escape($value);
+        $parts = [];
+        foreach ($fields as $field) {
+            if ($field === 'context') {
+                $parts = array_merge($parts, $this->formatContext($context, $keyValue));
+                continue;
+            }
+            if (str_starts_with($field, 'context.')) {
+                $key = substr($field, 8);
+                if (isset($context[$key])) {
+                    $parts[] = $keyValue($key, $context[$key]);
+                }
+                continue;
+            }
+            $raw = $row['raw'][$field] ?? null;
+            $value = is_scalar($raw) ? (string) $raw : '';
+            if ($value === '') {
+                continue;
+            }
+            $parts[] = match ($field) {
+                'datetime' => '<comment>' . OutputFormatter::escape($value) . '</comment>',
+                'service' => '<info>' . OutputFormatter::escape($value) . '</info>',
+                'severity' => $this->formatSeverity($value),
+                default => OutputFormatter::escape($value),
+            };
+        }
+        $output->writeln(implode(' ', $parts));
+    }
+
+    private function formatSeverity(string $severity): string
+    {
+        $tag = match (array_search($severity, self::SEVERITIES, true)) {
             0, 1, 2, 3 => 'fg=red',
             4, 5 => 'fg=yellow',
             default => null,
         };
-        $parts = [
-            '<comment>' . OutputFormatter::escape($row['datetime']) . '</comment>',
-            '<info>' . OutputFormatter::escape($row['service']) . '</info>',
-        ];
-        if ($showKind) {
-            $parts[] = OutputFormatter::escape($row['log_kind']);
+
+        return $tag !== null ? "<$tag>" . OutputFormatter::escape($severity) . '</>' : OutputFormatter::escape($severity);
+    }
+
+    /**
+     * Formats context fields for display, skipping some and limiting their number and length.
+     *
+     * @param array<string, string> $context
+     * @param callable(string, string): string $keyValue
+     *
+     * @return list<string>
+     */
+    private function formatContext(array $context, callable $keyValue): array
+    {
+        $parts = [];
+        $omitted = 0;
+        $length = 0;
+        foreach ($context as $key => $value) {
+            // Skip fields that are already displayed, or that are only useful in tracing tools.
+            if (in_array(strtolower(explode('.', $key, 2)[0]), self::SKIP_CONTEXT_KEYS, true)) {
+                continue;
+            }
+            if (mb_strlen($value) > self::MAX_CONTEXT_VALUE_LENGTH) {
+                $value = mb_substr($value, 0, self::MAX_CONTEXT_VALUE_LENGTH - 1) . '…';
+            }
+            $length += mb_strlen($key) + mb_strlen($value) + 2;
+            if ($omitted > 0 || count($parts) >= self::MAX_CONTEXT_FIELDS || ($parts !== [] && $length > self::MAX_CONTEXT_LENGTH)) {
+                $omitted++;
+                continue;
+            }
+            $parts[] = $keyValue($key, $value);
         }
-        $parts[] = $severityTag !== null ? "<$severityTag>" . OutputFormatter::escape($severity) . '</>' : OutputFormatter::escape($severity);
-        $parts[] = OutputFormatter::escape($row['content']);
-        foreach ($this->contextFields($row['raw']['context'] ?? null) as $key => $value) {
-            $parts[] = '<fg=gray>' . OutputFormatter::escape($key) . '=</>' . OutputFormatter::escape($value);
+        if ($omitted > 0) {
+            $parts[] = sprintf('<fg=gray>(+%d more)</>', $omitted);
         }
-        $output->writeln(implode(' ', $parts));
+
+        return $parts;
     }
 
     /**
      * Extracts fields from a structured (JSON) log line, as key-value strings.
      *
-     * Fields that are already displayed, or that are only useful in tracing tools, are skipped.
+     * Nested objects are flattened, with dot-separated keys.
      *
      * @return array<string, string>
      */
@@ -463,9 +572,6 @@ class EnvironmentLogCommand extends CommandBase
         $flatten = function (array $data, string $prefix) use (&$flatten, &$fields): void {
             foreach ($data as $key => $value) {
                 $key = $prefix . $key;
-                if ($prefix === '' && in_array(strtolower($key), self::SKIP_CONTEXT_KEYS, true)) {
-                    continue;
-                }
                 if (is_array($value) && $value !== [] && !array_is_list($value)) {
                     $flatten($value, $key . '.');
                 } elseif ($value !== null && $value !== '' && $value !== []) {
