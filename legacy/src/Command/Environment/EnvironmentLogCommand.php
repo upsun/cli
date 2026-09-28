@@ -161,7 +161,7 @@ class EnvironmentLogCommand extends CommandBase
                 if (Observability::getLink($entrypoint, 'logs_query') === null) {
                     $sshReason = 'the logs API is not available for this environment';
                 }
-            } catch (GuzzleException $e) {
+            } catch (GuzzleException|\RuntimeException $e) {
                 if ($e instanceof RequestException && $e->getResponse()?->getStatusCode() === 401) {
                     throw $e;
                 }
@@ -225,14 +225,11 @@ class EnvironmentLogCommand extends CommandBase
         $now = time();
         $to = $this->parseTime($input, 'until', $now) ?? ($tail ? $now - self::TAIL_DELAY : $now);
         $from = $this->parseTime($input, 'since', $now) ?? $to - $this->defaultRange($entrypoint);
-        if ($from >= $to) {
-            if (!$tail) {
-                throw new InvalidArgumentException($input->getOption('until') !== null
-                    ? 'The --since time must be before the --until time'
-                    : 'The --since time must be in the past');
-            }
-            // With --tail, a recent --since time is covered by polling.
-            $from = $to - 1;
+        // With --tail, a --since time within the tail delay is handled by polling.
+        if ($from >= $to && (!$tail || $from > $now)) {
+            throw new InvalidArgumentException($input->getOption('until') !== null
+                ? 'The --since time must be before the --until time'
+                : 'The --since time must be in the past');
         }
 
         $this->selector->ensurePrintedSelection($selection);
@@ -241,7 +238,7 @@ class EnvironmentLogCommand extends CommandBase
         $showKind = $logType === null || $logType === 'error';
 
         // Fetch the most recent lines (newest first), and print them oldest first.
-        $rows = $this->fetchRecent($url, $filters, $from, $to, $lines, $this->initialWindow($entrypoint));
+        $rows = $from < $to ? $this->fetchRecent($url, $filters, $from, $to, $lines, $this->initialWindow($entrypoint)) : [];
         $rows = array_reverse($rows);
 
         if ($rows === [] && !$tail) {
@@ -260,7 +257,7 @@ class EnvironmentLogCommand extends CommandBase
         // Each poll starts a second before the previous one ended (the cursor prevents duplicates).
         $last = end($rows);
         $cursor = $last !== false ? $last['cursor'] : null;
-        $from = $to - 1;
+        $from = max($from, $to - 1);
         while (true) { // @phpstan-ignore while.alwaysTrue
             sleep(self::TAIL_INTERVAL);
             // Limit the window, e.g. to catch up gradually after the computer was suspended.
