@@ -410,7 +410,8 @@ class LocalProject
     {
         $path = $this->git->execute(['rev-parse', '--git-path', 'info/exclude'], $dir);
         if (!is_string($path) || $path === '') {
-            return null;
+            // Git may be missing or refuse the repository (e.g. safe.directory).
+            return is_dir($dir . '/.git') ? $dir . '/.git/info/exclude' : null;
         }
         // The path may be returned relative to the repository directory.
         if (!preg_match('#^(/|[a-zA-Z]:[\\\\/])#', $path)) {
