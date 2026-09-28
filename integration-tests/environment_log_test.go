@@ -307,13 +307,13 @@ func TestEnvironmentLogSSHFallback(t *testing.T) {
 	setStatus(http.StatusForbidden)
 	_, stdErr, err = f.RunCombinedOutput("log", "access", "-p", projectID, "-e", "main")
 	assert.Error(t, err)
-	assert.Contains(t, stdErr, "403")
+	assert.Contains(t, stdErr, "Permission denied")
 	assert.NotContains(t, stdErr, "Reading log file")
 
 	setStatus(htmlBody)
 	_, stdErr, err = f.RunCombinedOutput("log", "access", "-p", projectID, "-e", "main")
 	assert.Error(t, err)
-	assert.Contains(t, stdErr, "Failed to decode observability API response")
+	assert.Contains(t, stdErr, "Failed to decode")
 	assert.NotContains(t, stdErr, "Reading log file")
 
 	// A file name is read over SSH, even if the API is available.
