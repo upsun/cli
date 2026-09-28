@@ -124,6 +124,12 @@ func TestVariableCreateWithAppScope(t *testing.T) {
 			"app1": {Name: "app1", Type: "golang:1.23"},
 			"app2": {Name: "app2", Type: "php:8.3"},
 		},
+		Workers: map[string]mockapi.Worker{
+			"app1--queue": {App: mockapi.App{Name: "app1--queue", Type: "golang:1.23"}},
+		},
+		Tasks: map[string]mockapi.App{
+			"task1": {Name: "task1", Type: "php:8.3"},
+		},
 		Routes: make(map[string]any),
 		Links:  mockapi.MakeHALLinks("self=/projects/" + s.projectID + "/environments/main/deployment/current"),
 	})
@@ -149,6 +155,22 @@ func TestVariableCreateWithAppScope(t *testing.T) {
 	out = f.Run("var:get", "-p", p, "-l", "p", "env:MULTI", "-P", "application_scope")
 	assert.Contains(t, out, "app1")
 	assert.Contains(t, out, "app2")
+
+	// Test creating variable scoped to a task.
+	_, _, err = f.RunCombinedOutput("var:create", "-p", p, "-l", "p",
+		"env:TASK", "--value", "val", "--app-scope", "task1")
+	assert.NoError(t, err)
+
+	out = f.Run("var:get", "-p", p, "-l", "p", "env:TASK", "-P", "application_scope")
+	assert.Contains(t, out, "task1")
+
+	// Test creating variable scoped to a worker.
+	_, _, err = f.RunCombinedOutput("var:create", "-p", p, "-l", "p",
+		"env:WORKER", "--value", "val", "--app-scope", "app1--queue")
+	assert.NoError(t, err)
+
+	out = f.Run("var:get", "-p", p, "-l", "p", "env:WORKER", "-P", "application_scope")
+	assert.Contains(t, out, "app1--queue")
 
 	// Test validation rejects invalid app names (when deployment exists).
 	_, stdErr, err = f.RunCombinedOutput("var:create", "-p", p, "-l", "p",
