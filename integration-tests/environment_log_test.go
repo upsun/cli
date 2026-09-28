@@ -64,7 +64,7 @@ func TestEnvironmentLogAPI(t *testing.T) {
 		})
 	}
 
-	lines[149].Context = `{"a":1,"b":2,"c":3,"d":4,"e":5,"f":6,"g":7,` +
+	lines[149].Context = `{"404":0,"a":1,"b":2,"c":3,"d":4,"e":5,"f":6,"g":7,` +
 		`"long":"` + strings.Repeat("x", 100) + `","h":8,"i":9}`
 	lines[100].Context = `{"time":"x","level":"ERROR","msg":"line 100","status":500,"path":"/a b","trace_id":"abc",` +
 		`"req":{"method":"GET"},"keys":["k"]}`
@@ -219,8 +219,8 @@ func TestEnvironmentLogAPI(t *testing.T) {
 
 	// Context fields are limited in number and length.
 	out = f.Run("log", "-p", projectID, "-e", "main", "--lines", "1")
-	assert.Equal(t, lines[149].Datetime+" app access INFO line 149 a=1 b=2 c=3 d=4 e=5 f=6 g=7 long="+
-		strings.Repeat("x", 59)+"… (+2 more)\n", out)
+	assert.Equal(t, lines[149].Datetime+" app access INFO line 149 404=0 a=1 b=2 c=3 d=4 e=5 f=6 g=7"+
+		" (+3 more)\n", out)
 
 	// Specific fields.
 	out = f.Run("log", "error", "-p", projectID, "-e", "main",
