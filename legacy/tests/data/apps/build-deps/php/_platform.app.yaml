@@ -4,9 +4,9 @@ build:
   flavor: none
 dependencies:
   php:
-    platformsh/cli: '*'
+    squizlabs/php_codesniffer: '^3.0'
 hooks:
   build: |
     set -xe
-    command -v platform
-    platform --version
+    command -v phpcs
+    phpcs --version
