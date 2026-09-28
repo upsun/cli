@@ -70,6 +70,8 @@ func TestEnvironmentLogAPI(t *testing.T) {
 	var (
 		mu      sync.Mutex
 		queries []url.Values
+		// Wider windows are rejected with 499, when set.
+		maxWindow int64
 	)
 	envPath := "/projects/" + projectID + "/environments/main"
 	queryPath := envPath + "/observability/logs/query"
@@ -89,6 +91,14 @@ func TestEnvironmentLogAPI(t *testing.T) {
 		mu.Unlock()
 		from, _ := strconv.ParseInt(q.Get("from"), 10, 64)
 		to, _ := strconv.ParseInt(q.Get("to"), 10, 64)
+		mu.Lock()
+		tooWide := maxWindow > 0 && to-from > maxWindow
+		mu.Unlock()
+		if tooWide {
+			w.WriteHeader(499)
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 499, "message": "Too much data fetched."})
+			return
+		}
 		cursor := q.Get("cursor")
 		desc := q.Get("order_by") != "ASC"
 		severities := map[string]bool{}
@@ -176,6 +186,32 @@ func TestEnvironmentLogAPI(t *testing.T) {
 	from, _ := strconv.ParseInt(last.Get("from"), 10, 64)
 	assert.InDelta(t, time.Now().Add(-5*time.Minute).Unix(), from, 60)
 
+	// A 499 response halves the window.
+	mu.Lock()
+	maxWindow = 600
+	queries = nil
+	mu.Unlock()
+	out = f.Run("log", "access", "-p", projectID, "-e", "main", "--format", "raw", "--lines", "150")
+	assert.Equal(t, 150, strings.Count(out, "\n"))
+	mu.Lock()
+	maxWindow = 0
+	widths := make([]int64, 0, len(queries))
+	for _, q := range queries {
+		from, _ := strconv.ParseInt(q.Get("from"), 10, 64)
+		to, _ := strconv.ParseInt(q.Get("to"), 10, 64)
+		widths = append(widths, to-from)
+	}
+	mu.Unlock()
+	assert.Equal(t, []int64{900, 450}, widths[:2])
+
+	// Invalid time ranges.
+	_, stdErr, err := f.RunCombinedOutput("log", "-p", projectID, "-e", "main", "--since", "5s", "--until", "10s")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, "The --since time must be before the --until time")
+	_, stdErr, err = f.RunCombinedOutput("log", "-p", projectID, "-e", "main", "--since", "+1 hour")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, "The --since time must be in the past")
+
 	// The app can be selected by an environment variable.
 	f.extraEnv = []string{"PLATFORM_APPLICATION_NAME=app"}
 	f.Run("log", "-p", projectID, "-e", "main")
@@ -222,17 +258,51 @@ func TestEnvironmentLogSSHFallback(t *testing.T) {
 	apiServer := httptest.NewServer(apiHandler)
 	defer apiServer.Close()
 
+	var (
+		mu               sync.Mutex
+		entrypointStatus = http.StatusNotFound
+	)
+	envPath := "/projects/" + projectID + "/environments/main"
+	apiHandler.Get(envPath+"/observability/", func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		status := entrypointStatus
+		mu.Unlock()
+		if status != http.StatusOK {
+			w.WriteHeader(status)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"_links": mockapi.MakeHALLinks("logs_query=" + apiServer.URL + envPath + "/observability/logs/query"),
+		})
+	})
+	setStatus := func(s int) {
+		mu.Lock()
+		defer mu.Unlock()
+		entrypointStatus = s
+	}
+
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
 	f.extraEnv = []string{
 		EnvPrefix + "SSH_OPTIONS=HostName 127.0.0.1\nPort " + strconv.Itoa(sshServer.Port()),
 		EnvPrefix + "SSH_HOST_KEYS=" + sshServer.HostKeyConfig(),
 	}
 
-	// The observability API is not mocked, so it responds with 404.
+	// The observability API responds with 404.
 	_, stdErr, _ := f.RunCombinedOutput("log", "access", "-p", projectID, "-e", "main")
 	assert.Contains(t, stdErr, "Reading log file app--0@ssh.cli-tests.example.com:/var/log/access.log")
 
 	_, stdErr, err = f.RunCombinedOutput("log", "access", "-p", projectID, "-e", "main", "--severity", "error")
 	assert.Error(t, err)
 	assert.Contains(t, stdErr, "The --severity option cannot be used: the logs API is not available for this environment")
+
+	// Other errors fall back to SSH, with a warning.
+	setStatus(http.StatusForbidden)
+	_, stdErr, _ = f.RunCombinedOutput("log", "access", "-p", projectID, "-e", "main")
+	assert.Contains(t, stdErr, "Warning: The logs API request failed (HTTP 403). Falling back to SSH.")
+	assert.Contains(t, stdErr, "Reading log file app--0@ssh.cli-tests.example.com:/var/log/access.log")
+
+	// A file name is read over SSH, even if the API is available.
+	setStatus(http.StatusOK)
+	_, stdErr, _ = f.RunCombinedOutput("log", "error.log", "-p", projectID, "-e", "main")
+	assert.Contains(t, stdErr, "Reading log file app--0@ssh.cli-tests.example.com:/var/log/error.log")
 }
