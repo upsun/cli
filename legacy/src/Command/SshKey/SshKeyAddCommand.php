@@ -170,7 +170,7 @@ class SshKeyAddCommand extends SshKeyCommandBase
      */
     protected function keyExistsByFingerprint(string $fingerprint): bool
     {
-        foreach ($this->api->getSshKeys() as $existingKey) {
+        foreach ($this->api->getSshKeys(true) as $existingKey) {
             if ($existingKey->sha256 === $fingerprint) {
                 return true;
             }
