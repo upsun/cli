@@ -13,7 +13,6 @@ use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Service\Observability;
 use Platformsh\Cli\Selector\Selector;
 use Doctrine\Common\Cache\CacheProvider;
-use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
 use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Command\CommandBase;
@@ -156,19 +155,9 @@ class EnvironmentLogCommand extends CommandBase
 
         $entrypoint = null;
         if ($sshReason === null) {
-            try {
-                $entrypoint = $this->observability->getEntrypoint($selection->getEnvironment());
-                if (Observability::getLink($entrypoint, 'logs_query') === null) {
-                    $sshReason = 'the logs API is not available for this environment';
-                }
-            } catch (GuzzleException|\RuntimeException $e) {
-                if ($e instanceof RequestException && $e->getResponse()?->getStatusCode() === 401) {
-                    throw $e;
-                }
-                $status = $e instanceof RequestException ? $e->getResponse()?->getStatusCode() : null;
-                $sshReason = $status !== null ? sprintf('the logs API request failed (HTTP %d)', $status) : 'the logs API request failed';
-                $this->stdErr->writeln(sprintf('<comment>Warning:</comment> %s. Falling back to SSH.', ucfirst($sshReason)));
-                $this->io->debug($e->getMessage());
+            $entrypoint = $this->observability->getEntrypoint($selection->getEnvironment());
+            if (Observability::getLink($entrypoint, 'logs_query') === null) {
+                $sshReason = 'the logs API is not available for this environment';
             }
         }
 
