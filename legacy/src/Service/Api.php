@@ -980,9 +980,11 @@ class Api
                 }
                 $links = $data['_links'] ?? null;
                 $next = is_array($links) && is_array($links['next'] ?? null) ? $links['next']['href'] ?? null : null;
-                $url = is_string($next)
+                $nextUrl = is_string($next)
                     ? (string) UriResolver::resolve(new Uri($url), new Uri($next))
                     : null;
+                // A "next" link to the current page means there are no more pages.
+                $url = $nextUrl !== $url ? $nextUrl : null;
             }
             $this->cache->save($cacheKey, $items, $this->config->getInt('api.users_ttl'));
         } else {

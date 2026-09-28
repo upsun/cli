@@ -37,9 +37,26 @@ class ApiSshKeyTest extends TestCase
         $this->assertCount(0, $handler);
     }
 
+    public function testStopsAtANextLinkToTheCurrentPage(): void
+    {
+        $handler = new MockHandler([
+            $this->jsonResponse([
+                'items' => [$this->keyData('key-1')],
+                '_links' => ['next' => ['href' => '/api/users/user-id/ssh-keys']],
+            ]),
+        ]);
+
+        $keys = $this->createApi($handler)->getSshKeys();
+        $this->assertSame(['key-1'], array_map(fn($key) => $key->id, $keys));
+    }
+
     public function testRejectsCircularPagination(): void
     {
         $handler = new MockHandler([
+            $this->jsonResponse([
+                'items' => [],
+                '_links' => ['next' => ['href' => '?page=2']],
+            ]),
             $this->jsonResponse([
                 'items' => [],
                 '_links' => ['next' => ['href' => '/api/users/user-id/ssh-keys']],
