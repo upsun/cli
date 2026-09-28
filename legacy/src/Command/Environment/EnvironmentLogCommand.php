@@ -520,7 +520,7 @@ class EnvironmentLogCommand extends CommandBase
     /**
      * Formats context fields for display, skipping some and limiting their number and length.
      *
-     * @param array<string, string> $context
+     * @param array<array-key, string> $context
      * @param callable(string, string): string $keyValue
      *
      * @return list<string>
@@ -531,6 +531,8 @@ class EnvironmentLogCommand extends CommandBase
         $omitted = 0;
         $length = 0;
         foreach ($context as $key => $value) {
+            // Numeric keys are converted to integers by PHP.
+            $key = (string) $key;
             // Skip fields that are already displayed, or that are only useful in tracing tools.
             if (in_array(strtolower(explode('.', $key, 2)[0]), self::SKIP_CONTEXT_KEYS, true)) {
                 continue;
@@ -557,7 +559,7 @@ class EnvironmentLogCommand extends CommandBase
      *
      * Nested objects are flattened, with dot-separated keys.
      *
-     * @return array<string, string>
+     * @return array<array-key, string>
      */
     private function contextFields(mixed $context): array
     {
