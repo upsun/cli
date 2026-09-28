@@ -73,6 +73,9 @@ class Api
 {
     private const MAX_SSH_KEY_PAGES = 1000;
 
+    public const SSH_KEY_SOURCE_ACCOUNTS = 'accounts';
+    public const SSH_KEY_SOURCE_AUTH = 'auth';
+
     private static bool $printedApiTokenWarning = false;
 
     private readonly EventDispatcherInterface $dispatcher;
@@ -927,19 +930,64 @@ class Api
     }
 
     /**
+     * Returns which service owns the SSH key API: "accounts" (legacy) or "auth".
+     *
+     * An API that does not report a source (404) is treated as "accounts".
+     */
+    public function getSshKeySource(bool $reset = false): string
+    {
+        $cacheKey = sprintf('%s:ssh-key-source', $this->config->getSessionId());
+        $source = $reset ? false : $this->cache->fetch($cacheKey);
+        if (is_string($source)) {
+            return $source;
+        }
+        try {
+            $response = $this->getHttpClient()->request('GET', rtrim($this->config->getApiUrl(), '/') . '/ssh-key-source');
+            $data = (array) Utils::jsonDecode((string) $response->getBody(), true);
+            $source = $data['source'] ?? null;
+        } catch (BadResponseException $e) {
+            if ($e->getResponse()->getStatusCode() !== 404) {
+                throw ApiResponseException::wrapGuzzleException($e);
+            }
+            $source = self::SSH_KEY_SOURCE_ACCOUNTS;
+        }
+        if ($source !== self::SSH_KEY_SOURCE_ACCOUNTS && $source !== self::SSH_KEY_SOURCE_AUTH) {
+            throw new \RuntimeException('The API returned an unknown SSH key source.');
+        }
+        $this->cache->save($cacheKey, $source, $this->config->getInt('api.users_ttl'));
+
+        return $source;
+    }
+
+    /**
      * Returns the base URL of the current user's SSH keys collection.
      */
-    private function sshKeysUrl(): string
+    private function sshKeysUrl(string $source): string
     {
-        return rtrim($this->config->getApiUrl(), '/') . '/users/' . rawurlencode($this->getMyUserId()) . '/ssh-keys';
+        $apiUrl = rtrim($this->config->getApiUrl(), '/');
+        if ($source === self::SSH_KEY_SOURCE_ACCOUNTS) {
+            return $apiUrl . '/ssh_keys';
+        }
+
+        return $apiUrl . '/users/' . rawurlencode($this->getMyUserId()) . '/ssh-keys';
     }
 
     /**
      * Returns the cache key under which the current user's SSH keys are stored.
      */
-    private function sshKeysCacheKey(): string
+    private function sshKeysCacheKey(string $source): string
     {
-        return sprintf('%s:ssh-keys', $this->config->getSessionId());
+        return sprintf('%s:ssh-keys:%s', $this->config->getSessionId(), $source);
+    }
+
+    /**
+     * Converts SSH key data from the given source to a model.
+     *
+     * @param array<mixed> $data
+     */
+    private static function sshKeyFromData(string $source, array $data): SshKey
+    {
+        return $source === self::SSH_KEY_SOURCE_ACCOUNTS ? SshKey::fromLegacyData($data) : SshKey::fromData($data);
     }
 
     /**
@@ -951,47 +999,77 @@ class Api
      */
     public function getSshKeys(bool $reset = false): array
     {
-        $cacheKey = $this->sshKeysCacheKey();
+        $source = $this->getSshKeySource($reset);
+        $cacheKey = $this->sshKeysCacheKey($source);
         $items = $this->cache->fetch($cacheKey);
         if ($reset || !is_array($items)) {
-            $items = [];
-            $url = $this->sshKeysUrl();
-            $visitedUrls = [];
-            // The list is paginated. Each "next" link is resolved against the
-            // request URL, so an absolute path must include any API base path.
-            while ($url !== null) {
-                if (isset($visitedUrls[$url])) {
-                    throw new \RuntimeException('The SSH keys API returned a circular pagination link.');
-                }
-                if (count($visitedUrls) >= self::MAX_SSH_KEY_PAGES) {
-                    throw new \RuntimeException('The SSH keys API returned too many pages.');
-                }
-                $visitedUrls[$url] = true;
-                try {
-                    $response = $this->getHttpClient()->request('GET', $url);
-                } catch (BadResponseException $e) {
-                    throw ApiResponseException::wrapGuzzleException($e);
-                }
-                $data = (array) Utils::jsonDecode((string) $response->getBody(), true);
-                if (isset($data['items']) && is_array($data['items'])) {
-                    foreach ($data['items'] as $item) {
-                        $items[] = $item;
-                    }
-                }
-                $links = $data['_links'] ?? null;
-                $next = is_array($links) && is_array($links['next'] ?? null) ? $links['next']['href'] ?? null : null;
-                $nextUrl = is_string($next)
-                    ? (string) UriResolver::resolve(new Uri($url), new Uri($next))
-                    : null;
-                // A "next" link to the current page means there are no more pages.
-                $url = $nextUrl !== $url ? $nextUrl : null;
-            }
+            $items = $source === self::SSH_KEY_SOURCE_ACCOUNTS ? $this->fetchLegacySshKeys() : $this->fetchSshKeys();
             $this->cache->save($cacheKey, $items, $this->config->getInt('api.users_ttl'));
         } else {
             $this->io->debug('Loaded SSH keys from cache');
         }
 
-        return array_map(fn(array $item): SshKey => SshKey::fromData($item), array_filter($items, is_array(...)));
+        return array_map(fn(array $item): SshKey => self::sshKeyFromData($source, $item), array_filter($items, is_array(...)));
+    }
+
+    /**
+     * Fetches the raw SSH key list from the legacy account info API.
+     *
+     * @return array<mixed>
+     */
+    private function fetchLegacySshKeys(): array
+    {
+        try {
+            $response = $this->getHttpClient()->request('GET', rtrim($this->config->getApiUrl(), '/') . '/me');
+        } catch (BadResponseException $e) {
+            throw ApiResponseException::wrapGuzzleException($e);
+        }
+        $data = (array) Utils::jsonDecode((string) $response->getBody(), true);
+
+        return isset($data['ssh_keys']) && is_array($data['ssh_keys']) ? array_values($data['ssh_keys']) : [];
+    }
+
+    /**
+     * Fetches the raw SSH key list from the Auth API, following pagination.
+     *
+     * @return array<mixed>
+     */
+    private function fetchSshKeys(): array
+    {
+        $items = [];
+        $url = $this->sshKeysUrl(self::SSH_KEY_SOURCE_AUTH);
+        $visitedUrls = [];
+        // The list is paginated. Each "next" link is resolved against the
+        // request URL, so an absolute path must include any API base path.
+        while ($url !== null) {
+            if (isset($visitedUrls[$url])) {
+                throw new \RuntimeException('The SSH keys API returned a circular pagination link.');
+            }
+            if (count($visitedUrls) >= self::MAX_SSH_KEY_PAGES) {
+                throw new \RuntimeException('The SSH keys API returned too many pages.');
+            }
+            $visitedUrls[$url] = true;
+            try {
+                $response = $this->getHttpClient()->request('GET', $url);
+            } catch (BadResponseException $e) {
+                throw ApiResponseException::wrapGuzzleException($e);
+            }
+            $data = (array) Utils::jsonDecode((string) $response->getBody(), true);
+            if (isset($data['items']) && is_array($data['items'])) {
+                foreach ($data['items'] as $item) {
+                    $items[] = $item;
+                }
+            }
+            $links = $data['_links'] ?? null;
+            $next = is_array($links) && is_array($links['next'] ?? null) ? $links['next']['href'] ?? null : null;
+            $nextUrl = is_string($next)
+                ? (string) UriResolver::resolve(new Uri($url), new Uri($next))
+                : null;
+            // A "next" link to the current page means there are no more pages.
+            $url = $nextUrl !== $url ? $nextUrl : null;
+        }
+
+        return $items;
     }
 
     /**
@@ -1003,8 +1081,9 @@ class Api
      */
     public function getSshKey(string $id): ?SshKey
     {
+        $source = $this->getSshKeySource();
         try {
-            $response = $this->getHttpClient()->request('GET', $this->sshKeysUrl() . '/' . rawurlencode($id));
+            $response = $this->getHttpClient()->request('GET', $this->sshKeysUrl($source) . '/' . rawurlencode($id));
         } catch (BadResponseException $e) {
             if ($e->getResponse()->getStatusCode() === 404) {
                 return null;
@@ -1012,7 +1091,7 @@ class Api
             throw ApiResponseException::wrapGuzzleException($e);
         }
 
-        return SshKey::fromData((array) Utils::jsonDecode((string) $response->getBody(), true));
+        return self::sshKeyFromData($source, (array) Utils::jsonDecode((string) $response->getBody(), true));
     }
 
     /**
@@ -1025,12 +1104,14 @@ class Api
      */
     public function addSshKey(string $value, ?string $label = null): SshKey
     {
+        $source = $this->getSshKeySource();
         $payload = ['value' => $value];
         if ($label !== null && $label !== '') {
-            $payload['label'] = $label;
+            // The legacy API calls the label a "title".
+            $payload[$source === self::SSH_KEY_SOURCE_ACCOUNTS ? 'title' : 'label'] = $label;
         }
         try {
-            $response = $this->getHttpClient()->request('POST', $this->sshKeysUrl(), ['json' => $payload]);
+            $response = $this->getHttpClient()->request('POST', $this->sshKeysUrl($source), ['json' => $payload]);
         } catch (BadResponseException $e) {
             // The command gives conflicts a purpose-specific message.
             if ($e->getResponse()->getStatusCode() === 409) {
@@ -1040,7 +1121,7 @@ class Api
         }
         $this->clearSshKeysCache();
 
-        return SshKey::fromData((array) Utils::jsonDecode((string) $response->getBody(), true));
+        return self::sshKeyFromData($source, (array) Utils::jsonDecode((string) $response->getBody(), true));
     }
 
     /**
@@ -1051,7 +1132,7 @@ class Api
     public function deleteSshKey(string $id): void
     {
         try {
-            $this->getHttpClient()->request('DELETE', $this->sshKeysUrl() . '/' . rawurlencode($id));
+            $this->getHttpClient()->request('DELETE', $this->sshKeysUrl($this->getSshKeySource()) . '/' . rawurlencode($id));
         } catch (BadResponseException $e) {
             throw ApiResponseException::wrapGuzzleException($e);
         }
@@ -1063,7 +1144,8 @@ class Api
      */
     public function clearSshKeysCache(): void
     {
-        $this->cache->delete($this->sshKeysCacheKey());
+        $this->cache->delete($this->sshKeysCacheKey(self::SSH_KEY_SOURCE_ACCOUNTS));
+        $this->cache->delete($this->sshKeysCacheKey(self::SSH_KEY_SOURCE_AUTH));
     }
 
     /**
