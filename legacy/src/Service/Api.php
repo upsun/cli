@@ -957,8 +957,8 @@ class Api
             $items = [];
             $url = $this->sshKeysUrl();
             $visitedUrls = [];
-            // The list is paginated, and the "next" link may be relative to the
-            // API base URL, so each one is resolved against the request URL.
+            // The list is paginated. Each "next" link is resolved against the
+            // request URL, so an absolute path must include any API base path.
             while ($url !== null) {
                 if (isset($visitedUrls[$url])) {
                     throw new \RuntimeException('The SSH keys API returned a circular pagination link.');
