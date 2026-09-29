@@ -1,4 +1,4 @@
-PHP_VERSION = 8.4.23
+PHP_VERSION = 8.4.26
 
 GOOS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 GOARCH := $(shell uname -m)
@@ -124,13 +124,12 @@ endif
 	PHP_VERSION=$(PHP_VERSION) goreleaser release --clean
 
 .PHONY: test
-# "We encourage users of encoding/json to test their programs with GOEXPERIMENT=jsonv2 enabled" (https://tip.golang.org/doc/go1.25)
 test: ## Run unit tests (excludes integration tests)
-	GOEXPERIMENT=jsonv2 go test -v -race -cover -count=1 $$(go list ./... | grep -v /integration-tests)
+	go test -v -race -cover -count=1 $$(go list ./... | grep -v /integration-tests)
 
 .PHONY: integration-test
 integration-test: single ## Run integration tests (requires built CLI)
-	cd integration-tests && GOEXPERIMENT=jsonv2 go test -v -count=1 ./...
+	cd integration-tests && go test -v -count=1 ./...
 
 .PHONY: lint
 lint: lint-gomod lint-golangci ## Run linters.

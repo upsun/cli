@@ -10,6 +10,8 @@ class SelectorConfig
 {
     public function __construct(
         public bool $envRequired = true,
+        // Set to false to select only the project, e.g. when the command handles environments itself.
+        public bool $selectEnv = true,
         public string $envArgName = 'environment',
         public string $chooseProjectText = 'Enter a number to choose a project:',
         public string $chooseEnvText = 'Enter a number to choose an environment:',

@@ -22,7 +22,7 @@ Run tests:
 ```bash
 make test
 # or directly:
-GOEXPERIMENT=jsonv2 go test -v -race -cover -count=1 ./...
+go test -v -race -cover -count=1 ./...
 ```
 
 Run linters:

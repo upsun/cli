@@ -77,12 +77,8 @@ class EnvironmentDeleteCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        // Select the current project, deliberately ignoring the 'environment'
-        // argument and option, as those will be processed separately.
-        $inputCopy = clone $input;
-        $inputCopy->setArgument('environment', null);
-        $inputCopy->setOption('environment', null);
-        $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: false));
+        // Select only the project: the 'environment' argument and option are processed separately.
+        $selection = $this->selector->getSelection($input, new SelectorConfig(selectEnv: false));
 
         $environments = $this->api->getEnvironments($selection->getProject());
 
@@ -103,7 +99,9 @@ class EnvironmentDeleteCommand extends CommandBase
         if ($specifiedEnvironmentIds) {
             $anythingSpecified = true;
             $allIds = \array_map(fn(Environment $e) => $e->id, $environments);
-            $specifiedEnvironmentIds = Wildcard::select($allIds, $specifiedEnvironmentIds);
+            // Keep exact IDs even if they don't match, so they can be reported as not found.
+            $exactIds = array_filter($specifiedEnvironmentIds, fn(string $id): bool => !str_contains($id, '%') && !str_contains($id, '*'));
+            $specifiedEnvironmentIds = array_values(array_unique(array_merge(Wildcard::select($allIds, $specifiedEnvironmentIds), $exactIds)));
             $notFound = array_diff($specifiedEnvironmentIds, array_keys($environments));
             if (!empty($notFound)) {
                 // Refresh the environments list if any environment is not found.

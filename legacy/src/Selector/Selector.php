@@ -144,7 +144,9 @@ class Selector implements CompleterInterface
         $environment = null;
 
         $envArgName = $config->envArgName;
-        if ($input->hasArgument($envArgName)
+        if (!$config->selectEnv) {
+            $this->debug('Skipping environment selection');
+        } elseif ($input->hasArgument($envArgName)
             && $input->getArgument($envArgName) !== null
             && $input->getArgument($envArgName) !== []) {
             if ($input->hasOption($envOptionName) && Option::stringOrNull($input, $envOptionName)) {
