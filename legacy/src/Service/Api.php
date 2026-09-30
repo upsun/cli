@@ -337,15 +337,16 @@ class Api
                 $this->stdErr->writeln('Waiting for token refresh lock', OutputInterface::VERBOSITY_VERBOSE);
             });
 
+            // Without the lock, the token could be refreshed or saved over another process's newer token.
+            if (!$this->fileLock->isHeld($refreshLockName)) {
+                throw new \RuntimeException('Timed out waiting for another process to refresh the access token. Please try again.');
+            }
+
             // Refresh tokens are single-use, so use the stored token if another process has refreshed it.
             $storedToken = $this->loadStoredToken();
             if ($storedToken && $storedToken->getRefreshToken() !== $originalRefreshToken) {
                 $this->refreshPendingSave = true;
                 return $storedToken;
-            }
-            // Without the lock, a refresh could reuse a token that another process is refreshing.
-            if (!$this->fileLock->isHeld($refreshLockName)) {
-                throw new \RuntimeException('Timed out waiting for another process to refresh the access token. Please try again.');
             }
 
             $connector = $this->getClient(false)->getConnector();

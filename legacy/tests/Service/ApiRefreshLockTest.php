@@ -6,6 +6,7 @@ namespace Platformsh\Cli\Tests\Service;
 
 use Doctrine\Common\Cache\ArrayCache;
 use League\OAuth2\Client\Token\AccessToken;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -93,12 +94,28 @@ class ApiRefreshLockTest extends TestCase
         $this->assertTrue($otherProcess->isHeld($lockName));
     }
 
-    public function testFailsWithoutRefreshingAfterTimingOut(): void
+    /**
+     * @return array<string, array{bool}>
+     */
+    public static function timeoutCases(): array
+    {
+        return [
+            'unchanged stored token' => [false],
+            // The lock holder may be about to save an even newer token.
+            'newer stored token' => [true],
+        ];
+    }
+
+    #[DataProvider('timeoutCases')]
+    public function testFailsAfterTimingOut(bool $storedTokenChanged): void
     {
         // The token URL is unreachable, so any refresh attempt fails differently.
         $config = $this->config(['PLATFORMSH_CLI_OAUTH2_TOKEN_URL' => 'http://127.0.0.1:1/oauth2/token']);
         $this->storage->save('refresh-test', $this->sessionData('access-1', 'refresh-1'));
         $onRefreshStart = $this->onRefreshStart($config, new FileLock($config, 1));
+        if ($storedTokenChanged) {
+            $this->storage->save('refresh-test', $this->sessionData('access-2', 'refresh-2'));
+        }
         $holder = $this->startLockHolder((string) $this->tempDir, 'refresh--' . $config->getSessionIdSlug());
 
         try {
