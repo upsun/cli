@@ -39,12 +39,38 @@ func TestAuthBrowserLogin_Success(t *testing.T) {
 		"SHELL_INTERACTIVE=1",
 	)
 
-	cmd := f.buildCommand("auth:browser-login")
+	// Do not open a real browser: the test acts as the browser.
+	cmd := f.buildCommand("auth:browser-login", "--browser=0")
 	// Override any stderr set by buildCommand (e.g. in verbose mode) so we can pipe it.
 	cmd.Stderr = nil
 	stderrPipe, err := cmd.StderrPipe()
 	require.NoError(t, err)
 	require.NoError(t, cmd.Start())
+
+	// If the test fails early, stop the command, which would otherwise wait for 30 minutes.
+	var localURL string
+	t.Cleanup(func() {
+		if cmd.ProcessState != nil {
+			return
+		}
+		done := make(chan struct{})
+		go func() {
+			_ = cmd.Wait()
+			close(done)
+		}()
+		if localURL != "" {
+			// Report an OAuth error to the local server, so the command exits by itself.
+			if resp, err := http.Get(localURL + "/?error=test_aborted"); err == nil {
+				_ = resp.Body.Close()
+			}
+		}
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			_ = cmd.Process.Kill()
+			<-done
+		}
+	})
 
 	// Read stderr lines until we find the local server port.
 	portCh := make(chan string, 1)
@@ -69,7 +95,7 @@ func TestAuthBrowserLogin_Success(t *testing.T) {
 		// The CLI's local server is at 127.0.0.1:<port>.
 		// We need to get the state parameter first by following the authorize redirect.
 		// Use a non-redirecting client to capture the state.
-		localURL := fmt.Sprintf("http://127.0.0.1:%s", port)
+		localURL = fmt.Sprintf("http://127.0.0.1:%s", port)
 
 		// Give the local server a moment to start.
 		time.Sleep(100 * time.Millisecond)
