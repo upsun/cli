@@ -141,7 +141,6 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 	cmd.Env = append(
 		cmd.Env,
 		"CLI_CONFIG_FILE="+filepath.Join(cacheDir, configBasename),
-		envPrefix+"UPDATES_CHECK=0",
 		envPrefix+"MIGRATE_CHECK=0",
 		envPrefix+"APPLICATION_PROMPT_SELF_INSTALL=0",
 		envPrefix+"WRAPPED=1",

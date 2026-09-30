@@ -56,7 +56,7 @@ is shown even when the user cannot act on it usefully:
 ## Non-goals
 
 - Silent or unattended self-update. Updates are only ever performed after an
-  explicit interactive prompt. `self:update` (the PHP command) stays disabled.
+  explicit interactive prompt. The PHP `self:update` command has been removed.
 - Auto-running privileged or remote-code upgrades (`sudo`, `curl … | sh`). For
   those channels we print the command rather than executing it (see Phase 2).
 - Changing the network-check throttle, the CI gate, or the TTY gate.
@@ -282,8 +282,8 @@ Update now? [Y/n]
   a week.
 
 Because the prompt and update run in `PersistentPreRun`, and the legacy PHP layer
-is already invoked with `<PREFIX>UPDATES_CHECK=0` (`internal/legacy/legacy.go:139`),
-there is no double-notification when delegating to PHP commands.
+has no update check of its own, there is no double-notification when delegating
+to PHP commands.
 
 ### The bash installer's destination (Phase 3, optional)
 

@@ -26,7 +26,6 @@ use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Service\RemoteEnvVars;
 use Platformsh\Cli\Service\Relationships;
 use Platformsh\Cli\Service\Rsync;
-use Platformsh\Cli\Service\SelfUpdater;
 use Platformsh\Cli\Service\Shell;
 use Platformsh\Cli\Service\Ssh;
 use Platformsh\Cli\Service\SshConfig;
@@ -75,7 +74,6 @@ class InjectCommandServicesRector extends AbstractRector
         'remote_env_vars' => RemoteEnvVars::class,
         'relationships' => Relationships::class,
         'rsync' => Rsync::class,
-        'self_updater' => SelfUpdater::class,
         'shell' => Shell::class,
         'ssh' => Ssh::class,
         'ssh_config' => SshConfig::class,
