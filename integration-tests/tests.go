@@ -66,11 +66,12 @@ type cmdFactory struct {
 	authURL  string
 	extraEnv []string
 	dir      string // Working directory; defaults to a per-test temporary directory.
-	home     string // CLI home directory; defaults to a per-test temporary directory.
+	home     string // CLI home directory; a per-test temporary directory.
+	stdin    io.Reader
 }
 
 func newCommandFactory(t *testing.T, apiURL, authURL string) *cmdFactory {
-	return &cmdFactory{t: t, apiURL: apiURL, authURL: authURL}
+	return &cmdFactory{t: t, apiURL: apiURL, authURL: authURL, home: t.TempDir()}
 }
 
 // Run runs a command, asserts that it did not error, and returns its normal (stdout) output.
@@ -144,6 +145,9 @@ func (f *cmdFactory) buildCommand(args ...string) *exec.Cmd {
 		cmd.Env = append(cmd.Env, EnvPrefix+"API_AUTH_URL="+f.authURL, EnvPrefix+"TOKEN="+mockapi.ValidAPITokens[0])
 	}
 	cmd.Env = append(cmd.Env, f.extraEnv...)
+	if f.stdin != nil {
+		cmd.Stdin = f.stdin
+	}
 	return cmd
 }
 
@@ -167,4 +171,13 @@ func testEnv(home string) []string {
 		EnvPrefix+"HOME="+home,
 		"TZ=UTC",
 	)
+}
+
+// assertExitCode asserts that a command failed with the given exit code.
+func assertExitCode(t *testing.T, expected int, err error) {
+	t.Helper()
+	var exitErr *exec.ExitError
+	if assert.ErrorAs(t, err, &exitErr) {
+		assert.Equal(t, expected, exitErr.ExitCode())
+	}
 }
