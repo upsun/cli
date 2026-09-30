@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/stretchr/testify/require"
 )
+
+var TestPhoneVerificationCode = "123456"
 
 type Handler struct {
 	*chi.Mux
@@ -42,6 +45,41 @@ func NewHandler(t *testing.T) *Handler {
 	h.Get("/ref/users", h.handleUserRefs)
 	h.Post("/me/verification", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"state": false, "type": ""})
+	})
+
+	var (
+		phoneVerifyMu      sync.Mutex
+		pendingPhoneCode   = TestPhoneVerificationCode
+		phoneVerifyPending bool
+	)
+
+	// Phone verification endpoints — match the actual Upsun API (same paths the PHP CLI calls).
+	const phoneSID = "test-sid-1"
+	h.Post("/users/{user_id}/phonenumber", func(w http.ResponseWriter, _ *http.Request) {
+		phoneVerifyMu.Lock()
+		phoneVerifyPending = true
+		phoneVerifyMu.Unlock()
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"sid": phoneSID})
+	})
+	h.Post("/users/{user_id}/phonenumber/{sid}", func(w http.ResponseWriter, req *http.Request) {
+		var body struct {
+			Code string `json:"code"`
+		}
+		_ = json.NewDecoder(req.Body).Decode(&body)
+		phoneVerifyMu.Lock()
+		pending := phoneVerifyPending
+		phoneVerifyMu.Unlock()
+		if !pending || body.Code != pendingPhoneCode {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid code"})
+			return
+		}
+		phoneVerifyMu.Lock()
+		phoneVerifyPending = false
+		phoneVerifyMu.Unlock()
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "verified"})
 	})
 
 	h.Get("/organizations", h.handleListOrgs)

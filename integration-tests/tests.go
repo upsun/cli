@@ -10,11 +10,14 @@ package tests
 import (
 	"bytes"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -66,11 +69,12 @@ type cmdFactory struct {
 	authURL  string
 	extraEnv []string
 	dir      string // Working directory; defaults to a per-test temporary directory.
-	home     string // CLI home directory; defaults to a per-test temporary directory.
+	home     string // CLI home directory; a per-test temporary directory.
+	stdin    io.Reader
 }
 
 func newCommandFactory(t *testing.T, apiURL, authURL string) *cmdFactory {
-	return &cmdFactory{t: t, apiURL: apiURL, authURL: authURL}
+	return &cmdFactory{t: t, apiURL: apiURL, authURL: authURL, home: t.TempDir()}
 }
 
 // Run runs a command, asserts that it did not error, and returns its normal (stdout) output.
@@ -144,6 +148,9 @@ func (f *cmdFactory) buildCommand(args ...string) *exec.Cmd {
 		cmd.Env = append(cmd.Env, EnvPrefix+"API_AUTH_URL="+f.authURL, EnvPrefix+"TOKEN="+mockapi.ValidAPITokens[0])
 	}
 	cmd.Env = append(cmd.Env, f.extraEnv...)
+	if f.stdin != nil {
+		cmd.Stdin = f.stdin
+	}
 	return cmd
 }
 
@@ -167,4 +174,39 @@ func testEnv(home string) []string {
 		EnvPrefix+"HOME="+home,
 		"TZ=UTC",
 	)
+}
+
+// assertExitCode asserts that a command failed with the given exit code.
+func assertExitCode(t *testing.T, expected int, err error) {
+	t.Helper()
+	var exitErr *exec.ExitError
+	if assert.ErrorAs(t, err, &exitErr) {
+		assert.Equal(t, expected, exitErr.ExitCode())
+	}
+}
+
+// fakeBrowser makes the CLI detect a display and a browser, which it requires before offering a browser login.
+func (f *cmdFactory) fakeBrowser() {
+	f.t.Helper()
+	if runtime.GOOS == "windows" {
+		f.t.Skip("the fake browser is a shell script")
+	}
+	dir := f.t.TempDir()
+	require.NoError(f.t, os.WriteFile(filepath.Join(dir, "xdg-open"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
+	f.extraEnv = append(f.extraEnv, "DISPLAY=:0", "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+// waitForServer retries a GET request until the server responds.
+func waitForServer(t *testing.T, client *http.Client, url string) *http.Response {
+	t.Helper()
+	var resp *http.Response
+	require.Eventually(t, func() bool {
+		r, err := client.Get(url) //nolint:noctx,bodyclose // The caller closes the body.
+		if err != nil {
+			return false
+		}
+		resp = r
+		return true
+	}, 10*time.Second, 50*time.Millisecond, "server did not respond: %s", url)
+	return resp
 }

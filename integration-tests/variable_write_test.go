@@ -11,7 +11,7 @@ import (
 
 // variableTestSetup holds common test infrastructure for variable tests.
 type variableTestSetup struct {
-	authServer *httptest.Server
+	authServer *mockapi.AuthServer
 	apiServer  *httptest.Server
 	apiHandler *mockapi.Handler
 	projectID  string
