@@ -125,6 +125,11 @@ class Api
     private ?SessionStorageInterface $sessionStorage = null;
 
     /**
+     * The ID of the session in persistent storage, if any.
+     */
+    private ?string $storedSessionId = null;
+
+    /**
      * Sets whether we are currently verifying login using a test request.
      */
     public bool $inLoginCheck = false;
@@ -312,17 +317,18 @@ class Api
         // Acquire a lock to prevent tokens being refreshed at the same time in
         // different CLI processes.
         $refreshLockName = 'refresh--' . $this->config->getSessionIdSlug();
-        $connectorOptions['on_refresh_start'] = function ($originalRefreshToken) use ($refreshLockName) {
+        $connectorOptions['on_refresh_start'] = function ($originalRefreshToken) use ($refreshLockName): ?AccessToken {
             $this->io->debug('Refreshing access token');
-            $connector = $this->getClient(false)->getConnector();
-            return $this->fileLock->acquireOrWait($refreshLockName, function (): void {
-                $this->stdErr->writeln('Waiting for token refresh lock', OutputInterface::VERBOSITY_VERBOSE);
-            }, function () use ($connector, $originalRefreshToken) {
-                $session = $connector->getSession();
-                $accessToken = $this->tokenFromSession($session);
+            // Refresh tokens are single-use, so use the stored token if another process has refreshed it.
+            $check = function () use ($originalRefreshToken): ?AccessToken {
+                $accessToken = $this->loadStoredToken();
                 return $accessToken && $accessToken->getRefreshToken() !== $originalRefreshToken
                     ? $accessToken : null;
-            });
+            };
+            $result = $this->fileLock->acquireOrWait($refreshLockName, function (): void {
+                $this->stdErr->writeln('Waiting for token refresh lock', OutputInterface::VERBOSITY_VERBOSE);
+            }, $check);
+            return $result instanceof AccessToken ? $result : $check();
         };
         $connectorOptions['on_refresh_end'] = function () use ($refreshLockName): void {
             $this->fileLock->release($refreshLockName);
@@ -467,6 +473,17 @@ class Api
      *
      * @return AccessToken|null
      */
+    /**
+     * Loads the token from session storage, bypassing the in-memory session.
+     */
+    private function loadStoredToken(): ?AccessToken
+    {
+        if (!isset($this->sessionStorage, $this->storedSessionId)) {
+            return null;
+        }
+        return $this->tokenFromSession(new Session($this->storedSessionId, $this->sessionStorage->load($this->storedSessionId)));
+    }
+
     private function tokenFromSession(SessionInterface $session): ?AccessToken
     {
         if (!$session->get('accessToken')) {
@@ -548,6 +565,7 @@ class Api
                 $this->io->debug('Loading session');
                 try {
                     $session->setStorage($this->sessionStorage);
+                    $this->storedSessionId = $sessionId;
                 } catch (\RuntimeException $e) {
                     if ($this->sessionStorage instanceof CredentialHelperStorage) {
                         $previous = $e->getPrevious();
