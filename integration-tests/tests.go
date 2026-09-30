@@ -10,11 +10,14 @@ package tests
 import (
 	"bytes"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -180,4 +183,30 @@ func assertExitCode(t *testing.T, expected int, err error) {
 	if assert.ErrorAs(t, err, &exitErr) {
 		assert.Equal(t, expected, exitErr.ExitCode())
 	}
+}
+
+// fakeBrowser makes the CLI detect a display and a browser, which it requires before offering a browser login.
+func (f *cmdFactory) fakeBrowser() {
+	f.t.Helper()
+	if runtime.GOOS == "windows" {
+		f.t.Skip("the fake browser is a shell script")
+	}
+	dir := f.t.TempDir()
+	require.NoError(f.t, os.WriteFile(filepath.Join(dir, "xdg-open"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
+	f.extraEnv = append(f.extraEnv, "DISPLAY=:0", "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+// waitForServer retries a GET request until the server responds.
+func waitForServer(t *testing.T, client *http.Client, url string) *http.Response {
+	t.Helper()
+	var resp *http.Response
+	require.Eventually(t, func() bool {
+		r, err := client.Get(url) //nolint:noctx,bodyclose // The caller closes the body.
+		if err != nil {
+			return false
+		}
+		resp = r
+		return true
+	}, 10*time.Second, 50*time.Millisecond, "server did not respond: %s", url)
+	return resp
 }

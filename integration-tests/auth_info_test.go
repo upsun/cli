@@ -64,6 +64,7 @@ func TestAuthInfo_NoAutoLogin_NotLoggedIn(t *testing.T) {
 
 func TestAuthInfo_NotLoggedIn_DeclineRelogin(t *testing.T) {
 	f := newCommandFactory(t, "", "")
+	f.fakeBrowser()
 	f.extraEnv = append(f.extraEnv,
 		EnvPrefix+"NO_INTERACTION=", // allow interactive mode (testEnv sets it to 1)
 		"SHELL_INTERACTIVE=1",

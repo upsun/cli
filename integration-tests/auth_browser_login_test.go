@@ -97,15 +97,11 @@ func TestAuthBrowserLogin_Success(t *testing.T) {
 		// Use a non-redirecting client to capture the state.
 		localURL = fmt.Sprintf("http://127.0.0.1:%s", port)
 
-		// Give the local server a moment to start.
-		time.Sleep(100 * time.Millisecond)
-
 		// Fetch the local page to get the redirect URL with state.
 		noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
 			return http.ErrUseLastResponse
 		}}
-		resp, err := noRedirect.Get(localURL)
-		require.NoError(t, err)
+		resp := waitForServer(t, noRedirect, localURL)
 		loc := resp.Header.Get("Location")
 		_ = resp.Body.Close()
 
@@ -190,10 +186,6 @@ func TestAuthBrowserLogin_AlreadyLoggedIn(t *testing.T) {
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
 	// TOKEN is set by the factory → hasApiToken returns true → command refuses to start browser login.
 	_, stderr, err := f.RunCombinedOutput("auth:browser-login")
-	// The command exits non-zero when an API token is configured.
-	require.Error(t, err)
-	assert.True(t,
-		strings.Contains(stderr, "Cannot log in via the browser") || strings.Contains(stderr, "log in"),
-		"unexpected stderr: %s", stderr,
-	)
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "Cannot log in via the browser, because an API token is set via config.")
 }
