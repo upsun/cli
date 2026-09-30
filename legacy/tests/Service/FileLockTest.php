@@ -34,6 +34,20 @@ class FileLockTest extends TestCase
         $this->assertNull((new FileLock($this->config))->acquireOrWait('test', null, fn(): string => 'checked'));
     }
 
+    public function testIsHeldOnlyWhenAcquired(): void
+    {
+        $holder = new FileLock($this->config);
+        $holder->acquireOrWait('test');
+        $this->assertTrue($holder->isHeld('test'));
+
+        $waiter = new FileLock($this->config, 1);
+        $this->assertNull($waiter->acquireOrWait('test'));
+        $this->assertFalse($waiter->isHeld('test'));
+
+        $holder->release('test');
+        $this->assertFalse($holder->isHeld('test'));
+    }
+
     public function testLockIsFreedWhenTheHolderIsKilled(): void
     {
         $holder = $this->startLockHolder((string) $this->tempDir, 'test');

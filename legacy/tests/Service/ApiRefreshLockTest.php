@@ -9,6 +9,7 @@ use League\OAuth2\Client\Token\AccessToken;
 use PHPUnit\Framework\TestCase;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
+use Platformsh\Cli\Service\FileLock;
 use Platformsh\Cli\Tests\HasTempDirTrait;
 use Platformsh\Cli\Tests\LockHolderTrait;
 use Platformsh\Client\Connection\Connector;
@@ -79,6 +80,23 @@ class ApiRefreshLockTest extends TestCase
         $this->assertSame('refresh-2', $this->storage->load('refresh-test')['refreshToken'] ?? null);
     }
 
+    public function testFailsWithoutRefreshingAfterTimingOut(): void
+    {
+        // The token URL is unreachable, so any refresh attempt fails differently.
+        $config = $this->config(['PLATFORMSH_CLI_OAUTH2_TOKEN_URL' => 'http://127.0.0.1:1/oauth2/token']);
+        $this->storage->save('refresh-test', $this->sessionData('access-1', 'refresh-1'));
+        $onRefreshStart = $this->onRefreshStart($config, new FileLock($config, 1));
+        $holder = $this->startLockHolder((string) $this->tempDir, 'refresh--' . $config->getSessionIdSlug());
+
+        try {
+            $this->expectExceptionMessage('Timed out waiting for another process to refresh the access token');
+            $onRefreshStart('refresh-1');
+        } finally {
+            \proc_terminate($holder, 9);
+            \proc_close($holder);
+        }
+    }
+
     /**
      * @param array<string, string> $env
      */
@@ -103,9 +121,9 @@ class ApiRefreshLockTest extends TestCase
         return $onRefreshStart;
     }
 
-    private function onRefreshStart(Config $config): callable
+    private function onRefreshStart(Config $config, ?FileLock $fileLock = null): callable
     {
-        $api = new Api($config, new ArrayCache(), new BufferedOutput());
+        $api = new Api($config, new ArrayCache(), new BufferedOutput(), null, null, $fileLock);
         $connector = $api->getClient(false, true)->getConnector();
         $this->assertInstanceOf(Connector::class, $connector);
         $this->assertSame('refresh-1', $connector->getSession()->get('refreshToken'));

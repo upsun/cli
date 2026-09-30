@@ -12,16 +12,17 @@ namespace Platformsh\Cli\Service;
 class FileLock
 {
     private readonly int $checkIntervalMs;
-    private readonly int $timeLimit;
     private readonly bool $disabled;
 
     /** @var array<string, resource> */
     private array $locks = [];
 
-    public function __construct(private readonly Config $config)
+    /**
+     * @param int $timeLimit The maximum time to wait for a lock, in seconds.
+     */
+    public function __construct(private readonly Config $config, private readonly int $timeLimit = 30)
     {
         $this->checkIntervalMs = 500;
-        $this->timeLimit = 30;
         $this->disabled = $this->config->getBool('api.disable_locks');
     }
 
@@ -70,6 +71,14 @@ class FileLock
         }
         $this->locks[$lockName] = $handle;
         return null;
+    }
+
+    /**
+     * Checks whether this process holds a lock, or locks are disabled.
+     */
+    public function isHeld(string $lockName): bool
+    {
+        return $this->disabled || isset($this->locks[$lockName]);
     }
 
     /**

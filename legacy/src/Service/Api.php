@@ -329,6 +329,10 @@ class Api
             if ($storedToken && $storedToken->getRefreshToken() !== $originalRefreshToken) {
                 return $storedToken;
             }
+            // Without the lock, a refresh could reuse a token that another process is refreshing.
+            if (!$this->fileLock->isHeld($refreshLockName)) {
+                throw new \RuntimeException('Timed out waiting for another process to refresh the access token. Please try again.');
+            }
 
             // Refresh and save the token before on_refresh_end releases the lock.
             $connector = $this->getClient(false)->getConnector();
