@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Service;
 
+/**
+ * Locks between CLI processes, using OS file locks.
+ *
+ * The OS releases a lock when its process exits, even if it crashes.
+ */
 class FileLock
 {
     private readonly int $checkIntervalMs;
     private readonly int $timeLimit;
     private readonly bool $disabled;
 
-    /** @var array<string, string> */
+    /** @var array<string, resource> */
     private array $locks = [];
 
     public function __construct(private readonly Config $config)
@@ -22,6 +27,9 @@ class FileLock
 
     /**
      * Acquires a lock, or waits for one if it already exists.
+     *
+     * If the lock is not acquired within the time limit, this returns null
+     * without holding the lock.
      *
      * @param string $lockName
      *   A unique name for the lock.
@@ -36,20 +44,16 @@ class FileLock
      */
     public function acquireOrWait(string $lockName, ?callable $onWait = null, ?callable $check = null): mixed
     {
-        if ($this->disabled) {
+        if ($this->disabled || isset($this->locks[$lockName])) {
             return null;
         }
-        $runOnWait = false;
-        $filename = $this->filename($lockName);
+        $handle = $this->open($this->filename($lockName));
         $start = \time();
-        while (\time() - $start < $this->timeLimit) {
-            if (!\file_exists($filename)) {
-                break;
-            }
-            $content = $this->readWithLock($filename);
-            $lockedAt = \intval($content);
-            if ($lockedAt === 0 || \time() >= $lockedAt + $this->timeLimit) {
-                break;
+        $runOnWait = false;
+        while (!\flock($handle, LOCK_EX | LOCK_NB)) {
+            if (\time() - $start >= $this->timeLimit) {
+                \fclose($handle);
+                return null;
             }
             if ($onWait !== null && !$runOnWait) {
                 $onWait();
@@ -59,23 +63,23 @@ class FileLock
             if ($check !== null) {
                 $result = $check();
                 if ($result !== null) {
-                    $this->release($lockName);
+                    \fclose($handle);
                     return $result;
                 }
             }
         }
-        $this->writeWithLock($filename, (string) \time());
-        $this->locks[$lockName] = $lockName;
+        $this->locks[$lockName] = $handle;
         return null;
     }
 
     /**
-     * Releases a lock that was created by acquire().
+     * Releases a lock that was created by acquireOrWait().
      */
     public function release(string $lockName): void
     {
-        if (!$this->disabled && isset($this->locks[$lockName])) {
-            $this->writeWithLock($this->filename($lockName), '');
+        if (isset($this->locks[$lockName])) {
+            \flock($this->locks[$lockName], LOCK_UN);
+            \fclose($this->locks[$lockName]);
             unset($this->locks[$lockName]);
         }
     }
@@ -85,7 +89,7 @@ class FileLock
      */
     public function __destruct()
     {
-        foreach ($this->locks as $lockName) {
+        foreach (\array_keys($this->locks) as $lockName) {
             $this->release($lockName);
         }
     }
@@ -103,72 +107,21 @@ class FileLock
     }
 
     /**
-     * Reads a file using a shared lock.
+     * Opens a lock file, creating it if necessary.
      *
-     * @param string $filename
-     * @return string
+     * @return resource
      */
-    private function readWithLock(string $filename): string
-    {
-        $handle = \fopen($filename, 'r');
-        if (!$handle) {
-            throw new \RuntimeException('Failed to open file for reading: ' . $filename);
-        }
-        try {
-            if (!\flock($handle, LOCK_SH)) {
-                \trigger_error('Failed to lock file: ' . $filename, E_USER_WARNING);
-            }
-            $content = \fgets($handle);
-            if ($content === false && !\feof($handle)) {
-                throw new \RuntimeException('Failed to read file: ' . $filename);
-            }
-        } finally {
-            if (!\flock($handle, LOCK_UN)) {
-                \trigger_error('Failed to unlock file: ' . $filename, E_USER_WARNING);
-            }
-            if (!\fclose($handle)) {
-                \trigger_error('Failed to close file: ' . $filename, E_USER_WARNING);
-            }
-        }
-        return (string) $content;
-    }
-
-    /**
-     * Writes to a file using an exclusive lock.
-     *
-     * @param string $filename
-     * @param string $content
-     * @return void
-     */
-    private function writeWithLock(string $filename, string $content): void
+    private function open(string $filename)
     {
         $dir = \dirname($filename);
-        if (!\is_dir($dir)) {
-            if (!\mkdir($dir, 0o777, true)) {
-                throw new \RuntimeException('Failed to create directory: ' . $dir);
-            }
+        if (!\is_dir($dir) && !\mkdir($dir, 0o777, true) && !\is_dir($dir)) {
+            throw new \RuntimeException('Failed to create directory: ' . $dir);
         }
-        $handle = \fopen($filename, 'w');
+        // Mode "c" creates the file without truncating it.
+        $handle = \fopen($filename, 'c');
         if (!$handle) {
-            throw new \RuntimeException('Failed to open file for writing: ' . $filename);
+            throw new \RuntimeException('Failed to open lock file: ' . $filename);
         }
-        try {
-            if (!\flock($handle, LOCK_EX)) {
-                \trigger_error('Failed to lock file: ' . $filename, E_USER_WARNING);
-            }
-            if (\fputs($handle, $content) === false) {
-                throw new \RuntimeException('Failed to write to file: ' . $filename);
-            }
-            if (!\fsync($handle)) {
-                \trigger_error('Failed to sync file (fsync): ' . $filename, E_USER_WARNING);
-            }
-        } finally {
-            if (!\flock($handle, LOCK_UN)) {
-                \trigger_error('Failed to unlock file: ' . $filename, E_USER_WARNING);
-            }
-            if (!\fclose($handle)) {
-                \trigger_error('Failed to close file: ' . $filename, E_USER_WARNING);
-            }
-        }
+        return $handle;
     }
 }
