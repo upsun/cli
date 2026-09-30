@@ -66,18 +66,31 @@ class ApiRefreshLockTest extends TestCase
         $this->assertSame('refresh-2', $token->getRefreshToken());
     }
 
-    public function testSavesTheRefreshedTokenBeforeReturning(): void
+    public function testHoldsTheLockUntilTheTokenIsSaved(): void
     {
         $config = $this->config(['PLATFORMSH_CLI_OAUTH2_TOKEN_URL' => $this->startTokenServer()]);
         $this->storage->save('refresh-test', $this->sessionData('access-1', 'refresh-1'));
-        $onRefreshStart = $this->onRefreshStart($config);
+        $connector = $this->connector($config);
+        $lockName = 'refresh--' . $config->getSessionIdSlug();
 
+        ['on_refresh_start' => $onRefreshStart, 'on_refresh_end' => $onRefreshEnd] = $connector->getConfig();
+        $this->assertIsCallable($onRefreshStart);
+        $this->assertIsCallable($onRefreshEnd);
+
+        // The middleware calls on_refresh_end, and then saves the token.
         $token = $onRefreshStart('refresh-1');
-
-        // The token must be saved before on_refresh_end releases the lock.
+        $onRefreshEnd('refresh-1');
         $this->assertInstanceOf(AccessToken::class, $token);
         $this->assertSame('refresh-2', $token->getRefreshToken());
+
+        $otherProcess = new FileLock($config, 1);
+        $otherProcess->acquireOrWait($lockName);
+        $this->assertFalse($otherProcess->isHeld($lockName));
+
+        $connector->saveToken($token);
         $this->assertSame('refresh-2', $this->storage->load('refresh-test')['refreshToken'] ?? null);
+        $otherProcess->acquireOrWait($lockName);
+        $this->assertTrue($otherProcess->isHeld($lockName));
     }
 
     public function testFailsWithoutRefreshingAfterTimingOut(): void
@@ -121,14 +134,19 @@ class ApiRefreshLockTest extends TestCase
         return $onRefreshStart;
     }
 
-    private function onRefreshStart(Config $config, ?FileLock $fileLock = null): callable
+    private function connector(Config $config, ?FileLock $fileLock = null): Connector
     {
         $api = new Api($config, new ArrayCache(), new BufferedOutput(), null, null, $fileLock);
         $connector = $api->getClient(false, true)->getConnector();
         $this->assertInstanceOf(Connector::class, $connector);
         $this->assertSame('refresh-1', $connector->getSession()->get('refreshToken'));
 
-        $onRefreshStart = $connector->getConfig()['on_refresh_start'];
+        return $connector;
+    }
+
+    private function onRefreshStart(Config $config, ?FileLock $fileLock = null): callable
+    {
+        $onRefreshStart = $this->connector($config, $fileLock)->getConfig()['on_refresh_start'];
         $this->assertIsCallable($onRefreshStart);
 
         return $onRefreshStart;

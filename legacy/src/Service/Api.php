@@ -56,6 +56,7 @@ use Platformsh\Client\PlatformClient;
 use Platformsh\Client\Session\Session;
 use Platformsh\Client\Session\SessionInterface;
 use Platformsh\Cli\Session\FileStorage;
+use Platformsh\Cli\Session\SessionConnector;
 use Platformsh\Client\Session\Storage\SessionStorageInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -129,6 +130,18 @@ class Api
      * The ID of the session in persistent storage, if any.
      */
     private ?string $storedSessionId = null;
+
+    /**
+     * Whether a refreshed token is waiting to be saved, while holding the refresh lock.
+     */
+    private bool $refreshPendingSave = false;
+
+    /**
+     * Releases the refresh lock after a refreshed token is saved.
+     *
+     * @see Api::getConnectorOptions()
+     */
+    private ?\Closure $onTokenSaved = null;
 
     /**
      * Sets whether we are currently verifying login using a test request.
@@ -327,6 +340,7 @@ class Api
             // Refresh tokens are single-use, so use the stored token if another process has refreshed it.
             $storedToken = $this->loadStoredToken();
             if ($storedToken && $storedToken->getRefreshToken() !== $originalRefreshToken) {
+                $this->refreshPendingSave = true;
                 return $storedToken;
             }
             // Without the lock, a refresh could reuse a token that another process is refreshing.
@@ -334,7 +348,6 @@ class Api
                 throw new \RuntimeException('Timed out waiting for another process to refresh the access token. Please try again.');
             }
 
-            // Refresh and save the token before on_refresh_end releases the lock.
             $connector = $this->getClient(false)->getConnector();
             if (!$connector instanceof Connector) {
                 throw new \LogicException('Unexpected connector type');
@@ -345,11 +358,21 @@ class Api
             if (!$token instanceof AccessToken) {
                 throw new \LogicException('Unexpected access token type');
             }
-            $connector->saveToken($token);
+            $this->refreshPendingSave = true;
             return $token;
         };
+        // After a successful refresh, the middleware saves the token after
+        // on_refresh_end, so the lock is released when the token is saved.
         $connectorOptions['on_refresh_end'] = function () use ($refreshLockName): void {
-            $this->fileLock->release($refreshLockName);
+            if (!$this->refreshPendingSave) {
+                $this->fileLock->release($refreshLockName);
+            }
+        };
+        $this->onTokenSaved = function () use ($refreshLockName): void {
+            if ($this->refreshPendingSave) {
+                $this->refreshPendingSave = false;
+                $this->fileLock->release($refreshLockName);
+            }
         };
 
         $connectorOptions['on_refresh_error'] = fn(IdentityProviderException $e): ?AccessToken => $this->onRefreshError($e);
@@ -610,7 +633,10 @@ class Api
                 }
             }
 
-            $connector = new Connector($options, $session);
+            $connector = new SessionConnector($options, $session);
+            if ($this->onTokenSaved !== null) {
+                $connector->setOnTokenSaved($this->onTokenSaved);
+            }
 
             self::$client = new PlatformClient($connector);
 
