@@ -22,6 +22,7 @@ use GuzzleHttp\Psr7\Uri;
 use GuzzleHttp\Psr7\UriResolver;
 use GuzzleHttp\Utils;
 use League\OAuth2\Client\Provider\Exception\IdentityProviderException;
+use League\OAuth2\Client\Grant\RefreshToken;
 use League\OAuth2\Client\Token\AccessToken;
 use Platformsh\Cli\CredentialHelper\KeyringUnavailableException;
 use Platformsh\Cli\CredentialHelper\Manager;
@@ -54,7 +55,7 @@ use Platformsh\Client\Model\User;
 use Platformsh\Client\PlatformClient;
 use Platformsh\Client\Session\Session;
 use Platformsh\Client\Session\SessionInterface;
-use Platformsh\Client\Session\Storage\File;
+use Platformsh\Cli\Session\FileStorage;
 use Platformsh\Client\Session\Storage\SessionStorageInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -317,18 +318,31 @@ class Api
         // Acquire a lock to prevent tokens being refreshed at the same time in
         // different CLI processes.
         $refreshLockName = 'refresh--' . $this->config->getSessionIdSlug();
-        $connectorOptions['on_refresh_start'] = function ($originalRefreshToken) use ($refreshLockName): ?AccessToken {
+        $connectorOptions['on_refresh_start'] = function (string $originalRefreshToken) use ($refreshLockName): AccessToken {
             $this->io->debug('Refreshing access token');
-            // Refresh tokens are single-use, so use the stored token if another process has refreshed it.
-            $check = function () use ($originalRefreshToken): ?AccessToken {
-                $accessToken = $this->loadStoredToken();
-                return $accessToken && $accessToken->getRefreshToken() !== $originalRefreshToken
-                    ? $accessToken : null;
-            };
-            $result = $this->fileLock->acquireOrWait($refreshLockName, function (): void {
+            $this->fileLock->acquireOrWait($refreshLockName, function (): void {
                 $this->stdErr->writeln('Waiting for token refresh lock', OutputInterface::VERBOSITY_VERBOSE);
-            }, $check);
-            return $result instanceof AccessToken ? $result : $check();
+            });
+
+            // Refresh tokens are single-use, so use the stored token if another process has refreshed it.
+            $storedToken = $this->loadStoredToken();
+            if ($storedToken && $storedToken->getRefreshToken() !== $originalRefreshToken) {
+                return $storedToken;
+            }
+
+            // Refresh and save the token before on_refresh_end releases the lock.
+            $connector = $this->getClient(false)->getConnector();
+            if (!$connector instanceof Connector) {
+                throw new \LogicException('Unexpected connector type');
+            }
+            $token = $connector->getOAuth2Provider()->getAccessToken(new RefreshToken(), [
+                'refresh_token' => $originalRefreshToken,
+            ]);
+            if (!$token instanceof AccessToken) {
+                throw new \LogicException('Unexpected access token type');
+            }
+            $connector->saveToken($token);
+            return $token;
         };
         $connectorOptions['on_refresh_end'] = function () use ($refreshLockName): void {
             $this->fileLock->release($refreshLockName);
@@ -467,13 +481,6 @@ class Api
     }
 
     /**
-     * Loads and returns an AccessToken, if possible, from a session.
-     *
-     * @param SessionInterface $session
-     *
-     * @return AccessToken|null
-     */
-    /**
      * Loads the token from session storage, bypassing the in-memory session.
      */
     private function loadStoredToken(): ?AccessToken
@@ -481,9 +488,37 @@ class Api
         if (!isset($this->sessionStorage, $this->storedSessionId)) {
             return null;
         }
-        return $this->tokenFromSession(new Session($this->storedSessionId, $this->sessionStorage->load($this->storedSessionId)));
+        try {
+            $data = $this->sessionStorage->load($this->storedSessionId);
+        } catch (\RuntimeException $e) {
+            throw $this->convertStorageException($e);
+        }
+        return $this->tokenFromSession(new Session($this->storedSessionId, $data));
     }
 
+    /**
+     * Converts a session storage error into a keyring error, if applicable.
+     */
+    private function convertStorageException(\RuntimeException $e): \RuntimeException
+    {
+        if ($this->sessionStorage instanceof CredentialHelperStorage) {
+            $previous = $e->getPrevious();
+            if ($previous instanceof ProcessTimedOutException) {
+                return KeyringUnavailableException::fromTimeout($previous);
+            } elseif ($previous instanceof ProcessFailedException) {
+                return KeyringUnavailableException::fromFailure($previous);
+            }
+        }
+        return $e;
+    }
+
+    /**
+     * Loads and returns an AccessToken, if possible, from a session.
+     *
+     * @param SessionInterface $session
+     *
+     * @return AccessToken|null
+     */
     private function tokenFromSession(SessionInterface $session): ?AccessToken
     {
         if (!$session->get('accessToken')) {
@@ -567,15 +602,7 @@ class Api
                     $session->setStorage($this->sessionStorage);
                     $this->storedSessionId = $sessionId;
                 } catch (\RuntimeException $e) {
-                    if ($this->sessionStorage instanceof CredentialHelperStorage) {
-                        $previous = $e->getPrevious();
-                        if ($previous instanceof ProcessTimedOutException) {
-                            throw KeyringUnavailableException::fromTimeout($previous);
-                        } elseif ($previous instanceof ProcessFailedException) {
-                            throw KeyringUnavailableException::fromFailure($previous);
-                        }
-                    }
-                    throw $e;
+                    throw $this->convertStorageException($e);
                 }
             }
 
@@ -633,7 +660,7 @@ class Api
 
             // Fall back to file storage.
             $this->io->debug('Using filesystem for session storage');
-            $this->sessionStorage = new File($this->config->getSessionDir());
+            $this->sessionStorage = new FileStorage($this->config->getSessionDir());
         }
     }
 

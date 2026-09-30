@@ -9,8 +9,8 @@ use League\OAuth2\Client\Token\AccessToken;
 use PHPUnit\Framework\TestCase;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
-use Platformsh\Cli\Service\FileLock;
 use Platformsh\Cli\Tests\HasTempDirTrait;
+use Platformsh\Cli\Tests\LockHolderTrait;
 use Platformsh\Client\Connection\Connector;
 use Platformsh\Client\Session\Storage\File;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -18,31 +18,32 @@ use Symfony\Component\Console\Output\BufferedOutput;
 class ApiRefreshLockTest extends TestCase
 {
     use HasTempDirTrait;
+    use LockHolderTrait;
 
-    private Config $config;
+    /** @var resource|null */
+    private $tokenServer = null;
 
     private File $storage;
 
     public function setUp(): void
     {
         $this->tempDirSetUp();
-        $this->config = new Config([
-            'PLATFORMSH_CLI_HOME' => (string) $this->tempDir,
-            'PLATFORMSH_CLI_SESSION_ID' => 'refresh-test',
-            'PLATFORMSH_CLI_API_DISABLE_CREDENTIAL_HELPERS' => '1',
-        ]);
-        $this->storage = new File($this->config->getSessionDir());
+        $this->storage = new File($this->config()->getSessionDir());
     }
 
     public function tearDown(): void
     {
         // Api caches the client statically: do not leak this session into other tests.
         (new \ReflectionProperty(Api::class, 'client'))->setValue(null, null);
+        if ($this->tokenServer !== null) {
+            \proc_terminate($this->tokenServer);
+            \proc_close($this->tokenServer);
+        }
     }
 
     public function testUsesTheStoredTokenWhenTheLockIsFree(): void
     {
-        $onRefreshStart = $this->loadStaleSession();
+        $onRefreshStart = $this->loadStaleSession($this->config());
 
         $token = $onRefreshStart('refresh-1');
 
@@ -53,41 +54,58 @@ class ApiRefreshLockTest extends TestCase
 
     public function testUsesTheStoredTokenAfterWaiting(): void
     {
-        $onRefreshStart = $this->loadStaleSession();
-
-        // Another process holds the lock.
-        $otherLock = new FileLock($this->config);
-        $this->assertNull($otherLock->acquireOrWait('refresh--' . $this->config->getSessionIdSlug()));
+        $config = $this->config();
+        $onRefreshStart = $this->loadStaleSession($config);
+        $holder = $this->startLockHolder((string) $this->tempDir, 'refresh--' . $config->getSessionIdSlug(), 1);
 
         $token = $onRefreshStart('refresh-1');
+        \proc_close($holder);
 
         $this->assertInstanceOf(AccessToken::class, $token);
         $this->assertSame('refresh-2', $token->getRefreshToken());
     }
 
-    public function testAllowsARefreshWhenTheStoredTokenIsUnchanged(): void
+    public function testSavesTheRefreshedTokenBeforeReturning(): void
     {
+        $config = $this->config(['PLATFORMSH_CLI_OAUTH2_TOKEN_URL' => $this->startTokenServer()]);
         $this->storage->save('refresh-test', $this->sessionData('access-1', 'refresh-1'));
-        $onRefreshStart = $this->onRefreshStart();
+        $onRefreshStart = $this->onRefreshStart($config);
 
-        $this->assertNull($onRefreshStart('refresh-1'));
+        $token = $onRefreshStart('refresh-1');
+
+        // The token must be saved before on_refresh_end releases the lock.
+        $this->assertInstanceOf(AccessToken::class, $token);
+        $this->assertSame('refresh-2', $token->getRefreshToken());
+        $this->assertSame('refresh-2', $this->storage->load('refresh-test')['refreshToken'] ?? null);
+    }
+
+    /**
+     * @param array<string, string> $env
+     */
+    private function config(array $env = []): Config
+    {
+        return new Config($env + [
+            'PLATFORMSH_CLI_HOME' => (string) $this->tempDir,
+            'PLATFORMSH_CLI_SESSION_ID' => 'refresh-test',
+            'PLATFORMSH_CLI_API_DISABLE_CREDENTIAL_HELPERS' => '1',
+        ]);
     }
 
     /**
      * Loads the session in memory, then simulates another process refreshing the token.
      */
-    private function loadStaleSession(): callable
+    private function loadStaleSession(Config $config): callable
     {
         $this->storage->save('refresh-test', $this->sessionData('access-1', 'refresh-1'));
-        $onRefreshStart = $this->onRefreshStart();
+        $onRefreshStart = $this->onRefreshStart($config);
         $this->storage->save('refresh-test', $this->sessionData('access-2', 'refresh-2'));
 
         return $onRefreshStart;
     }
 
-    private function onRefreshStart(): callable
+    private function onRefreshStart(Config $config): callable
     {
-        $api = new Api($this->config, new ArrayCache(), new BufferedOutput());
+        $api = new Api($config, new ArrayCache(), new BufferedOutput());
         $connector = $api->getClient(false, true)->getConnector();
         $this->assertInstanceOf(Connector::class, $connector);
         $this->assertSame('refresh-1', $connector->getSession()->get('refreshToken'));
@@ -99,6 +117,33 @@ class ApiRefreshLockTest extends TestCase
     }
 
     /**
+     * Starts a mock token endpoint, and returns its URL.
+     */
+    private function startTokenServer(): string
+    {
+        $socket = \stream_socket_server('tcp://127.0.0.1:0');
+        $this->assertIsResource($socket);
+        $address = (string) \stream_socket_get_name($socket, false);
+        \fclose($socket);
+        $port = (int) \substr($address, (int) \strrpos($address, ':') + 1);
+
+        $router = \dirname(__DIR__) . '/data/oauth2-token-router.php';
+        $process = \proc_open([\PHP_BINARY, '-S', $address, $router], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        $this->assertIsResource($process);
+        $this->tokenServer = $process;
+
+        for ($i = 0; $i < 50; $i++) {
+            $connection = @\fsockopen('127.0.0.1', $port);
+            if ($connection) {
+                \fclose($connection);
+                return 'http://' . $address . '/oauth2/token';
+            }
+            \usleep(100_000);
+        }
+        $this->fail('The token server did not start');
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function sessionData(string $accessToken, string $refreshToken): array
@@ -106,7 +151,7 @@ class ApiRefreshLockTest extends TestCase
         return [
             'accessToken' => $accessToken,
             'tokenType' => 'bearer',
-            'expires' => time() + 900,
+            'expires' => \time() + 900,
             'refreshToken' => $refreshToken,
         ];
     }
