@@ -353,7 +353,8 @@ func TestManager_LogoutAndStatus(t *testing.T) {
 
 func TestMigrator(t *testing.T) {
 	srv := newTestAuthServer(t)
-	dir := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "auth")
+	sessionDir := filepath.Join(filepath.Dir(dir), ".session")
 	markerPath := filepath.Join(dir, store.MigrationMarker)
 	exported := `{
 		"default": {"access_token": "a", "refresh_token": "r", "token_type": "bearer", "expires": 123},
@@ -361,6 +362,11 @@ func TestMigrator(t *testing.T) {
 		"api-token-abc": {"access_token": "skipped"},
 		"empty": {}
 	}`
+	// The legacy files only need to exist: their content is read by the export.
+	for _, f := range []string{"sess-default/sess-default.json", "sess-cli-other/api-token"} {
+		require.NoError(t, os.MkdirAll(filepath.Dir(filepath.Join(sessionDir, f)), 0o700))
+		require.NoError(t, os.WriteFile(filepath.Join(sessionDir, f), nil, 0o600))
+	}
 	var exports, deletes int
 	failExport, failDelete := true, true
 	mg := &Migrator{Export: func(_ context.Context, del bool) ([]byte, error) {
@@ -427,6 +433,73 @@ func TestMigrator(t *testing.T) {
 	b, err := os.ReadFile(markerPath)
 	require.NoError(t, err)
 	assert.JSONEq(t, `{}`, string(b))
+}
+
+func TestMigrator_SkipsUnneededExports(t *testing.T) {
+	cases := []struct {
+		name        string
+		files       []string // Legacy files, relative to the writable dir.
+		stored      []string // Sessions in the Go store.
+		marker      string   // The marker before the run.
+		wantExports int
+		wantDeletes int
+	}{
+		{name: "no legacy storage", wantExports: 0, wantDeletes: 0},
+		{name: "first run", files: []string{".session/sess-default/sess-default.json"}, wantExports: 1, wantDeletes: 1},
+		{
+			name:        "logged in again after a failed export",
+			files:       []string{".session/sess-default/sess-default.json"},
+			stored:      []string{"default"},
+			marker:      `{"export_pending": true, "retry_after": 9999999999}`,
+			wantDeletes: 1,
+		},
+		{
+			name:   "nothing left after a failed export",
+			marker: `{"export_pending": true, "retry_after": 9999999999}`,
+		},
+		{
+			name:   "another session still needs the export",
+			files:  []string{".session/sess-default/sess-default.json", ".session/sess-cli-work/api-token"},
+			stored: []string{"default"},
+			marker: `{"export_pending": true, "retry_after": 9999999999}`,
+		},
+		{
+			name:   "keychain sessions may exist",
+			files:  []string{"credential-helper"},
+			marker: `{"export_pending": true, "retry_after": 9999999999}`,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			writableDir := t.TempDir()
+			m := newTestManager(newTestAuthServer(t), filepath.Join(writableDir, "auth"), &config.Auth{})
+			for _, f := range c.files {
+				require.NoError(t, os.MkdirAll(filepath.Dir(filepath.Join(writableDir, f)), 0o700))
+				require.NoError(t, os.WriteFile(filepath.Join(writableDir, f), nil, 0o600))
+			}
+			for _, id := range c.stored {
+				require.NoError(t, m.Store.Save(id, &store.Entry{AccessToken: "a"}))
+			}
+			markerPath := filepath.Join(m.Store.Dir, store.MigrationMarker)
+			if c.marker != "" {
+				require.NoError(t, store.WriteFileAtomic(markerPath, []byte(c.marker)))
+			}
+			var exports, deletes int
+			m.Migrator = &Migrator{Export: func(_ context.Context, del bool) ([]byte, error) {
+				if del {
+					deletes++
+				} else {
+					exports++
+				}
+				return []byte("{}"), nil
+			}}
+
+			_, err := m.SessionIDs(context.Background())
+			require.NoError(t, err)
+			assert.Equal(t, c.wantExports, exports)
+			assert.Equal(t, c.wantDeletes, deletes)
+		})
+	}
 }
 
 func TestTransport(t *testing.T) {

@@ -8,6 +8,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -52,7 +54,7 @@ type exportedSession struct {
 // A failure does not block authentication: it is reported, and retried after migrationRetryDelay.
 func (mg *Migrator) Run(ctx context.Context, m *Manager) error {
 	markerPath := filepath.Join(m.Store.Dir, store.MigrationMarker)
-	if mk, err := readMarker(markerPath); err != nil || !mg.due(mk) {
+	if mk, err := readMarker(markerPath); err != nil || !mg.due(m, mk) {
 		return err
 	}
 	if !m.Settings.DisableLocks {
@@ -63,16 +65,23 @@ func (mg *Migrator) Run(ctx context.Context, m *Manager) error {
 		defer unlock()
 	}
 	mk, err := readMarker(markerPath)
-	if err != nil || !mg.due(mk) {
+	if err != nil || !mg.due(m, mk) {
 		return err
 	}
 
 	if mk == nil || mk.ExportPending {
-		if err := mg.importSessions(ctx, m); err != nil {
-			if m.Stderr != nil {
-				fmt.Fprintf(m.Stderr, "Warning: failed to migrate credentials from the legacy CLI: %s\n", err)
+		switch legacy := mg.legacyState(m); {
+		case legacy == legacyEmpty:
+			return writeMarker(markerPath, &migrationMarker{})
+		case mk != nil && legacy == legacyImported:
+			// Only the deletion is left.
+		default:
+			if err := mg.importSessions(ctx, m); err != nil {
+				if m.Stderr != nil {
+					fmt.Fprintf(m.Stderr, "Warning: failed to migrate credentials from the legacy CLI: %s\n", err)
+				}
+				return writeMarker(markerPath, mg.retryLater(&migrationMarker{ExportPending: true}))
 			}
-			return writeMarker(markerPath, mg.retryLater(&migrationMarker{ExportPending: true}))
 		}
 	}
 
@@ -85,11 +94,65 @@ func (mg *Migrator) Run(ctx context.Context, m *Manager) error {
 }
 
 // due reports whether a migration step should run, given the marker (nil if there is none).
-func (mg *Migrator) due(mk *migrationMarker) bool {
-	if mk == nil {
+//
+// A failed export is retried early if it is no longer needed, e.g. because the user logged in again.
+func (mg *Migrator) due(m *Manager, mk *migrationMarker) bool {
+	switch {
+	case mk == nil:
 		return true
+	case mk.ExportPending && mg.legacyState(m) != legacyUnknown:
+		return true
+	default:
+		return (mk.ExportPending || mk.DeletePending) && time.Now().Unix() >= mk.RetryAfter
 	}
-	return (mk.ExportPending || mk.DeletePending) && time.Now().Unix() >= mk.RetryAfter
+}
+
+type legacyStorageState int
+
+const (
+	legacyUnknown  legacyStorageState = iota // Sessions may exist that are not in the Go store.
+	legacyImported                           // Every legacy session is already in the Go store.
+	legacyEmpty                              // The legacy storage holds no sessions.
+)
+
+// legacyState checks the legacy CLI's session files by their names, without reading them.
+//
+// Sessions in the keychain can only be listed by the legacy credential helper, so they count as unknown.
+func (mg *Migrator) legacyState(m *Manager) legacyStorageState {
+	writableDir := filepath.Dir(m.Store.Dir)
+	helper := filepath.Join(writableDir, "credential-helper")
+	if runtime.GOOS == "windows" {
+		helper += ".exe"
+	}
+	if _, err := os.Stat(helper); err == nil {
+		return legacyUnknown
+	}
+	sessionDir := filepath.Join(writableDir, ".session")
+	var ids []string
+	files, _ := filepath.Glob(filepath.Join(sessionDir, "sess-*", "sess-*.json"))
+	for _, f := range files {
+		id := strings.TrimPrefix(strings.TrimSuffix(filepath.Base(f), ".json"), "sess-")
+		if filepath.Base(filepath.Dir(f)) == "sess-"+id {
+			ids = append(ids, id)
+		}
+	}
+	tokenFiles, _ := filepath.Glob(filepath.Join(sessionDir, "sess-cli-*", "api-token"))
+	for _, f := range tokenFiles {
+		ids = append(ids, strings.TrimPrefix(filepath.Base(filepath.Dir(f)), "sess-cli-"))
+	}
+	if len(ids) == 0 {
+		return legacyEmpty
+	}
+	stored, err := m.Store.List()
+	if err != nil {
+		return legacyUnknown
+	}
+	for _, id := range ids {
+		if !strings.HasPrefix(id, "api-token-") && config.ValidateSessionID(id) == nil && !slices.Contains(stored, id) {
+			return legacyUnknown
+		}
+	}
+	return legacyImported
 }
 
 func (mg *Migrator) retryLater(mk *migrationMarker) *migrationMarker {
