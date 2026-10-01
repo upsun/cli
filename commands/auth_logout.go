@@ -41,7 +41,6 @@ func newAPITokenLoginCommand(cnf *config.Config) *cobra.Command {
 			}
 
 			const maxAttempts = 5
-			var lastErr error
 			for range maxAttempts {
 				fmt.Fprint(stderr, "Please enter an API token:\n> ")
 				apiToken, err := readSecret(cmd)
@@ -50,7 +49,6 @@ func newAPITokenLoginCommand(cnf *config.Config) *cobra.Command {
 				}
 				apiToken = strings.TrimSpace(apiToken)
 				if apiToken == "" {
-					lastErr = errors.New("the token cannot be empty")
 					fmt.Fprintln(stderr, color.RedString("The token cannot be empty"))
 					continue
 				}
@@ -60,7 +58,6 @@ func newAPITokenLoginCommand(cnf *config.Config) *cobra.Command {
 					if !errors.As(err, &oerr) {
 						return err
 					}
-					lastErr = err
 					fmt.Fprintln(stderr, color.RedString(err.Error()))
 					continue
 				}
@@ -68,7 +65,8 @@ func newAPITokenLoginCommand(cnf *config.Config) *cobra.Command {
 				fmt.Fprintln(stderr, "The API token is valid.")
 				return saveLogin(cmd, cnf, m, entry, apiToken)
 			}
-			return lastErr
+			// Each error has been printed.
+			return &exitError{code: 1}
 		},
 	}
 }

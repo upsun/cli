@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"net"
@@ -58,7 +59,11 @@ func newBrowserLoginCommand(cnf *config.Config) *cobra.Command {
 			methods, _ := cmd.Flags().GetStringSlice("method")
 			opts.methods = methods
 			if cmd.Flags().Changed("max-age") {
-				v, _ := cmd.Flags().GetInt("max-age")
+				s, _ := cmd.Flags().GetString("max-age")
+				v, err := strconv.Atoi(s)
+				if err != nil || v < 0 {
+					return errors.New("The --max-age value must be a non-negative integer.") //nolint:staticcheck // matches the legacy CLI
+				}
 				opts.maxAge = &v
 			}
 			opts.browser, _ = cmd.Flags().GetString("browser")
@@ -72,7 +77,7 @@ func newBrowserLoginCommand(cnf *config.Config) *cobra.Command {
 	}
 	cmd.Flags().BoolP("force", "f", false, "Log in again, even if already logged in")
 	cmd.Flags().StringSlice("method", nil, "Require specific authentication method(s)")
-	cmd.Flags().Int("max-age", 0, "The maximum age (in seconds) of the web authentication session")
+	cmd.Flags().String("max-age", "", "The maximum age (in seconds) of the web authentication session")
 	cmd.Flags().String("browser", "", "The browser to use to open the URL. Set 0 for none.")
 	cmd.Flags().Bool("pipe", false, "Output the URL to stdout.")
 	return cmd
