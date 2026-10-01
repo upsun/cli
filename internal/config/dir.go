@@ -74,28 +74,32 @@ func (c *Config) WritableUserDir() (string, error) {
 		return "", err
 	}
 	path := filepath.Join(hd, c.Application.WritableUserDir)
-	if err := mkdirWritable(path); err != nil {
+	if !canWrite(path) {
 		path = filepath.Join(os.TempDir(), c.Application.TempSubDir)
-		if err := mkdirWritable(path); err != nil {
-			return "", err
-		}
+	}
+	if err := os.MkdirAll(path, 0o700); err != nil {
+		return "", err
 	}
 	c.writableUserDir = path
 
 	return path, nil
 }
 
-// mkdirWritable creates a directory if needed, and checks that files can be created in it.
-func mkdirWritable(path string) error {
-	if err := os.MkdirAll(path, 0o700); err != nil {
-		return err
+// canWrite checks whether a directory is writable, or can be created, using permissions only.
+//
+// This matches the legacy CLI (Filesystem::canWrite), so both choose the same directory, e.g. even on a full disk.
+func canWrite(path string) bool {
+	if info, err := os.Stat(path); err == nil {
+		return info.IsDir() && isWritable(path, info)
 	}
-	f, err := os.CreateTemp(path, ".write-test-*")
-	if err != nil {
-		return err
+	for p := filepath.Dir(path); ; p = filepath.Dir(p) {
+		if info, err := os.Stat(p); err == nil {
+			return isWritable(p, info)
+		}
+		if filepath.Dir(p) == p {
+			return false
+		}
 	}
-	_ = f.Close()
-	return os.Remove(f.Name())
 }
 
 // HomeDir returns the user's home directory.
