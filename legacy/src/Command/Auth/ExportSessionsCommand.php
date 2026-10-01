@@ -19,11 +19,9 @@ use Symfony\Component\Filesystem\Filesystem;
  *
  * This must not use the API or the Go wrapper's auth commands, as it is run by the wrapper during its migration.
  */
-#[AsCommand(name: 'auth:export-sessions', description: 'Export stored sessions for migration (internal)')]
+#[AsCommand(name: 'auth:export-sessions', description: 'Export stored sessions for migration (internal)', hidden: true)]
 class ExportSessionsCommand extends CommandBase
 {
-    protected bool $hiddenInList = true;
-
     public function __construct(private readonly Config $config)
     {
         parent::__construct();

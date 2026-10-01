@@ -13,11 +13,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * Sets up SSH after a login made by the Go wrapper: host keys, a certificate, and SSH configuration.
  */
-#[AsCommand(name: 'auth:post-login', description: 'Set up SSH after a login (internal)')]
+#[AsCommand(name: 'auth:post-login', description: 'Set up SSH after a login (internal)', hidden: true)]
 class PostLoginCommand extends CommandBase
 {
-    protected bool $hiddenInList = true;
-
     public function __construct(private readonly Login $login)
     {
         parent::__construct();
