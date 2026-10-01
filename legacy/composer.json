@@ -21,7 +21,7 @@
         "khill/php-duration": "^1.1",
         "symfony/polyfill-mbstring": "^1.19",
         "symfony/polyfill-iconv": "^1.19",
-        "platformsh/oauth2": "^1@beta",
+        "platformsh/oauth2": "^1.0.0-beta4",
         "giggsey/libphonenumber-for-php-lite": "^8.13",
         "symfony/var-dumper": "^7.3"
     },
