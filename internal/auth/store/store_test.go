@@ -93,8 +93,10 @@ func TestStore_KeychainFailsLater(t *testing.T) {
 func TestStore_KeychainTooBig(t *testing.T) {
 	keyring.MockInitWithError(keyring.ErrSetDataTooBig)
 	s := &Store{Dir: t.TempDir(), Service: "test-cli-auth", UseKeychain: true}
-	err := s.Save("default", &Entry{AccessToken: "a"})
-	assert.ErrorIs(t, err, keyring.ErrSetDataTooBig)
+	require.NoError(t, s.Save("default", &Entry{AccessToken: "a"}))
+	sf, err := s.readSessionFile("default")
+	require.NoError(t, err)
+	assert.Equal(t, BackendFile, sf.Backend)
 }
 
 func TestStore_KeychainTimeout(t *testing.T) {

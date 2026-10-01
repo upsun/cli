@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 
@@ -23,13 +24,41 @@ import (
 	"github.com/upsun/cli/internal/config"
 )
 
-// authCommands returns the native auth commands, which are listed alongside the legacy CLI's commands.
+// authCommands returns the native auth commands that are enabled, which are listed alongside the legacy CLI's.
 func authCommands(cnf *config.Config) []*cobra.Command {
-	return []*cobra.Command{
+	all := []*cobra.Command{
 		newAPITokenLoginCommand(cnf),
 		newAuthTokenCommand(cnf),
 		newBrowserLoginCommand(cnf),
 		newLogoutCommand(cnf),
+	}
+	return slices.DeleteFunc(all, func(c *cobra.Command) bool {
+		return slices.Contains(cnf.Application.DisabledCommands, c.Name()) ||
+			slices.Contains(cnf.Application.WrappedDisabledCommands, c.Name())
+	})
+}
+
+// addLegacyGlobalFlags accepts the legacy CLI's global options that the root command does not define.
+func addLegacyGlobalFlags(c *cobra.Command) {
+	c.Flags().BoolP("no", "n", false, "Answer \"no\" to confirmation questions; disable interaction")
+	c.Flags().Bool("ansi", false, "Force ANSI output")
+	c.Flags().Bool("no-ansi", false, "Disable ANSI output")
+	for _, name := range []string{"no", "ansi", "no-ansi"} {
+		_ = c.Flags().MarkHidden(name)
+	}
+}
+
+// applyLegacyGlobalFlags applies the options added by addLegacyGlobalFlags.
+func applyLegacyGlobalFlags(c *cobra.Command) {
+	if no, _ := c.Flags().GetBool("no"); no {
+		viper.Set("no", true)
+		viper.Set("no-interaction", true)
+	}
+	if ansi, _ := c.Flags().GetBool("ansi"); ansi {
+		color.NoColor = false
+	}
+	if noANSI, _ := c.Flags().GetBool("no-ansi"); noANSI {
+		color.NoColor = true
 	}
 }
 
@@ -101,6 +130,9 @@ func readLine(r io.Reader) (string, error) {
 func confirm(cmd *cobra.Command, question string, def bool) (bool, error) {
 	if viper.GetBool("yes") {
 		return true, nil
+	}
+	if viper.GetBool("no") {
+		return false, nil
 	}
 	if !isInteractive(cmd) {
 		return def, nil
@@ -246,7 +278,7 @@ func browserCommand(browserOption string) []string {
 	switch {
 	case browserOption == "0":
 		return nil
-	case browserOption != "":
+	case strings.TrimSpace(browserOption) != "":
 		fields := strings.Fields(browserOption)
 		if _, err := exec.LookPath(fields[0]); err != nil {
 			return nil

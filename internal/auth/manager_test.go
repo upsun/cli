@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -353,6 +354,7 @@ func TestManager_LogoutAndStatus(t *testing.T) {
 func TestMigrator(t *testing.T) {
 	srv := newTestAuthServer(t)
 	dir := t.TempDir()
+	markerPath := filepath.Join(dir, store.MigrationMarker)
 	exported := `{
 		"default": {"access_token": "a", "refresh_token": "r", "token_type": "bearer", "expires": 123},
 		"other": {"api_token": "t"},
@@ -360,42 +362,69 @@ func TestMigrator(t *testing.T) {
 		"empty": {}
 	}`
 	var exports, deletes int
-	failDelete := true
+	failExport, failDelete := true, true
 	mg := &Migrator{Export: func(_ context.Context, del bool) ([]byte, error) {
 		if del {
 			deletes++
 			if failDelete {
-				return nil, fmt.Errorf("failed")
+				return nil, fmt.Errorf("delete failed")
 			}
 			return nil, nil
 		}
 		exports++
+		if failExport {
+			return nil, fmt.Errorf("export failed")
+		}
 		return []byte(exported), nil
 	}}
+	var stderr strings.Builder
 	newManager := func() *Manager {
 		m := newTestManager(srv, dir, &config.Auth{})
 		m.Migrator = mg
+		m.Stderr = &stderr
 		return m
 	}
+	// expireRetry makes a failed step due for a retry.
+	expireRetry := func() {
+		b, err := os.ReadFile(markerPath)
+		require.NoError(t, err)
+		var mk migrationMarker
+		require.NoError(t, json.Unmarshal(b, &mk))
+		assert.Greater(t, mk.RetryAfter, time.Now().Unix())
+		mk.RetryAfter = 0
+		require.NoError(t, writeMarker(markerPath, &mk))
+	}
 
+	// A failed export does not block authentication, and is retried later.
 	ids, err := newManager().SessionIDs(context.Background())
+	require.NoError(t, err)
+	assert.Empty(t, ids)
+	assert.Contains(t, stderr.String(), "failed to migrate credentials from the legacy CLI: export failed")
+	_, err = newManager().SessionIDs(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 1, exports, "the export must not be retried immediately")
+
+	failExport = false
+	expireRetry()
+	ids, err = newManager().SessionIDs(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, []string{"default", "other"}, ids)
 	e, err := newManager().Load(context.Background(), "default")
 	require.NoError(t, err)
 	assert.Equal(t, &store.Entry{AccessToken: "a", RefreshToken: "r", TokenType: "bearer", Expires: 123}, e)
-	assert.Equal(t, 1, exports)
-	assert.Equal(t, 2, deletes, "a failed delete must be retried on the next run")
+	assert.Equal(t, 2, exports)
+	assert.Equal(t, 1, deletes, "a failed delete must not be retried immediately")
 
 	failDelete = false
+	expireRetry()
 	_, err = newManager().SessionIDs(context.Background())
 	require.NoError(t, err)
 	_, err = newManager().SessionIDs(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, 1, exports, "sessions must only be exported once")
-	assert.Equal(t, 3, deletes)
+	assert.Equal(t, 2, exports, "sessions must only be imported once")
+	assert.Equal(t, 2, deletes)
 
-	b, err := os.ReadFile(filepath.Join(dir, store.MigrationMarker))
+	b, err := os.ReadFile(markerPath)
 	require.NoError(t, err)
 	assert.JSONEq(t, `{}`, string(b))
 }

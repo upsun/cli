@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -109,11 +110,10 @@ func (s *Store) Save(id string, e *Entry) error {
 	case sf != nil:
 		backend = sf.Backend
 	case s.UseKeychain:
-		// The backend is chosen once, so a keychain failure here can fall back to a file.
+		// The backend is chosen once, so any keychain failure here (including data that is too big) falls back to
+		// a file.
 		if err := s.keychainSet(id, b); err == nil {
 			backend = BackendKeychain
-		} else if errors.Is(err, keyring.ErrSetDataTooBig) {
-			return &KeychainError{Op: "save", Err: err}
 		}
 	}
 	if backend == BackendKeychain {
@@ -284,5 +284,12 @@ func WriteFileAtomic(path string, data []byte) error {
 	if err := f.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tmp, path)
+	// On Windows, replacing a file fails while another process has it open, e.g. a reader outside the lock.
+	for attempt := 0; ; attempt++ {
+		err = os.Rename(tmp, path)
+		if err == nil || runtime.GOOS != "windows" || attempt == 40 {
+			return err
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
 }

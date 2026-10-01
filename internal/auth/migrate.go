@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/upsun/cli/internal/auth/store"
 	"github.com/upsun/cli/internal/config"
@@ -26,9 +27,15 @@ type Migrator struct {
 
 // migrationMarker is the content of the marker file.
 type migrationMarker struct {
-	// DeletePending records that the legacy CLI's copies have not been deleted yet.
+	// ExportPending records that the export failed, and DeletePending that the legacy CLI's copies were not deleted.
+	ExportPending bool `json:"export_pending,omitempty"`
 	DeletePending bool `json:"delete_pending,omitempty"`
+	// RetryAfter is when a failed step may be retried, as a Unix timestamp.
+	RetryAfter int64 `json:"retry_after,omitempty"`
 }
+
+// migrationRetryDelay is how long to wait before retrying a failed migration step.
+const migrationRetryDelay = time.Hour
 
 // exportedSession is a session as exported by the legacy CLI.
 type exportedSession struct {
@@ -42,33 +49,63 @@ type exportedSession struct {
 // Run migrates sessions if that has not been done yet.
 //
 // Sessions are never imported twice, because a second import would overwrite fresh tokens with rotated ones.
+// A failure does not block authentication: it is reported, and retried after migrationRetryDelay.
 func (mg *Migrator) Run(ctx context.Context, m *Manager) error {
 	markerPath := filepath.Join(m.Store.Dir, store.MigrationMarker)
-	if mk, err := readMarker(markerPath); err != nil || mk != nil {
-		if err == nil && mk.DeletePending {
-			mg.deleteExported(ctx, markerPath)
-		}
+	if mk, err := readMarker(markerPath); err != nil || !mg.due(mk) {
 		return err
 	}
-
 	if !m.Settings.DisableLocks {
 		unlock, err := m.fileLock(ctx, filepath.Join(m.Store.Dir, ".migrate.lock"))
 		if err != nil {
 			return err
 		}
 		defer unlock()
-		if mk, err := readMarker(markerPath); err != nil || mk != nil {
-			return err
+	}
+	mk, err := readMarker(markerPath)
+	if err != nil || !mg.due(mk) {
+		return err
+	}
+
+	if mk == nil || mk.ExportPending {
+		if err := mg.importSessions(ctx, m); err != nil {
+			if m.Stderr != nil {
+				fmt.Fprintf(m.Stderr, "Warning: failed to migrate credentials from the legacy CLI: %s\n", err)
+			}
+			return writeMarker(markerPath, mg.retryLater(&migrationMarker{ExportPending: true}))
 		}
 	}
 
+	// The legacy CLI's copies are deleted to avoid having two sources of truth.
+	if _, err := mg.Export(ctx, true); err != nil {
+		mg.debugf("Failed to delete the legacy CLI's credentials: %s", err)
+		return writeMarker(markerPath, mg.retryLater(&migrationMarker{DeletePending: true}))
+	}
+	return writeMarker(markerPath, &migrationMarker{})
+}
+
+// due reports whether a migration step should run, given the marker (nil if there is none).
+func (mg *Migrator) due(mk *migrationMarker) bool {
+	if mk == nil {
+		return true
+	}
+	return (mk.ExportPending || mk.DeletePending) && time.Now().Unix() >= mk.RetryAfter
+}
+
+func (mg *Migrator) retryLater(mk *migrationMarker) *migrationMarker {
+	mk.RetryAfter = time.Now().Add(migrationRetryDelay).Unix()
+	return mk
+}
+
+// importSessions exports sessions from the legacy CLI and saves the ones that are not already stored.
+func (mg *Migrator) importSessions(ctx context.Context, m *Manager) error {
 	out, err := mg.Export(ctx, false)
 	if err != nil {
-		return fmt.Errorf("failed to export credentials from the legacy CLI: %w", err)
+		return err
 	}
 	var sessions map[string]exportedSession
 	if err := json.Unmarshal(out, &sessions); err != nil {
-		return fmt.Errorf("failed to parse credentials exported from the legacy CLI: %w", err)
+		return fmt.Errorf("invalid export: %w", err)
 	}
 	for id, s := range sessions {
 		// API token sessions are skipped, as the token is exchanged again.
@@ -95,23 +132,7 @@ func (mg *Migrator) Run(ctx context.Context, m *Manager) error {
 		}
 		mg.debugf("Migrated session: %s", id)
 	}
-
-	if err := writeMarker(markerPath, &migrationMarker{DeletePending: true}); err != nil {
-		return err
-	}
-	mg.deleteExported(ctx, markerPath)
 	return nil
-}
-
-// deleteExported deletes the legacy CLI's copies of the exported sessions. On failure it is retried on a later run.
-func (mg *Migrator) deleteExported(ctx context.Context, markerPath string) {
-	if _, err := mg.Export(ctx, true); err != nil {
-		mg.debugf("Failed to delete the legacy CLI's credentials: %s", err)
-		return
-	}
-	if err := writeMarker(markerPath, &migrationMarker{}); err != nil {
-		mg.debugf("Failed to write %s: %s", markerPath, err)
-	}
 }
 
 func (mg *Migrator) debugf(format string, args ...any) {

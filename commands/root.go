@@ -183,6 +183,8 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		cmd.AddCommand(newProjectConvertCommand(cnf))
 	}
 	for _, c := range authCommands(cnf) {
+		addLegacyGlobalFlags(c)
+		c.PreRun = func(c *cobra.Command, _ []string) { applyLegacyGlobalFlags(c) }
 		cmd.AddCommand(useLegacyStyleHelp(cnf, c))
 	}
 

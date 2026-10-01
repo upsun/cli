@@ -20,10 +20,12 @@ func commandFromCobra(cnf *config.Config, c *cobra.Command) Command {
 	}
 	options := orderedmap.New[string, Option]()
 	c.LocalNonPersistentFlags().VisitAll(func(f *pflag.Flag) {
+		if f.Hidden {
+			return
+		}
 		opt := Option{
 			Name:        "--" + f.Name,
 			Description: CleanString(f.Usage),
-			Hidden:      f.Hidden,
 		}
 		if f.Shorthand != "" {
 			opt.Shortcut = "-" + f.Shorthand
