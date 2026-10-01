@@ -67,7 +67,8 @@ func TestWritableUserDir_TempFallback(t *testing.T) {
 			c.setup(t, home)
 			tmp := t.TempDir()
 			t.Setenv("EXAMPLE_CLI_HOME", home)
-			t.Setenv("TMPDIR", tmp)
+			t.Setenv("TMPDIR", tmp) // Unix
+			t.Setenv("TMP", tmp)    // Windows
 
 			dir, err := cnf.WritableUserDir()
 			require.NoError(t, err)
