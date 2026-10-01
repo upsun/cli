@@ -252,10 +252,24 @@ func saveLogin(cmd *cobra.Command, cnf *config.Config, m *auth.Manager, entry *s
 		}
 		entry = &store.Entry{APIToken: apiToken}
 	}
+	if err := clearLegacySessionFiles(cnf, id, []string{id}, false); err != nil {
+		return err
+	}
 	if err := m.Save(ctx, id, entry); err != nil {
 		return err
 	}
-	return runLegacyAuthHook(cmd, cnf, "auth:post-login")
+	stderr := cmd.ErrOrStderr()
+	fmt.Fprintln(stderr, "You are logged in.")
+	if err := runLegacyAuthHook(cmd, cnf, "auth:post-login"); err != nil {
+		return err
+	}
+	account, err := getMyAccount(ctx, cnf, m)
+	if err != nil {
+		return fmt.Errorf("failed to load account information: %w", err)
+	}
+	fmt.Fprintf(stderr, "\nUsername: %s\nEmail address: %s\n",
+		color.GreenString(account.Username), color.GreenString(account.Email))
+	return nil
 }
 
 type myAccount struct {

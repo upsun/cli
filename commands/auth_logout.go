@@ -122,7 +122,7 @@ func runLogout(cmd *cobra.Command, cnf *config.Config, all, other bool) error {
 				return err
 			}
 		}
-		if err := runLegacyAuthHook(cmd, cnf, append([]string{"auth:post-logout"}, others...)...); err != nil {
+		if err := clearLegacySessionFiles(cnf, current, others, false); err != nil {
 			return err
 		}
 		for _, id := range others {
@@ -145,7 +145,7 @@ func runLogout(cmd *cobra.Command, cnf *config.Config, all, other bool) error {
 		if err := m.DeleteAll(ctx); err != nil {
 			return err
 		}
-		if err := runLegacyAuthHook(cmd, cnf, "auth:post-logout", "--all", current); err != nil {
+		if err := clearLegacySessionFiles(cnf, current, ids, true); err != nil {
 			return err
 		}
 		fmt.Fprintln(stderr, "You are now logged out.")
@@ -154,7 +154,7 @@ func runLogout(cmd *cobra.Command, cnf *config.Config, all, other bool) error {
 		printSessionAdvice(cmd, cnf, m)
 		return nil
 	}
-	if err := runLegacyAuthHook(cmd, cnf, "auth:post-logout", current); err != nil {
+	if err := clearLegacySessionFiles(cnf, current, []string{current}, false); err != nil {
 		return err
 	}
 	fmt.Fprintln(stderr, "You are now logged out.")

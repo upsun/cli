@@ -87,7 +87,7 @@ func newAuthManager(cnf *config.Config, stderr io.Writer) (*auth.Manager, error)
 	return m, nil
 }
 
-// runLegacyAuthHook runs a hidden legacy CLI command that completes a login or logout (SSH certificates, etc.).
+// runLegacyAuthHook runs a hidden legacy CLI command that completes a login (SSH certificates and config).
 func runLegacyAuthHook(cmd *cobra.Command, cnf *config.Config, args ...string) error {
 	c := makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), cmd.ErrOrStderr(), cmd.InOrStdin())
 	return c.Exec(cmd.Context(), args...)

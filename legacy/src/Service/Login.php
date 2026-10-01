@@ -13,7 +13,6 @@ readonly class Login
     private OutputInterface $stdErr;
 
     public function __construct(
-        private Api            $api,
         private Certifier      $certifier,
         private Config         $config,
         private QuestionHelper $questionHelper,
@@ -24,14 +23,10 @@ readonly class Login
     }
 
     /**
-     * Finalizes login: refreshes SSH certificate, prints account information.
+     * Sets up SSH after a login: host keys, a certificate, and SSH configuration.
      */
     public function finalize(): void
     {
-        // Reset the API client so that it will use the new tokens.
-        $this->api->getClient(false, true);
-        $this->stdErr->writeln('You are logged in.');
-
         // Configure SSH host keys.
         $this->sshConfig->configureHostKeys();
 
@@ -52,14 +47,6 @@ readonly class Login
         if ($this->sshConfig->configureSessionSsh()) {
             $this->sshConfig->addUserSshConfig($this->questionHelper);
         }
-
-        // Show user account info.
-        $account = $this->api->getMyAccount(true);
-        $this->stdErr->writeln(sprintf(
-            "\nUsername: <info>%s</info>\nEmail address: <info>%s</info>",
-            $account['username'],
-            $account['email'],
-        ));
     }
 
     /**
