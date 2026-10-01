@@ -21,6 +21,15 @@ type Handler struct {
 	t *testing.T
 
 	store
+
+	stepUpAMR []string
+}
+
+// RequireStepUp makes every request fail with a step-up authentication challenge (RFC 9470).
+func (h *Handler) RequireStepUp(amr []string) {
+	h.Lock()
+	defer h.Unlock()
+	h.stepUpAMR = amr
 }
 
 func NewHandler(t *testing.T) *Handler {
@@ -36,6 +45,15 @@ func NewHandler(t *testing.T) *Handler {
 			authHeader := req.Header.Get("Authorization")
 			require.NotEmpty(t, authHeader)
 			require.True(t, strings.HasPrefix(authHeader, "Bearer "))
+			h.RLock()
+			stepUp := h.stepUpAMR
+			h.RUnlock()
+			if stepUp != nil {
+				w.Header().Set("WWW-Authenticate", `Bearer error="insufficient_user_authentication"`)
+				w.WriteHeader(http.StatusUnauthorized)
+				_ = json.NewEncoder(w).Encode(map[string]any{"amr": stepUp})
+				return
+			}
 			next.ServeHTTP(w, req)
 		})
 	})
