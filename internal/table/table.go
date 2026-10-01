@@ -26,6 +26,8 @@ type Column struct {
 	Header string
 	// Name identifies the column in --columns (case-insensitively). It defaults to Header.
 	Name string
+	// NoWrap stops the column's cells from being wrapped in the table format.
+	NoWrap bool
 }
 
 // Table describes the columns of a table.
@@ -33,6 +35,8 @@ type Table struct {
 	Columns []Column
 	// DefaultColumns lists the names of the columns displayed by default. If empty, all columns are displayed.
 	DefaultColumns []string
+	// MaxWidth is the width that the table format wraps cells to fit. It defaults to the terminal width.
+	MaxWidth int
 }
 
 // Options holds the user's output options.
@@ -138,7 +142,15 @@ func (t *Table) Render(w io.Writer, rows [][]string, opts Options) error {
 	case FormatPlain:
 		return renderDelimited(w, header, filteredRows, "\t", plainCell)
 	case "", FormatTable:
-		return renderTable(w, header, filteredRows)
+		noWrap := make([]bool, len(toDisplay))
+		for i, name := range toDisplay {
+			noWrap[i] = t.Columns[indexes[name]].NoWrap
+		}
+		maxWidth := t.MaxWidth
+		if maxWidth <= 0 {
+			maxWidth = terminalWidth()
+		}
+		return renderTable(w, header, filteredRows, noWrap, maxWidth)
 	default:
 		return fmt.Errorf(`Invalid format: "%s". Supported formats: table, csv, tsv, plain`, format) //nolint:staticcheck
 	}
