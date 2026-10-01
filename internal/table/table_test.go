@@ -28,6 +28,7 @@ var testRows = [][]string{
 }
 
 func TestRender(t *testing.T) {
+	t.Setenv("COLUMNS", "80")
 	cases := []struct {
 		name    string
 		opts    Options
@@ -104,6 +105,7 @@ line	tab",active
 }
 
 func TestRenderTableEdgeCases(t *testing.T) {
+	t.Setenv("COLUMNS", "80")
 	tbl := &Table{Columns: []Column{{Header: "Name"}, {Header: "Value"}}}
 	cases := []struct {
 		name string
@@ -169,4 +171,126 @@ Values may be split by commas (e.g. "a,b,c") and/or whitespace.`, columns.Usage)
 	PropertiesTable().AddFlags(fs)
 	assert.Empty(t, fs.Lookup("columns").Shorthand)
 	assert.Contains(t, fs.Lookup("columns").Usage, "Available columns: property, value.")
+}
+
+func TestRenderTableWrapping(t *testing.T) {
+	cases := []struct {
+		name    string
+		columns []Column
+		rows    [][]string
+		width   int
+		want    string
+	}{
+		{
+			name:    "wraps to fit",
+			columns: []Column{{Header: "ID"}, {Header: "Description"}},
+			rows: [][]string{
+				{"1", "The quick brown fox jumps over the lazy dog and keeps running far away"},
+				{"2", "short"},
+			},
+			width: 40,
+			want: `+----+--------------------------------+
+| ID | Description                    |
++----+--------------------------------+
+| 1  | The quick brown fox jumps over |
+|    | the lazy dog and keeps running |
+|    | far away                       |
+| 2  | short                          |
++----+--------------------------------+
+`,
+		},
+		{
+			name:    "long words and indentation",
+			columns: []Column{{Header: "K"}, {Header: "V"}},
+			rows: [][]string{
+				{"a", "Averyveryveryverylongwordwithoutspaces"},
+				{"b", "  indented text that wraps around the cell"},
+			},
+			width: 30,
+			want: `+---+------------------------+
+| K | V                      |
++---+------------------------+
+| a | Averyveryveryverylongw |
+|   | ordwithoutspaces       |
+| b |   indented text that   |
+|   |   wraps around the     |
+|   |   cell                 |
++---+------------------------+
+`,
+		},
+		{
+			name:    "no-wrap columns and headers keep their width",
+			columns: []Column{{Header: "A long header"}, {Header: "URL", NoWrap: true}, {Header: "Notes"}},
+			rows:    [][]string{{"x", "https://example.com/long/path", "some notes that wrap"}},
+			width:   40,
+			want: `+---------------+-------------------------------+------------+
+| A long header | URL                           | Notes      |
++---------------+-------------------------------+------------+
+| x             | https://example.com/long/path | some notes |
+|               |                               | that wrap  |
++---------------+-------------------------------+------------+
+`,
+		},
+		{
+			name:    "wide characters",
+			columns: []Column{{Header: "K"}, {Header: "V"}},
+			rows:    [][]string{{"a", "日本語 日本語 日本語 日本語"}},
+			width:   20,
+			want: `+---+--------+
+| K | V      |
++---+--------+
+| a | 日本語 |
+|   | 日本語 |
+|   | 日本語 |
+|   | 日本語 |
++---+--------+
+`,
+		},
+		{
+			name:    "styles are closed at the end of each line and reopened",
+			columns: []Column{{Header: "K"}, {Header: "V"}},
+			rows:    [][]string{{"\x1b[1ma\x1b[0m", "\x1b[32mgreen text that wraps\x1b[0m plain"}},
+			width:   20,
+			want: "+---+------------+\n" +
+				"| K | V          |\n" +
+				"+---+------------+\n" +
+				"| \x1b[1ma\x1b[0m | \x1b[32mgreen text\x1b[0m |\n" +
+				"|   | \x1b[32mthat wraps\x1b[0m |\n" +
+				"|   | plain      |\n" +
+				"+---+------------+\n",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var b bytes.Buffer
+			tbl := &Table{Columns: c.columns, MaxWidth: c.width}
+			require.NoError(t, tbl.Render(&b, c.rows, Options{}))
+			assert.Equal(t, c.want, b.String())
+		})
+	}
+}
+
+func TestRenderStripsANSIFromMachineFormats(t *testing.T) {
+	tbl := &Table{Columns: []Column{{Header: "\x1b[32mName\x1b[0m"}, {Header: "Value"}}}
+	rows := [][]string{{"\x1b[1ma,b\x1b[0m", "\x1b[33mx\x1b[0m"}}
+	cases := []struct {
+		format string
+		want   string
+	}{
+		{"csv", "Name,Value\n\"a,b\",x\n"},
+		{"tsv", "Name\tValue\na,b\tx\n"},
+		{"plain", "Name\tValue\na,b\tx\n"},
+	}
+	for _, c := range cases {
+		t.Run(c.format, func(t *testing.T) {
+			var b bytes.Buffer
+			require.NoError(t, tbl.Render(&b, rows, Options{Format: c.format}))
+			assert.Equal(t, c.want, b.String())
+		})
+	}
+}
+
+func TestTerminalWidth(t *testing.T) {
+	t.Setenv("COLUMNS", "123")
+	assert.Equal(t, 123, terminalWidth())
 }
