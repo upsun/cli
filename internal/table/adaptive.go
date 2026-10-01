@@ -107,11 +107,10 @@ func isolateStyles(lines []string) []string {
 	for i, line := range lines {
 		out[i] = active + line
 		for _, m := range sgrRegex.FindAllStringSubmatch(line, -1) {
-			params := m[1]
-			if params == "" || slices.Contains(strings.Split(params, ";"), "0") {
+			if sgrResets(m[1]) {
 				active = ""
 			}
-			if params != "" && params != "0" {
+			if m[1] != "" && m[1] != "0" {
 				active += m[0]
 			}
 		}
@@ -120,4 +119,22 @@ func isolateStyles(lines []string) []string {
 		}
 	}
 	return out
+}
+
+// sgrResets returns whether SGR parameters include a reset, skipping the arguments of extended colors.
+func sgrResets(params string) bool {
+	parts := strings.Split(params, ";")
+	for i := 0; i < len(parts); i++ {
+		switch parts[i] {
+		case "", "0":
+			return true
+		case "38", "48", "58":
+			if i+1 < len(parts) && parts[i+1] == "5" {
+				i += 2
+			} else if i+1 < len(parts) && parts[i+1] == "2" {
+				i += 4
+			}
+		}
+	}
+	return false
 }

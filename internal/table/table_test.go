@@ -294,3 +294,46 @@ func TestTerminalWidth(t *testing.T) {
 	t.Setenv("COLUMNS", "123")
 	assert.Equal(t, 123, terminalWidth())
 }
+
+func TestIsolateStyles(t *testing.T) {
+	cases := []struct {
+		name  string
+		lines []string
+		want  []string
+	}{
+		{
+			name:  "unstyled",
+			lines: []string{"a", "b"},
+			want:  []string{"a", "b"},
+		},
+		{
+			name:  "reset within a line",
+			lines: []string{"\x1b[1ma\x1b[0m", "b"},
+			want:  []string{"\x1b[1ma\x1b[0m", "b"},
+		},
+		{
+			name:  "style continues to the next line",
+			lines: []string{"\x1b[1ma", "b\x1b[m"},
+			want:  []string{"\x1b[1ma\x1b[0m", "\x1b[1mb\x1b[m"},
+		},
+		{
+			name:  "extended colors with zero components are not resets",
+			lines: []string{"\x1b[1m\x1b[38;2;0;255;0ma", "\x1b[48;5;0mb", "c"},
+			want: []string{
+				"\x1b[1m\x1b[38;2;0;255;0ma\x1b[0m",
+				"\x1b[1m\x1b[38;2;0;255;0m\x1b[48;5;0mb\x1b[0m",
+				"\x1b[1m\x1b[38;2;0;255;0m\x1b[48;5;0mc\x1b[0m",
+			},
+		},
+		{
+			name:  "reset combined with a new style",
+			lines: []string{"\x1b[1ma", "\x1b[0;32mb", "c"},
+			want:  []string{"\x1b[1ma\x1b[0m", "\x1b[1m\x1b[0;32mb\x1b[0m", "\x1b[0;32mc\x1b[0m"},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			assert.Equal(t, c.want, isolateStyles(c.lines))
+		})
+	}
+}
