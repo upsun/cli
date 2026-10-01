@@ -22,6 +22,9 @@ use Symfony\Component\Filesystem\Filesystem;
 #[AsCommand(name: 'auth:export-sessions', description: 'Export stored sessions for migration (internal)', hidden: true)]
 class ExportSessionsCommand extends CommandBase
 {
+    // The attribute's "hidden" stops abbreviations from matching, and this hides the command once it is loaded.
+    protected bool $hiddenInList = true;
+
     public function __construct(private readonly Config $config)
     {
         parent::__construct();

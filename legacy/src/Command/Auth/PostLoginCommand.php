@@ -16,6 +16,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'auth:post-login', description: 'Set up SSH after a login (internal)', hidden: true)]
 class PostLoginCommand extends CommandBase
 {
+    // The attribute's "hidden" stops abbreviations from matching, and this hides the command once it is loaded.
+    protected bool $hiddenInList = true;
+
     public function __construct(private readonly Login $login)
     {
         parent::__construct();

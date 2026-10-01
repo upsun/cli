@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"encoding/json"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -236,4 +237,29 @@ func TestAuthInternal(t *testing.T) {
 	assertExitCode(t, 3, err)
 	assert.Empty(t, stdout)
 	assert.Equal(t, "{}", strings.TrimSpace(stderr))
+}
+
+// TestAuthInternalCommandsHidden checks that the internal legacy commands are hidden, and not run via abbreviations.
+func TestAuthInternalCommandsHidden(t *testing.T) {
+	f := newCommandFactory(t, "", "")
+
+	var list struct {
+		Commands []struct {
+			Name   string `json:"name"`
+			Hidden bool   `json:"hidden"`
+		} `json:"commands"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(f.Run("list", "--all", "--format=json")), &list))
+	hidden := map[string]bool{}
+	for _, c := range list.Commands {
+		hidden[c.Name] = c.Hidden
+	}
+	for _, name := range []string{"auth:export-sessions", "auth:post-login"} {
+		h, ok := hidden[name]
+		assert.True(t, ok && h, "%s must be listed as hidden", name)
+	}
+
+	_, stderr, err := f.RunCombinedOutput("auth:ex")
+	assert.Error(t, err)
+	assert.Contains(t, stderr, `The command "auth:ex" does not exist.`)
 }
