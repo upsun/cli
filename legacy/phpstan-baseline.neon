@@ -1,96 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Binary operation "\." between ''http\://127\.0\.0\.1\:'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: resources/oauth-listener/index.php
-
-		-
-			message: '#^Parameter \#1 \$message of method Platformsh\\Cli\\OAuth\\Listener\:\:reportError\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: resources/oauth-listener/index.php
-
-		-
-			message: '#^Parameter \#1 \(mixed\) of echo cannot be converted to string\.$#'
-			identifier: echo.nonString
-			count: 1
-			path: resources/oauth-listener/index.php
-
-		-
-			message: '#^Parameter \#2 \$error of method Platformsh\\Cli\\OAuth\\Listener\:\:reportError\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: resources/oauth-listener/index.php
-
-		-
-			message: '#^Parameter \#3 \$hint of method Platformsh\\Cli\\OAuth\\Listener\:\:reportError\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: resources/oauth-listener/index.php
-
-		-
-			message: '#^Parameter \#3 \$subject of function preg_replace_callback expects array\<float\|int\|string\>\|string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: resources/oauth-listener/index.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\OAuth\\Listener\:\:\$authMethods \(string\) does not accept mixed\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: resources/oauth-listener/index.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\OAuth\\Listener\:\:\$authUrl \(string\) does not accept mixed\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: resources/oauth-listener/index.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\OAuth\\Listener\:\:\$clientId \(string\) does not accept mixed\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: resources/oauth-listener/index.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\OAuth\\Listener\:\:\$codeChallenge \(string\) does not accept mixed\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: resources/oauth-listener/index.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\OAuth\\Listener\:\:\$file \(string\) does not accept mixed\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: resources/oauth-listener/index.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\OAuth\\Listener\:\:\$maxAge \(string\|null\) does not accept mixed\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: resources/oauth-listener/index.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\OAuth\\Listener\:\:\$prompt \(string\) does not accept mixed\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: resources/oauth-listener/index.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\OAuth\\Listener\:\:\$scope \(string\) does not accept mixed\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: resources/oauth-listener/index.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\OAuth\\Listener\:\:\$state \(string\) does not accept mixed\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: resources/oauth-listener/index.php
-
-		-
 			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
 			identifier: foreach.nonIterable
 			count: 1
@@ -389,120 +299,6 @@ parameters:
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
 			path: src/Command/App/AppListCommand.php
-
-		-
-			message: '#^Call to an undefined method Platformsh\\Client\\Connection\\ConnectorInterface\:\:getOAuth2Provider\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Auth/ApiTokenLoginCommand.php
-
-		-
-			message: '#^Call to an undefined method Platformsh\\Client\\Connection\\ConnectorInterface\:\:saveToken\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Auth/ApiTokenLoginCommand.php
-
-		-
-			message: '#^Cannot call method getAccessToken\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Auth/ApiTokenLoginCommand.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 2
-			path: src/Command/Auth/ApiTokenLoginCommand.php
-
-		-
-			message: '#^Parameter \#1 \$validator of method Symfony\\Component\\Console\\Question\\Question\:\:setValidator\(\) expects \(callable\(mixed\)\: mixed\)\|null, Closure\(string\|null\)\: non\-empty\-string given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Auth/ApiTokenLoginCommand.php
-
-		-
-			message: '#^Parameter \#2 \$accessToken of method Platformsh\\Cli\\Command\\Auth\\ApiTokenLoginCommand\:\:saveTokens\(\) expects League\\OAuth2\\Client\\Token\\AccessToken, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Auth/ApiTokenLoginCommand.php
-
-		-
-			message: '#^Binary operation "\." between ''  Description\: '' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Auth/BrowserLoginCommand.php
-
-		-
-			message: '#^Binary operation "\." between ''  Hint\: '' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Auth/BrowserLoginCommand.php
-
-		-
-			message: '#^Binary operation "\." between ''  OAuth 2\.0 error\: …'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Auth/BrowserLoginCommand.php
-
-		-
-			message: '#^Cannot access offset ''code'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Auth/BrowserLoginCommand.php
-
-		-
-			message: '#^Cannot access offset ''error'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Auth/BrowserLoginCommand.php
-
-		-
-			message: '#^Cannot access offset ''error_description'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Command/Auth/BrowserLoginCommand.php
-
-		-
-			message: '#^Cannot access offset ''error_hint'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Auth/BrowserLoginCommand.php
-
-		-
-			message: '#^Cannot access offset ''redirect_uri'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Auth/BrowserLoginCommand.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Command\\Auth\\BrowserLoginCommand\:\:getAccessToken\(\) should return array\<string, mixed\> but returns array\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Command/Auth/BrowserLoginCommand.php
-
-		-
-			message: '#^Parameter \#1 \$authCode of method Platformsh\\Cli\\Command\\Auth\\BrowserLoginCommand\:\:getAccessToken\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Auth/BrowserLoginCommand.php
-
-		-
-			message: '#^Parameter \#1 \$env of method Symfony\\Component\\Process\\Process\:\:setEnv\(\) expects array\<string\|Stringable\>, array\<string, array\<mixed\>\|bool\|float\|int\|string\|null\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Auth/BrowserLoginCommand.php
-
-		-
-			message: '#^Parameter \#1 \$messages of method Symfony\\Component\\Console\\Output\\OutputInterface\:\:writeln\(\) expects iterable\|string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Auth/BrowserLoginCommand.php
-
-		-
-			message: '#^Parameter \#3 \$redirectUri of method Platformsh\\Cli\\Command\\Auth\\BrowserLoginCommand\:\:getAccessToken\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Auth/BrowserLoginCommand.php
 
 		-
 			message: '#^Binary operation "\." between ''A verification code…'' and mixed results in an error\.$#'
@@ -5599,12 +5395,6 @@ parameters:
 			path: src/Service/Api.php
 
 		-
-			message: '#^Call to function is_array\(\) with array\<string, mixed\> will always evaluate to true\.$#'
-			identifier: function.alreadyNarrowedType
-			count: 1
-			path: src/Service/Api.php
-
-		-
 			message: '#^Cannot access offset ''_endpoint'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 2
@@ -5709,7 +5499,7 @@ parameters:
 		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 6
+			count: 3
 			path: src/Service/Api.php
 
 		-
@@ -5732,12 +5522,6 @@ parameters:
 
 		-
 			message: '#^Method Platformsh\\Cli\\Service\\Api\:\:checkUserVerification\(\) should return array\{state\: bool, type\: string\} but returns array\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/Api.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Service\\Api\:\:getAccessToken\(\) should return string but returns mixed\.$#'
 			identifier: return.type
 			count: 1
 			path: src/Service/Api.php
@@ -5809,12 +5593,6 @@ parameters:
 			path: src/Service/Api.php
 
 		-
-			message: '#^Parameter \#1 \$body of method Platformsh\\Cli\\Service\\Api\:\:isApiTokenInvalid\(\) expects array\<string, mixed\>, array\<mixed, mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Api.php
-
-		-
 			message: '#^Parameter \#1 \$data of class Platformsh\\Client\\Model\\Deployment\\EnvironmentDeployment constructor expects array, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -5851,12 +5629,6 @@ parameters:
 			path: src/Service/Api.php
 
 		-
-			message: '#^Parameter \#1 \$data of method Platformsh\\Cli\\Service\\Api\:\:isSsoSessionExpired\(\) expects array\<string, mixed\>, array\<mixed, mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Api.php
-
-		-
 			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getOrganizationById\(\) expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 2
@@ -5870,12 +5642,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$project of method Platformsh\\Cli\\Service\\Api\:\:supportsGuaranteedCPU\(\) expects Platformsh\\Client\\Model\\Project, Platformsh\\Client\\Model\\Project\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Api.php
-
-		-
-			message: '#^Parameter \#1 \$storage of method Platformsh\\Client\\Session\\Session\:\:setStorage\(\) expects Platformsh\\Client\\Session\\Storage\\SessionStorageInterface, Platformsh\\Client\\Session\\Storage\\SessionStorageInterface\|null given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Service/Api.php
@@ -7151,12 +6917,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: src/Util/YamlParser.php
-
-		-
-			message: '#^Cannot access offset ''access_token'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: tests/Command/Auth/BrowserLoginCommandTest.php
 
 		-
 			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
