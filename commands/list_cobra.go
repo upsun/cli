@@ -19,7 +19,7 @@ func commandFromCobra(cnf *config.Config, c *cobra.Command) Command {
 		namespace, name = "", c.Name()
 	}
 	options := orderedmap.New[string, Option]()
-	c.Flags().VisitAll(func(f *pflag.Flag) {
+	c.LocalNonPersistentFlags().VisitAll(func(f *pflag.Flag) {
 		opt := Option{
 			Name:        "--" + f.Name,
 			Description: CleanString(f.Usage),
@@ -41,7 +41,9 @@ func commandFromCobra(cnf *config.Config, c *cobra.Command) Command {
 		options.Set(f.Name, opt)
 	})
 	for _, opt := range globalOptions(cnf) {
-		options.Set(opt.GetName(), opt)
+		if !opt.Hidden {
+			options.Set(opt.GetName(), opt)
+		}
 	}
 	return Command{
 		Name:        CommandName{Namespace: namespace, Command: name},
