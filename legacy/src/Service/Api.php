@@ -48,6 +48,7 @@ use Platformsh\Client\Model\Team\TeamProjectAccess;
 use Platformsh\Client\Model\User;
 use Platformsh\Client\PlatformClient;
 use Platformsh\Client\Session\Session;
+use Platformsh\Client\Session\SessionInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Symfony\Component\Console\Output\ConsoleOutput;
@@ -109,9 +110,11 @@ class Api
     private static array $notFound = [];
 
     /**
-     * A placeholder refresh token: tokens are refreshed by the Go wrapper.
+     * The prefix of placeholder refresh tokens, which identify the access token held by the OAuth 2.0 middleware.
+     *
+     * Tokens are refreshed by the Go wrapper, so these are never sent anywhere.
      */
-    private const GO_REFRESH_TOKEN = 'go';
+    private const GO_REFRESH_TOKEN_PREFIX = 'go:';
 
     /**
      * The last token from the Go wrapper.
@@ -225,7 +228,7 @@ class Api
         $connectorOptions['revoke_url'] = $this->config->get('api.oauth2_revoke_url');
 
         // Tokens are refreshed by the Go wrapper. The middleware calls this when its token has expired, or after a 401.
-        $connectorOptions['on_refresh_start'] = fn(): AccessToken => $this->refreshFromGo();
+        $connectorOptions['on_refresh_start'] = fn(string $refreshToken): AccessToken => $this->refreshFromGo($refreshToken);
 
         $connectorOptions['on_step_up_auth_response'] = fn(ResponseInterface $response) => $this->onStepUpAuthResponse($response);
 
@@ -282,11 +285,17 @@ class Api
 
     /**
      * Gets a new token from the Go wrapper, for the OAuth 2.0 middleware.
+     *
+     * @param string $refreshToken The placeholder refresh token of the middleware's current access token.
      */
-    private function refreshFromGo(): AccessToken
+    private function refreshFromGo(string $refreshToken): AccessToken
     {
-        // A token that has not expired locally was rejected by the API.
-        $rejected = self::$goToken !== null && !self::$goToken->hasExpired() ? self::$goToken->getToken() : null;
+        // If the middleware's token has not expired locally, it was rejected by the API.
+        $current = substr($refreshToken, strlen(self::GO_REFRESH_TOKEN_PREFIX));
+        $rejected = null;
+        if ($current !== '' && self::$goToken?->getToken() === $current && !self::$goToken->hasExpired()) {
+            $rejected = $current;
+        }
 
         return $this->setGoToken($this->fetchGoToken($rejected));
     }
@@ -325,7 +334,7 @@ class Api
         return self::$goToken = new AccessToken([
             'access_token' => $token['access_token'],
             'expires' => max($expires, time() + 1),
-            'refresh_token' => self::GO_REFRESH_TOKEN,
+            'refresh_token' => self::GO_REFRESH_TOKEN_PREFIX . $token['access_token'],
         ]);
     }
 
@@ -368,21 +377,14 @@ class Api
         if (!isset(self::$client) || $reset) {
             $options = $this->getConnectorOptions();
 
-            // The session is only kept in memory: tokens are stored by the Go wrapper.
+            // The session is only kept in memory: tokens are stored by the Go wrapper. It starts with an expired
+            // placeholder, which the middleware replaces with a token from Go before the first request.
             $session = new Session($this->config->getSessionId());
-            if ($autoLogin) {
-                $token = $this->setGoToken($this->fetchGoToken());
-            } else {
-                // A placeholder, which is replaced by a token from Go before the first request.
-                $token = new AccessToken([
-                    'access_token' => 'pending',
-                    'expires' => time() - 1,
-                    'refresh_token' => self::GO_REFRESH_TOKEN,
-                ]);
-            }
-            $session->set('accessToken', $token->getToken());
-            $session->set('expires', $token->getExpires());
-            $session->set('refreshToken', $token->getRefreshToken());
+            $this->setSessionToken($session, new AccessToken([
+                'access_token' => 'pending',
+                'expires' => time() - 1,
+                'refresh_token' => self::GO_REFRESH_TOKEN_PREFIX,
+            ]));
 
             $connector = new Connector($options, $session);
 
@@ -397,7 +399,24 @@ class Api
             }
         }
 
-        return self::$client;
+        $client = self::$client;
+
+        // Get a token now, so that a login is offered if needed, and the token can be read from the session.
+        $session = $client->getConnector()->getSession();
+        if ($autoLogin && $session->get('accessToken') === 'pending') {
+            $this->setSessionToken($session, self::$goToken !== null && !self::$goToken->hasExpired()
+                ? self::$goToken
+                : $this->setGoToken($this->fetchGoToken()));
+        }
+
+        return $client;
+    }
+
+    private function setSessionToken(SessionInterface $session, AccessToken $token): void
+    {
+        $session->set('accessToken', $token->getToken());
+        $session->set('expires', $token->getExpires());
+        $session->set('refreshToken', $token->getRefreshToken());
     }
 
     /**
