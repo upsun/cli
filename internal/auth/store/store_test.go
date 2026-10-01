@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -45,9 +46,11 @@ func TestStore(t *testing.T) {
 			if c.wantBackend == BackendKeychain {
 				assert.Nil(t, sf.Entry, "the session file must not hold secrets in keychain mode")
 			}
-			info, err := os.Stat(s.sessionFilePath("default"))
-			require.NoError(t, err)
-			assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+			if runtime.GOOS != "windows" {
+				info, err := os.Stat(s.sessionFilePath("default"))
+				require.NoError(t, err)
+				assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+			}
 
 			loaded, err := s.Load("default")
 			require.NoError(t, err)
