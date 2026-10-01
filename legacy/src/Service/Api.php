@@ -312,17 +312,30 @@ class Api
         // Acquire a lock to prevent tokens being refreshed at the same time in
         // different CLI processes.
         $refreshLockName = 'refresh--' . $this->config->getSessionIdSlug();
-        $connectorOptions['on_refresh_start'] = function ($originalRefreshToken) use ($refreshLockName) {
+        $connectorOptions['on_refresh_start'] = function (string $originalRefreshToken) use ($refreshLockName): ?AccessToken {
             $this->io->debug('Refreshing access token');
-            $connector = $this->getClient(false)->getConnector();
-            return $this->fileLock->acquireOrWait($refreshLockName, function (): void {
+            $this->fileLock->acquireOrWait($refreshLockName, function (): void {
                 $this->stdErr->writeln('Waiting for token refresh lock', OutputInterface::VERBOSITY_VERBOSE);
-            }, function () use ($connector, $originalRefreshToken) {
-                $session = $connector->getSession();
-                $accessToken = $this->tokenFromSession($session);
-                return $accessToken && $accessToken->getRefreshToken() !== $originalRefreshToken
-                    ? $accessToken : null;
             });
+            // Without the lock, the token could be refreshed or saved over another process's newer token.
+            if (!$this->fileLock->isHeld($refreshLockName)) {
+                throw new \RuntimeException('Timed out waiting for another process to refresh the access token. Please try again.');
+            }
+
+            // Refresh tokens are single-use, so use the stored token if another process has refreshed it.
+            $session = $this->getClient(false)->getConnector()->getSession();
+            try {
+                $session->reload();
+            } catch (\RuntimeException $e) {
+                throw $this->convertStorageException($e);
+            }
+            $storedToken = $this->tokenFromSession($session);
+            if ($storedToken && $storedToken->getRefreshToken() !== $originalRefreshToken) {
+                return $storedToken;
+            }
+
+            // The middleware refreshes the token, and saves it before calling on_refresh_end.
+            return null;
         };
         $connectorOptions['on_refresh_end'] = function () use ($refreshLockName): void {
             $this->fileLock->release($refreshLockName);
@@ -461,6 +474,22 @@ class Api
     }
 
     /**
+     * Converts a session storage error into a keyring error, if applicable.
+     */
+    private function convertStorageException(\RuntimeException $e): \RuntimeException
+    {
+        if ($this->sessionStorage instanceof CredentialHelperStorage) {
+            $previous = $e->getPrevious();
+            if ($previous instanceof ProcessTimedOutException) {
+                return KeyringUnavailableException::fromTimeout($previous);
+            } elseif ($previous instanceof ProcessFailedException) {
+                return KeyringUnavailableException::fromFailure($previous);
+            }
+        }
+        return $e;
+    }
+
+    /**
      * Loads and returns an AccessToken, if possible, from a session.
      *
      * @param SessionInterface $session
@@ -549,15 +578,7 @@ class Api
                 try {
                     $session->setStorage($this->sessionStorage);
                 } catch (\RuntimeException $e) {
-                    if ($this->sessionStorage instanceof CredentialHelperStorage) {
-                        $previous = $e->getPrevious();
-                        if ($previous instanceof ProcessTimedOutException) {
-                            throw KeyringUnavailableException::fromTimeout($previous);
-                        } elseif ($previous instanceof ProcessFailedException) {
-                            throw KeyringUnavailableException::fromFailure($previous);
-                        }
-                    }
-                    throw $e;
+                    throw $this->convertStorageException($e);
                 }
             }
 

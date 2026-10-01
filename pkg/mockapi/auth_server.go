@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -24,10 +25,82 @@ var ValidAPITokens = []string{"api-token-1"}
 var accessTokens = []string{"access-token-1"}
 
 // AuthServer is a mock authentication server for testing.
+//
+// Like the real server, it rotates refresh tokens on every refresh. Reusing a
+// rotated refresh token revokes all refresh tokens from the same login.
 type AuthServer struct {
 	*httptest.Server
 	revokedMu     sync.Mutex
 	revokedTokens []string
+
+	refreshMu       sync.Mutex
+	refreshTokens   map[string]*refreshToken
+	refreshDelay    time.Duration
+	refreshCount    int
+	reuseDetected   bool
+	revokedFamilies map[string]bool
+}
+
+type refreshToken struct {
+	family string
+	used   bool
+}
+
+// AddRefreshToken makes a refresh token valid, as if it had been issued at login.
+func (s *AuthServer) AddRefreshToken(token string) {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	s.refreshTokens[token] = &refreshToken{family: token}
+}
+
+// SetRefreshDelay delays refresh token responses, e.g. to make concurrent refreshes overlap.
+func (s *AuthServer) SetRefreshDelay(d time.Duration) {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	s.refreshDelay = d
+}
+
+// ReuseDetected reports whether a rotated refresh token was sent again.
+func (s *AuthServer) ReuseDetected() bool {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	return s.reuseDetected
+}
+
+// issueRefreshToken returns a new refresh token. It starts a new family if family is empty.
+// The caller must hold refreshMu.
+func (s *AuthServer) issueRefreshToken(family string) string {
+	s.refreshCount++
+	token := fmt.Sprintf("refresh-token-%d", s.refreshCount)
+	if family == "" {
+		family = token
+	}
+	s.refreshTokens[token] = &refreshToken{family: family}
+	return token
+}
+
+// newRefreshToken is issueRefreshToken for a new login.
+func (s *AuthServer) newRefreshToken() string {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	return s.issueRefreshToken("")
+}
+
+// rotateRefreshToken exchanges a refresh token for a new one, or returns an OAuth error code.
+func (s *AuthServer) rotateRefreshToken(token string) (newToken, errCode string) {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	rt, ok := s.refreshTokens[token]
+	if !ok || s.revokedFamilies[rt.family] {
+		return "", "invalid_grant"
+	}
+	if rt.used {
+		s.reuseDetected = true
+		s.revokedFamilies[rt.family] = true
+		return "", "invalid_grant"
+	}
+	rt.used = true
+	return s.issueRefreshToken(rt.family), ""
 }
 
 // RevokedTokens returns a copy of all tokens that have been revoked.
@@ -56,7 +129,10 @@ func NewAuthServer(t *testing.T) *AuthServer {
 		pendingAuths = map[string]pendingAuth{} // code → pendingAuth
 	)
 
-	srv := &AuthServer{}
+	srv := &AuthServer{
+		refreshTokens:   map[string]*refreshToken{},
+		revokedFamilies: map[string]bool{},
+	}
 
 	mux.Get("/oauth2/authorize", func(w http.ResponseWriter, req *http.Request) {
 		q := req.URL.Query()
@@ -81,7 +157,7 @@ func NewAuthServer(t *testing.T) *AuthServer {
 					"access_token":  accessTokens[0],
 					"expires_in":    3600,
 					"token_type":    "bearer",
-					"refresh_token": "test-refresh-token",
+					"refresh_token": srv.newRefreshToken(),
 				})
 				return
 			}
@@ -109,20 +185,25 @@ func NewAuthServer(t *testing.T) *AuthServer {
 				"access_token":  accessTokens[0],
 				"expires_in":    3600,
 				"token_type":    "bearer",
-				"refresh_token": "test-refresh-token",
+				"refresh_token": srv.newRefreshToken(),
 			})
 
 		case "refresh_token":
-			if req.Form.Get("refresh_token") == "test-refresh-token" {
-				_ = json.NewEncoder(w).Encode(map[string]any{
-					"access_token":  accessTokens[0],
-					"expires_in":    3600,
-					"token_type":    "bearer",
-					"refresh_token": "test-refresh-token",
-				})
+			srv.refreshMu.Lock()
+			delay := srv.refreshDelay
+			srv.refreshMu.Unlock()
+			time.Sleep(delay)
+			newToken, errCode := srv.rotateRefreshToken(req.Form.Get("refresh_token"))
+			if errCode != "" {
+				writeOAuthError(w, errCode, "The refresh token is invalid.")
 				return
 			}
-			writeOAuthError(w, "invalid_grant", "The refresh token is invalid.")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"access_token":  accessTokens[0],
+				"expires_in":    3600,
+				"token_type":    "bearer",
+				"refresh_token": newToken,
+			})
 
 		default:
 			writeOAuthError(w, "unsupported_grant_type", "Unsupported grant type: "+req.Form.Get("grant_type"))

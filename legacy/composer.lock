@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7b82e9a5b71609c891c5da0ec002ec94",
+    "content-hash": "aeaacf3fb12f52bfbb228bd5541ea1fa",
     "packages": [
         {
             "name": "cocur/slugify",
@@ -794,12 +794,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/platformsh/platformsh-client-php.git",
-                "reference": "ae46040164a44efaeec15758ec4220e3cbf3e3fd"
+                "reference": "a263eb88563b3aeb1f9fdcae627144e2acb51e30"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/platformsh/platformsh-client-php/zipball/ae46040164a44efaeec15758ec4220e3cbf3e3fd",
-                "reference": "ae46040164a44efaeec15758ec4220e3cbf3e3fd",
+                "url": "https://api.github.com/repos/platformsh/platformsh-client-php/zipball/a263eb88563b3aeb1f9fdcae627144e2acb51e30",
+                "reference": "a263eb88563b3aeb1f9fdcae627144e2acb51e30",
                 "shasum": ""
             },
             "require": {
@@ -835,7 +835,7 @@
                 "issues": "https://github.com/platformsh/platformsh-client-php/issues",
                 "source": "https://github.com/platformsh/platformsh-client-php/tree/3.x"
             },
-            "time": "2026-08-07T13:05:25+00:00"
+            "time": "2026-10-01T00:14:21+00:00"
         },
         {
             "name": "platformsh/console-form",
@@ -883,16 +883,16 @@
         },
         {
             "name": "platformsh/oauth2",
-            "version": "1.0.0-beta3",
+            "version": "1.0.0-beta4",
             "source": {
                 "type": "git",
                 "url": "https://github.com/platformsh/platformsh-oauth2-php.git",
-                "reference": "3c0e12549850837a827ca432a50aa052e3cab250"
+                "reference": "38fd5e7941247ea183a336add0ab993ae7e7422f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/platformsh/platformsh-oauth2-php/zipball/3c0e12549850837a827ca432a50aa052e3cab250",
-                "reference": "3c0e12549850837a827ca432a50aa052e3cab250",
+                "url": "https://api.github.com/repos/platformsh/platformsh-oauth2-php/zipball/38fd5e7941247ea183a336add0ab993ae7e7422f",
+                "reference": "38fd5e7941247ea183a336add0ab993ae7e7422f",
                 "shasum": ""
             },
             "require": {
@@ -921,9 +921,9 @@
             "description": "Platform.sh OAuth2 client",
             "support": {
                 "issues": "https://github.com/platformsh/platformsh-oauth2-php/issues",
-                "source": "https://github.com/platformsh/platformsh-oauth2-php/tree/1.0.0-beta3"
+                "source": "https://github.com/platformsh/platformsh-oauth2-php/tree/1.0.0-beta4"
             },
-            "time": "2024-11-25T19:19:41+00:00"
+            "time": "2026-10-01T00:14:08+00:00"
         },
         {
             "name": "psr/container",
