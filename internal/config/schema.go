@@ -47,13 +47,16 @@ type Config struct {
 		CheckInterval int  `validate:"omitempty" yaml:"check_interval,omitempty"` // seconds, defaults to 3600
 	} `validate:"omitempty"`
 
-	// Fields only needed by the PHP (legacy) CLI, at least for now.
+	// API and authentication settings. Go reads the auth keys via Config.Auth, which also applies overrides.
 	API struct {
 		BaseURL string `validate:"required,url" yaml:"base_url"`            // e.g. "https://api.upsun.com"
 		AuthURL string `validate:"omitempty,url" yaml:"auth_url,omitempty"` // e.g. "https://auth.upsun.com"
 
-		UserAgent string `validate:"omitempty" yaml:"user_agent,omitempty"`       // a template - see UserAgent method
-		SessionID string `validate:"omitempty,ascii" yaml:"session_id,omitempty"` // the ID for the authentication session - defaults to "default"
+		UserAgent string `validate:"omitempty" yaml:"user_agent,omitempty"`            // a template - see UserAgent method
+		SessionID string `validate:"omitempty,session_id" yaml:"session_id,omitempty"` // the ID for the authentication session - defaults to "default"
+
+		DisableCredentialHelpers bool `validate:"omitempty" yaml:"disable_credential_helpers,omitempty"` // store credentials in files, not the keychain
+		SkipSSL                  bool `validate:"omitempty" yaml:"skip_ssl,omitempty"`                   // skip TLS verification (not recommended)
 
 		OAuth2ClientID      string `validate:"omitempty" yaml:"oauth2_client_id,omitempty"`                               // e.g. "upsun-cli"
 		OAuth2AuthorizeURL  string `validate:"required_without=AuthURL,omitempty,url" yaml:"oauth2_auth_url,omitempty"`   // e.g. "https://auth.upsun.com/oauth2/authorize"
@@ -74,6 +77,11 @@ type Config struct {
 		ConsoleURL          string `validate:"omitempty,url" yaml:"console_url,omitempty"`       // e.g. "https://console.upsun.com"
 		DocsURL             string `validate:"omitempty,url" yaml:"docs_url,omitempty"`          // e.g. "https://docs.upsun.com"
 	} `validate:"required"`
+	// BrowserLogin customizes the page shown by the local server during browser login.
+	BrowserLogin struct {
+		Body string `validate:"omitempty" yaml:"body,omitempty"` // HTML, with {{title}} and {{content}} placeholders
+		CSS  string `validate:"omitempty" yaml:"css,omitempty"`
+	} `validate:"omitempty" yaml:"browser_login,omitempty"`
 	SSH struct {
 		DomainWildcards []string `validate:"required" yaml:"domain_wildcards"` // e.g. ["*.platform.sh"]
 	} `validate:"required"`
