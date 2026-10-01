@@ -40,6 +40,8 @@ type AuthServer struct {
 	refreshRequests int
 	refreshFailures int
 	tokenLifetime   time.Duration
+	uniqueTokens    bool
+	accessCount     int
 	reuseDetected   bool
 	revokedFamilies map[string]bool
 }
@@ -49,6 +51,24 @@ func (s *AuthServer) SetTokenLifetime(d time.Duration) {
 	s.refreshMu.Lock()
 	defer s.refreshMu.Unlock()
 	s.tokenLifetime = d
+}
+
+// SetUniqueAccessTokens makes the server issue a new access token each time ("access-token-1", "access-token-2", ...),
+// instead of always "access-token-1".
+func (s *AuthServer) SetUniqueAccessTokens(unique bool) {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	s.uniqueTokens = unique
+}
+
+func (s *AuthServer) newAccessToken() string {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	if !s.uniqueTokens {
+		return accessTokens[0]
+	}
+	s.accessCount++
+	return fmt.Sprintf("access-token-%d", s.accessCount)
 }
 
 // SetRefreshFailures makes the next n refresh requests fail with a 503 error.
@@ -187,7 +207,7 @@ func NewAuthServer(t *testing.T) *AuthServer {
 			apiToken := req.Form.Get("api_token")
 			if slices.Contains(ValidAPITokens, apiToken) {
 				_ = json.NewEncoder(w).Encode(map[string]any{
-					"access_token":  accessTokens[0],
+					"access_token":  srv.newAccessToken(),
 					"expires_in":    srv.expiresIn(),
 					"token_type":    "bearer",
 					"refresh_token": srv.newRefreshToken(),
@@ -215,7 +235,7 @@ func NewAuthServer(t *testing.T) *AuthServer {
 				return
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"access_token":  accessTokens[0],
+				"access_token":  srv.newAccessToken(),
 				"expires_in":    srv.expiresIn(),
 				"token_type":    "bearer",
 				"refresh_token": srv.newRefreshToken(),
@@ -246,7 +266,7 @@ func NewAuthServer(t *testing.T) *AuthServer {
 				return
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"access_token":  accessTokens[0],
+				"access_token":  srv.newAccessToken(),
 				"expires_in":    srv.expiresIn(),
 				"token_type":    "bearer",
 				"refresh_token": newToken,

@@ -196,6 +196,19 @@ func (f *cmdFactory) fakeBrowser() {
 	f.extraEnv = append(f.extraEnv, "DISPLAY=:0", "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
 
+// fakeBrowserThatLogsIn makes the CLI detect a display and a browser, which completes the login flow with the mock
+// auth server by following its redirects.
+func (f *cmdFactory) fakeBrowserThatLogsIn() {
+	f.t.Helper()
+	if runtime.GOOS == "windows" {
+		f.t.Skip("the fake browser is a shell script")
+	}
+	dir := f.t.TempDir()
+	script := "#!/bin/sh\nexec curl -fsSL -o /dev/null \"$1\"\n"
+	require.NoError(f.t, os.WriteFile(filepath.Join(dir, "xdg-open"), []byte(script), 0o755))
+	f.extraEnv = append(f.extraEnv, "DISPLAY=:0", "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
 // waitForServer retries a GET request until the server responds.
 func waitForServer(t *testing.T, client *http.Client, url string) *http.Response {
 	t.Helper()

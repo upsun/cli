@@ -4,6 +4,7 @@ package mockapi
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -22,7 +23,15 @@ type Handler struct {
 
 	store
 
-	stepUpAMR []string
+	stepUpAMR      []string
+	rejectedTokens []string
+}
+
+// RejectAccessToken makes requests with an access token fail with a 401 error, as if it were revoked.
+func (h *Handler) RejectAccessToken(token string) {
+	h.Lock()
+	defer h.Unlock()
+	h.rejectedTokens = append(h.rejectedTokens, token)
 }
 
 // RequireStepUp makes every request fail with a step-up authentication challenge (RFC 9470).
@@ -47,7 +56,13 @@ func NewHandler(t *testing.T) *Handler {
 			require.True(t, strings.HasPrefix(authHeader, "Bearer "))
 			h.RLock()
 			stepUp := h.stepUpAMR
+			rejected := slices.Contains(h.rejectedTokens, strings.TrimPrefix(authHeader, "Bearer "))
 			h.RUnlock()
+			if rejected {
+				w.WriteHeader(http.StatusUnauthorized)
+				_ = json.NewEncoder(w).Encode(map[string]any{"error": "invalid_token"})
+				return
+			}
 			if stepUp != nil {
 				w.Header().Set("WWW-Authenticate", `Bearer error="insufficient_user_authentication"`)
 				w.WriteHeader(http.StatusUnauthorized)
@@ -59,6 +74,7 @@ func NewHandler(t *testing.T) *Handler {
 	})
 
 	h.Get("/users/me", h.handleUsersMe)
+	h.Get("/me", h.handleUsersMe)
 	h.Get("/users/{user_id}/extended-access", h.handleUserExtendedAccess)
 	h.Get("/ref/users", h.handleUserRefs)
 	h.Post("/me/verification", func(w http.ResponseWriter, _ *http.Request) {
