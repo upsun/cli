@@ -36,21 +36,42 @@ func TestHomeDir(t *testing.T) {
 	}
 }
 
-func TestWritableUserDir_ReadOnlyHome(t *testing.T) {
-	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
-		t.Skip("needs Unix permissions")
+// TestWritableUserDir_TempFallback checks the cases where the legacy CLI uses a temporary directory instead.
+func TestWritableUserDir_TempFallback(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup func(t *testing.T, home string)
+	}{
+		{
+			name: "read-only home",
+			setup: func(t *testing.T, home string) {
+				if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+					t.Skip("needs Unix permissions")
+				}
+				require.NoError(t, os.Chmod(home, 0o500))
+				t.Cleanup(func() { _ = os.Chmod(home, 0o700) })
+			},
+		},
+		{
+			name: "a file in place of the directory",
+			setup: func(t *testing.T, home string) {
+				require.NoError(t, os.WriteFile(filepath.Join(home, ".example-cli"), nil, 0o600))
+			},
+		},
 	}
-	cnf, err := config.FromYAML([]byte(validConfig))
-	require.NoError(t, err)
-	home := t.TempDir()
-	require.NoError(t, os.Chmod(home, 0o500))
-	t.Cleanup(func() { _ = os.Chmod(home, 0o700) })
-	tmp := t.TempDir()
-	t.Setenv("EXAMPLE_CLI_HOME", home)
-	t.Setenv("TMPDIR", tmp)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cnf, err := config.FromYAML([]byte(validConfig))
+			require.NoError(t, err)
+			home := t.TempDir()
+			c.setup(t, home)
+			tmp := t.TempDir()
+			t.Setenv("EXAMPLE_CLI_HOME", home)
+			t.Setenv("TMPDIR", tmp)
 
-	// As in the legacy CLI, a temporary directory is used.
-	dir, err := cnf.WritableUserDir()
-	require.NoError(t, err)
-	assert.Equal(t, filepath.Join(tmp, "example-cli-tmp"), dir)
+			dir, err := cnf.WritableUserDir()
+			require.NoError(t, err)
+			assert.Equal(t, filepath.Join(tmp, "example-cli-tmp"), dir)
+		})
+	}
 }
