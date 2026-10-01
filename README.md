@@ -199,6 +199,9 @@ Environment variables include:
   This skips confirmation questions.
 - `UPSUN_CLI_SESSION_ID`: switch user session (default `default`). See also
   `upsun session:switch`.
+- `UPSUN_CLI_API_DISABLE_CREDENTIAL_HELPERS=1`: store credentials in files under
+  `~/.upsun-cli/auth/` instead of the system keychain. Files are also used when
+  no keychain is available.
 - `UPSUN_CLI_AUTO_LOAD_SSH_CERT=0`: disable automatically loading an SSH
   certificate when running login or SSH commands.
 - `UPSUN_CLI_SHELL_CONFIG_FILE`: the shell config file that `self:install`
