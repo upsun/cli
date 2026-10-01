@@ -37,14 +37,14 @@ func TestRender(t *testing.T) {
 		{
 			name: "table defaults",
 			opts: Options{},
-			want: `+----+------------+----------+
-| ID | Title      | Status   |
-+----+------------+----------+
-| 1  | Foo        | active   |
-| 2  | Bar, "Baz" | inactive |
-| 3  | Multi      | active   |
-|    | line	tab    |          |
-+----+------------+----------+
+			want: `+----+-------------+----------+
+| ID | Title       | Status   |
++----+-------------+----------+
+| 1  | Foo         | active   |
+| 2  | Bar, "Baz"  | inactive |
+| 3  | Multi       | active   |
+|    | line    tab |          |
++----+-------------+----------+
 `,
 		},
 		{

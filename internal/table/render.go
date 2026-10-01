@@ -64,7 +64,9 @@ func renderTable(w io.Writer, header []string, rows [][]string) error {
 	for i, row := range all {
 		split[i] = make([][]string, len(row))
 		for j, cell := range row {
-			lines := strings.Split(strings.ReplaceAll(cell, "\r\n", "\n"), "\n")
+			// Tabs are replaced, as their display width depends on their position.
+			cell = strings.ReplaceAll(strings.ReplaceAll(cell, "\r\n", "\n"), "\t", "    ")
+			lines := strings.Split(cell, "\n")
 			split[i][j] = lines
 			for _, line := range lines {
 				widths[j] = max(widths[j], runewidth.StringWidth(line))
