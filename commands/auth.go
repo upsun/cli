@@ -253,7 +253,7 @@ func browserCommand(browserOption string) []string {
 		}
 		return fields
 	case runtime.GOOS == "windows":
-		return []string{"cmd", "/c", "start", ""}
+		return []string{"rundll32", "url.dll,FileProtocolHandler"}
 	case runtime.GOOS == "darwin":
 		return []string{"open"}
 	}

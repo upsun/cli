@@ -167,7 +167,9 @@ func (s *Store) List() ([]string, error) {
 	return ids, nil
 }
 
-// DeleteAll removes every session, and all other files except the migration marker.
+// DeleteAll removes every session, and all other files except locks and the migration marker.
+//
+// Lock files are kept, as another process may hold a lock on them.
 func (s *Store) DeleteAll() error {
 	ids, err := s.List()
 	if err != nil {
@@ -182,11 +184,19 @@ func (s *Store) DeleteAll() error {
 		errs = append(errs, err)
 	}
 	for _, e := range entries {
-		if e.Name() != MigrationMarker {
+		if e.Name() != MigrationMarker && !strings.HasSuffix(e.Name(), ".lock") {
 			errs = append(errs, os.RemoveAll(filepath.Join(s.Dir, e.Name())))
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// Forget removes a session's file without deleting its secrets, e.g. if they are in a keychain that cannot be used.
+func (s *Store) Forget(id string) error {
+	if err := os.Remove(s.sessionFilePath(id)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	return nil
 }
 
 // LockPath returns the path of the lock file for a session.

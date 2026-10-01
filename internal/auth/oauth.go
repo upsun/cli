@@ -52,7 +52,8 @@ type OAuthClient struct {
 	retryDelay time.Duration
 }
 
-const refreshTimeout = 30 * time.Second
+// requestTimeout bounds each request to the auth server.
+const requestTimeout = 30 * time.Second
 
 // ExchangeCode exchanges an authorization code (with its PKCE verifier) for tokens.
 func (c *OAuthClient) ExchangeCode(ctx context.Context, code, verifier, redirectURI string) (*store.Entry, error) {
@@ -88,19 +89,17 @@ func (c *OAuthClient) Revoke(ctx context.Context, token, hint string) error {
 	form := c.clientForm(url.Values{"token": {token}, "token_type_hint": {hint}})
 	var err error
 	for attempt := range 2 {
-		var resp *http.Response
-		resp, err = c.post(ctx, c.RevokeURL, form, false)
+		var status int
+		status, _, err = c.post(ctx, c.RevokeURL, form, false)
 		if err != nil {
 			return err
 		}
-		_, _ = io.Copy(io.Discard, resp.Body)
-		_ = resp.Body.Close()
-		if resp.StatusCode < 300 {
+		if status < 300 {
 			return nil
 		}
-		err = fmt.Errorf("token revocation failed with status %d", resp.StatusCode)
+		err = fmt.Errorf("token revocation failed with status %d", status)
 		// Retry once on a retry status, as the legacy CLI does.
-		switch resp.StatusCode {
+		switch status {
 		case 408, 429, 502, 503, 504:
 			if attempt == 0 {
 				continue
@@ -128,9 +127,7 @@ func (c *OAuthClient) withRetries(
 	}
 	unsentRetries, sentRetries := 2, 1
 	for {
-		reqCtx, cancel := context.WithTimeout(ctx, refreshTimeout)
-		e, sent, err := fn(reqCtx)
-		cancel()
+		e, sent, err := fn(ctx)
 		if err == nil || ctx.Err() != nil {
 			return e, err
 		}
@@ -167,17 +164,12 @@ func (c *OAuthClient) postTokenTraced(ctx context.Context, form url.Values) (*st
 }
 
 func (c *OAuthClient) postToken(ctx context.Context, form url.Values, basicAuth bool) (*store.Entry, error) {
-	resp, err := c.post(ctx, c.TokenURL, form, basicAuth)
+	status, body, err := c.post(ctx, c.TokenURL, form, basicAuth)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode >= 300 {
-		oerr := &OAuthError{StatusCode: resp.StatusCode}
+	if status >= 300 {
+		oerr := &OAuthError{StatusCode: status}
 		_ = json.Unmarshal(body, oerr)
 		return nil, oerr
 	}
@@ -186,7 +178,7 @@ func (c *OAuthClient) postToken(ctx context.Context, form url.Values, basicAuth 
 		return nil, fmt.Errorf("invalid token response: %w", err)
 	}
 	if tr.AccessToken == "" {
-		oerr := &OAuthError{StatusCode: resp.StatusCode}
+		oerr := &OAuthError{StatusCode: status}
 		if json.Unmarshal(body, oerr) == nil && oerr.Code != "" {
 			return nil, oerr
 		}
@@ -205,10 +197,15 @@ func (c *OAuthClient) postToken(ctx context.Context, form url.Values, basicAuth 
 	return e, nil
 }
 
-func (c *OAuthClient) post(ctx context.Context, u string, form url.Values, basicAuth bool) (*http.Response, error) {
+// post sends a form, and returns the response status and body. Each request is bounded by requestTimeout.
+func (c *OAuthClient) post(
+	ctx context.Context, u string, form url.Values, basicAuth bool,
+) (status int, body []byte, err error) {
+	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
@@ -219,5 +216,11 @@ func (c *OAuthClient) post(ctx context.Context, u string, form url.Values, basic
 	if hc == nil {
 		hc = http.DefaultClient
 	}
-	return hc.Do(req)
+	resp, err := hc.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+	body, err = io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	return resp.StatusCode, body, err
 }

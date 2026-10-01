@@ -117,6 +117,23 @@ func TestStore_DeleteAll(t *testing.T) {
 	require.NoError(t, s.DeleteAll())
 	entries, err := os.ReadDir(s.Dir)
 	require.NoError(t, err)
-	require.Len(t, entries, 1)
-	assert.Equal(t, MigrationMarker, entries[0].Name())
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	assert.Equal(t, []string{MigrationMarker, "a.lock"}, names)
+}
+
+func TestStore_Forget(t *testing.T) {
+	keyring.MockInit()
+	s := &Store{Dir: t.TempDir(), Service: "test-cli-auth", UseKeychain: true}
+	require.NoError(t, s.Save("default", &Entry{AccessToken: "a"}))
+
+	// A session whose keychain is unusable can be replaced, e.g. with a file.
+	keyring.MockInitWithError(errors.New("locked"))
+	require.NoError(t, s.Forget("default"))
+	require.NoError(t, s.Save("default", &Entry{AccessToken: "b"}))
+	sf, err := s.readSessionFile("default")
+	require.NoError(t, err)
+	assert.Equal(t, BackendFile, sf.Backend)
 }

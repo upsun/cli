@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"net"
@@ -235,7 +236,15 @@ func saveLogin(cmd *cobra.Command, cnf *config.Config, m *auth.Manager, entry *s
 	ctx := cmd.Context()
 	id := m.Settings.SessionID
 	if err := m.Logout(ctx, id); err != nil {
-		return err
+		var kerr *store.KeychainError
+		if !errors.As(err, &kerr) {
+			return err
+		}
+		// The previous credentials cannot be revoked, but they can be replaced.
+		fmt.Fprintln(cmd.ErrOrStderr(), color.YellowString("Warning: %s", err))
+		if err := m.Store.Forget(id); err != nil {
+			return err
+		}
 	}
 	if apiToken != "" {
 		if err := m.Save(ctx, auth.APITokenSessionID(apiToken), entry); err != nil {

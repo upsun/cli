@@ -43,8 +43,10 @@ class ExportSessionsCommand extends CommandBase
 
         /** @var array<string, array<string, mixed>> $sessions */
         $sessions = [];
+        // Values are only set once: the keychain takes precedence over files, as the legacy CLI only used files
+        // when the keychain was unavailable.
         $set = function (string $id, string $key, mixed $value) use (&$sessions): void {
-            if ($value !== null && $value !== '' && $value !== false) {
+            if ($value !== null && $value !== '' && $value !== false && !isset($sessions[$id][$key])) {
                 $sessions[$id][$key] = $value;
             }
         };
@@ -107,10 +109,15 @@ class ExportSessionsCommand extends CommandBase
             }
         }
         $fs = new Filesystem();
-        foreach ($this->sessionFiles() as $file) {
-            $fs->remove(dirname($file));
-        }
+        $fs->remove(array_values($this->sessionFiles()));
         $fs->remove(array_values($this->apiTokenFiles()));
+        // Remove the session files' directories if they are now empty. For a session ID beginning with "cli-",
+        // the directory may also hold another session's SSH certificates.
+        foreach (glob($this->config->getSessionDir() . '/sess-*', GLOB_ONLYDIR | GLOB_NOSORT) ?: [] as $dir) {
+            if ((scandir($dir) ?: []) === ['.', '..']) {
+                $fs->remove($dir);
+            }
+        }
     }
 
     private function credentialHelper(): ?Manager
@@ -130,7 +137,7 @@ class ExportSessionsCommand extends CommandBase
         $files = [];
         foreach (glob($this->config->getSessionDir() . '/sess-*/sess-*.json', GLOB_NOSORT) ?: [] as $file) {
             $id = substr(basename($file, '.json'), strlen('sess-'));
-            if (basename(dirname($file)) === 'sess-' . $id && !str_starts_with($id, 'cli-')) {
+            if (basename(dirname($file)) === 'sess-' . $id) {
                 $files[$id] = $file;
             }
         }
