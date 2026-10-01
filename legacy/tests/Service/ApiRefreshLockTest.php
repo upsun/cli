@@ -22,9 +22,6 @@ class ApiRefreshLockTest extends TestCase
     use HasTempDirTrait;
     use LockHolderTrait;
 
-    /** @var resource|null */
-    private $tokenServer = null;
-
     private File $storage;
 
     public function setUp(): void
@@ -37,10 +34,6 @@ class ApiRefreshLockTest extends TestCase
     {
         // Api caches the client statically: do not leak this session into other tests.
         (new \ReflectionProperty(Api::class, 'client'))->setValue(null, null);
-        if ($this->tokenServer !== null) {
-            \proc_terminate($this->tokenServer);
-            \proc_close($this->tokenServer);
-        }
     }
 
     public function testUsesTheStoredTokenWhenTheLockIsFree(): void
@@ -67,29 +60,22 @@ class ApiRefreshLockTest extends TestCase
         $this->assertSame('refresh-2', $token->getRefreshToken());
     }
 
-    public function testHoldsTheLockUntilTheTokenIsSaved(): void
+    public function testAllowsARefreshWhenTheStoredTokenIsUnchanged(): void
     {
-        $config = $this->config(['PLATFORMSH_CLI_OAUTH2_TOKEN_URL' => $this->startTokenServer()]);
+        $config = $this->config();
         $this->storage->save('refresh-test', $this->sessionData('access-1', 'refresh-1'));
-        $connector = $this->connector($config);
-        $lockName = 'refresh--' . $config->getSessionIdSlug();
-
-        ['on_refresh_start' => $onRefreshStart, 'on_refresh_end' => $onRefreshEnd] = $connector->getConfig();
+        ['on_refresh_start' => $onRefreshStart, 'on_refresh_end' => $onRefreshEnd] = $this->connector($config)->getConfig();
         $this->assertIsCallable($onRefreshStart);
         $this->assertIsCallable($onRefreshEnd);
-
-        // The middleware calls on_refresh_end, and then saves the token.
-        $token = $onRefreshStart('refresh-1');
-        $onRefreshEnd('refresh-1');
-        $this->assertInstanceOf(AccessToken::class, $token);
-        $this->assertSame('refresh-2', $token->getRefreshToken());
-
+        $lockName = 'refresh--' . $config->getSessionIdSlug();
         $otherProcess = new FileLock($config, 1);
+
+        // The middleware refreshes while the lock is held.
+        $this->assertNull($onRefreshStart('refresh-1'));
         $otherProcess->acquireOrWait($lockName);
         $this->assertFalse($otherProcess->isHeld($lockName));
 
-        $connector->saveToken($token);
-        $this->assertSame('refresh-2', $this->storage->load('refresh-test')['refreshToken'] ?? null);
+        $onRefreshEnd('refresh-1');
         $otherProcess->acquireOrWait($lockName);
         $this->assertTrue($otherProcess->isHeld($lockName));
     }
@@ -109,8 +95,7 @@ class ApiRefreshLockTest extends TestCase
     #[DataProvider('timeoutCases')]
     public function testFailsAfterTimingOut(bool $storedTokenChanged): void
     {
-        // The token URL is unreachable, so any refresh attempt fails differently.
-        $config = $this->config(['PLATFORMSH_CLI_OAUTH2_TOKEN_URL' => 'http://127.0.0.1:1/oauth2/token']);
+        $config = $this->config();
         $this->storage->save('refresh-test', $this->sessionData('access-1', 'refresh-1'));
         $onRefreshStart = $this->onRefreshStart($config, new FileLock($config, 1));
         if ($storedTokenChanged) {
@@ -167,33 +152,6 @@ class ApiRefreshLockTest extends TestCase
         $this->assertIsCallable($onRefreshStart);
 
         return $onRefreshStart;
-    }
-
-    /**
-     * Starts a mock token endpoint, and returns its URL.
-     */
-    private function startTokenServer(): string
-    {
-        $socket = \stream_socket_server('tcp://127.0.0.1:0');
-        $this->assertIsResource($socket);
-        $address = (string) \stream_socket_get_name($socket, false);
-        \fclose($socket);
-        $port = (int) \substr($address, (int) \strrpos($address, ':') + 1);
-
-        $router = \dirname(__DIR__) . '/data/oauth2-token-router.php';
-        $process = \proc_open([\PHP_BINARY, '-S', $address, $router], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
-        $this->assertIsResource($process);
-        $this->tokenServer = $process;
-
-        for ($i = 0; $i < 50; $i++) {
-            $connection = @\fsockopen('127.0.0.1', $port);
-            if ($connection) {
-                \fclose($connection);
-                return 'http://' . $address . '/oauth2/token';
-            }
-            \usleep(100_000);
-        }
-        $this->fail('The token server did not start');
     }
 
     /**

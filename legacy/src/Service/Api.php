@@ -22,7 +22,6 @@ use GuzzleHttp\Psr7\Uri;
 use GuzzleHttp\Psr7\UriResolver;
 use GuzzleHttp\Utils;
 use League\OAuth2\Client\Provider\Exception\IdentityProviderException;
-use League\OAuth2\Client\Grant\RefreshToken;
 use League\OAuth2\Client\Token\AccessToken;
 use Platformsh\Cli\CredentialHelper\KeyringUnavailableException;
 use Platformsh\Cli\CredentialHelper\Manager;
@@ -55,8 +54,7 @@ use Platformsh\Client\Model\User;
 use Platformsh\Client\PlatformClient;
 use Platformsh\Client\Session\Session;
 use Platformsh\Client\Session\SessionInterface;
-use Platformsh\Cli\Session\FileStorage;
-use Platformsh\Cli\Session\SessionConnector;
+use Platformsh\Client\Session\Storage\File;
 use Platformsh\Client\Session\Storage\SessionStorageInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -125,23 +123,6 @@ class Api
      * @see Api::initSessionStorage()
      */
     private ?SessionStorageInterface $sessionStorage = null;
-
-    /**
-     * The ID of the session in persistent storage, if any.
-     */
-    private ?string $storedSessionId = null;
-
-    /**
-     * Whether a refreshed token is waiting to be saved, while holding the refresh lock.
-     */
-    private bool $refreshPendingSave = false;
-
-    /**
-     * Releases the refresh lock after a refreshed token is saved.
-     *
-     * @see Api::getConnectorOptions()
-     */
-    private ?\Closure $onTokenSaved = null;
 
     /**
      * Sets whether we are currently verifying login using a test request.
@@ -331,49 +312,33 @@ class Api
         // Acquire a lock to prevent tokens being refreshed at the same time in
         // different CLI processes.
         $refreshLockName = 'refresh--' . $this->config->getSessionIdSlug();
-        $connectorOptions['on_refresh_start'] = function (string $originalRefreshToken) use ($refreshLockName): AccessToken {
+        $connectorOptions['on_refresh_start'] = function (string $originalRefreshToken) use ($refreshLockName): ?AccessToken {
             $this->io->debug('Refreshing access token');
             $this->fileLock->acquireOrWait($refreshLockName, function (): void {
                 $this->stdErr->writeln('Waiting for token refresh lock', OutputInterface::VERBOSITY_VERBOSE);
             });
-
             // Without the lock, the token could be refreshed or saved over another process's newer token.
             if (!$this->fileLock->isHeld($refreshLockName)) {
                 throw new \RuntimeException('Timed out waiting for another process to refresh the access token. Please try again.');
             }
 
             // Refresh tokens are single-use, so use the stored token if another process has refreshed it.
-            $storedToken = $this->loadStoredToken();
+            $session = $this->getClient(false)->getConnector()->getSession();
+            try {
+                $session->reload();
+            } catch (\RuntimeException $e) {
+                throw $this->convertStorageException($e);
+            }
+            $storedToken = $this->tokenFromSession($session);
             if ($storedToken && $storedToken->getRefreshToken() !== $originalRefreshToken) {
-                $this->refreshPendingSave = true;
                 return $storedToken;
             }
 
-            $connector = $this->getClient(false)->getConnector();
-            if (!$connector instanceof Connector) {
-                throw new \LogicException('Unexpected connector type');
-            }
-            $token = $connector->getOAuth2Provider()->getAccessToken(new RefreshToken(), [
-                'refresh_token' => $originalRefreshToken,
-            ]);
-            if (!$token instanceof AccessToken) {
-                throw new \LogicException('Unexpected access token type');
-            }
-            $this->refreshPendingSave = true;
-            return $token;
+            // The middleware refreshes the token, and saves it before calling on_refresh_end.
+            return null;
         };
-        // After a successful refresh, the middleware saves the token after
-        // on_refresh_end, so the lock is released when the token is saved.
         $connectorOptions['on_refresh_end'] = function () use ($refreshLockName): void {
-            if (!$this->refreshPendingSave) {
-                $this->fileLock->release($refreshLockName);
-            }
-        };
-        $this->onTokenSaved = function () use ($refreshLockName): void {
-            if ($this->refreshPendingSave) {
-                $this->refreshPendingSave = false;
-                $this->fileLock->release($refreshLockName);
-            }
+            $this->fileLock->release($refreshLockName);
         };
 
         $connectorOptions['on_refresh_error'] = fn(IdentityProviderException $e): ?AccessToken => $this->onRefreshError($e);
@@ -509,22 +474,6 @@ class Api
     }
 
     /**
-     * Loads the token from session storage, bypassing the in-memory session.
-     */
-    private function loadStoredToken(): ?AccessToken
-    {
-        if (!isset($this->sessionStorage, $this->storedSessionId)) {
-            return null;
-        }
-        try {
-            $data = $this->sessionStorage->load($this->storedSessionId);
-        } catch (\RuntimeException $e) {
-            throw $this->convertStorageException($e);
-        }
-        return $this->tokenFromSession(new Session($this->storedSessionId, $data));
-    }
-
-    /**
      * Converts a session storage error into a keyring error, if applicable.
      */
     private function convertStorageException(\RuntimeException $e): \RuntimeException
@@ -628,16 +577,12 @@ class Api
                 $this->io->debug('Loading session');
                 try {
                     $session->setStorage($this->sessionStorage);
-                    $this->storedSessionId = $sessionId;
                 } catch (\RuntimeException $e) {
                     throw $this->convertStorageException($e);
                 }
             }
 
-            $connector = new SessionConnector($options, $session);
-            if ($this->onTokenSaved !== null) {
-                $connector->setOnTokenSaved($this->onTokenSaved);
-            }
+            $connector = new Connector($options, $session);
 
             self::$client = new PlatformClient($connector);
 
@@ -691,7 +636,7 @@ class Api
 
             // Fall back to file storage.
             $this->io->debug('Using filesystem for session storage');
-            $this->sessionStorage = new FileStorage($this->config->getSessionDir());
+            $this->sessionStorage = new File($this->config->getSessionDir());
         }
     }
 
