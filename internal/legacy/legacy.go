@@ -38,6 +38,8 @@ type CLIWrapper struct {
 	DisableInteraction bool
 	ForceColor         bool
 	DebugLogFunc       func(string, ...any)
+	// ExtraEnv is added to the command's environment.
+	ExtraEnv []string
 
 	initOnce  sync.Once
 	_cacheDir string
@@ -146,6 +148,10 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 		envPrefix+"WRAPPED=1",
 		envPrefix+"APPLICATION_VERSION="+c.Version,
 	)
+	// The legacy CLI gets tokens and auth state by running this executable's hidden auth:internal command.
+	if exe, err := os.Executable(); err == nil {
+		cmd.Env = append(cmd.Env, envPrefix+"WRAPPER_EXECUTABLE="+exe)
+	}
 	if c.DisableInteraction {
 		cmd.Env = append(cmd.Env, envPrefix+"NO_INTERACTION=1")
 	}
@@ -158,6 +164,7 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 		c.Version,
 		PHPVersion,
 	))
+	cmd.Env = append(cmd.Env, c.ExtraEnv...)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("could not run PHP CLI command: %w", err)
 	}

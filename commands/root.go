@@ -42,7 +42,15 @@ func Execute(cnf *config.Config) error {
 	} else if ok {
 		cmd.SetArgs(args)
 	}
-	return cmd.ExecuteContext(ctx)
+	err := cmd.ExecuteContext(ctx)
+	var ee *exitError
+	if errors.As(err, &ee) {
+		os.Exit(ee.code)
+	}
+	if err != nil && !viper.GetBool("quiet") {
+		fmt.Fprintln(color.Error, "Error:", err)
+	}
+	return err
 }
 
 func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cobra.Command {
@@ -54,10 +62,11 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		DisableFlagParsing: false,
 		FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
 		SilenceUsage:       true,
-		SilenceErrors:      false,
+		// Errors are printed by Execute, which handles exit codes.
+		SilenceErrors: true,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
-			if isCompletionRequest(cmd) {
-				// Completions must be fast and quiet.
+			if isCompletionRequest(cmd) || isInternalCommand(cmd) {
+				// Completions and internal commands must be fast and quiet.
 				return
 			}
 			quiet := viper.GetBool("quiet") && !viper.GetBool("debug") && !viper.GetBool("verbose")
@@ -112,7 +121,7 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 			}
 		},
 		PersistentPostRun: func(cmd *cobra.Command, _ []string) {
-			if isCompletionRequest(cmd) {
+			if isCompletionRequest(cmd) || isInternalCommand(cmd) {
 				return
 			}
 			checkShellConfigLeftovers(cmd.ErrOrStderr(), cnf)
@@ -160,6 +169,7 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 
 	// Add subcommands.
 	cmd.AddCommand(
+		newAuthInternalCommand(cnf),
 		newCompleteCommand(cnf),
 		newConfigInstallCommand(),
 		newCompletionCommand(cnf),
@@ -172,6 +182,9 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 	if cnf.Service.ProjectConfigFlavor == "upsun" {
 		cmd.AddCommand(newProjectConvertCommand(cnf))
 	}
+	for _, c := range authCommands(cnf) {
+		cmd.AddCommand(useLegacyStyleHelp(cnf, c))
+	}
 
 	// Define the help flag before Cobra looks up the command, so that "--help init" does not treat "init" as its value.
 	cmd.InitDefaultHelpFlag()
@@ -180,6 +193,16 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 	viper.BindPFlags(cmd.PersistentFlags())
 
 	return cmd
+}
+
+// isInternalCommand reports whether the command is used internally by the legacy CLI.
+func isInternalCommand(cmd *cobra.Command) bool {
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Name() == "auth:internal" {
+			return true
+		}
+	}
+	return false
 }
 
 // checkShellConfigLeftovers checks .zshrc and .bashrc for any leftovers from the legacy CLI
