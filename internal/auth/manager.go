@@ -67,7 +67,7 @@ func NewManager(cnf *config.Config, stderr io.Writer) (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	dir, err := cnf.WritableUserDir()
+	dir, err := cnf.WritableUserDir() //nolint:staticcheck // credentials belong in the user dir, not a cache
 	if err != nil {
 		return nil, err
 	}

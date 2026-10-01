@@ -108,12 +108,13 @@ func (s *testAuthServer) addRefreshToken(rt string) {
 	s.valid[rt] = true
 }
 
-func newTestManager(t *testing.T, srv *testAuthServer, dir string, settings config.Auth) *Manager {
-	if settings.SessionID == "" {
-		settings.SessionID = "default"
+func newTestManager(srv *testAuthServer, dir string, settings *config.Auth) *Manager {
+	s := *settings
+	if s.SessionID == "" {
+		s.SessionID = "default"
 	}
 	return &Manager{
-		Settings: &settings,
+		Settings: &s,
 		Store:    &store.Store{Dir: dir},
 		OAuth: &OAuthClient{
 			HTTPClient: srv.Client(),
@@ -152,8 +153,10 @@ func TestManager_Token(t *testing.T) {
 			wantRefreshes: 1,
 		},
 		{
-			name:          "inside the expiry margin",
-			entry:         &store.Entry{AccessToken: "stored", RefreshToken: "rt-0", Expires: time.Now().Add(time.Minute).Unix()},
+			name: "inside the expiry margin",
+			entry: &store.Entry{
+				AccessToken: "stored", RefreshToken: "rt-0", Expires: time.Now().Add(time.Minute).Unix(),
+			},
 			wantToken:     "at-1",
 			wantRefreshes: 1,
 		},
@@ -237,7 +240,7 @@ func TestManager_Token(t *testing.T) {
 			if c.setup != nil {
 				c.setup(srv)
 			}
-			m := newTestManager(t, srv, t.TempDir(), c.settings)
+			m := newTestManager(srv, t.TempDir(), &c.settings)
 			if c.entry != nil {
 				require.NoError(t, m.Store.Save("default", c.entry))
 			}
@@ -274,7 +277,7 @@ func TestManager_ConcurrentRefresh(t *testing.T) {
 	srv.addRefreshToken("rt-0")
 	srv.delay = 50 * time.Millisecond
 	dir := t.TempDir()
-	require.NoError(t, newTestManager(t, srv, dir, config.Auth{}).Store.Save("default", &store.Entry{
+	require.NoError(t, newTestManager(srv, dir, &config.Auth{}).Store.Save("default", &store.Entry{
 		AccessToken: "expired", RefreshToken: "rt-0", Expires: time.Now().Add(-time.Hour).Unix(),
 	}))
 
@@ -284,7 +287,7 @@ func TestManager_ConcurrentRefresh(t *testing.T) {
 	errs := make([]error, n)
 	for i := range n {
 		wg.Go(func() {
-			m := newTestManager(t, srv, dir, config.Auth{})
+			m := newTestManager(srv, dir, &config.Auth{})
 			tok, err := m.Token(context.Background(), "")
 			errs[i] = err
 			if tok != nil {
@@ -304,14 +307,14 @@ func TestManager_ConcurrentRefresh(t *testing.T) {
 func TestManager_LockTimeout(t *testing.T) {
 	srv := newTestAuthServer(t)
 	dir := t.TempDir()
-	m := newTestManager(t, srv, dir, config.Auth{})
+	m := newTestManager(srv, dir, &config.Auth{})
 	m.LockWait = 100 * time.Millisecond
 	require.NoError(t, m.Store.Save("default", &store.Entry{
 		AccessToken: "expired", RefreshToken: "rt-0", Expires: time.Now().Add(-time.Hour).Unix(),
 	}))
 
 	// Another "process" holds the lock.
-	other := newTestManager(t, srv, dir, config.Auth{})
+	other := newTestManager(srv, dir, &config.Auth{})
 	unlock, err := other.fileLock(context.Background(), m.Store.LockPath("default"))
 	require.NoError(t, err)
 	defer unlock()
@@ -323,14 +326,16 @@ func TestManager_LockTimeout(t *testing.T) {
 
 func TestManager_LogoutAndStatus(t *testing.T) {
 	srv := newTestAuthServer(t)
-	m := newTestManager(t, srv, t.TempDir(), config.Auth{})
+	m := newTestManager(srv, t.TempDir(), &config.Auth{})
 	ctx := context.Background()
 
 	s, err := m.Status(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, &Status{SessionIDs: []string{}}, s)
 
-	require.NoError(t, m.Store.Save("default", &store.Entry{AccessToken: "at", RefreshToken: "rt", APIToken: "good-api-token"}))
+	require.NoError(t, m.Store.Save("default", &store.Entry{
+		AccessToken: "at", RefreshToken: "rt", APIToken: "good-api-token",
+	}))
 	require.NoError(t, m.Store.Save(APITokenSessionID("good-api-token"), &store.Entry{AccessToken: "api-at"}))
 	require.NoError(t, m.Store.Save("other", &store.Entry{AccessToken: "other-at"}))
 
@@ -368,7 +373,7 @@ func TestMigrator(t *testing.T) {
 		return []byte(exported), nil
 	}}
 	newManager := func() *Manager {
-		m := newTestManager(t, srv, dir, config.Auth{})
+		m := newTestManager(srv, dir, &config.Auth{})
 		m.Migrator = mg
 		return m
 	}
@@ -398,7 +403,7 @@ func TestMigrator(t *testing.T) {
 func TestTransport(t *testing.T) {
 	srv := newTestAuthServer(t)
 	srv.addRefreshToken("rt-0")
-	m := newTestManager(t, srv, t.TempDir(), config.Auth{})
+	m := newTestManager(srv, t.TempDir(), &config.Auth{})
 	require.NoError(t, m.Store.Save("default", &store.Entry{
 		AccessToken: "revoked", RefreshToken: "rt-0", Expires: time.Now().Add(time.Hour).Unix(),
 	}))

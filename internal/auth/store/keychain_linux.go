@@ -22,7 +22,8 @@ func secretServiceAvailable() bool {
 		return false
 	}
 	var hasOwner bool
-	if err := conn.BusObject().Call("org.freedesktop.DBus.NameHasOwner", 0, secretServiceName).Store(&hasOwner); err == nil && hasOwner {
+	call := conn.BusObject().Call("org.freedesktop.DBus.NameHasOwner", 0, secretServiceName)
+	if err := call.Store(&hasOwner); err == nil && hasOwner {
 		return true
 	}
 	var activatable []string

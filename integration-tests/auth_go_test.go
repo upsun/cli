@@ -59,7 +59,10 @@ func TestAuthMigration(t *testing.T) {
 	assert.Equal(t, "access-token-1", f.Run("auth:token", "--no-warn"))
 
 	// A legacy session written after the migration is not imported.
-	writeOAuthSession(t, f.home, "late", map[string]any{"accessToken": "late-token", "expires": time.Now().Add(time.Hour).Unix()})
+	writeOAuthSession(t, f.home, "late", map[string]any{
+		"accessToken": "late-token",
+		"expires":     time.Now().Add(time.Hour).Unix(),
+	})
 	f.extraEnv = append(f.extraEnv, EnvPrefix+"SESSION_ID=late")
 	_, _, err := f.RunCombinedOutput("auth:token", "--no-warn")
 	assertExitCode(t, 3, err)
@@ -131,7 +134,7 @@ func TestAuthRefresh_ManyExpiries(t *testing.T) {
 	assert.LessOrEqual(t, refreshes, expiries+1, "there must be one refresh per expiry")
 }
 
-// TestAuthRefresh_KilledWhileRefreshing checks that a process killed while holding the refresh lock does not block others.
+// TestAuthRefresh_KilledWhileRefreshing checks that a process killed while holding the lock does not block others.
 func TestAuthRefresh_KilledWhileRefreshing(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("uses SIGKILL")

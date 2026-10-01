@@ -93,7 +93,7 @@ func (mg *Migrator) Run(ctx context.Context, m *Manager) error {
 		if err := m.Store.Save(id, entry); err != nil {
 			return err
 		}
-		mg.debug("Migrated session: %s", id)
+		mg.debugf("Migrated session: %s", id)
 	}
 
 	if err := writeMarker(markerPath, &migrationMarker{DeletePending: true}); err != nil {
@@ -106,15 +106,15 @@ func (mg *Migrator) Run(ctx context.Context, m *Manager) error {
 // deleteExported deletes the legacy CLI's copies of the exported sessions. On failure it is retried on a later run.
 func (mg *Migrator) deleteExported(ctx context.Context, markerPath string) {
 	if _, err := mg.Export(ctx, true); err != nil {
-		mg.debug("Failed to delete the legacy CLI's credentials: %s", err)
+		mg.debugf("Failed to delete the legacy CLI's credentials: %s", err)
 		return
 	}
 	if err := writeMarker(markerPath, &migrationMarker{}); err != nil {
-		mg.debug("Failed to write %s: %s", markerPath, err)
+		mg.debugf("Failed to write %s: %s", markerPath, err)
 	}
 }
 
-func (mg *Migrator) debug(format string, args ...any) {
+func (mg *Migrator) debugf(format string, args ...any) {
 	if mg.DebugLog != nil {
 		mg.DebugLog(format, args...)
 	}

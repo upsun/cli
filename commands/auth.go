@@ -295,7 +295,8 @@ func newAuthTokenCommand(cnf *config.Config) *cobra.Command {
 			"Using this command is not generally recommended, as it increases the chance of the token being leaked. " +
 			"Take care not to expose the token in a shared program or system, or to send the token to the wrong " +
 			"API domain.",
-		Example: fmt.Sprintf("  # Print the payload for JWT-formatted tokens\n  %[1]s auth:token -W | cut -d. -f2 | base64 -d\n\n"+
+		Example: fmt.Sprintf("  # Print the payload for JWT-formatted tokens\n"+
+			"  %[1]s auth:token -W | cut -d. -f2 | base64 -d\n\n"+
 			"  # Use the token in a curl command\n  curl -H\"$(%[1]s auth:token -HW)\" %[2]s/users/me",
 			cnf.Application.Executable, strings.TrimRight(cnf.API.BaseURL, "/")),
 		RunE: func(cmd *cobra.Command, _ []string) error {

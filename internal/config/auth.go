@@ -72,7 +72,8 @@ var authKeys = []authKey{
 	{"disable_credential_helpers", []string{"API_DISABLE_CREDENTIAL_HELPERS"},
 		func(a *authSources) *string { return &a.disableCredentialHelpers }},
 	{"skip_ssl", []string{"API_SKIP_SSL", "SKIP_SSL"}, func(a *authSources) *string { return &a.skipSSL }},
-	{"disable_locks", []string{"API_DISABLE_LOCKS", "DISABLE_LOCKS"}, func(a *authSources) *string { return &a.disableLocks }},
+	{"disable_locks", []string{"API_DISABLE_LOCKS", "DISABLE_LOCKS"},
+		func(a *authSources) *string { return &a.disableLocks }},
 }
 
 var sessionIDPattern = regexp.MustCompile(`(?i)^[a-z0-9_-]+$`)

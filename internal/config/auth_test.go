@@ -59,7 +59,7 @@ func TestAuth(t *testing.T) {
 		},
 		{
 			name: "env generic forms",
-			env: map[string]string{
+			env: map[string]string{ //nolint:gosec // test values
 				"API_TOKEN_FILE":                 "token.txt",
 				"API_ACCESS_TOKEN":               "access-token",
 				"API_AUTH_URL":                   "https://auth3.example.com",

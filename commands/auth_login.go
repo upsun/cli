@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"html"
 	"net"
@@ -62,7 +61,8 @@ func newBrowserLoginCommand(cnf *config.Config) *cobra.Command {
 				s, _ := cmd.Flags().GetString("max-age")
 				v, err := strconv.Atoi(s)
 				if err != nil || v < 0 {
-					return errors.New("The --max-age value must be a non-negative integer.") //nolint:staticcheck // matches the legacy CLI
+					fmt.Fprintln(cmd.ErrOrStderr(), "The --max-age value must be a non-negative integer.")
+					return &exitError{code: 1}
 				}
 				opts.maxAge = &v
 			}
@@ -341,7 +341,7 @@ func (s *loginServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Location", p.location)
 	}
 	w.WriteHeader(p.status)
-	_, _ = w.Write([]byte(s.render(p)))
+	_, _ = w.Write([]byte(s.render(p))) //nolint:gosec // values from the request are escaped
 }
 
 func (s *loginServer) handle(q url.Values) *loginPage {

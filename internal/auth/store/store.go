@@ -100,7 +100,7 @@ func (s *Store) Save(id string, e *Entry) error {
 	if err != nil {
 		return err
 	}
-	b, err := json.Marshal(e)
+	b, err := json.Marshal(e) //nolint:gosec // the entry is stored in the keychain
 	if err != nil {
 		return err
 	}
@@ -262,7 +262,7 @@ func WriteFileAtomic(path string, data []byte) error {
 		return err
 	}
 	tmp := f.Name()
-	defer os.Remove(tmp) //nolint:errcheck // the file is renamed on success
+	defer os.Remove(tmp)
 	if _, err := f.Write(data); err != nil {
 		_ = f.Close()
 		return err
