@@ -118,7 +118,7 @@ class VariableCreateCommand extends CommandBase
                 foreach ($this->form->getFields() as $field) {
                     $argName = '--' . $field->getOptionName();
                     $value = $field->getValueFromInput($input, false);
-                    if ($value !== null && !in_array($argName, ['--name', '--level', '--prefix'])) {
+                    if ($value !== null && !in_array($argName, ['--name', '--prefix'])) {
                         $arguments[$argName] = $value;
                     }
                 }

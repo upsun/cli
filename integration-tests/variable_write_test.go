@@ -115,6 +115,49 @@ func TestVariableCreateDefaultEnvironment(t *testing.T) {
 	assertTrimmed(t, "bar foo", f.Run("var:get", "-p", p, "-e", "main", "env:FOOBAR", "-P", "value"))
 }
 
+func TestVariableCreateUpdateWithLevel(t *testing.T) {
+	// Regression test for CLI-194: "var:create --update" must forward --level to var:update.
+	s := setupVariableTest(t)
+	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
+
+	f, p := s.factory, s.projectID
+
+	f.Run("var:create", "-p", p, "-l", "e", "-e", "main", "env:TEST", "--value", "e0")
+	f.Run("var:create", "-p", p, "-l", "p", "env:TEST", "--value", "p0")
+
+	//nolint:lll
+	_, stdErr, err := f.RunCombinedOutput("var:create", "-p", p, "-u", "-e", "main", "-l", "e", "env:TEST", "--value", "e1")
+	assert.NoError(t, err)
+	assert.NotContains(t, stdErr, "found at both")
+	assertTrimmed(t, "e1", f.Run("var:get", "-p", p, "-e", "main", "env:TEST", "-l", "e", "-P", "value"))
+	assertTrimmed(t, "p0", f.Run("var:get", "-p", p, "-e", "main", "env:TEST", "-l", "p", "-P", "value"))
+
+	_, _, err = f.RunCombinedOutput("var:create", "-p", p, "-u", "-e", "main", "-l", "p", "env:TEST", "--value", "p1")
+	assert.NoError(t, err)
+	assertTrimmed(t, "p1", f.Run("var:get", "-p", p, "-e", "main", "env:TEST", "-l", "p", "-P", "value"))
+	assertTrimmed(t, "e1", f.Run("var:get", "-p", p, "-e", "main", "env:TEST", "-l", "e", "-P", "value"))
+
+	// Project level, without an environment.
+	s = setupVariableTest(t)
+	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
+	f, p = s.factory, s.projectID
+
+	f.Run("var:create", "-p", p, "-l", "p", "env:P", "--value", "p0")
+	_, _, err = f.RunCombinedOutput("var:create", "-p", p, "-u", "-l", "p", "env:P", "--value", "p1")
+	assert.NoError(t, err)
+	assertTrimmed(t, "p1", f.Run("var:get", "-p", p, "env:P", "-l", "p", "-P", "value"))
+
+	// Without --level.
+	s = setupVariableTest(t)
+	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
+	f, p = s.factory, s.projectID
+
+	f.Run("var:create", "-p", p, "-l", "e", "-e", "main", "env:E", "--value", "e0")
+	_, _, err = f.RunCombinedOutput("var:create", "-p", p, "-u", "-e", "main", "env:E", "--value", "e1")
+	assert.NoError(t, err)
+	assertTrimmed(t, "e1", f.Run("var:get", "-p", p, "-e", "main", "env:E", "-l", "e", "-P", "value"))
+}
+
 func TestVariableCreateWithAppScope(t *testing.T) {
 	s := setupVariableTest(t)
 
