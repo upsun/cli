@@ -49,6 +49,10 @@ func checkPrivateDir(path string, uid int) error {
 	return nil
 }
 
+// hasSharedParent reports whether a directory's parent is world-writable.
+//
+// Group-writable parents are not included: they are common with user private groups (umask 002), and in containers
+// with arbitrary UIDs, where the home directory is owned by another user.
 func hasSharedParent(path string) (bool, error) {
 	info, err := os.Stat(filepath.Dir(path)) //nolint:gosec // G703: as above
 	if err != nil {
