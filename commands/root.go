@@ -47,10 +47,15 @@ func Execute(cnf *config.Config) error {
 	if errors.As(err, &ee) {
 		os.Exit(ee.code)
 	}
-	if err != nil && !viper.GetBool("quiet") {
+	if err != nil && !isQuiet() {
 		fmt.Fprintln(color.Error, "Error:", err)
 	}
 	return err
+}
+
+// isQuiet reports whether quiet mode is on, which --debug and --verbose override.
+func isQuiet() bool {
+	return viper.GetBool("quiet") && !viper.GetBool("debug") && !viper.GetBool("verbose")
 }
 
 func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cobra.Command {
@@ -69,7 +74,7 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 				// Completions and internal commands must be fast and quiet.
 				return
 			}
-			quiet := viper.GetBool("quiet") && !viper.GetBool("debug") && !viper.GetBool("verbose")
+			quiet := isQuiet()
 			if quiet {
 				viper.Set("no-interaction", true)
 				cmd.SetErr(io.Discard)
@@ -326,7 +331,7 @@ func exitWithError(err error) {
 		debugLogf(err.Error())
 		os.Exit(exitCode)
 	}
-	if !viper.GetBool("quiet") {
+	if !isQuiet() {
 		fmt.Fprintln(color.Error, color.RedString(err.Error()))
 	}
 	os.Exit(1)

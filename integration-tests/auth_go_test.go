@@ -289,3 +289,25 @@ func TestAuthInternalCommandsHidden(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, stderr, `The command "auth:ex" does not exist.`)
 }
+
+// TestErrorOutput_QuietOverride checks that --verbose and --debug override --quiet for errors.
+func TestErrorOutput_QuietOverride(t *testing.T) {
+	f := newCommandFactory(t, "", "")
+	cases := []struct {
+		args      []string
+		wantError bool
+	}{
+		{[]string{"-q"}, false},
+		{[]string{"-qv"}, true},
+		{[]string{"-q", "--debug"}, true},
+	}
+	for _, c := range cases {
+		_, stderr, err := f.RunCombinedOutput(append(append([]string{"auth:token"}, c.args...), "--unknown")...)
+		assert.Error(t, err)
+		if c.wantError {
+			assert.Contains(t, stderr, "Error:", "args: %v", c.args)
+		} else {
+			assert.NotContains(t, stderr, "Error:", "args: %v", c.args)
+		}
+	}
+}
