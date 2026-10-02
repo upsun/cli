@@ -48,10 +48,11 @@ func maxColumnWidths(rows [][][]string, bodyStart int, noWrap []bool, maxWidth i
 		for j, lines := range row {
 			w := cellWidth(lines)
 			maxWidths[j] = max(maxWidths[j], w)
-			if noWrap[j] || i < bodyStart {
+			if (j < len(noWrap) && noWrap[j]) || i < bodyStart {
 				fixedWidths[j] = max(fixedWidths[j], w)
 			} else {
-				wordWidths[j] = max(wordWidths[j], longestWordWidth(lines))
+				// A cell at its full width is not wrapped, so its minimum is no more than that.
+				wordWidths[j] = max(wordWidths[j], min(longestWordWidth(lines), w))
 			}
 		}
 	}

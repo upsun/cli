@@ -2,7 +2,10 @@ package table
 
 import (
 	"bytes"
+	"strings"
 	"testing"
+
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
@@ -458,4 +461,22 @@ func TestWordwrap(t *testing.T) {
 	for _, c := range cases {
 		assert.Equal(t, c.want, wordwrap(c.text, c.width), "wordwrap(%q, %d)", c.text, c.width)
 	}
+}
+
+func TestMaxColumnWidthsMultilineIndent(t *testing.T) {
+	// A cell's minimum width must not exceed its own width, even if a later line is not indented.
+	tbl := &Table{Columns: []Column{{Header: "A"}, {Header: "B"}, {Header: "C"}, {Header: "D"}}, MaxWidth: 89}
+	rows := [][]string{{
+		"  a\nwwww\nzzzzzzzzzz",
+		"    a\nwwwwww\nzzzzzzzzzzzzzzzzz",
+		"       a\nwwwwwwwwwwwww\nzzzzzzzzzzzzzzzzzzzz",
+		" a\nwwwwww\nzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+	}}
+	var b bytes.Buffer
+	require.NotPanics(t, func() { require.NoError(t, tbl.Render(&b, rows, Options{})) })
+	for _, line := range strings.Split(strings.TrimSuffix(b.String(), "\n"), "\n") {
+		assert.LessOrEqual(t, ansi.StringWidth(line), 89)
+	}
+
+	assert.Equal(t, []int{6}, maxColumnWidths([][][]string{{{"  a", "wwwwww"}}}, 0, []bool{false}, 5))
 }

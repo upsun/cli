@@ -290,7 +290,8 @@ class AdaptiveTable extends Table
                 if (($cell instanceof AdaptiveTableCell && !$cell->canWrap()) || !isset($this->rowsCopy[$rowNum])) {
                     $fixedWidths[$column] = max($fixedWidths[$column] ?? 0, $cellWidth);
                 } else {
-                    $wordWidths[$column] = max($wordWidths[$column] ?? 0, (int) ceil($this->getLongestWordWidth($cell)));
+                    // A cell at its full width is not wrapped, so its minimum is no more than that.
+                    $wordWidths[$column] = max($wordWidths[$column] ?? 0, min((int) ceil($this->getLongestWordWidth($cell)), $cellWidth));
                 }
             }
             $columnCounts[] = $columnCount;
