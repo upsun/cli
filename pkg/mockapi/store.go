@@ -6,12 +6,13 @@ import (
 
 type store struct {
 	sync.RWMutex
-	myUser        *User
-	orgs          map[string]*Org
-	projects      map[string]*Project
-	environments  map[string]*Environment
-	subscriptions map[string]*Subscription
-	userGrants    []*UserGrant
+	myUser          *User
+	orgs            map[string]*Org
+	projects        map[string]*Project
+	environments    map[string]*Environment
+	subscriptions   map[string]*Subscription
+	billingProfiles map[string]*BillingProfile
+	userGrants      []*UserGrant
 
 	canCreate map[string]*CanCreateResponse
 
@@ -168,4 +169,25 @@ func (s *store) SetProjectCertificates(projectID string, certs []*Certificate) {
 		s.projectCertificates = make(map[string][]*Certificate)
 	}
 	s.projectCertificates[projectID] = certs
+}
+
+func (s *store) SetBillingProfiles(profiles []*BillingProfile) {
+	s.Lock()
+	defer s.Unlock()
+	s.billingProfiles = make(map[string]*BillingProfile, len(profiles))
+	for _, p := range profiles {
+		s.billingProfiles[p.ID] = p
+	}
+}
+
+// BillingProfile returns a copy of a billing profile, e.g. to check updates.
+func (s *store) BillingProfile(id string) *BillingProfile {
+	s.RLock()
+	defer s.RUnlock()
+	p, ok := s.billingProfiles[id]
+	if !ok {
+		return nil
+	}
+	c := *p
+	return &c
 }

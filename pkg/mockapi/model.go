@@ -168,6 +168,9 @@ type Org struct {
 	Owner        string   `json:"owner_id"`
 	Capabilities []string `json:"capabilities"`
 	Links        HalLinks `json:"_links"`
+
+	BillingLegacy    *bool  `json:"billing_legacy,omitempty"`
+	BillingProfileID string `json:"billing_profile_id,omitempty"`
 }
 
 func (o *Org) AsRef() *OrgRef {
@@ -362,4 +365,22 @@ type EnvLevelVariable struct {
 	IsEnabled     bool `json:"is_enabled"`
 	Inherited     bool `json:"inherited"`
 	IsInheritable bool `json:"is_inheritable"`
+}
+
+// BillingProfile is a billing profile on the new billing system.
+type BillingProfile struct {
+	ID                 string `json:"billing_profile_id"`
+	Name               string `json:"name"`
+	BillingEmail       string `json:"billing_email"`
+	BillingContacts    string `json:"billing_contacts"`
+	Country            string `json:"country"`
+	Currency           string `json:"currency"`
+	BillingStreet1     string `json:"billing_street_1"`
+	BillingStreet2     string `json:"billing_street_2"`
+	Locality           string `json:"locality"`
+	AdministrativeArea string `json:"administrative_area"`
+	PostalCode         string `json:"postal_code"`
+	PricingModel       string `json:"pricing_model"`
+
+	Links HalLinks `json:"_links,omitempty"`
 }
