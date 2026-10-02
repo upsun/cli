@@ -252,6 +252,11 @@ func TestManager_Token(t *testing.T) {
 			if c.entry != nil {
 				require.NoError(t, m.Store.Save("default", c.entry))
 			}
+			var loggedOut []string
+			m.OnLoggedOut = func(id string) error {
+				loggedOut = append(loggedOut, id)
+				return nil
+			}
 
 			tok, err := m.Token(context.Background(), c.rejected)
 			switch {
@@ -274,8 +279,12 @@ func TestManager_Token(t *testing.T) {
 			require.NoError(t, err)
 			if c.wantDeleted {
 				assert.Nil(t, stored)
+				assert.Equal(t, []string{"default"}, loggedOut)
 			} else if c.entry != nil && c.entry.RefreshToken != "" && c.wantErr != "" {
 				assert.Equal(t, c.entry.RefreshToken, stored.RefreshToken, "the session must be kept")
+			}
+			if !c.wantDeleted {
+				assert.Empty(t, loggedOut)
 			}
 		})
 	}

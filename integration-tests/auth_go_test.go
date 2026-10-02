@@ -197,6 +197,32 @@ func TestAuthRefresh_TransientError(t *testing.T) {
 	assert.False(t, authServer.ReuseDetected())
 }
 
+// TestAuthRefresh_InvalidGrantClearsSessionFiles checks that an expired session's files are deleted.
+func TestAuthRefresh_InvalidGrantClearsSessionFiles(t *testing.T) {
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+
+	f := newCommandFactory(t, "", authServer.URL)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
+	writeOAuthSession(t, f.home, "default", map[string]any{
+		"accessToken":  "expired-token",
+		"expires":      time.Now().Add(-time.Hour).Unix(),
+		"refreshToken": "unknown-refresh-token",
+	})
+	dir := filepath.Join(f.home, ".platform-test-cli")
+	certFile := filepath.Join(dir, ".session", "sess-cli-default", "ssh", "id_ed25519-cert.pub")
+	sshConfig := filepath.Join(dir, "ssh", "session.config")
+	require.NoError(t, os.WriteFile(certFile, []byte("cert"), 0o600))
+	require.NoError(t, os.MkdirAll(filepath.Dir(sshConfig), 0o700))
+	require.NoError(t, os.WriteFile(sshConfig, []byte("config"), 0o600))
+
+	_, stderr, err := f.RunCombinedOutput("auth:token", "--no-warn")
+	assertExitCode(t, 3, err)
+	assert.Contains(t, stderr, "logged out")
+	assert.NoFileExists(t, certFile)
+	assert.NoFileExists(t, sshConfig)
+}
+
 // TestAuthStepUp checks the message for a step-up authentication challenge (RFC 9470) in a PHP command.
 func TestAuthStepUp(t *testing.T) {
 	authServer := mockapi.NewAuthServer(t)

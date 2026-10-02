@@ -84,6 +84,9 @@ func newAuthManager(cnf *config.Config, stderr io.Writer) (*auth.Manager, error)
 		},
 		DebugLog: debugLogf,
 	}
+	m.OnLoggedOut = func(id string) error {
+		return clearLegacySessionFiles(cnf, m.Settings.SessionID, []string{id}, false)
+	}
 	return m, nil
 }
 

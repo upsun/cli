@@ -53,6 +53,10 @@ type Manager struct {
 	// Stderr receives warnings.
 	Stderr io.Writer
 
+	// OnLoggedOut is called after a refresh fails and the session is deleted, e.g. to delete other session files.
+	// It may be nil.
+	OnLoggedOut func(id string) error
+
 	// LockWait bounds how long to wait for a lock. It defaults to 60s.
 	LockWait time.Duration
 
@@ -286,6 +290,9 @@ func (m *Manager) refresh(ctx context.Context, id, rejected, apiToken string) (*
 				return nil, err
 			}
 			if apiToken == "" {
+				if err := m.loggedOut(id); err != nil {
+					return nil, err
+				}
 				return nil, loginRequiredAfterRefreshError(oerr)
 			}
 			// Exchange the API token again below.
@@ -314,9 +321,19 @@ func (m *Manager) refresh(ctx context.Context, id, rejected, apiToken string) (*
 		if err := m.Store.Delete(id); err != nil {
 			return nil, err
 		}
+		if err := m.loggedOut(id); err != nil {
+			return nil, err
+		}
 		return nil, &LoginRequiredError{Notice: "Your session has expired. You have been logged out."}
 	}
 	return nil, &LoginRequiredError{}
+}
+
+func (m *Manager) loggedOut(id string) error {
+	if m.OnLoggedOut == nil {
+		return nil
+	}
+	return m.OnLoggedOut(id)
 }
 
 // afterConcurrentRefresh waits briefly and uses the stored tokens if another process saved new ones.
