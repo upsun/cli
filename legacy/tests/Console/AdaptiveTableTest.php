@@ -171,6 +171,29 @@ class AdaptiveTableTest extends TestCase
     }
 
     /**
+     * Test that indentation is included in the minimum column width.
+     */
+    public function testAdaptedRowsIndentInMinimumWidth(): void
+    {
+        $buffer = new BufferedOutput();
+        $table = new AdaptiveTable($buffer, 10);
+        $table->setHeaders([['K', 'V']]);
+        $table->setRows([['x', '  ab cd']]);
+        $table->render();
+
+        $expected = <<<'EOT'
+            +---+------+
+            | K | V    |
+            +---+------+
+            | x |   ab |
+            |   |   cd |
+            +---+------+
+
+            EOT;
+        $this->assertEquals($expected, $buffer->fetch());
+    }
+
+    /**
      * Tests that a string can be wrapped with decoration at various lengths.
      *
      * @param string $input

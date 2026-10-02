@@ -272,6 +272,19 @@ func TestRenderTableWrapping(t *testing.T) {
 `,
 		},
 		{
+			name:    "indentation is included in the minimum width",
+			columns: []Column{{Header: "K"}, {Header: "V"}},
+			rows:    [][]string{{"x", "  ab cd"}},
+			width:   10,
+			want: `+---+------+
+| K | V    |
++---+------+
+| x |   ab |
+|   |   cd |
++---+------+
+`,
+		},
+		{
 			name:    "wide characters",
 			columns: []Column{{Header: "K"}, {Header: "V"}},
 			rows:    [][]string{{"a", "日本語 日本語 日本語 日本語"}},
@@ -439,6 +452,8 @@ func TestWordwrap(t *testing.T) {
 		{"日本語 日本語", 6, "日本語\n日本語"},
 		{"日本語日本語", 5, "日本\n語日\n本語"},
 		{"\x1b[32mgreen text\x1b[0m here", 5, "\x1b[32mgreen\ntext\x1b[0m\nhere"},
+		{"\x1b[32m12345\x1b[0m", 5, "\x1b[32m12345\x1b[0m"},
+		{"\x1b[32m12345\x1b[0m 678", 5, "\x1b[32m12345\x1b[0m\n678"},
 	}
 	for _, c := range cases {
 		assert.Equal(t, c.want, wordwrap(c.text, c.width), "wordwrap(%q, %d)", c.text, c.width)
