@@ -55,13 +55,9 @@ class GoAuth
         if ($cached !== null && $rejected === null && !$this->expiresSoon($cached)) {
             return $cached;
         }
-        $args = ['token'];
-        if ($rejected !== null) {
-            $args[] = '--rejected';
-            $args[] = $rejected;
-        }
+        // The rejected token is passed via stdin, to keep it out of process listings.
         /** @var array{access_token: string, expires?: int} $token */
-        $token = $this->run($args);
+        $token = $rejected !== null ? $this->run(['token', '--rejected'], $rejected) : $this->run(['token']);
 
         return self::$tokens[$sessionId] = $token;
     }
@@ -125,12 +121,13 @@ class GoAuth
 
     /**
      * @param string[] $args
+     * @param string|null $input Input for the command's stdin.
      *
      * @return array<mixed>
      */
-    private function run(array $args): array
+    private function run(array $args, ?string $input = null): array
     {
-        $process = new Process(array_merge([$this->executable(), 'auth:internal'], $args), null, $this->env());
+        $process = new Process(array_merge([$this->executable(), 'auth:internal'], $args), null, $this->env(), $input);
         $process->setTimeout(null);
         $process->run();
 

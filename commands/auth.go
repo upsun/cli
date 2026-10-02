@@ -391,11 +391,19 @@ func newAuthInternalCommand(cnf *config.Config) *cobra.Command {
 		Use:  "token",
 		Args: cobra.NoArgs,
 		RunE: run(func(cmd *cobra.Command, m *auth.Manager) (any, error) {
-			rejected, _ := cmd.Flags().GetString("rejected")
+			var rejected string
+			// The rejected token is read from stdin, to keep it out of process listings.
+			if r, _ := cmd.Flags().GetBool("rejected"); r {
+				b, err := io.ReadAll(cmd.InOrStdin())
+				if err != nil {
+					return nil, err
+				}
+				rejected = strings.TrimSpace(string(b))
+			}
 			return m.Token(cmd.Context(), rejected)
 		}),
 	}
-	tokenCmd.Flags().String("rejected", "", "An access token that was rejected by the API")
+	tokenCmd.Flags().Bool("rejected", false, "Read an access token that was rejected by the API from stdin")
 	statusCmd := &cobra.Command{
 		Use:  "status",
 		Args: cobra.NoArgs,
