@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -108,10 +109,13 @@ func runInitCommand(
 
 	cnf := config.FromContext(cmd.Context())
 
-	legacyCLIClient, err := auth.NewLegacyCLIClient(cmd.Context(),
-		makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), cmd.ErrOrStderr(), cmd.InOrStdin()))
+	authManager, err := newAuthManager(cnf, cmd.ErrOrStderr())
 	if err != nil {
 		return err
+	}
+	httpClient := auth.NewClient(authManager, auth.NewHTTPClient(cnf, authManager.Settings).Transport)
+	ensureAuthenticated := func() error {
+		return withLogin(cmd, cnf, authManager, func() error { return authManager.EnsureAuthenticated(cmd.Context()) })
 	}
 
 	msg, canUse := canUseAI(cnf)
@@ -130,7 +134,7 @@ func runInitCommand(
 	var isInteractive = !viper.GetBool("no-interaction")
 
 	debugLogf("Checking selected organization")
-	org, err := handleOrganizations(cmd.Context(), cnf, legacyCLIClient, initOptions)
+	org, err := handleOrganizations(cmd.Context(), cnf, httpClient, ensureAuthenticated, initOptions)
 	if err != nil {
 		return err
 	}
@@ -168,7 +172,7 @@ func runInitCommand(
 			"Note: AI configuration is only compatible with `%s` organizations\n", api.OrgTypeFlexible))
 	}
 
-	if err := legacyCLIClient.EnsureAuthenticated(cmd.Context()); err != nil {
+	if err := ensureAuthenticated(); err != nil {
 		return err
 	}
 
@@ -178,8 +182,8 @@ func runInitCommand(
 		return err
 	}
 
-	initOptions.HTTPClient = legacyCLIClient.HTTPClient
-	initOptions.APIURL = cnf.API.BaseURL
+	initOptions.HTTPClient = httpClient
+	initOptions.APIURL = authManager.Settings.BaseURL
 	initOptions.UserAgent = cnf.UserAgent()
 	initOptions.IsInteractive = isInteractive
 	initOptions.Yes = viper.GetBool("yes")
@@ -192,13 +196,17 @@ func runInitCommand(
 // handleOrganizations manages organization selection and validation.
 // It modifies initOptions.OrganizationID and initOptions.ProjectID.
 func handleOrganizations(
-	ctx context.Context, cnf *config.Config, legacyCLIClient *auth.LegacyCLIClient, initOptions *_init.Options,
+	ctx context.Context,
+	cnf *config.Config,
+	httpClient *http.Client,
+	ensureAuthenticated func() error,
+	initOptions *_init.Options,
 ) (*api.Organization, error) {
 	if !cnf.API.EnableOrganizations {
 		return nil, nil
 	}
 
-	apiClient, err := api.NewClient(cnf.API.BaseURL, legacyCLIClient.HTTPClient)
+	apiClient, err := api.NewClient(cnf.API.BaseURL, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +218,7 @@ func handleOrganizations(
 		return nil, nil
 	}
 
-	if err := legacyCLIClient.EnsureAuthenticated(ctx); err != nil {
+	if err := ensureAuthenticated(); err != nil {
 		return nil, err
 	}
 

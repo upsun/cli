@@ -4,34 +4,22 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Service;
 
-use Platformsh\Cli\ApiToken\StorageInterface;
-use Platformsh\Cli\ApiToken\Storage;
-
+/**
+ * Reads API tokens and access tokens set via config.
+ *
+ * Tokens saved by auth:api-token-login are stored by the Go wrapper.
+ */
 readonly class TokenConfig
 {
     private Config $config;
-    private StorageInterface $apiTokenStorage;
 
     public function __construct(?Config $config = null)
     {
         $this->config = $config ?: new Config();
-        $this->apiTokenStorage = Storage::factory($this->config);
     }
 
-    public function storage(): StorageInterface
+    public function getApiToken(): ?string
     {
-        return $this->apiTokenStorage;
-    }
-
-    public function getApiToken(bool $includeStored = true): ?string
-    {
-        if ($includeStored) {
-            $storedToken = $this->apiTokenStorage->getToken();
-            if ($storedToken !== '') {
-                return $storedToken;
-            }
-        }
-
         $token = (string) $this->config->getWithDefault('api.token', '');
         if ($token !== '') {
             return $token;

@@ -53,7 +53,7 @@ go test -v -run TestName ./path/to/package
 ### Hybrid CLI System
 
 The CLI operates as a wrapper around a legacy PHP CLI:
-- Go layer: Handles new commands (init, list, version, config:install, project:convert) and core infrastructure
+- Go layer: Handles new commands (init, list, version, config:install, project:convert, the auth commands) and core infrastructure, including authentication
 - PHP layer: Legacy commands are proxied through `internal/legacy/CLIWrapper`
 - The PHP CLI (platform.phar) is embedded at build time via go:embed
 - An index of legacy commands (commands.json, from `list --all --format=json`) is embedded too, so the Go layer can resolve abbreviations like `p:init` in the same way as Symfony Console
@@ -67,7 +67,7 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 
 **Commands**: `commands/`
 - `root.go`: Root command that sets up the Cobra CLI and delegates to legacy CLI when needed
-- Native Go commands: init, list, version, config:install, project:convert, completion
+- Native Go commands: init, list, version, config:install, project:convert, completion, and auth:browser-login (login), auth:api-token-login, auth:logout (logout), auth:token
 - Unrecognized commands are passed to the legacy PHP CLI
 
 **Configuration**: `internal/config/`
@@ -90,8 +90,10 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 - Handles authentication, organizations, and resource management
 
 **Authentication**: `internal/auth/`
-- JWT handling and OAuth2 flow
-- Custom transport for API authentication
+- Go is the only component that stores or refreshes credentials. `auth.Manager` resolves tokens (API tokens, `api.access_token`, stored sessions) and refreshes them under a per-session flock (`<writable dir>/auth/<id>.lock`), re-reading the store under the lock because refresh tokens rotate
+- `internal/auth/store`: one entry per session ID, in the system keychain (go-keyring) or in `<writable dir>/auth/<id>.json`
+- Auth settings are read by `config.Auth()` with the legacy CLI's precedence: embedded config, the user's `config.yaml`, env vars
+- The legacy CLI gets tokens and auth state by running the hidden `auth:internal token|status` command (via `<PREFIX>WRAPPER_EXECUTABLE`), and Go runs the hidden PHP commands `auth:post-login` (SSH certificates and config) and `auth:export-sessions` (a one-time migration of the legacy storage, recorded in `auth/.migrated`)
 
 **Project Initialization**: `internal/init/`
 - AI-powered project configuration generation

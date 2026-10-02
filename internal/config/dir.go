@@ -59,7 +59,10 @@ func (c *Config) TempDir() (string, error) {
 	return path, nil
 }
 
-// WritableUserDir returns the path to a writable user-level directory.
+// WritableUserDir returns the path to a writable user-level directory, e.g. for credentials and state.
+//
+// As in the legacy CLI, which shares it, a temporary directory is used if the directory in the home directory cannot
+// be written, e.g. on an application container.
 //
 // Deprecated: unless backwards compatibility is desired, TempDir is preferable.
 func (c *Config) WritableUserDir() (string, error) {
@@ -71,6 +74,9 @@ func (c *Config) WritableUserDir() (string, error) {
 		return "", err
 	}
 	path := filepath.Join(hd, c.Application.WritableUserDir)
+	if !canWrite(path) {
+		path = filepath.Join(os.TempDir(), c.Application.TempSubDir)
+	}
 	if err := os.MkdirAll(path, 0o700); err != nil {
 		return "", err
 	}
@@ -79,10 +85,32 @@ func (c *Config) WritableUserDir() (string, error) {
 	return path, nil
 }
 
-// HomeDir returns the home directory configured via an environment variable, or the OS's user home directory otherwise.
+// canWrite checks whether a directory is writable, or can be created, using permissions only.
+//
+// This matches the legacy CLI (Filesystem::canWrite), so both choose the same directory, e.g. even on a full disk.
+func canWrite(path string) bool {
+	if info, err := os.Stat(path); err == nil {
+		return info.IsDir() && isWritable(path, info)
+	}
+	for p := filepath.Dir(path); ; p = filepath.Dir(p) {
+		if info, err := os.Stat(p); err == nil {
+			return isWritable(p, info)
+		}
+		if filepath.Dir(p) == p {
+			return false
+		}
+	}
+}
+
+// HomeDir returns the user's home directory.
+//
+// It checks the same environment variables as the legacy CLI, in order: {ENV_PREFIX}HOME, HOME and USERPROFILE.
+// On Windows, HOME can differ from USERPROFILE, e.g. in MSYS2 or Cygwin.
 func (c *Config) HomeDir() (string, error) {
-	if fromEnv := os.Getenv(c.Application.EnvPrefix + "HOME"); fromEnv != "" {
-		return fromEnv, nil
+	for _, name := range []string{c.Application.EnvPrefix + "HOME", "HOME", "USERPROFILE"} {
+		if v := os.Getenv(name); v != "" {
+			return v, nil
+		}
 	}
 	return os.UserHomeDir()
 }
