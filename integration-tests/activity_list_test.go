@@ -78,14 +78,14 @@ func TestActivityList(t *testing.T) {
 `, f.Run("act", "-p", projectID, "-e", "."))
 
 	assertTrimmed(t, `
-+------+----------------------+---------------------------------+----------+----------+---------+----------------+
-| ID   | Created              | Description                     | Progress | State    | Result  | Environment(s) |
-+------+----------------------+---------------------------------+----------+----------+---------+----------------+
-| act1 | 2014-04-01T10:00:00+ | Mock User created variable X on | 100%     | complete | success | main           |
-|      | 00:00                | environment main                |          |          |         |                |
-| act2 | 2014-04-01T09:00:00+ | Mock User created variable X    | 100%     | complete | success |                |
-|      | 00:00                |                                 |          |          |         |                |
-+------+----------------------+---------------------------------+----------+----------+---------+----------------+
++------+-------------------------+---------------------------------+----------+----------+---------+----------------+
+| ID   | Created                 | Description                     | Progress | State    | Result  | Environment(s) |
++------+-------------------------+---------------------------------+----------+----------+---------+----------------+
+| act1 | 2014-04-01T10:00:00+00: | Mock User created variable X on | 100%     | complete | success | main           |
+|      | 00                      | environment main                |          |          |         |                |
+| act2 | 2014-04-01T09:00:00+00: | Mock User created variable X    | 100%     | complete | success |                |
+|      | 00                      |                                 |          |          |         |                |
++------+-------------------------+---------------------------------+----------+----------+---------+----------------+
 `, f.Run("act", "-p", projectID, "--all", "--limit", "20"))
 
 	assertTrimmed(t, "complete", f.Run("act:get", "-p", projectID, "-e", ".", "act1", "-P", "state"))
