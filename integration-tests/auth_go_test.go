@@ -184,16 +184,16 @@ func TestAuthRefresh_TransientError(t *testing.T) {
 		"refreshToken": "initial-refresh-token",
 	})
 
-	// Two failures exhaust the retry.
-	authServer.SetRefreshFailures(2)
+	// A failure after the request was sent is not retried.
+	authServer.SetRefreshFailures(1)
 	_, stderr, err := f.RunCombinedOutput("auth:token", "--no-warn")
 	assertExitCode(t, 1, err)
 	assert.Contains(t, stderr, "failed to refresh the access token")
+	assert.Equal(t, 1, authServer.RefreshRequests())
 
-	// One failure is retried.
-	authServer.SetRefreshFailures(1)
+	// The session is kept, so the next refresh succeeds.
 	assert.Equal(t, "access-token-1", f.Run("auth:token", "--no-warn"))
-	assert.Equal(t, 4, authServer.RefreshRequests())
+	assert.Equal(t, 2, authServer.RefreshRequests())
 	assert.False(t, authServer.ReuseDetected())
 }
 
