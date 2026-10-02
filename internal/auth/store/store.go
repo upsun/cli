@@ -173,22 +173,28 @@ func (s *Store) List() ([]string, error) {
 
 // DeleteAll removes every session, and all other files except locks and the migration marker.
 //
-// Lock files are kept, as another process may hold a lock on them.
+// Lock files are kept, as another process may hold a lock on them, and so are the files of sessions whose secrets
+// could not be deleted.
 func (s *Store) DeleteAll() error {
 	ids, err := s.List()
 	if err != nil {
 		return err
 	}
 	var errs []error
+	// The files of sessions that could not be deleted are kept, so that deleting their secrets can be retried.
+	keep := map[string]bool{MigrationMarker: true}
 	for _, id := range ids {
-		errs = append(errs, s.Delete(id))
+		if err := s.Delete(id); err != nil {
+			errs = append(errs, err)
+			keep[id+".json"] = true
+		}
 	}
 	entries, err := os.ReadDir(s.Dir)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		errs = append(errs, err)
 	}
 	for _, e := range entries {
-		if e.Name() != MigrationMarker && !strings.HasSuffix(e.Name(), ".lock") {
+		if !keep[e.Name()] && !strings.HasSuffix(e.Name(), ".lock") {
 			errs = append(errs, os.RemoveAll(filepath.Join(s.Dir, e.Name())))
 		}
 	}

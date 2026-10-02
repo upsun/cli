@@ -124,6 +124,17 @@ func TestStore_KeychainWait(t *testing.T) {
 	assert.Contains(t, stderr.String(), "Waiting for the keychain")
 }
 
+func TestStore_DeleteAll_KeychainError(t *testing.T) {
+	keyring.MockInit()
+	s := &Store{Dir: t.TempDir(), Service: "test-cli-auth", UseKeychain: true}
+	require.NoError(t, s.Save("a", &Entry{AccessToken: "a"}))
+
+	keyring.MockInitWithError(errors.New("locked"))
+	assert.Error(t, s.DeleteAll())
+	// The session file is kept, so that deleting the secret can be retried.
+	assert.FileExists(t, s.sessionFilePath("a"))
+}
+
 func TestStore_DeleteAll(t *testing.T) {
 	keyring.MockInit()
 	s := &Store{Dir: t.TempDir(), Service: "test-cli-auth"}
