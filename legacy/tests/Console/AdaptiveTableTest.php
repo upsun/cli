@@ -194,6 +194,19 @@ class AdaptiveTableTest extends TestCase
     }
 
     /**
+     * Test that a cell's minimum width does not exceed its width, if a later line is not indented.
+     */
+    public function testAdaptedRowsMultilineIndent(): void
+    {
+        $table = new AdaptiveTable(new BufferedOutput(), 5);
+        $table->setHeaders([['A']]);
+        $table->setRows([["  a\nwwwwww"]]);
+
+        $method = new \ReflectionMethod($table, 'getMaxColumnWidths');
+        $this->assertEquals([6], $method->invoke($table));
+    }
+
+    /**
      * Tests that a string can be wrapped with decoration at various lengths.
      *
      * @param string $input
