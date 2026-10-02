@@ -30,9 +30,12 @@ class AdaptiveTable extends Table
      *
      * @param OutputInterface $outputCopy
      * @param int|null $maxTableWidth
-     * @param int $minColumnWidth
+     * @param int $maxUnbrokenWidth
+     *   Words up to this width are not broken when wrapping, if the table can fit.
+     * @param int $minUnbrokenWidth
+     *   Words up to this width are not broken when wrapping, even if the table does not fit.
      */
-    public function __construct(protected OutputInterface $outputCopy, ?int $maxTableWidth = null, protected int $minColumnWidth = 10)
+    public function __construct(protected OutputInterface $outputCopy, ?int $maxTableWidth = null, protected int $maxUnbrokenWidth = 20, protected int $minUnbrokenWidth = 10)
     {
         $this->maxTableWidth = $maxTableWidth !== null
             ? $maxTableWidth
@@ -248,17 +251,27 @@ class AdaptiveTable extends Table
     }
 
     /**
+     * Finds the maximum width of each column's content, so that the table fits into the maximum table width.
+     *
+     * This is similar to a web browser's automatic table layout. Each column
+     * has a maximum width (its widest cell) and a minimum width (its longest
+     * word, up to $maxUnbrokenWidth, or less if needed to fit). If the maximum widths do not fit, each
+     * column gets its minimum width plus a share of the remaining space, in
+     * proportion to the difference between its maximum and minimum widths.
+     *
      * @return array<int|string, int>
      *   An array of the maximum column widths that fit into the table width,
      *   indexed by the column's key in the table's rows (a name or number).
      */
     protected function getMaxColumnWidths(): array
     {
-        // Loop through the table rows and headers, building multidimensional
-        // arrays of the 'original' and 'minimum' column widths. In the same
-        // loop, build a count of the number of columns.
-        $originalColumnWidths = [];
-        $minColumnWidths = [];
+        // Loop through the table rows and headers, building arrays of the
+        // maximum column widths, the widths of cells that cannot wrap, and the
+        // widths of the longest words. In the same loop, build a count of the
+        // number of columns.
+        $maxWidths = [];
+        $fixedWidths = [];
+        $wordWidths = [];
         $columnCounts = [0];
         foreach (array_merge($this->rowsCopy, $this->headersCopy) as $rowNum => $row) {
             if ($row instanceof TableSeparator) {
@@ -268,26 +281,16 @@ class AdaptiveTable extends Table
             foreach ($row as $column => $cell) {
                 $columnCount += $cell instanceof TableCell ? $cell->getColspan() - 1 : 1;
 
-                // The column width is the width of the widest cell.
-                $cellWidth = $this->getCellWidth($cell);
-                if (!isset($originalColumnWidths[$column]) || $originalColumnWidths[$column] < $cellWidth) {
-                    $originalColumnWidths[$column] = $cellWidth;
-                }
+                // The maximum column width is the width of the widest cell.
+                $cellWidth = (int) ceil($this->getCellWidth($cell));
+                $maxWidths[$column] = max($maxWidths[$column] ?? 0, $cellWidth);
 
-                // Find the minimum width of the cell. The default is configured
-                // in minColumnWidth, but this is overridden for non-wrapping
-                // cells and very narrow cells. Additionally, table headers are
-                // never wrapped.
-                $minCellWidth = $this->minColumnWidth;
-                if ($cellWidth < $this->minColumnWidth
-                    || ($cell instanceof AdaptiveTableCell && !$cell->canWrap())
-                    || !isset($this->rowsCopy[$rowNum])) {
-                    $minCellWidth = $cellWidth;
-                }
-
-                // The minimum column width is the greatest minimum cell width.
-                if (!isset($minColumnWidths[$column]) || $minColumnWidths[$column] < $minCellWidth) {
-                    $minColumnWidths[$column] = $minCellWidth;
+                // Non-wrapping cells and table headers are never wrapped.
+                // Otherwise, track the width of the longest word.
+                if (($cell instanceof AdaptiveTableCell && !$cell->canWrap()) || !isset($this->rowsCopy[$rowNum])) {
+                    $fixedWidths[$column] = max($fixedWidths[$column] ?? 0, $cellWidth);
+                } else {
+                    $wordWidths[$column] = max($wordWidths[$column] ?? 0, (int) ceil($this->getLongestWordWidth($cell)));
                 }
             }
             $columnCounts[] = $columnCount;
@@ -296,29 +299,52 @@ class AdaptiveTable extends Table
         // Find the number of columns in the table. This uses the same process
         // as the parent private method Table->calculateNumberOfColumns().
         $columnCount = max($columnCounts);
+        $available = (int) $this->getMaxContentWidth($columnCount);
 
-        // Find the maximum width for each column's content, to fit into the
-        // calculated maximum content width.
-        $maxContentWidth = $this->getMaxContentWidth($columnCount);
-        $maxColumnWidths = [];
-        $totalWidth = array_sum($originalColumnWidths);
-        asort($originalColumnWidths, SORT_NUMERIC);
-        foreach ($originalColumnWidths as $column => $columnWidth) {
-            $columnRatio = ($maxContentWidth / $totalWidth) * $columnWidth;
-            $maxColumnWidth = (int) round($columnRatio);
-
-            // Do not change the width of columns which are already narrower
-            // than the minimum.
-            if (isset($minColumnWidths[$column]) && $maxColumnWidth < $minColumnWidths[$column]) {
-                $maxColumnWidth = $minColumnWidths[$column];
-            }
-
-            $maxColumnWidths[$column] = (int) $maxColumnWidth;
-            $totalWidth -= $columnWidth;
-            $maxContentWidth -= $maxColumnWidth;
+        $maxTotal = array_sum($maxWidths);
+        if ($maxTotal <= $available) {
+            return $maxWidths;
         }
 
-        return $maxColumnWidths;
+        // The minimum column width is the width of the longest word, capped
+        // at $maxUnbrokenWidth. The cap is reduced, down to
+        // $minUnbrokenWidth, until the minimum widths fit.
+        for ($cap = $this->maxUnbrokenWidth; ; $cap--) {
+            $minWidths = [];
+            foreach ($maxWidths as $column => $maxWidth) {
+                $minWidths[$column] = max($fixedWidths[$column] ?? 0, min($wordWidths[$column] ?? 0, $cap));
+            }
+            $minTotal = array_sum($minWidths);
+            if ($minTotal <= $available || $cap <= $this->minUnbrokenWidth) {
+                break;
+            }
+        }
+        if ($minTotal >= $available) {
+            return $minWidths;
+        }
+
+        // Share the extra space in proportion to each column's flexibility
+        // (its maximum minus its minimum width). Integer arithmetic is used,
+        // and the remainder is given to the columns with the largest
+        // fractional parts.
+        $extra = $available - $minTotal;
+        $flexTotal = $maxTotal - $minTotal;
+        $widths = [];
+        $remainders = [];
+        foreach ($maxWidths as $column => $maxWidth) {
+            $share = ($maxWidth - $minWidths[$column]) * $extra;
+            $widths[$column] = $minWidths[$column] + intdiv($share, $flexTotal);
+            $remainders[$column] = $share % $flexTotal;
+        }
+        $leftover = $available - array_sum($widths);
+        // Sorting is stable, so ties are broken by column order.
+        $columns = array_keys($remainders);
+        usort($columns, fn($a, $b): int => $remainders[$b] <=> $remainders[$a]);
+        foreach (array_slice($columns, 0, $leftover) as $column) {
+            $widths[$column]++;
+        }
+
+        return $widths;
     }
 
     /**
@@ -339,6 +365,24 @@ class AdaptiveTable extends Table
         return $this->maxTableWidth
             - $verticalBorderQuantity * strlen((string) $style->getBorderChars()[3])
             - $paddingQuantity * strlen($style->getPaddingChar());
+    }
+
+    /**
+     * Get the width of the longest word in a table cell.
+     */
+    private function getLongestWordWidth(string|int|float|TableCell $cell): int|float
+    {
+        $formatter = $this->outputCopy->getFormatter();
+        $plain = Helper::removeDecoration($formatter, (string) $cell);
+        $width = 0;
+        foreach (preg_split('/\s+/', $plain, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $word) {
+            $width = max($width, Helper::width($word));
+        }
+        if ($cell instanceof TableCell && $cell->getColspan() > 1) {
+            $width /= $cell->getColspan();
+        }
+
+        return $width;
     }
 
     /**

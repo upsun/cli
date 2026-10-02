@@ -223,12 +223,52 @@ func TestRenderTableWrapping(t *testing.T) {
 			columns: []Column{{Header: "A long header"}, {Header: "URL", NoWrap: true}, {Header: "Notes"}},
 			rows:    [][]string{{"x", "https://example.com/long/path", "some notes that wrap"}},
 			width:   40,
-			want: `+---------------+-------------------------------+------------+
-| A long header | URL                           | Notes      |
-+---------------+-------------------------------+------------+
-| x             | https://example.com/long/path | some notes |
-|               |                               | that wrap  |
-+---------------+-------------------------------+------------+
+			want: `+---------------+-------------------------------+-------+
+| A long header | URL                           | Notes |
++---------------+-------------------------------+-------+
+| x             | https://example.com/long/path | some  |
+|               |                               | notes |
+|               |                               | that  |
+|               |                               | wrap  |
++---------------+-------------------------------+-------+
+`,
+		},
+		{
+			name:    "long words are not broken if the table can fit",
+			columns: []Column{{Header: "Row"}, {Header: "Lorem"}, {Header: "ipsum"}, {Header: "dolor"}, {Header: "sit"}},
+			rows: [][]string{
+				{"#1", "amet", "consectetur", "adipiscing elit", "Quisque pulvinar"},
+				{"#2", "tellus sit amet", "sollicitudin", "tincidunt", "risus"},
+			},
+			width: 60,
+			want: `+-----+----------+--------------+------------+----------+
+| Row | Lorem    | ipsum        | dolor      | sit      |
++-----+----------+--------------+------------+----------+
+| #1  | amet     | consectetur  | adipiscing | Quisque  |
+|     |          |              | elit       | pulvinar |
+| #2  | tellus   | sollicitudin | tincidunt  | risus    |
+|     | sit amet |              |            |          |
++-----+----------+--------------+------------+----------+
+`,
+		},
+		{
+			name:    "the unbroken word width is reduced to fit",
+			columns: []Column{{Header: "ID"}, {Header: "Title"}, {Header: "Created"}, {Header: "Updated"}, {Header: "Status"}},
+			rows: [][]string{{
+				"abc123def456", "A project with a reasonably long title for testing",
+				"2026-01-01T00:00:00+00:00", "2026-01-02T00:00:00+00:00", "active",
+			}},
+			width: 80,
+			want: `+--------------+------------+--------------------+--------------------+--------+
+| ID           | Title      | Created            | Updated            | Status |
++--------------+------------+--------------------+--------------------+--------+
+| abc123def456 | A project  | 2026-01-01T00:00:0 | 2026-01-02T00:00:0 | active |
+|              | with a     | 0+00:00            | 0+00:00            |        |
+|              | reasonably |                    |                    |        |
+|              | long title |                    |                    |        |
+|              | for        |                    |                    |        |
+|              | testing    |                    |                    |        |
++--------------+------------+--------------------+--------------------+--------+
 `,
 		},
 		{
@@ -381,4 +421,26 @@ func TestIsolateHyperlinks(t *testing.T) {
 		isolateStyles([]string{"\x1b[1m" + open + "a", "b", "c" + end + "\x1b[0m"}),
 	)
 	assert.Equal(t, []string{open + "a" + end, "b"}, isolateStyles([]string{open + "a" + end, "b"}))
+}
+
+func TestWordwrap(t *testing.T) {
+	// The expected values match PHP's wordwrap($text, $width, "\n", true), except for wide characters and ANSI sequences.
+	cases := []struct {
+		text  string
+		width int
+		want  string
+	}{
+		{"The quick brown fox", 10, "The quick\nbrown fox"},
+		{"double  spaced   words", 8, "double \nspaced  \nwords"},
+		{"Averyverylongword", 5, "Avery\nveryl\nongwo\nrd"},
+		{"2026-01-01T00:00:00+00:00", 18, "2026-01-01T00:00:0\n0+00:00"},
+		{"keep\nbreaks here", 6, "keep\nbreaks\nhere"},
+		{"trailing\n", 4, "trai\nling\n\n"},
+		{"日本語 日本語", 6, "日本語\n日本語"},
+		{"日本語日本語", 5, "日本\n語日\n本語"},
+		{"\x1b[32mgreen text\x1b[0m here", 5, "\x1b[32mgreen\ntext\x1b[0m\nhere"},
+	}
+	for _, c := range cases {
+		assert.Equal(t, c.want, wordwrap(c.text, c.width), "wordwrap(%q, %d)", c.text, c.width)
+	}
 }
