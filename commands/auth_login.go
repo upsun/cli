@@ -24,12 +24,7 @@ import (
 	"github.com/upsun/cli/internal/config"
 )
 
-// The auth server only allows redirects to these local ports.
-const (
-	loginPortStart = 5000
-	loginPortEnd   = 5010
-	loginTimeout   = 30 * time.Minute
-)
+const loginTimeout = 30 * time.Minute
 
 type browserLoginOptions struct {
 	force   bool
@@ -127,13 +122,10 @@ func runBrowserLogin(cmd *cobra.Command, cnf *config.Config, m *auth.Manager, op
 		}
 	}
 
-	listener, err := listenOnLoginPort()
+	// The system assigns a free port: the auth server allows any port for loopback redirects (RFC 8252).
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		fmt.Fprintf(stderr, "Failed to find an available port between %s and %s.\n",
-			color.RedString("%d", loginPortStart), color.RedString("%d", loginPortEnd))
-		fmt.Fprintln(stderr, "Check if you have unnecessary services running on these ports.")
-		fmt.Fprintf(stderr, "For more options, run: %s\n", color.GreenString(cnf.Application.Executable+" help login"))
-		return &exitError{code: 1}
+		return fmt.Errorf("failed to start a local server: %w", err)
 	}
 	localURL := "http://" + listener.Addr().String()
 
@@ -291,18 +283,6 @@ func getMyAccount(ctx context.Context, cnf *config.Config, m *auth.Manager) (*my
 		return nil, err
 	}
 	return &a, nil
-}
-
-func listenOnLoginPort() (net.Listener, error) {
-	var lastErr error
-	for port := loginPortStart; port <= loginPortEnd; port++ {
-		l, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
-		if err == nil {
-			return l, nil
-		}
-		lastErr = err
-	}
-	return nil, lastErr
 }
 
 func randomString() string {
