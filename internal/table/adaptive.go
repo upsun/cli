@@ -97,24 +97,38 @@ func wrapCell(lines []string, width int) []string {
 	return wrapped
 }
 
-var sgrRegex = regexp.MustCompile(`\x1b\[([0-9;:]*)m`)
+var (
+	sgrRegex       = regexp.MustCompile(`\x1b\[([0-9;:]*)m`)
+	hyperlinkRegex = regexp.MustCompile(`\x1b\]8;[^;\x07\x1b]*;([^\x07\x1b]*)(?:\x07|\x1b\\)`)
+)
 
-// isolateStyles ends each line with a reset if an ANSI style (SGR) is still active, and re-applies it on the next line.
-// This stops styles from leaking into the table's borders and other cells.
+const hyperlinkClose = "\x1b]8;;\x1b\\"
+
+// isolateStyles closes any ANSI style (SGR) or hyperlink (OSC 8) still open at the end of each line,
+// and re-opens it on the next line. This stops them from leaking into the table's borders and other cells.
 func isolateStyles(lines []string) []string {
-	active := ""
+	style, link := "", ""
 	out := make([]string, len(lines))
 	for i, line := range lines {
-		out[i] = active + line
+		out[i] = style + link + line
 		for _, m := range sgrRegex.FindAllStringSubmatch(line, -1) {
 			if sgrResets(m[1]) {
-				active = ""
+				style = ""
 			}
 			if m[1] != "" && m[1] != "0" {
-				active += m[0]
+				style += m[0]
 			}
 		}
-		if active != "" {
+		for _, m := range hyperlinkRegex.FindAllStringSubmatch(line, -1) {
+			link = ""
+			if m[1] != "" {
+				link = m[0]
+			}
+		}
+		if link != "" {
+			out[i] += hyperlinkClose
+		}
+		if style != "" {
 			out[i] += "\x1b[0m"
 		}
 	}

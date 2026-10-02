@@ -105,16 +105,15 @@ func (t *Table) Render(w io.Writer, rows [][]string, opts Options) error {
 		return err
 	}
 
+	// Like the legacy CLI, a duplicate name refers to the last column with that name.
 	indexes := make(map[string]int, len(t.Columns))
 	for i, name := range t.names() {
-		if _, ok := indexes[name]; !ok {
-			indexes[name] = i
-		}
+		indexes[name] = i
 	}
 	filter := func(row []string) []string {
 		filtered := make([]string, len(toDisplay))
 		for i, name := range toDisplay {
-			if j := indexes[name]; j < len(row) {
+			if j, ok := indexes[name]; ok && j < len(row) {
 				filtered[i] = row[j]
 			}
 		}
@@ -144,7 +143,9 @@ func (t *Table) Render(w io.Writer, rows [][]string, opts Options) error {
 	case "", FormatTable:
 		noWrap := make([]bool, len(toDisplay))
 		for i, name := range toDisplay {
-			noWrap[i] = t.Columns[indexes[name]].NoWrap
+			if j, ok := indexes[name]; ok {
+				noWrap[i] = t.Columns[j].NoWrap
+			}
 		}
 		maxWidth := t.MaxWidth
 		if maxWidth <= 0 {

@@ -337,3 +337,48 @@ func TestIsolateStyles(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderColumnLookup(t *testing.T) {
+	cases := []struct {
+		name string
+		tbl  *Table
+		opts Options
+		want string
+	}{
+		{
+			name: "unknown default column is empty",
+			tbl:  &Table{Columns: []Column{{Header: "ID"}, {Header: "Name"}}, DefaultColumns: []string{"name", "status"}},
+			opts: Options{Format: "csv"},
+			want: "Name,\na,\n",
+		},
+		{
+			name: "duplicate names select the last column",
+			tbl:  &Table{Columns: []Column{{Header: "ID"}, {Header: "Name"}, {Header: "Other", Name: "id"}}},
+			opts: Options{Format: "csv", Columns: []string{"id"}},
+			want: "Other\nx\n",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var b bytes.Buffer
+			require.NoError(t, c.tbl.Render(&b, [][]string{{"1", "a", "x"}}, c.opts))
+			assert.Equal(t, c.want, b.String())
+		})
+	}
+}
+
+func TestIsolateHyperlinks(t *testing.T) {
+	const (
+		open = "\x1b]8;;https://example.com\x1b\\"
+		end  = "\x1b]8;;\x1b\\"
+	)
+	assert.Equal(t,
+		[]string{
+			"\x1b[1m" + open + "a" + end + "\x1b[0m",
+			"\x1b[1m" + open + "b" + end + "\x1b[0m",
+			"\x1b[1m" + open + "c" + end + "\x1b[0m",
+		},
+		isolateStyles([]string{"\x1b[1m" + open + "a", "b", "c" + end + "\x1b[0m"}),
+	)
+	assert.Equal(t, []string{open + "a" + end, "b"}, isolateStyles([]string{open + "a" + end, "b"}))
+}
