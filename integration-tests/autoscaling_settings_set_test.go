@@ -107,8 +107,6 @@ func setupAutoscalingSettingsSet(t *testing.T) (f *cmdFactory, projectID string)
 	}})
 
 	main := makeEnv(projectID, "main", "production", "active", nil)
-	main.Links["#autoscaling"] = mockapi.HALLink{HREF: "/projects/" + projectID + "/environments/main/autoscaling"}
-	main.Links["#manage-autoscaling"] = mockapi.HALLink{HREF: "/projects/" + projectID + "/environments/main/autoscaling"}
 	apiHandler.SetEnvironments([]*mockapi.Environment{main})
 
 	apiHandler.Get("/projects/"+projectID+"/capabilities", func(w http.ResponseWriter, _ *http.Request) {
@@ -147,40 +145,35 @@ func setupAutoscalingSettingsSet(t *testing.T) (f *cmdFactory, projectID string)
 	// "down" sub-array, which is what triggers the formatDurationChange(null)
 	// call in summarizeChangesPerService.
 	autoscalingPath := "/projects/" + projectID + "/environments/main/autoscaling"
-	apiHandler.Get(autoscalingPath, func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"defaults": map[string]any{
+	main.SetAutoscalingSettings(map[string]any{
+		"defaults": map[string]any{
+			"triggers": map[string]any{
+				"cpu": map[string]any{
+					"up":   map[string]any{"threshold": 80, "duration": 60},
+					"down": map[string]any{"threshold": 20, "duration": 60},
+				},
+				"memory": map[string]any{
+					"up":   map[string]any{"threshold": 80, "duration": 60},
+					"down": map[string]any{"threshold": 20, "duration": 60},
+				},
+			},
+			"scale_cooldown": map[string]any{"up": 300, "down": 300},
+			"instances":      map[string]any{"min": 1, "max": 10},
+		},
+		"services": map[string]any{
+			"app": map[string]any{
+				"enabled": true,
 				"triggers": map[string]any{
 					"cpu": map[string]any{
-						"up":   map[string]any{"threshold": 80, "duration": 60},
-						"down": map[string]any{"threshold": 20, "duration": 60},
-					},
-					"memory": map[string]any{
-						"up":   map[string]any{"threshold": 80, "duration": 60},
-						"down": map[string]any{"threshold": 20, "duration": 60},
+						"enabled": true,
+						"up":      map[string]any{"threshold": 80, "duration": 60},
+						// No "down" key — this is what PHPStan flags.
 					},
 				},
-				"scale_cooldown": map[string]any{"up": 300, "down": 300},
-				"instances":      map[string]any{"min": 1, "max": 10},
+				"instances": map[string]any{"min": 1, "max": 3},
+				// Also omit scale_cooldown to hit the cooldown variant.
 			},
-			"services": map[string]any{
-				"app": map[string]any{
-					"enabled": true,
-					"triggers": map[string]any{
-						"cpu": map[string]any{
-							"enabled": true,
-							"up":      map[string]any{"threshold": 80, "duration": 60},
-							// No "down" key — this is what PHPStan flags.
-						},
-					},
-					"instances": map[string]any{"min": 1, "max": 3},
-					// Also omit scale_cooldown to hit the cooldown variant.
-				},
-			},
-			"_links": mockapi.MakeHALLinks(
-				"self=" + autoscalingPath,
-			),
-		})
+		},
 	})
 
 	apiHandler.Patch(autoscalingPath, func(w http.ResponseWriter, _ *http.Request) {

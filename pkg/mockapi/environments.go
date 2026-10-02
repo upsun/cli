@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"crypto/rand"
 	"encoding/json"
+	"maps"
 	"net/http"
 	"slices"
 	"time"
@@ -148,6 +149,71 @@ func (h *Handler) handleGetCurrentDeployment(w http.ResponseWriter, req *http.Re
 		return
 	}
 	_ = json.NewEncoder(w).Encode(d)
+}
+
+func (h *Handler) handleGetNextDeployment(w http.ResponseWriter, req *http.Request) {
+	env := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
+	h.RLock()
+	defer h.RUnlock()
+	if env == nil || env.nextDeployment == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(withSelfLinks(env.nextDeployment, req.URL.Path, true))
+}
+
+func (h *Handler) handlePatchNextDeployment(w http.ResponseWriter, req *http.Request) {
+	env := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
+	if env == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	var body map[string]any
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	h.Lock()
+	env.deploymentPatches = append(env.deploymentPatches, body)
+	h.Unlock()
+	_ = json.NewEncoder(w).Encode(activityResponse())
+}
+
+// DeploymentPatches returns the bodies of PATCH requests to an environment's next deployment.
+func (h *Handler) DeploymentPatches(projectID, environmentID string) []map[string]any {
+	env := h.findEnvironment(projectID, environmentID)
+	h.RLock()
+	defer h.RUnlock()
+	if env == nil {
+		return nil
+	}
+	return slices.Clone(env.deploymentPatches)
+}
+
+func (h *Handler) handleGetAutoscalingSettings(w http.ResponseWriter, req *http.Request) {
+	env := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
+	h.RLock()
+	defer h.RUnlock()
+	if env == nil || env.autoscalingSettings == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(withSelfLinks(env.autoscalingSettings, req.URL.Path, false))
+}
+
+// withSelfLinks returns a copy of data with a "self" link, and optionally an
+// "#edit" link, to the path, unless it already has links.
+func withSelfLinks(data map[string]any, path string, edit bool) map[string]any {
+	if _, ok := data["_links"]; ok {
+		return data
+	}
+	links := MakeHALLinks("self=" + path)
+	if edit {
+		links["#edit"] = HALLink{HREF: path}
+	}
+	result := maps.Clone(data)
+	result["_links"] = links
+	return result
 }
 
 func (h *Handler) handleCreateBackup(w http.ResponseWriter, req *http.Request) {

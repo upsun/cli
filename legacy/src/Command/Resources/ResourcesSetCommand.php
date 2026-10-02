@@ -53,7 +53,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 'count',
                 'C',
                 InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
-                'Set the instance count of apps or workers.'
+                'Set the instance count of apps, workers, or services that support horizontal scaling.'
                 . "\nItems are in the format <info>name:value</info> as above.",
             )
             ->addOption(
@@ -104,6 +104,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
 
         $this->addExample('Set profile sizes for two apps and a service', '--size frontend:0.1,backend:.25,database:1');
         $this->addExample('Give the "backend" app 3 instances', '--count backend:3');
+        $this->addExample('Give the "database_replica" service 2 instances', '--count database_replica:2');
         $this->addExample('Give 512 MB disk to the "backend" app and 2 GB to the "database" service', '--disk backend:512,database:2048');
         $this->addExample('Give 524288 MB (512 GB) of object storage to the "backend" app', '--object-storage backend:524288');
         $this->addExample('Set the same profile size for the "backend" and "frontend" apps using a wildcard', '--size ' . OsUtil::escapeShellArg('*end:0.1'));
@@ -290,23 +291,25 @@ class ResourcesSetCommand extends ResourcesCommandBase
             }
 
             // Set the instance count.
-            // This is not applicable to a Service or a Task, and unavailable when autoscaling is enabled.
-            if (!$service instanceof Service && !$service instanceof Task && empty($autoscalingEnabled[$name])) {
+            // This is not applicable to a Task or a non-scalable Service, and unavailable when autoscaling is enabled.
+            if ($this->supportsInstanceCount($service) && empty($autoscalingEnabled[$name])) {
+                // An unset instance count means 1.
+                $currentCount = $properties['instance_count'] ?? 1;
                 if (isset($givenCounts[$name])) {
                     $instanceCount = $givenCounts[$name];
-                    if ($instanceCount !== $properties['instance_count'] && !($instanceCount === 1 && !isset($properties['instance_count']))) {
+                    if ($instanceCount !== $currentCount) {
                         $updates[$group][$name]['instance_count'] = $instanceCount;
                     }
                 } elseif ($showCompleteForm) {
                     $ensureHeader();
-                    $default = (string) ($properties['instance_count'] ?: 1);
+                    $default = (string) ($currentCount ?: 1);
                     $instanceCount = $this->questionHelper->askInput(
                         'Enter the number of instances',
                         $default,
                         [],
                         fn($v) => $this->validateInstanceCount($v, $name, $service, $instanceLimit, false)
                     );
-                    if ($instanceCount !== $properties['instance_count']) {
+                    if ($instanceCount !== $currentCount) {
                         $updates[$group][$name]['instance_count'] = $instanceCount;
                     }
                 }
@@ -544,14 +547,33 @@ class ResourcesSetCommand extends ResourcesCommandBase
     }
 
     /**
+     * Checks whether the instance count of a container can be set.
+     *
+     * Services are only scalable if the deployment says so.
+     */
+    protected function supportsInstanceCount(WebApp|Worker|Service|Task $service): bool
+    {
+        if ($service instanceof Task) {
+            return false;
+        }
+        if ($service instanceof Service) {
+            return !empty($service->getProperties()['supports_horizontal_scaling']);
+        }
+        return true;
+    }
+
+    /**
      * Validates a given instance count.
      *
      * @throws InvalidArgumentException
      */
     protected function validateInstanceCount(string $value, string $serviceName, WebApp|Worker|Service|Task $service, ?int $limit, bool $autoscalingEnabled): int
     {
-        if ($service instanceof Service || $service instanceof Task) {
+        if ($service instanceof Task) {
             throw new InvalidArgumentException(sprintf('The instance count of the %s <error>%s</error> cannot be changed.', $this->typeName($service), $serviceName));
+        }
+        if (!$this->supportsInstanceCount($service)) {
+            throw new InvalidArgumentException(sprintf('The %s <error>%s</error> does not support horizontal scaling.', $this->typeName($service), $serviceName));
         }
         if ($autoscalingEnabled) {
             throw new InvalidArgumentException(sprintf('The instance count of the %s <error>%s</error> cannot be changed when autoscaling is enabled.', $this->typeName($service), $serviceName));
