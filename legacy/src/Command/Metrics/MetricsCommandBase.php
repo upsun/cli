@@ -13,6 +13,7 @@ use Platformsh\Cli\Model\Metrics\SourceFieldPercentage;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
+use Platformsh\Cli\Service\Observability;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\Api;
@@ -40,6 +41,7 @@ abstract class MetricsCommandBase extends CommandBase
     private PropertyFormatter $propertyFormatter;
     private Config $config;
     private Api $api;
+    private Observability $observability;
 
     public const MIN_INTERVAL = 60; // 1 minute
 
@@ -65,8 +67,9 @@ abstract class MetricsCommandBase extends CommandBase
     }
 
     #[Required]
-    public function autowire(Api $api, Config $config, Io $io, PropertyFormatter $propertyFormatter): void
+    public function autowire(Api $api, Config $config, Io $io, Observability $observability, PropertyFormatter $propertyFormatter): void
     {
+        $this->observability = $observability;
         $this->api = $api;
         $this->config = $config;
         $this->propertyFormatter = $propertyFormatter;
@@ -115,37 +118,6 @@ abstract class MetricsCommandBase extends CommandBase
     }
 
     /**
-     * Returns the resources overview URL for the selected environment.
-     *
-     * @return string|false The resources overview URL, or false if not available
-     * @throws \GuzzleHttp\Exception\GuzzleException if there is an error in fetching observability metadata
-     */
-    private function getResourcesOverviewUrl(Environment $environment): false|string
-    {
-        $entrypointUrl = rtrim($environment->getUri(), '/') . '/observability/';
-
-        $client = $this->api->getHttpClient();
-        $request = new Request('GET', $entrypointUrl);
-
-        try {
-            $response = $client->send($request);
-        } catch (BadResponseException $e) {
-            if ($e->getResponse()->getStatusCode() === 404) {
-                return false;
-            }
-            throw ApiResponseException::create($request, $e->getResponse(), $e);
-        }
-
-        $data = json_decode($response->getBody()->__toString(), true);
-
-        if (!is_array($data) || empty($data['_links']['resources_overview']['href'])) {
-            return false;
-        }
-
-        return $data['_links']['resources_overview']['href'];
-    }
-
-    /**
      * @param InputInterface $input
      * @param array<String> $metricTypes
      * @param array<String> $metricAggs
@@ -169,7 +141,7 @@ abstract class MetricsCommandBase extends CommandBase
             $this->selector->ensurePrintedSelection($selection);
         }
 
-        if (!$link = $this->getResourcesOverviewUrl($environment)) {
+        if (!$link = Observability::getLink($this->observability->getEntrypoint($environment), 'resources_overview')) {
             throw new \InvalidArgumentException('Observability API link not found for the environment.');
         }
 
