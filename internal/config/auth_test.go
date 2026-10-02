@@ -3,6 +3,7 @@ package config_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,6 +16,7 @@ func TestAuth(t *testing.T) {
 	cases := []struct {
 		name       string
 		env        map[string]string
+		baseConfig string // Extra YAML for the "api" section of the base config.
 		userConfig string
 		sessionID  string // The content of the session-id file.
 		check      func(t *testing.T, a *config.Auth)
@@ -110,6 +112,29 @@ func TestAuth(t *testing.T) {
 			},
 		},
 		{
+			name: "base config",
+			baseConfig: `
+  token: from-base
+  token_file: /abs/base-token
+  access_token: base-access-token
+  disable_locks: true
+`,
+			check: func(t *testing.T, a *config.Auth) {
+				assert.Equal(t, "from-base", a.Token)
+				assert.Equal(t, "/abs/base-token", a.TokenFile)
+				assert.Equal(t, "base-access-token", a.AccessToken)
+				assert.True(t, a.DisableLocks)
+			},
+		},
+		{
+			name:       "user config overrides base config",
+			baseConfig: "\n  token: from-base\n",
+			userConfig: "api: {token: from-file}\n",
+			check: func(t *testing.T, a *config.Auth) {
+				assert.Equal(t, "from-file", a.Token)
+			},
+		},
+		{
 			name:       "env overrides user config",
 			env:        map[string]string{"TOKEN": "from-env"},
 			userConfig: "api: {token: from-file}\n",
@@ -151,7 +176,7 @@ func TestAuth(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			cnf, err := config.FromYAML([]byte(validConfig))
+			cnf, err := config.FromYAML([]byte(strings.Replace(validConfig, "api:", "api:"+c.baseConfig, 1)))
 			require.NoError(t, err)
 			home := t.TempDir()
 			t.Setenv("EXAMPLE_CLI_HOME", home)

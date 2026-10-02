@@ -55,8 +55,13 @@ type Config struct {
 		UserAgent string `validate:"omitempty" yaml:"user_agent,omitempty"`            // a template - see UserAgent method
 		SessionID string `validate:"omitempty,session_id" yaml:"session_id,omitempty"` // the ID for the authentication session - defaults to "default"
 
+		Token       string `validate:"omitempty" yaml:"token,omitempty"`        // an API token
+		TokenFile   string `validate:"omitempty" yaml:"token_file,omitempty"`   // a file containing an API token
+		AccessToken string `validate:"omitempty" yaml:"access_token,omitempty"` // a raw access token
+
 		DisableCredentialHelpers bool `validate:"omitempty" yaml:"disable_credential_helpers,omitempty"` // store credentials in files, not the keychain
 		SkipSSL                  bool `validate:"omitempty" yaml:"skip_ssl,omitempty"`                   // skip TLS verification (not recommended)
+		DisableLocks             bool `validate:"omitempty" yaml:"disable_locks,omitempty"`              // skip locking
 
 		OAuth2ClientID      string `validate:"omitempty" yaml:"oauth2_client_id,omitempty"`                               // e.g. "upsun-cli"
 		OAuth2AuthorizeURL  string `validate:"required_without=AuthURL,omitempty,url" yaml:"oauth2_auth_url,omitempty"`   // e.g. "https://auth.upsun.com/oauth2/authorize"

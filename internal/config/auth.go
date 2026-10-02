@@ -89,6 +89,9 @@ func ValidateSessionID(id string) error {
 // Auth reads the authentication settings.
 func (c *Config) Auth() (*Auth, error) {
 	src := &authSources{
+		token:        c.API.Token,
+		tokenFile:    c.API.TokenFile,
+		accessToken:  c.API.AccessToken,
 		baseURL:      c.API.BaseURL,
 		authURL:      c.API.AuthURL,
 		authorizeURL: c.API.OAuth2AuthorizeURL,
@@ -102,6 +105,9 @@ func (c *Config) Auth() (*Auth, error) {
 	}
 	if c.API.SkipSSL {
 		src.skipSSL = "1"
+	}
+	if c.API.DisableLocks {
+		src.disableLocks = "1"
 	}
 
 	userConfigDir, err := c.UserConfigDir()
