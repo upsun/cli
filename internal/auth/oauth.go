@@ -68,17 +68,17 @@ func (c *OAuthClient) ExchangeCode(ctx context.Context, code, verifier, redirect
 
 // ExchangeAPIToken exchanges an API token for tokens, using the "api_token" grant.
 func (c *OAuthClient) ExchangeAPIToken(ctx context.Context, apiToken string) (*store.Entry, error) {
-	return c.withRetries(ctx, func(ctx context.Context) (*store.Entry, bool, error) {
+	return c.withRetries(ctx, 1, func(ctx context.Context) (*store.Entry, bool, error) {
 		return c.postTokenTraced(ctx, c.clientForm(url.Values{"grant_type": {"api_token"}, "api_token": {apiToken}}))
 	})
 }
 
 // Refresh uses a refresh token to get new tokens.
 //
-// Connection errors before the request is sent are retried twice. Timeouts and 5xx errors after it is sent are
-// retried once: if the server rotated the token, the retry gets the reuse error sooner.
+// Connection errors before the request is sent are retried twice. Errors after it is sent are not retried, because
+// the server may have consumed the refresh token.
 func (c *OAuthClient) Refresh(ctx context.Context, refreshToken string) (*store.Entry, error) {
-	return c.withRetries(ctx, func(ctx context.Context) (*store.Entry, bool, error) {
+	return c.withRetries(ctx, 0, func(ctx context.Context) (*store.Entry, bool, error) {
 		form := c.clientForm(url.Values{"grant_type": {"refresh_token"}, "refresh_token": {refreshToken}})
 		return c.postTokenTraced(ctx, form)
 	})
@@ -117,15 +117,17 @@ func (c *OAuthClient) clientForm(form url.Values) url.Values {
 }
 
 // withRetries runs a token request, retrying transient failures. The callback reports whether the request was sent.
+// Transient failures after the request was sent are retried up to sentRetries times.
 func (c *OAuthClient) withRetries(
 	ctx context.Context,
+	sentRetries int,
 	fn func(ctx context.Context) (*store.Entry, bool, error),
 ) (*store.Entry, error) {
 	delay := c.retryDelay
 	if delay == 0 {
 		delay = 500 * time.Millisecond
 	}
-	unsentRetries, sentRetries := 2, 1
+	unsentRetries := 2
 	for {
 		e, sent, err := fn(ctx)
 		if err == nil || ctx.Err() != nil {

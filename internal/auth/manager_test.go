@@ -31,6 +31,7 @@ type testAuthServer struct {
 	revoked   []string
 	failNext  []int    // status codes to return for the next refresh requests
 	errorNext []string // OAuth error codes to return for the next refresh requests
+	dropNext  int      // the number of refresh requests to accept, but whose responses are dropped
 	lifetime  int64
 	delay     time.Duration
 }
@@ -80,6 +81,10 @@ func newTestAuthServer(t *testing.T) *testAuthServer {
 				return
 			}
 			s.valid[rt] = false
+			if s.dropNext > 0 {
+				s.dropNext--
+				panic(http.ErrAbortHandler)
+			}
 		case "api_token":
 			if r.Form.Get("api_token") != "good-api-token" {
 				writeErr(http.StatusBadRequest, "request_unauthorized")
@@ -192,17 +197,17 @@ func TestManager_Token(t *testing.T) {
 			wantDeleted: true,
 		},
 		{
-			name:          "transient 5xx is retried once",
+			name:          "5xx keeps the session",
 			entry:         &store.Entry{AccessToken: "stored", RefreshToken: "rt-0", Expires: past},
 			setup:         func(s *testAuthServer) { s.failNext = []int{503} },
-			wantToken:     "at-1",
-			wantRefreshes: 2,
+			wantRefreshes: 1,
+			wantErr:       "failed to refresh the access token",
 		},
 		{
-			name:          "repeated 5xx keeps the session",
+			name:          "a lost response is not retried",
 			entry:         &store.Entry{AccessToken: "stored", RefreshToken: "rt-0", Expires: past},
-			setup:         func(s *testAuthServer) { s.failNext = []int{503, 503} },
-			wantRefreshes: 2,
+			setup:         func(s *testAuthServer) { s.dropNext = 1 },
+			wantRefreshes: 1,
 			wantErr:       "failed to refresh the access token",
 		},
 		{
