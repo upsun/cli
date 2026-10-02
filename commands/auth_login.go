@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"html"
 	"net"
@@ -235,16 +234,8 @@ func runBrowserLogin(cmd *cobra.Command, cnf *config.Config, m *auth.Manager, op
 func saveLogin(cmd *cobra.Command, cnf *config.Config, m *auth.Manager, entry *store.Entry, apiToken string) error {
 	ctx := cmd.Context()
 	id := m.Settings.SessionID
-	if err := m.Logout(ctx, id); err != nil {
-		var kerr *store.KeychainError
-		if !errors.As(err, &kerr) {
-			return err
-		}
-		// The previous credentials cannot be revoked, but they can be replaced.
-		fmt.Fprintln(cmd.ErrOrStderr(), color.YellowString("Warning: %s", err))
-		if err := m.Store.Forget(id); err != nil {
-			return err
-		}
+	if err := m.LogoutToReplace(ctx, id, apiToken); err != nil {
+		return err
 	}
 	if apiToken != "" {
 		if err := m.Save(ctx, auth.APITokenSessionID(apiToken), entry); err != nil {

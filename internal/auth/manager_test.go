@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zalando/go-keyring"
 
 	"github.com/upsun/cli/internal/auth/store"
 	"github.com/upsun/cli/internal/config"
@@ -263,8 +265,10 @@ func TestManager_Token(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, c.wantToken, tok.AccessToken)
 			}
+			srv.mu.Lock()
 			assert.Equal(t, c.wantRefreshes, srv.refreshes)
 			assert.False(t, srv.reused)
+			srv.mu.Unlock()
 
 			stored, err := m.Store.Load("default")
 			require.NoError(t, err)
@@ -354,6 +358,27 @@ func TestManager_LogoutAndStatus(t *testing.T) {
 	ids, err := m.Store.List()
 	require.NoError(t, err)
 	assert.Equal(t, []string{"other"}, ids)
+}
+
+func TestManager_LogoutToReplace_LockedKeychain(t *testing.T) {
+	keyring.MockInit()
+	srv := newTestAuthServer(t)
+	m := newTestManager(srv, t.TempDir(), &config.Auth{})
+	m.Store.Service = "test-cli-auth"
+	m.Store.UseKeychain = true
+	apiSession := APITokenSessionID("good-api-token")
+	require.NoError(t, m.Store.Save("default", &store.Entry{APIToken: "good-api-token"}))
+	require.NoError(t, m.Store.Save(apiSession, &store.Entry{AccessToken: "api-at"}))
+
+	keyring.MockInitWithError(errors.New("locked"))
+	var stderr strings.Builder
+	m.Stderr = &stderr
+	require.NoError(t, m.LogoutToReplace(context.Background(), "default", "good-api-token"))
+	assert.Contains(t, stderr.String(), "Warning: failed to load credentials in the keychain")
+
+	// The new credentials can be saved, in files.
+	require.NoError(t, m.Store.Save(apiSession, &store.Entry{AccessToken: "new-api-at"}))
+	require.NoError(t, m.Store.Save("default", &store.Entry{APIToken: "good-api-token"}))
 }
 
 func TestMigrator(t *testing.T) {

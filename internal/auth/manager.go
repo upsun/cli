@@ -434,6 +434,29 @@ func (m *Manager) Logout(ctx context.Context, id string) error {
 	return errors.Join(errs...)
 }
 
+// LogoutToReplace logs out of a session before new credentials are saved to it, with apiToken if it is an API token
+// login. If the keychain cannot be used, the session files are forgotten instead, so that new ones can be saved.
+func (m *Manager) LogoutToReplace(ctx context.Context, id, apiToken string) error {
+	err := m.Logout(ctx, id)
+	var kerr *store.KeychainError
+	if err == nil || !errors.As(err, &kerr) {
+		return err
+	}
+	if m.Stderr != nil {
+		fmt.Fprintf(m.Stderr, "Warning: %s\n", err)
+	}
+	ids := []string{id}
+	if apiToken != "" {
+		ids = append(ids, APITokenSessionID(apiToken))
+	}
+	for _, sid := range ids {
+		if err := m.Store.Forget(sid); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (m *Manager) logoutOne(ctx context.Context, id string) error {
 	unlock, err := m.lock(ctx, id)
 	if err != nil {
