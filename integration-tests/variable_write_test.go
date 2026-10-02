@@ -98,6 +98,31 @@ func TestVariableCreate(t *testing.T) {
 	assertTrimmed(t, "false", f.Run("var:get", "-p", p, "env:TEST", "-l", "p", "-P", "visible_runtime"))
 }
 
+func TestVariableCreateUpdateWithLevel(t *testing.T) {
+	// Regression test: var:create --update must forward --level to var:update
+	// when the variable exists at both levels.
+	s := setupVariableTest(t)
+	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
+
+	f, p := s.factory, s.projectID
+
+	f.Run("var:create", "-p", p, "-l", "p", "env:FOO", "--value", "project-value")
+	f.Run("var:create", "-p", p, "-e", "main", "-l", "e", "env:FOO", "--value", "env-value")
+
+	_, stdErr, err := f.RunCombinedOutput("var:create", "-p", p, "-e", "main", "-u", "-l", "e",
+		"--name", "env:FOO", "--value", "env-value2")
+	assert.NoError(t, err)
+	assert.NotContains(t, stdErr, "Variable found at both project and environment levels")
+
+	_, stdErr, err = f.RunCombinedOutput("var:create", "-p", p, "-e", "main", "-u", "-l", "p",
+		"--name", "env:FOO", "--value", "project-value2")
+	assert.NoError(t, err)
+	assert.NotContains(t, stdErr, "Variable found at both project and environment levels")
+
+	assertTrimmed(t, "env-value2", f.Run("var:get", "-p", p, "-e", "main", "env:FOO", "-l", "e", "-P", "value"))
+	assertTrimmed(t, "project-value2", f.Run("var:get", "-p", p, "-e", "main", "env:FOO", "-l", "p", "-P", "value"))
+}
+
 func TestVariableCreateDefaultEnvironment(t *testing.T) {
 	// Regression test for CLI-164: using "-e ." (the default-environment code)
 	// must not fail form validation of the --environment option.

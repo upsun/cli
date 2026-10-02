@@ -89,7 +89,8 @@ class VariableCreateCommand extends CommandBase
             if (($prefix = Option::stringOrNull($input, 'prefix')) && $prefix !== 'none') {
                 $name = rtrim($prefix, ':') . ':' . $name;
             }
-            $existing = $this->variableCommandUtil->getExistingVariable($name, $selection, $this->variableCommandUtil->getRequestedLevel($input), false);
+            $level = $this->variableCommandUtil->getRequestedLevel($input);
+            $existing = $this->variableCommandUtil->getExistingVariable($name, $selection, $level, false);
             if ($existing) {
                 if (!Option::bool($input, 'update')) {
                     $this->stdErr->writeln('The variable already exists: <error>' . $name . '</error>');
@@ -114,6 +115,9 @@ class VariableCreateCommand extends CommandBase
                 ];
                 if ($selection->hasEnvironment()) {
                     $arguments['--environment'] = $selection->getEnvironment()->id;
+                }
+                if ($level !== null) {
+                    $arguments['--level'] = $level;
                 }
                 foreach ($this->form->getFields() as $field) {
                     $argName = '--' . $field->getOptionName();
