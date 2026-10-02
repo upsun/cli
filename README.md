@@ -124,6 +124,12 @@ docker run --rm -it ghcr.io/upsun/cli
 
 ## Upgrade
 
+> [!NOTE]
+> **Using a partner's branded CLI?** If you installed it from a partner installer
+> (`https://cli.<partner>/installer`), upgrade it by running that installer again:
+> `curl -fsSL https://cli.<partner>/installer | sh`. Your provider's documentation
+> has the exact URL. The commands below upgrade the Upsun CLI, not a partner CLI.
+
 Upgrade using the same tool:
 
 ### HomeBrew
@@ -139,6 +145,8 @@ scoop update upsun
 ```
 
 ### Bash installer
+
+This upgrades the Upsun CLI. A partner CLI is upgraded with its own installer (see the note above).
 
 ```console
 curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | bash
