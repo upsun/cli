@@ -108,7 +108,8 @@ func sum(s []int) int {
 	return total
 }
 
-// longestWordWidth returns the display width of the longest whitespace-separated word in a cell.
+// longestWordWidth returns the display width of the longest whitespace-separated word in a cell,
+// plus its indentation, which is repeated on each wrapped line.
 func longestWordWidth(lines []string) int {
 	w := 0
 	for _, line := range lines {
@@ -116,7 +117,8 @@ func longestWordWidth(lines []string) int {
 			w = max(w, ansi.StringWidth(word))
 		}
 	}
-	return w
+	plain := ansi.Strip(strings.Join(lines, "\n"))
+	return w + len(plain) - len(strings.TrimLeft(plain, " "))
 }
 
 // cellWidth returns the display width of the longest line in a cell.
@@ -168,6 +170,10 @@ func wordwrap(text string, width int) string {
 	}
 	lastStart, lastSpace := 0, 0
 	for cur, unit := range units {
+		// Zero-width ANSI sequences never cause a break.
+		if widths[cur] == 0 && unit != "\n" {
+			continue
+		}
 		// The line is full, as in PHP, or the current unit would overflow it (if it is wide).
 		lineWidth := pos[cur] - pos[lastStart]
 		over := lineWidth >= width || lineWidth+widths[cur] > width

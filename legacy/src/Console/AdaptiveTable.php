@@ -160,7 +160,7 @@ class AdaptiveTable extends Table
             $indentAmount = Helper::width($contents) - Helper::width($trimmed);
             $indent = str_repeat(' ', $indentAmount);
 
-            return preg_replace('/^/m', $indent, $this->wrapWithDecoration($trimmed, $width - $indentAmount));
+            return preg_replace('/^/m', $indent, $this->wrapWithDecoration($trimmed, max($width - $indentAmount, 1)));
         }
 
         return $this->wrapWithDecoration($contents, $width);
@@ -368,7 +368,7 @@ class AdaptiveTable extends Table
     }
 
     /**
-     * Get the width of the longest word in a table cell.
+     * Get the width of the longest word in a table cell, plus its indentation.
      */
     private function getLongestWordWidth(string|int|float|TableCell $cell): int|float
     {
@@ -378,6 +378,8 @@ class AdaptiveTable extends Table
         foreach (preg_split('/\s+/', $plain, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $word) {
             $width = max($width, Helper::width($word));
         }
+        // Indentation is repeated on each wrapped line.
+        $width += strlen($plain) - strlen(ltrim($plain, ' '));
         if ($cell instanceof TableCell && $cell->getColspan() > 1) {
             $width /= $cell->getColspan();
         }
