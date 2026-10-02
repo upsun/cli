@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -101,11 +102,26 @@ func TestStore_KeychainTooBig(t *testing.T) {
 
 func TestStore_KeychainTimeout(t *testing.T) {
 	s := &Store{KeychainTimeout: 10 * time.Millisecond}
-	_, err := s.keychain(func() (string, error) {
+	_, err := s.keychain(false, func() (string, error) {
 		time.Sleep(time.Second)
 		return "", nil
 	})
 	assert.ErrorContains(t, err, "timed out")
+}
+
+func TestStore_KeychainWait(t *testing.T) {
+	var stderr strings.Builder
+	s := &Store{KeychainTimeout: 10 * time.Millisecond, Stderr: &stderr}
+	done := false
+	v, err := s.keychain(true, func() (string, error) {
+		time.Sleep(100 * time.Millisecond)
+		done = true
+		return "v", nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "v", v)
+	assert.True(t, done, "a change must finish before the call returns")
+	assert.Contains(t, stderr.String(), "Waiting for the keychain")
 }
 
 func TestStore_DeleteAll(t *testing.T) {

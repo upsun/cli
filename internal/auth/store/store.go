@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -55,8 +56,11 @@ type Store struct {
 	Service string
 	// UseKeychain reports whether a new session should try the keychain.
 	UseKeychain bool
-	// KeychainTimeout limits each keychain call. It defaults to 10s.
+	// KeychainTimeout limits each keychain read, and the first write of a session. It defaults to 10s.
+	// Other changes are waited for, so that they cannot finish after the session's lock is released.
 	KeychainTimeout time.Duration
+	// Stderr receives a notice while waiting for the keychain. It may be nil.
+	Stderr io.Writer
 }
 
 // KeychainError is returned when the keychain cannot be used for a session that is stored there.
@@ -81,7 +85,7 @@ func (s *Store) Load(id string) (*Entry, error) {
 	if sf.Backend != BackendKeychain {
 		return sf.Entry, nil
 	}
-	secret, err := s.keychain(func() (string, error) { return keyring.Get(s.Service, id) })
+	secret, err := s.keychain(false, func() (string, error) { return keyring.Get(s.Service, id) })
 	if errors.Is(err, keyring.ErrNotFound) {
 		return nil, nil
 	}
@@ -112,13 +116,13 @@ func (s *Store) Save(id string, e *Entry) error {
 	case s.UseKeychain:
 		// The backend is chosen once, so any keychain failure here (including data that is too big) falls back to
 		// a file.
-		if err := s.keychainSet(id, b); err == nil {
+		if err := s.keychainSet(id, b, false); err == nil {
 			backend = BackendKeychain
 		}
 	}
 	if backend == BackendKeychain {
 		if sf != nil {
-			if err := s.keychainSet(id, b); err != nil {
+			if err := s.keychainSet(id, b, true); err != nil {
 				return &KeychainError{Op: "save", Err: err}
 			}
 		}
@@ -137,7 +141,7 @@ func (s *Store) Delete(id string) error {
 		return nil
 	}
 	if sf.Backend == BackendKeychain {
-		_, err := s.keychain(func() (string, error) { return "", keyring.Delete(s.Service, id) })
+		_, err := s.keychain(true, func() (string, error) { return "", keyring.Delete(s.Service, id) })
 		if err != nil && !errors.Is(err, keyring.ErrNotFound) {
 			return &KeychainError{Op: "delete", Err: err}
 		}
@@ -231,13 +235,14 @@ func (s *Store) writeSessionFile(id string, sf *sessionFile) error {
 	return WriteFileAtomic(s.sessionFilePath(id), b)
 }
 
-func (s *Store) keychainSet(id string, secret []byte) error {
-	_, err := s.keychain(func() (string, error) { return "", keyring.Set(s.Service, id, string(secret)) })
+func (s *Store) keychainSet(id string, secret []byte, wait bool) error {
+	_, err := s.keychain(wait, func() (string, error) { return "", keyring.Set(s.Service, id, string(secret)) })
 	return err
 }
 
-// keychain runs a keychain call with a timeout.
-func (s *Store) keychain(fn func() (string, error)) (string, error) {
+// keychain runs a keychain call with a timeout. If wait is set, a notice is printed at the timeout, and the call is
+// still waited for.
+func (s *Store) keychain(wait bool, fn func() (string, error)) (string, error) {
 	timeout := s.KeychainTimeout
 	if timeout == 0 {
 		timeout = defaultKeychainTimeout
@@ -257,8 +262,15 @@ func (s *Store) keychain(fn func() (string, error)) (string, error) {
 	case r := <-ch:
 		return r.v, r.err
 	case <-ctx.Done():
-		return "", fmt.Errorf("timed out after %s", timeout)
+		if !wait {
+			return "", fmt.Errorf("timed out after %s", timeout)
+		}
 	}
+	if s.Stderr != nil {
+		fmt.Fprintln(s.Stderr, "Waiting for the keychain. Check whether it needs to be unlocked.")
+	}
+	r := <-ch
+	return r.v, r.err
 }
 
 // WriteFileAtomic writes a file with 0600 permissions via a synced temporary file, creating the directory (0700).
