@@ -192,7 +192,10 @@ func (f *cmdFactory) fakeBrowser() {
 		f.t.Skip("the fake browser is a shell script")
 	}
 	dir := f.t.TempDir()
-	require.NoError(f.t, os.WriteFile(filepath.Join(dir, "xdg-open"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
+	// The CLI uses "open" on macOS, and "xdg-open" on Linux.
+	for _, name := range []string{"open", "xdg-open"} {
+		require.NoError(f.t, os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\nexit 0\n"), 0o755))
+	}
 	f.extraEnv = append(f.extraEnv, "DISPLAY=:0", "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
 
@@ -205,7 +208,10 @@ func (f *cmdFactory) fakeBrowserThatLogsIn() {
 	}
 	dir := f.t.TempDir()
 	script := "#!/bin/sh\nexec curl -fsSL -o /dev/null \"$1\"\n"
-	require.NoError(f.t, os.WriteFile(filepath.Join(dir, "xdg-open"), []byte(script), 0o755))
+	// The CLI uses "open" on macOS, and "xdg-open" on Linux.
+	for _, name := range []string{"open", "xdg-open"} {
+		require.NoError(f.t, os.WriteFile(filepath.Join(dir, name), []byte(script), 0o755))
+	}
 	f.extraEnv = append(f.extraEnv, "DISPLAY=:0", "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
 
