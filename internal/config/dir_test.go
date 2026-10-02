@@ -13,27 +13,64 @@ import (
 )
 
 func TestHomeDir(t *testing.T) {
+	a, b, c := t.TempDir(), t.TempDir(), t.TempDir()
+	link := filepath.Join(t.TempDir(), "link")
+	if runtime.GOOS != "windows" {
+		require.NoError(t, os.Symlink(a, link))
+	}
+	resolved := func(p string) string {
+		r, err := filepath.EvalSymlinks(p)
+		require.NoError(t, err)
+		return r
+	}
 	cases := []struct {
-		name string
-		env  map[string]string
-		want string
+		name    string
+		env     map[string]string
+		want    string
+		wantErr string
 	}{
-		{"prefixed var first", map[string]string{"EXAMPLE_CLI_HOME": "/a", "HOME": "/b", "USERPROFILE": "/c"}, "/a"},
-		{"then HOME", map[string]string{"EXAMPLE_CLI_HOME": "", "HOME": "/b", "USERPROFILE": "/c"}, "/b"},
-		{"then USERPROFILE", map[string]string{"EXAMPLE_CLI_HOME": "", "HOME": "", "USERPROFILE": "/c"}, "/c"},
+		{name: "prefixed var first", env: map[string]string{"EXAMPLE_CLI_HOME": a, "HOME": b, "USERPROFILE": c}, want: a},
+		{name: "then HOME", env: map[string]string{"EXAMPLE_CLI_HOME": "", "HOME": b, "USERPROFILE": c}, want: b},
+		{name: "then USERPROFILE", env: map[string]string{"EXAMPLE_CLI_HOME": "", "HOME": "", "USERPROFILE": c}, want: c},
+		{name: "symlink is resolved", env: map[string]string{"EXAMPLE_CLI_HOME": link}, want: a},
+		{
+			name:    "not a directory",
+			env:     map[string]string{"EXAMPLE_CLI_HOME": filepath.Join(a, "missing")},
+			wantErr: "invalid environment variable EXAMPLE_CLI_HOME",
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			if c.env["EXAMPLE_CLI_HOME"] == link && runtime.GOOS == "windows" {
+				t.Skip("symlinks need privileges on Windows")
+			}
 			cnf, err := config.FromYAML([]byte(validConfig))
 			require.NoError(t, err)
 			for k, v := range c.env {
 				t.Setenv(k, v)
 			}
 			home, err := cnf.HomeDir()
+			if c.wantErr != "" {
+				assert.ErrorContains(t, err, c.wantErr)
+				return
+			}
 			require.NoError(t, err)
-			assert.Equal(t, c.want, home)
+			assert.Equal(t, resolved(c.want), home)
 		})
 	}
+}
+
+func TestHomeDir_Relative(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	cnf, err := config.FromYAML([]byte(validConfig))
+	require.NoError(t, err)
+	t.Setenv("EXAMPLE_CLI_HOME", ".")
+	home, err := cnf.HomeDir()
+	require.NoError(t, err)
+	want, err := filepath.EvalSymlinks(dir)
+	require.NoError(t, err)
+	assert.Equal(t, want, home)
 }
 
 // TestWritableUserDir_TempFallback checks the cases where the legacy CLI uses a temporary directory instead.

@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -111,12 +112,25 @@ func canWrite(path string) bool {
 // HomeDir returns the user's home directory.
 //
 // It checks the same environment variables as the legacy CLI, in order: {ENV_PREFIX}HOME, HOME and USERPROFILE.
-// On Windows, HOME can differ from USERPROFILE, e.g. in MSYS2 or Cygwin.
+// On Windows, HOME can differ from USERPROFILE, e.g. in MSYS2 or Cygwin. As in the legacy CLI, the directory must
+// exist, and its real path is returned.
 func (c *Config) HomeDir() (string, error) {
 	for _, name := range []string{c.Application.EnvPrefix + "HOME", "HOME", "USERPROFILE"} {
-		if v := os.Getenv(name); v != "" {
-			return v, nil
+		v := os.Getenv(name)
+		if v == "" {
+			continue
 		}
+		// G703: the user chooses their home directory.
+		if info, err := os.Stat(v); err != nil || !info.IsDir() { //nolint:gosec
+			return "", fmt.Errorf("invalid environment variable %s: %s (not a directory)", name, v)
+		}
+		// Resolve the path like PHP's realpath.
+		if abs, err := filepath.Abs(v); err == nil {
+			if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+				return resolved, nil
+			}
+		}
+		return v, nil
 	}
 	return os.UserHomeDir()
 }
