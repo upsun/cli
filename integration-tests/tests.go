@@ -77,6 +77,19 @@ func newCommandFactory(t *testing.T, apiURL, authURL string) *cmdFactory {
 	return &cmdFactory{t: t, apiURL: apiURL, authURL: authURL, home: t.TempDir()}
 }
 
+// newGoAuthCommandFactory returns a factory for commands that use Go auth, whichever mode the tests run in.
+func newGoAuthCommandFactory(t *testing.T, apiURL, authURL string) *cmdFactory {
+	f := newCommandFactory(t, apiURL, authURL)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"GO_AUTH=1")
+	return f
+}
+
+// goAuthMode reports whether the tests run with Go auth, set by TEST_CLI_GO_AUTH=1. Otherwise legacy auth is used.
+func goAuthMode() bool {
+	v := os.Getenv(EnvPrefix + "GO_AUTH")
+	return v != "" && v != "0"
+}
+
 // Run runs a command, asserts that it did not error, and returns its normal (stdout) output.
 func (f *cmdFactory) Run(args ...string) string {
 	cmd := f.buildCommand(args...)
@@ -192,7 +205,26 @@ func (f *cmdFactory) fakeBrowser() {
 		f.t.Skip("the fake browser is a shell script")
 	}
 	dir := f.t.TempDir()
-	require.NoError(f.t, os.WriteFile(filepath.Join(dir, "xdg-open"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
+	// The CLI uses "open" on macOS, and "xdg-open" on Linux.
+	for _, name := range []string{"open", "xdg-open"} {
+		require.NoError(f.t, os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\nexit 0\n"), 0o755))
+	}
+	f.extraEnv = append(f.extraEnv, "DISPLAY=:0", "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+// fakeBrowserThatLogsIn makes the CLI detect a display and a browser, which completes the login flow with the mock
+// auth server by following its redirects.
+func (f *cmdFactory) fakeBrowserThatLogsIn() {
+	f.t.Helper()
+	if runtime.GOOS == "windows" {
+		f.t.Skip("the fake browser is a shell script")
+	}
+	dir := f.t.TempDir()
+	script := "#!/bin/sh\nexec curl -fsSL -o /dev/null \"$1\"\n"
+	// The CLI uses "open" on macOS, and "xdg-open" on Linux.
+	for _, name := range []string{"open", "xdg-open"} {
+		require.NoError(f.t, os.WriteFile(filepath.Join(dir, name), []byte(script), 0o755))
+	}
 	f.extraEnv = append(f.extraEnv, "DISPLAY=:0", "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
 

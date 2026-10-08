@@ -141,6 +141,11 @@ jobs:
       - name: Run integration tests
         run: make integration-test
 
+      - name: Run integration tests with Go auth
+        run: cd integration-tests && go test -v -count=1 ./...
+        env:
+          TEST_CLI_GO_AUTH: '1'
+
   # The only Windows coverage: which certificates the embedded PHP trusts.
   windows-cert-store:
     runs-on: windows-latest
