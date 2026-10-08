@@ -1,9 +1,14 @@
 package store
 
-import "github.com/godbus/dbus/v5"
+import (
+	"slices"
+
+	"github.com/godbus/dbus/v5"
+)
 
 const (
 	secretServiceName = "org.freedesktop.secrets"
+	loginCollection   = dbus.ObjectPath("/org/freedesktop/secrets/collection/login")
 	defaultCollection = dbus.ObjectPath("/org/freedesktop/secrets/aliases/default")
 )
 
@@ -26,7 +31,18 @@ func secretServiceUnlocked() bool {
 	if err := call.Store(&hasOwner); err != nil || !hasOwner {
 		return false
 	}
-	v, err := conn.Object(secretServiceName, defaultCollection).GetProperty("org.freedesktop.Secret.Collection.Locked")
+	v, err := conn.Object(secretServiceName, keyringCollection(conn)).GetProperty(
+		"org.freedesktop.Secret.Collection.Locked")
 	locked, ok := v.Value().(bool)
 	return err == nil && ok && !locked
+}
+
+// keyringCollection returns the collection that go-keyring uses: "login" if it exists, or else the default.
+func keyringCollection(conn *dbus.Conn) dbus.ObjectPath {
+	v, err := conn.Object(secretServiceName, "/org/freedesktop/secrets").GetProperty(
+		"org.freedesktop.Secret.Service.Collections")
+	if paths, ok := v.Value().([]dbus.ObjectPath); err == nil && ok && slices.Contains(paths, loginCollection) {
+		return loginCollection
+	}
+	return defaultCollection
 }
