@@ -32,16 +32,24 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return resp, err
 	}
 	if IsStepUpChallenge(resp) {
-		defer resp.Body.Close()
-		hasAPIToken, _ := t.Manager.HasAPIToken(ctx)
-		return nil, StepUpError(resp, hasAPIToken)
+		return nil, t.stepUpError(ctx, resp)
 	}
 	flush(resp.Body)
 	tok, err = t.Manager.Token(ctx, tok.AccessToken)
 	if err != nil {
 		return nil, err
 	}
-	return t.base().RoundTrip(withToken(req, tok, body))
+	resp, err = t.base().RoundTrip(withToken(req, tok, body))
+	if err == nil && IsStepUpChallenge(resp) {
+		return nil, t.stepUpError(ctx, resp)
+	}
+	return resp, err
+}
+
+func (t *Transport) stepUpError(ctx context.Context, resp *http.Response) error {
+	defer resp.Body.Close()
+	hasAPIToken, _ := t.Manager.HasAPIToken(ctx)
+	return StepUpError(resp, hasAPIToken)
 }
 
 func (t *Transport) base() http.RoundTripper {

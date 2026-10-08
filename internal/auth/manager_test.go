@@ -553,7 +553,9 @@ func TestTransport(t *testing.T) {
 	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeaders = append(authHeaders, r.Header.Get("Authorization"))
 		switch {
-		case r.URL.Path == "/step-up":
+		case r.URL.Path == "/refresh-then-step-up" && r.Header.Get("Authorization") == "Bearer revoked-2":
+			w.WriteHeader(http.StatusUnauthorized)
+		case r.URL.Path == "/step-up" || r.URL.Path == "/refresh-then-step-up":
 			w.Header().Set("WWW-Authenticate", `Bearer error="insufficient_user_authentication"`)
 			w.WriteHeader(http.StatusUnauthorized)
 			_, _ = w.Write([]byte(`{"amr": ["mfa"], "max_age": 60}`))
@@ -578,4 +580,13 @@ func TestTransport(t *testing.T) {
 	assert.Equal(t, []string{"mfa"}, lerr.AuthMethods)
 	assert.Equal(t, 60, *lerr.MaxAge)
 	assert.Equal(t, "Multi-factor authentication (MFA) is required.", lerr.Message())
+
+	// A step-up challenge after a refresh is reported too.
+	require.NoError(t, m.Store.Save("default", &store.Entry{
+		AccessToken: "revoked-2", RefreshToken: "rt-1", Expires: time.Now().Add(time.Hour).Unix(),
+	}))
+	_, err = client.Get(api.URL + "/refresh-then-step-up") //nolint:bodyclose // the request fails
+	lerr, ok = AsLoginRequired(err)
+	require.True(t, ok, "expected a login-required error, got: %v", err)
+	assert.Equal(t, []string{"mfa"}, lerr.AuthMethods)
 }
