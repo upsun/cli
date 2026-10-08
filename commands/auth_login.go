@@ -328,6 +328,11 @@ func (s *loginServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	// Other hosts are rejected, against DNS rebinding.
+	if r.Host != strings.TrimPrefix(s.localURL, "http://") {
+		http.Error(w, "Invalid host", http.StatusMisdirectedRequest)
+		return
+	}
 	p := s.handle(r.URL.Query())
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -343,10 +348,10 @@ func (s *loginServer) handle(q url.Values) *loginPage {
 	case q.Has("state") && q.Has("code"):
 		// The response after a successful OAuth 2.0 redirect.
 		if q.Get("state") != s.state {
-			return s.reportError("Invalid state parameter", "", "")
+			return s.reportError("Invalid state parameter", "", "", false)
 		}
 		if q.Has("code_challenge") && q.Get("code_challenge") != s.challenge {
-			return s.reportError("Invalid returned code_challenge parameter", "", "")
+			return s.reportError("Invalid returned code_challenge parameter", "", "", true)
 		}
 		s.send(loginResult{code: q.Get("code")})
 		return &loginPage{
@@ -361,7 +366,8 @@ func (s *loginServer) handle(q url.Values) *loginPage {
 			content: "<p>You can return to the command line</p>",
 		}
 	case q.Has("error"):
-		return s.reportError(q.Get("error_description"), q.Get("error"), q.Get("error_hint"))
+		// Only an error with the right state ends the login, so that other pages cannot.
+		return s.reportError(q.Get("error_description"), q.Get("error"), q.Get("error_hint"), q.Get("state") == s.state)
 	}
 	authURL := s.authorizeURL()
 	return &loginPage{
@@ -379,7 +385,8 @@ func (s *loginServer) send(r loginResult) {
 	}
 }
 
-func (s *loginServer) reportError(message, oauthErr, hint string) *loginPage {
+// reportError shows an error page, and if send is set, ends the login with the error.
+func (s *loginServer) reportError(message, oauthErr, hint string, send bool) *loginPage {
 	p := &loginPage{status: http.StatusUnauthorized, title: "Error"}
 	if oauthErr != "" {
 		p.content += `<p class="error"><code>` + html.EscapeString(oauthErr) + `</code></p>`
@@ -390,7 +397,7 @@ func (s *loginServer) reportError(message, oauthErr, hint string) *loginPage {
 	if hint != "" {
 		p.content += `<p class="error error-hint">` + html.EscapeString(hint) + `</p>`
 	}
-	if message != "" || oauthErr != "" || hint != "" {
+	if send && (message != "" || oauthErr != "" || hint != "") {
 		s.send(loginResult{err: oauthErr, errDescription: message, errHint: hint})
 	}
 	p.content += "<p>Please try again</p>"
