@@ -38,7 +38,7 @@ func NewLegacyCLIClient(ctx context.Context, wrapper *legacy.CLIWrapper) (*Legac
 	}
 
 	httpClient := &http.Client{
-		Transport: &Transport{
+		Transport: &legacyTransport{
 			refresher: refresher,
 			base: &oauth2.Transport{
 				Source: ts,
