@@ -32,7 +32,11 @@ func TestStore(t *testing.T) {
 			} else {
 				keyring.MockInit()
 			}
-			s := &Store{Dir: filepath.Join(t.TempDir(), "auth"), Service: "test-cli-auth", UseKeychain: func() bool { return c.useKeychain }}
+			s := &Store{
+				Dir:         filepath.Join(t.TempDir(), "auth"),
+				Service:     "test-cli-auth",
+				UseKeychain: func() bool { return c.useKeychain },
+			}
 
 			e, err := s.Load("default")
 			require.NoError(t, err)

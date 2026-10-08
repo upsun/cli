@@ -134,7 +134,8 @@ func runInitCommand(
 	var isInteractive = !viper.GetBool("no-interaction")
 
 	debugLogf("Checking selected organization")
-	org, err := handleOrganizations(cmd.Context(), cnf, authManager.Settings.BaseURL, httpClient, ensureAuthenticated, initOptions)
+	org, err := handleOrganizations(
+		cmd.Context(), cnf, authManager.Settings.BaseURL, httpClient, ensureAuthenticated, initOptions)
 	if err != nil {
 		return err
 	}
