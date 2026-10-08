@@ -17,6 +17,7 @@ readonly class AutoLoginListener
     public function __construct(
         private Api              $api,
         private SubCommandRunner $commandDispatcher,
+        private GoAuth           $goAuth,
         private Config           $config,
         private InputInterface   $input,
         private QuestionHelper   $questionHelper,
@@ -52,7 +53,9 @@ readonly class AutoLoginListener
                 }
                 if ($this->questionHelper->confirm('Log in via a browser?')) {
                     $this->stdErr->writeln('');
-                    $exitCode = $this->commandDispatcher->run('auth:browser-login', $event->getLoginOptions());
+                    $exitCode = $this->goAuth->isEnabled()
+                        ? $this->goAuth->login($event->getLoginOptions())
+                        : $this->commandDispatcher->run('auth:browser-login', $event->getLoginOptions());
                     $this->stdErr->writeln('');
                     $success = $exitCode === 0;
                 }
