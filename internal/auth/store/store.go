@@ -58,8 +58,8 @@ type Store struct {
 	// UseKeychain reports whether a new session should try the keychain. It is only called when a session is first
 	// saved, as checking can be slow. It may be nil.
 	UseKeychain func() bool
-	// KeychainTimeout limits each keychain read, and the first write of a session. It defaults to 10s.
-	// Other changes are waited for, so that they cannot finish after the session's lock is released.
+	// KeychainTimeout limits each keychain read. It defaults to 10s. Changes are waited for, with a notice after the
+	// timeout, so that they cannot finish after the session's lock is released.
 	KeychainTimeout time.Duration
 	// Stderr receives a notice while waiting for the keychain. It may be nil.
 	Stderr io.Writer
@@ -122,14 +122,15 @@ func (s *Store) Save(id string, e *Entry) error {
 		backend = sf.Backend
 	case s.UseKeychain != nil && s.UseKeychain():
 		// The backend is chosen once, so any keychain failure here (including data that is too big) falls back to
-		// a file.
-		if err := s.keychainSet(id, b, false); err == nil {
+		// a file. The write is waited for, e.g. while the user answers an unlock prompt, so that it cannot finish
+		// later, beside the file.
+		if err := s.keychainSet(id, b); err == nil {
 			backend = BackendKeychain
 		}
 	}
 	if backend == BackendKeychain {
 		if sf != nil {
-			if err := s.keychainSet(id, b, true); err != nil {
+			if err := s.keychainSet(id, b); err != nil {
 				return &KeychainError{Op: "save", Err: err}
 			}
 		}
@@ -248,8 +249,8 @@ func (s *Store) writeSessionFile(id string, sf *sessionFile) error {
 	return WriteFileAtomic(s.sessionFilePath(id), b)
 }
 
-func (s *Store) keychainSet(id string, secret []byte, wait bool) error {
-	_, err := s.keychain(wait, func() (string, error) { return "", keyring.Set(s.Service, id, string(secret)) })
+func (s *Store) keychainSet(id string, secret []byte) error {
+	_, err := s.keychain(true, func() (string, error) { return "", keyring.Set(s.Service, id, string(secret)) })
 	return err
 }
 

@@ -2,6 +2,6 @@
 
 package store
 
-func secretServiceAvailable() bool {
-	return false
+func secretServiceStatus() (available, unlocked bool) {
+	return false, false
 }
