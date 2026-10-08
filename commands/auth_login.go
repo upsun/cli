@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"net"
@@ -99,10 +100,15 @@ func runBrowserLogin(cmd *cobra.Command, cnf *config.Config, m *auth.Manager, op
 
 	if !opts.force && len(opts.methods) == 0 && opts.maxAge == nil {
 		status, err := m.Status(ctx)
-		if err != nil {
+		var kerr *store.KeychainError
+		switch {
+		case errors.As(err, &kerr):
+			// The session cannot be read, but it can be replaced.
+			debugLogf("Failed to check the current session. Continuing with login: %s", err)
+		case err != nil:
 			return err
 		}
-		if status.LoggedIn {
+		if status != nil && status.LoggedIn {
 			// Check whether the login is still valid. If so, only log in again if the user confirms.
 			account, err := getMyAccount(ctx, cnf, m)
 			if err == nil {
