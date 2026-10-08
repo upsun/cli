@@ -308,3 +308,20 @@ func TestStore_CleanupFailureNotRemembered(t *testing.T) {
 	require.NoError(t, s.Delete("a"))
 	assert.NoError(t, s.keychainErr)
 }
+
+// TestStore_CleanupTimeoutRemembered checks that a clean-up that times out, e.g. at an unlock prompt, stops other
+// keychain calls.
+func TestStore_CleanupTimeoutRemembered(t *testing.T) {
+	keyring.MockInit()
+	origDelete := deleteSecret
+	deleteSecret = func(_, _ string) error {
+		time.Sleep(100 * time.Millisecond)
+		return nil
+	}
+	t.Cleanup(func() { deleteSecret = origDelete })
+	s := &Store{Dir: t.TempDir(), Service: "test-cli-auth", KeychainTimeout: 10 * time.Millisecond}
+	require.NoError(t, s.writeSessionFile("a", &sessionFile{Backend: BackendFile, Entry: &Entry{}, Account: "a-x"}))
+
+	require.NoError(t, s.Delete("a"))
+	assert.ErrorIs(t, s.keychainErr, errKeychainTimeout)
+}

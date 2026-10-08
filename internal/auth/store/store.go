@@ -177,7 +177,8 @@ func (s *Store) Delete(id string) error {
 		}
 	case sf.Account != "":
 		// A first write that timed out may have finished later.
-		s.keychainCleanUp(func() error { return keyring.Delete(s.Service, sf.Account) })
+		del := deleteSecret
+		s.keychainCleanUp(func() error { return del(s.Service, sf.Account) })
 	}
 	if err := os.Remove(s.sessionFilePath(id)); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
@@ -295,13 +296,17 @@ func (s *Store) keychainCall(wait bool, fn func() (string, error), onLate func()
 	return v, err
 }
 
-// keychainCleanUp runs an optional keychain call, ignoring its result, unless the keychain has already failed. Its
-// failure is not remembered, so that it does not affect other calls.
+// keychainCleanUp runs an optional keychain call, ignoring its result, unless the keychain has already failed. Only
+// a timeout is remembered, as it usually means an unlock prompt: other failures do not affect other calls.
 func (s *Store) keychainCleanUp(fn func() error) {
 	s.keychainErrMu.Lock()
 	defer s.keychainErrMu.Unlock()
-	if s.keychainErr == nil {
-		_, _ = s.keychainCallLocked(false, func() (string, error) { return "", fn() }, nil)
+	if s.keychainErr != nil {
+		return
+	}
+	_, err := s.keychainCallLocked(false, func() (string, error) { return "", fn() }, nil)
+	if errors.Is(err, errKeychainTimeout) {
+		s.keychainErr = err
 	}
 }
 
