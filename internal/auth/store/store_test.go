@@ -297,3 +297,14 @@ func TestStore_FirstSaveTimeout(t *testing.T) {
 	_, err = keyring.Get("test-cli-auth", sf.Account)
 	assert.ErrorIs(t, err, keyring.ErrNotFound)
 }
+
+// TestStore_CleanupFailureNotRemembered checks that a failed clean-up of a late write does not affect other sessions.
+func TestStore_CleanupFailureNotRemembered(t *testing.T) {
+	keyring.MockInit()
+	s := &Store{Dir: t.TempDir(), Service: "test-cli-auth"}
+	require.NoError(t, s.writeSessionFile("a", &sessionFile{Backend: BackendFile, Entry: &Entry{}, Account: "a-x"}))
+
+	keyring.MockInitWithError(errors.New("locked"))
+	require.NoError(t, s.Delete("a"))
+	assert.NoError(t, s.keychainErr)
+}
