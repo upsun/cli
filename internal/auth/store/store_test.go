@@ -200,16 +200,18 @@ func TestStore_KeychainFailureRemembered(t *testing.T) {
 	assert.ErrorContains(t, err, "dismissed")
 	assert.Equal(t, 1, calls)
 
-	// Not found is not a failure.
-	s = &Store{}
-	notFound := func() (string, error) {
-		calls++
-		return "", keyring.ErrNotFound
+	// Errors about one entry are not failures of the keychain.
+	for _, entryErr := range []error{keyring.ErrNotFound, keyring.ErrSetDataTooBig} {
+		s = &Store{}
+		calls = 0
+		fn := func() (string, error) {
+			calls++
+			return "", entryErr
+		}
+		_, _ = s.keychain(false, fn)
+		_, _ = s.keychain(false, fn)
+		assert.Equal(t, 2, calls, "error: %v", entryErr)
 	}
-	calls = 0
-	_, _ = s.keychain(false, notFound)
-	_, _ = s.keychain(false, notFound)
-	assert.Equal(t, 2, calls)
 }
 
 // TestStore_FirstSaveAfterKeychainFailure checks that a new session uses a file without trying the keychain again.

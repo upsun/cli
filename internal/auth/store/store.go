@@ -262,7 +262,8 @@ func (s *Store) keychain(wait bool, fn func() (string, error)) (string, error) {
 		return "", s.keychainErr
 	}
 	v, err := s.keychainCall(wait, fn)
-	if err != nil && !errors.Is(err, keyring.ErrNotFound) {
+	// Errors about one entry do not mean that the keychain is unavailable.
+	if err != nil && !errors.Is(err, keyring.ErrNotFound) && !errors.Is(err, keyring.ErrSetDataTooBig) {
 		s.keychainErr = err
 	}
 	return v, err
