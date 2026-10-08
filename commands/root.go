@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/platformsh/platformify/commands"
@@ -45,17 +46,30 @@ func Execute(cnf *config.Config) error {
 	err := cmd.ExecuteContext(ctx)
 	var ee *exitError
 	if errors.As(err, &ee) {
+		waitForUpdateCheck()
 		os.Exit(ee.code)
 	}
 	if err != nil && !isQuiet() {
 		fmt.Fprintln(color.Error, "Error:", err)
 	}
+	waitForUpdateCheck()
 	return err
 }
 
 // isQuiet reports whether quiet mode is on, which --debug and --verbose override.
 func isQuiet() bool {
 	return viper.GetBool("quiet") && !viper.GetBool("debug") && !viper.GetBool("verbose")
+}
+
+// updateCheckWait is the maximum time to wait for a background update check before exiting.
+const updateCheckWait = time.Second
+
+// updateCheck is the background update check started by the root command, if any.
+var updateCheck *internal.UpdateCheck
+
+// waitForUpdateCheck gives a running update check a chance to save its result.
+func waitForUpdateCheck() {
+	updateCheck.Wait(updateCheckWait)
 }
 
 func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cobra.Command {
@@ -90,15 +104,18 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 			if viper.GetBool("yes") {
 				viper.Set("no-interaction", true)
 			}
+			// The check runs in the background and caches its result for the
+			// next invocation. It is waited for briefly before exiting.
+			updateCheck = internal.StartUpdateCheck(cnf)
 			if viper.GetBool("version") {
 				versionCommand.Run(cmd, []string{})
+				waitForUpdateCheck()
 				os.Exit(0)
 			}
 			if cnf.Wrapper.GitHubRepo != "" {
 				// Show any update found by a previous run, before the command's
-				// output. The check itself runs in the background (below) and
-				// caches its result for the next invocation. In quiet mode the
-				// notice would be discarded, so it is left for a later run.
+				// output. In quiet mode the notice would be discarded, so it is
+				// left for a later run.
 				if rel := internal.PendingNotification(cnf, config.Version); rel != nil && !quiet {
 					// Full detection can find package installs that lack the marker.
 					if !internal.DetectInstallMethod(cnf).AutoUpdating() {
@@ -106,10 +123,6 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 					}
 					internal.MarkNotified(cnf)
 				}
-				go func() {
-					//nolint:errcheck // a failed update check should not affect the command
-					internal.CheckForUpdate(cnf, config.Version)
-				}()
 			}
 			if alt.ShouldUpdate(cnf) {
 				go func() {
@@ -331,11 +344,13 @@ func exitWithError(err error) {
 	if errors.As(err, &execErr) {
 		exitCode := execErr.ExitCode()
 		debugLogf(err.Error())
+		waitForUpdateCheck()
 		os.Exit(exitCode)
 	}
 	if !isQuiet() {
 		fmt.Fprintln(color.Error, color.RedString(err.Error()))
 	}
+	waitForUpdateCheck()
 	os.Exit(1)
 }
 
