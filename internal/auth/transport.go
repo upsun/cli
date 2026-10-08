@@ -3,93 +3,101 @@ package auth
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
 )
 
-type refresher interface {
-	refreshToken() error
-	invalidateToken() error
-}
-
-// Transport is an HTTP RoundTripper similar to golang.org/x/oauth2.Transport.
-// It injects Authorization headers using a savingSource and, on a 401 response,
-// clears the cached token and retries the request once.
+// Transport is an HTTP RoundTripper that adds an access token to requests.
+//
+// On a 401 response it refreshes the token and retries the request once. A step-up authentication challenge
+// (RFC 9470) returns a *LoginRequiredError instead.
 type Transport struct {
-	// base is the underlying oauth2.Transport that adds the Authorization header.
-	base http.RoundTripper
-
-	// refresher is the savingSource used as the TokenSource for base; kept private
-	// so we can clear its cached token on 401.
-	refresher refresher
-
-	LogFunc func(msg string, args ...any)
+	Base    http.RoundTripper
+	Manager *Manager
 }
 
-// RoundTrip adds Authorization via the underlying oauth2.Transport. If the
-// response is 401 Unauthorized, it clears the cached token and retries once.
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.Body = wrapReader(req.Body)
-
-	resp, err := t.base.RoundTrip(req)
-
-	// Retry on 401
-	if resp != nil && resp.StatusCode == http.StatusUnauthorized {
-		_ = t.log("The access token needs to be refreshed. Retrying request.")
-		if err := t.refresher.invalidateToken(); err != nil {
-			return nil, fmt.Errorf("failed to invalidate token: %w", err)
-		}
-		flushReader(resp.Body)
-		resp, err = t.base.RoundTrip(req)
+	ctx := req.Context()
+	body, err := bufferBody(req)
+	if err != nil {
+		return nil, err
 	}
-
-	return resp, err
+	tok, err := t.Manager.Token(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+	resp, err := t.base().RoundTrip(withToken(req, tok, body))
+	if err != nil || resp.StatusCode != http.StatusUnauthorized {
+		return resp, err
+	}
+	if IsStepUpChallenge(resp) {
+		defer resp.Body.Close()
+		hasAPIToken, _ := t.Manager.HasAPIToken(ctx)
+		return nil, StepUpError(resp, hasAPIToken)
+	}
+	flush(resp.Body)
+	tok, err = t.Manager.Token(ctx, tok.AccessToken)
+	if err != nil {
+		return nil, err
+	}
+	return t.base().RoundTrip(withToken(req, tok, body))
 }
 
-func (t *Transport) log(msg string, args ...any) error {
-	if t.LogFunc == nil {
-		return nil
+func (t *Transport) base() http.RoundTripper {
+	if t.Base != nil {
+		return t.Base
 	}
-	t.LogFunc(msg, args...)
-	return nil
+	return http.DefaultTransport
 }
 
-// context key for storing a custom RoundTripper.
-type transportCtxKey struct{}
-
-// WithTransport returns a new context that carries the provided RoundTripper.
-func WithTransport(ctx context.Context, rt http.RoundTripper) context.Context {
-	return context.WithValue(ctx, transportCtxKey{}, rt)
+func withToken(req *http.Request, tok *Token, body []byte) *http.Request {
+	r := req.Clone(req.Context())
+	r.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+	if body != nil {
+		r.Body = io.NopCloser(bytes.NewReader(body))
+	}
+	return r
 }
 
-// TransportFromContext retrieves a RoundTripper previously stored with
-// WithTransport. It returns (nil, false) if none is set.
-func TransportFromContext(ctx context.Context) (http.RoundTripper, bool) {
-	v := ctx.Value(transportCtxKey{})
-	if v == nil {
-		return nil, false
+// bufferBody reads the request body so that it can be sent twice.
+func bufferBody(req *http.Request) ([]byte, error) {
+	if req.Body == nil {
+		return nil, nil
 	}
-	rt, ok := v.(http.RoundTripper)
-	if !ok || rt == nil {
-		return nil, false
-	}
-	return rt, true
+	b, err := io.ReadAll(req.Body)
+	_ = req.Body.Close()
+	return b, err
 }
 
-func wrapReader(r io.ReadCloser) io.ReadCloser {
-	if r == nil {
-		return nil
-	}
-	bodyBytes, _ := io.ReadAll(r)
-	_ = r.Close()
-	return io.NopCloser(bytes.NewBuffer(bodyBytes))
-}
-
-func flushReader(r io.ReadCloser) {
-	if r == nil {
-		return
-	}
+func flush(r io.ReadCloser) {
 	_, _ = io.Copy(io.Discard, r)
 	_ = r.Close()
+}
+
+// NewClient returns an HTTP client that authenticates requests.
+func NewClient(m *Manager, base http.RoundTripper) *http.Client {
+	return &http.Client{Transport: &Transport{Base: base, Manager: m}}
+}
+
+// EnsureAuthenticated checks that a token is available, refreshing it if needed.
+func (m *Manager) EnsureAuthenticated(ctx context.Context) error {
+	_, err := m.Token(ctx, "")
+	return err
+}
+
+// HasAPIToken reports whether an API token is used, whether stored or set via config.
+func (m *Manager) HasAPIToken(ctx context.Context) (bool, error) {
+	t, err := m.apiToken(ctx)
+	if err != nil {
+		return false, err
+	}
+	return t != "" || m.Settings.AccessToken != "", nil
+}
+
+// AsLoginRequired returns a *LoginRequiredError found in err.
+func AsLoginRequired(err error) (*LoginRequiredError, bool) {
+	var lerr *LoginRequiredError
+	ok := errors.As(err, &lerr)
+	return lerr, ok
 }
