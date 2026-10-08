@@ -2,7 +2,8 @@
 package store
 
 import (
-	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -42,15 +43,15 @@ const (
 type sessionFile struct {
 	Backend Backend `json:"backend"`
 	Entry   *Entry  `json:"entry,omitempty"`
+	// Account is the keychain account. It is unique to each saved session, so that a write abandoned after a
+	// timeout, which can finish later, cannot overwrite the secret of a session saved since.
+	Account string `json:"account,omitempty"`
 }
 
 // MigrationMarker is the name of the file that records the migration from the legacy CLI's storage.
 const MigrationMarker = ".migrated"
 
 const defaultKeychainTimeout = 10 * time.Second
-
-// firstWriteTimeout limits the first write of a session, which can wait for the user to unlock the keychain.
-var firstWriteTimeout = time.Minute
 
 // Store saves entries. The backend is chosen when a session is first saved, and recorded in the session file.
 type Store struct {
@@ -61,8 +62,9 @@ type Store struct {
 	// UseKeychain reports whether a new session should try the keychain. It is only called when a session is first
 	// saved, as checking can be slow. It may be nil.
 	UseKeychain func() bool
-	// KeychainTimeout limits each keychain read. It defaults to 10s. Changes are waited for, with a notice after the
-	// timeout, so that they cannot finish after the session's lock is released.
+	// KeychainTimeout limits each keychain read, and the first write of a session, which falls back to a file. It
+	// defaults to 10s. Other changes are waited for, with a notice after the timeout, so that they cannot finish
+	// after the session's lock is released.
 	KeychainTimeout time.Duration
 	// Stderr receives a notice while waiting for the keychain. It may be nil.
 	Stderr io.Writer
@@ -95,7 +97,7 @@ func (s *Store) Load(id string) (*Entry, error) {
 	if sf.Backend != BackendKeychain {
 		return sf.Entry, nil
 	}
-	secret, err := s.keychain(false, func() (string, error) { return keyring.Get(s.Service, id) })
+	secret, err := s.keychain(false, func() (string, error) { return keyring.Get(s.Service, sf.Account) })
 	if errors.Is(err, keyring.ErrNotFound) {
 		return nil, nil
 	}
@@ -119,24 +121,23 @@ func (s *Store) Save(id string, e *Entry) error {
 	if err != nil {
 		return err
 	}
-	backend := BackendFile
-	switch {
-	case sf != nil:
-		backend = sf.Backend
-	case s.UseKeychain != nil && s.UseKeychain():
-		// The backend is chosen once, so any keychain failure here (including data that is too big, or a timeout)
-		// falls back to a file. The write is waited for longer, e.g. while the user answers an unlock prompt.
-		if err := s.keychainFirstSet(id, b); err == nil {
-			backend = BackendKeychain
+	if sf != nil && sf.Backend == BackendKeychain {
+		if _, err := s.keychain(true, func() (string, error) {
+			return "", keyring.Set(s.Service, sf.Account, string(b))
+		}); err != nil {
+			return &KeychainError{Op: "save", Err: err}
 		}
+		return nil
 	}
-	if backend == BackendKeychain {
-		if sf != nil {
-			if err := s.keychainSet(id, b); err != nil {
-				return &KeychainError{Op: "save", Err: err}
-			}
+	if sf == nil && s.UseKeychain != nil && s.UseKeychain() {
+		// The backend is chosen once, so any keychain failure here (including data that is too big, or a timeout)
+		// falls back to a file.
+		account := id + "-" + randomSuffix()
+		if _, err := s.keychain(false, func() (string, error) {
+			return "", keyring.Set(s.Service, account, string(b))
+		}); err == nil {
+			return s.writeSessionFile(id, &sessionFile{Backend: BackendKeychain, Account: account})
 		}
-		return s.writeSessionFile(id, &sessionFile{Backend: BackendKeychain})
 	}
 	return s.writeSessionFile(id, &sessionFile{Backend: BackendFile, Entry: e})
 }
@@ -151,7 +152,7 @@ func (s *Store) Delete(id string) error {
 		return nil
 	}
 	if sf.Backend == BackendKeychain {
-		_, err := s.keychain(true, func() (string, error) { return "", keyring.Delete(s.Service, id) })
+		_, err := s.keychain(true, func() (string, error) { return "", keyring.Delete(s.Service, sf.Account) })
 		if err != nil && !errors.Is(err, keyring.ErrNotFound) {
 			return &KeychainError{Op: "delete", Err: err}
 		}
@@ -251,39 +252,15 @@ func (s *Store) writeSessionFile(id string, sf *sessionFile) error {
 	return WriteFileAtomic(s.sessionFilePath(id), b)
 }
 
-func (s *Store) keychainSet(id string, secret []byte) error {
-	_, err := s.keychain(true, func() (string, error) { return "", keyring.Set(s.Service, id, string(secret)) })
-	return err
-}
-
-// keychainFirstSet writes a new session's secret, giving up after firstWriteTimeout. If an abandoned write finishes
-// later, while the process is running, it is deleted again, as the session uses a file instead.
-func (s *Store) keychainFirstSet(id string, secret []byte) error {
-	_, err := s.keychainWithLimit(firstWriteTimeout, func() (string, error) {
-		return "", keyring.Set(s.Service, id, string(secret))
-	}, func() { _ = keyring.Delete(s.Service, id) })
-	return err
-}
-
 // keychain runs a keychain call with a timeout. If wait is set, a notice is printed at the timeout, and the call is
 // still waited for. After a failure, other calls fail with the same error.
 func (s *Store) keychain(wait bool, fn func() (string, error)) (string, error) {
-	if !wait {
-		return s.keychainWithLimit(0, fn, nil)
-	}
-	return s.keychainWithLimit(-1, fn, nil)
-}
-
-// keychainWithLimit runs a keychain call. After KeychainTimeout, it fails if limit is 0, and otherwise prints a
-// notice, and waits until the limit (no limit if it is negative). If the call is abandoned and later succeeds,
-// onLate is run.
-func (s *Store) keychainWithLimit(limit time.Duration, fn func() (string, error), onLate func()) (string, error) {
 	s.keychainErrMu.Lock()
 	defer s.keychainErrMu.Unlock()
 	if s.keychainErr != nil {
 		return "", s.keychainErr
 	}
-	v, err := s.keychainCall(limit, fn, onLate)
+	v, err := s.keychainCall(wait, fn)
 	// Errors about one entry do not mean that the keychain is unavailable.
 	if err != nil && !errors.Is(err, keyring.ErrNotFound) && !errors.Is(err, keyring.ErrSetDataTooBig) {
 		s.keychainErr = err
@@ -291,13 +268,11 @@ func (s *Store) keychainWithLimit(limit time.Duration, fn func() (string, error)
 	return v, err
 }
 
-func (s *Store) keychainCall(limit time.Duration, fn func() (string, error), onLate func()) (string, error) {
+func (s *Store) keychainCall(wait bool, fn func() (string, error)) (string, error) {
 	timeout := s.KeychainTimeout
 	if timeout == 0 {
 		timeout = defaultKeychainTimeout
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
 	type result struct {
 		v   string
 		err error
@@ -310,29 +285,23 @@ func (s *Store) keychainCall(limit time.Duration, fn func() (string, error), onL
 	select {
 	case r := <-ch:
 		return r.v, r.err
-	case <-ctx.Done():
-		if limit == 0 {
+	case <-time.After(timeout):
+		if !wait {
 			return "", fmt.Errorf("timed out after %s", timeout)
 		}
 	}
 	if s.Stderr != nil {
 		fmt.Fprintln(s.Stderr, "Waiting for the keychain. Check whether it needs to be unlocked.")
 	}
-	if limit < 0 {
-		r := <-ch
-		return r.v, r.err
-	}
-	select {
-	case r := <-ch:
-		return r.v, r.err
-	case <-time.After(limit - timeout):
-		go func() {
-			if r := <-ch; r.err == nil && onLate != nil {
-				onLate()
-			}
-		}()
-		return "", fmt.Errorf("timed out after %s", limit)
-	}
+	r := <-ch
+	return r.v, r.err
+}
+
+// randomSuffix returns a random string for keychain account names.
+func randomSuffix() string {
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 // WriteFileAtomic writes a file with 0600 permissions via a synced temporary file, creating the directory (0700).
