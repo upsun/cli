@@ -138,6 +138,9 @@ func runLogout(cmd *cobra.Command, cnf *config.Config, all, other bool) error {
 	}
 	if all {
 		for _, id := range ids {
+			if id == current {
+				continue
+			}
 			if err := m.Logout(ctx, id); err != nil {
 				return err
 			}
