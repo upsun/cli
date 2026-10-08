@@ -89,15 +89,21 @@ func TestAuthLogout_Other(t *testing.T) {
 	require.NoError(t, err, "stderr: %s", stderr)
 	assert.Contains(t, stderr, "All other sessions have been deleted")
 
-	// "default" session file must still exist.
-	defaultSessFile := filepath.Join(f.home, ".platform-test-cli", ".session", "sess-default", "sess-default.json")
-	assert.FileExists(t, defaultSessFile)
-
 	// The "other" session's tokens are revoked and its files deleted.
-	// An empty sess-other directory may be left behind.
 	assert.Contains(t, authServer.RevokedTokens(), "token-other")
 	assert.NotContains(t, authServer.RevokedTokens(), "token-default")
 	sessDir := filepath.Join(f.home, ".platform-test-cli", ".session")
 	assert.NoFileExists(t, filepath.Join(sessDir, "sess-other", "sess-other.json"))
 	assert.NoDirExists(t, filepath.Join(sessDir, "sess-cli-other"))
+
+	if goAuthMode() {
+		// The sessions were migrated from the legacy CLI's storage, which was then deleted.
+		assert.NoFileExists(t, filepath.Join(sessDir, "sess-default", "sess-default.json"))
+		authDir := filepath.Join(f.home, ".platform-test-cli", "auth")
+		assert.FileExists(t, filepath.Join(authDir, "default.json"))
+		assert.NoFileExists(t, filepath.Join(authDir, "other.json"))
+	} else {
+		// "default" session file must still exist. An empty sess-other directory may be left behind.
+		assert.FileExists(t, filepath.Join(sessDir, "sess-default", "sess-default.json"))
+	}
 }

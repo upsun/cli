@@ -37,8 +37,61 @@ type AuthServer struct {
 	refreshTokens   map[string]*refreshToken
 	refreshDelay    time.Duration
 	refreshCount    int
+	refreshRequests int
+	refreshFailures int
+	tokenLifetime   time.Duration
+	uniqueTokens    bool
+	accessCount     int
 	reuseDetected   bool
 	revokedFamilies map[string]bool
+}
+
+// SetTokenLifetime sets the lifetime of issued access tokens (default: 1 hour).
+func (s *AuthServer) SetTokenLifetime(d time.Duration) {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	s.tokenLifetime = d
+}
+
+// SetUniqueAccessTokens makes the server issue a new access token each time ("access-token-1", "access-token-2", ...),
+// instead of always "access-token-1".
+func (s *AuthServer) SetUniqueAccessTokens(unique bool) {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	s.uniqueTokens = unique
+}
+
+func (s *AuthServer) newAccessToken() string {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	if !s.uniqueTokens {
+		return accessTokens[0]
+	}
+	s.accessCount++
+	return fmt.Sprintf("access-token-%d", s.accessCount)
+}
+
+// SetRefreshFailures makes the next n refresh requests fail with a 503 error.
+func (s *AuthServer) SetRefreshFailures(n int) {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	s.refreshFailures = n
+}
+
+// RefreshRequests returns the number of refresh_token grant requests received.
+func (s *AuthServer) RefreshRequests() int {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	return s.refreshRequests
+}
+
+func (s *AuthServer) expiresIn() int {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	if s.tokenLifetime == 0 {
+		return 3600
+	}
+	return int(s.tokenLifetime.Seconds())
 }
 
 type refreshToken struct {
@@ -154,8 +207,8 @@ func NewAuthServer(t *testing.T) *AuthServer {
 			apiToken := req.Form.Get("api_token")
 			if slices.Contains(ValidAPITokens, apiToken) {
 				_ = json.NewEncoder(w).Encode(map[string]any{
-					"access_token":  accessTokens[0],
-					"expires_in":    3600,
+					"access_token":  srv.newAccessToken(),
+					"expires_in":    srv.expiresIn(),
 					"token_type":    "bearer",
 					"refresh_token": srv.newRefreshToken(),
 				})
@@ -182,25 +235,39 @@ func NewAuthServer(t *testing.T) *AuthServer {
 				return
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"access_token":  accessTokens[0],
-				"expires_in":    3600,
+				"access_token":  srv.newAccessToken(),
+				"expires_in":    srv.expiresIn(),
 				"token_type":    "bearer",
 				"refresh_token": srv.newRefreshToken(),
 			})
 
 		case "refresh_token":
 			srv.refreshMu.Lock()
+			srv.refreshRequests++
 			delay := srv.refreshDelay
+			fail := srv.refreshFailures > 0
+			if fail {
+				srv.refreshFailures--
+			}
 			srv.refreshMu.Unlock()
-			time.Sleep(delay)
+			if fail {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+			select {
+			case <-time.After(delay):
+			case <-req.Context().Done():
+				// The client went away before the token was rotated.
+				return
+			}
 			newToken, errCode := srv.rotateRefreshToken(req.Form.Get("refresh_token"))
 			if errCode != "" {
 				writeOAuthError(w, errCode, "The refresh token is invalid.")
 				return
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"access_token":  accessTokens[0],
-				"expires_in":    3600,
+				"access_token":  srv.newAccessToken(),
+				"expires_in":    srv.expiresIn(),
 				"token_type":    "bearer",
 				"refresh_token": newToken,
 			})
