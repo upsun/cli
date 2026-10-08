@@ -49,6 +49,9 @@ const MigrationMarker = ".migrated"
 
 const defaultKeychainTimeout = 10 * time.Second
 
+// firstWriteTimeout limits the first write of a session, which can wait for the user to unlock the keychain.
+var firstWriteTimeout = time.Minute
+
 // Store saves entries. The backend is chosen when a session is first saved, and recorded in the session file.
 type Store struct {
 	// Dir is the directory for session files and locks, e.g. ~/.upsun-cli/auth.
@@ -121,10 +124,9 @@ func (s *Store) Save(id string, e *Entry) error {
 	case sf != nil:
 		backend = sf.Backend
 	case s.UseKeychain != nil && s.UseKeychain():
-		// The backend is chosen once, so any keychain failure here (including data that is too big) falls back to
-		// a file. The write is waited for, e.g. while the user answers an unlock prompt, so that it cannot finish
-		// later, beside the file.
-		if err := s.keychainSet(id, b); err == nil {
+		// The backend is chosen once, so any keychain failure here (including data that is too big, or a timeout)
+		// falls back to a file. The write is waited for longer, e.g. while the user answers an unlock prompt.
+		if err := s.keychainFirstSet(id, b); err == nil {
 			backend = BackendKeychain
 		}
 	}
@@ -254,15 +256,34 @@ func (s *Store) keychainSet(id string, secret []byte) error {
 	return err
 }
 
+// keychainFirstSet writes a new session's secret, giving up after firstWriteTimeout. If an abandoned write finishes
+// later, while the process is running, it is deleted again, as the session uses a file instead.
+func (s *Store) keychainFirstSet(id string, secret []byte) error {
+	_, err := s.keychainWithLimit(firstWriteTimeout, func() (string, error) {
+		return "", keyring.Set(s.Service, id, string(secret))
+	}, func() { _ = keyring.Delete(s.Service, id) })
+	return err
+}
+
 // keychain runs a keychain call with a timeout. If wait is set, a notice is printed at the timeout, and the call is
 // still waited for. After a failure, other calls fail with the same error.
 func (s *Store) keychain(wait bool, fn func() (string, error)) (string, error) {
+	if !wait {
+		return s.keychainWithLimit(0, fn, nil)
+	}
+	return s.keychainWithLimit(-1, fn, nil)
+}
+
+// keychainWithLimit runs a keychain call. After KeychainTimeout, it fails if limit is 0, and otherwise prints a
+// notice, and waits until the limit (no limit if it is negative). If the call is abandoned and later succeeds,
+// onLate is run.
+func (s *Store) keychainWithLimit(limit time.Duration, fn func() (string, error), onLate func()) (string, error) {
 	s.keychainErrMu.Lock()
 	defer s.keychainErrMu.Unlock()
 	if s.keychainErr != nil {
 		return "", s.keychainErr
 	}
-	v, err := s.keychainCall(wait, fn)
+	v, err := s.keychainCall(limit, fn, onLate)
 	// Errors about one entry do not mean that the keychain is unavailable.
 	if err != nil && !errors.Is(err, keyring.ErrNotFound) && !errors.Is(err, keyring.ErrSetDataTooBig) {
 		s.keychainErr = err
@@ -270,7 +291,7 @@ func (s *Store) keychain(wait bool, fn func() (string, error)) (string, error) {
 	return v, err
 }
 
-func (s *Store) keychainCall(wait bool, fn func() (string, error)) (string, error) {
+func (s *Store) keychainCall(limit time.Duration, fn func() (string, error), onLate func()) (string, error) {
 	timeout := s.KeychainTimeout
 	if timeout == 0 {
 		timeout = defaultKeychainTimeout
@@ -290,15 +311,28 @@ func (s *Store) keychainCall(wait bool, fn func() (string, error)) (string, erro
 	case r := <-ch:
 		return r.v, r.err
 	case <-ctx.Done():
-		if !wait {
+		if limit == 0 {
 			return "", fmt.Errorf("timed out after %s", timeout)
 		}
 	}
 	if s.Stderr != nil {
 		fmt.Fprintln(s.Stderr, "Waiting for the keychain. Check whether it needs to be unlocked.")
 	}
-	r := <-ch
-	return r.v, r.err
+	if limit < 0 {
+		r := <-ch
+		return r.v, r.err
+	}
+	select {
+	case r := <-ch:
+		return r.v, r.err
+	case <-time.After(limit - timeout):
+		go func() {
+			if r := <-ch; r.err == nil && onLate != nil {
+				onLate()
+			}
+		}()
+		return "", fmt.Errorf("timed out after %s", limit)
+	}
 }
 
 // WriteFileAtomic writes a file with 0600 permissions via a synced temporary file, creating the directory (0700).
