@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -11,7 +12,7 @@ import (
 
 // TempDir returns the path to a user-specific temporary directory, suitable for caches.
 //
-// It creates the temporary directory if it does not already exist.
+// It creates the temporary directory if it does not already exist, and checks that it is private to the user.
 //
 // The directory can be specified in the {ENV_PREFIX}TMP environment variable.
 //
@@ -54,6 +55,9 @@ func (c *Config) TempDir() (string, error) {
 			return "", err
 		}
 	}
+	if err := ensurePrivateDir(path); err != nil {
+		return "", err
+	}
 	c.tempDir = path
 
 	return path, nil
@@ -62,7 +66,7 @@ func (c *Config) TempDir() (string, error) {
 // WritableUserDir returns the path to a writable user-level directory, e.g. for credentials and state.
 //
 // As in the legacy CLI, which shares it, a temporary directory is used if the directory in the home directory cannot
-// be written, e.g. on an application container.
+// be written, e.g. on an application container. The directory must be private to the user.
 //
 // Deprecated: unless backwards compatibility is desired, TempDir is preferable.
 func (c *Config) WritableUserDir() (string, error) {
@@ -78,6 +82,9 @@ func (c *Config) WritableUserDir() (string, error) {
 		path = filepath.Join(os.TempDir(), c.Application.TempSubDir)
 	}
 	if err := os.MkdirAll(path, 0o700); err != nil {
+		return "", err
+	}
+	if err := ensurePrivateDir(path); err != nil {
 		return "", err
 	}
 	c.writableUserDir = path
@@ -105,12 +112,25 @@ func canWrite(path string) bool {
 // HomeDir returns the user's home directory.
 //
 // It checks the same environment variables as the legacy CLI, in order: {ENV_PREFIX}HOME, HOME and USERPROFILE.
-// On Windows, HOME can differ from USERPROFILE, e.g. in MSYS2 or Cygwin.
+// On Windows, HOME can differ from USERPROFILE, e.g. in MSYS2 or Cygwin. As in the legacy CLI, the directory must
+// exist, and its real path is returned.
 func (c *Config) HomeDir() (string, error) {
 	for _, name := range []string{c.Application.EnvPrefix + "HOME", "HOME", "USERPROFILE"} {
-		if v := os.Getenv(name); v != "" {
-			return v, nil
+		v := os.Getenv(name)
+		if v == "" {
+			continue
 		}
+		// G703: the user chooses their home directory.
+		if info, err := os.Stat(v); err != nil || !info.IsDir() { //nolint:gosec
+			return "", fmt.Errorf("invalid environment variable %s: %s (not a directory)", name, v)
+		}
+		// Resolve the path like PHP's realpath.
+		if abs, err := filepath.Abs(v); err == nil {
+			if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+				return resolved, nil
+			}
+		}
+		return v, nil
 	}
 	return os.UserHomeDir()
 }
