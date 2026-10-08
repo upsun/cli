@@ -37,6 +37,11 @@ type Error struct {
 	Response *http.Response
 }
 
+// Unwrap returns the original error, e.g. a login-required error from the HTTP client's transport.
+func (e Error) Unwrap() error {
+	return e.Original
+}
+
 func (e Error) Error() string {
 	var msg string
 	switch {
