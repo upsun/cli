@@ -30,7 +30,7 @@ func TestQuietErrors(t *testing.T) {
 		_, stderr, err := f.RunCombinedOutput(append([]string{"project:list"}, c.args...)...)
 		assertExitCode(t, 1, err)
 		if c.wantError {
-			assert.NotEmpty(t, stderr, "args: %v", c.args)
+			assert.Contains(t, stderr, "failed to initialize PHP CLI", "args: %v", c.args)
 		} else {
 			assert.Empty(t, stderr, "args: %v", c.args)
 		}
