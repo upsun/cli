@@ -177,7 +177,7 @@ func (s *Store) Delete(id string) error {
 		}
 	case sf.Account != "":
 		// A first write that timed out may have finished later.
-		_, _ = s.keychain(false, func() (string, error) { return "", keyring.Delete(s.Service, sf.Account) })
+		s.keychainCleanUp(func() error { return keyring.Delete(s.Service, sf.Account) })
 	}
 	if err := os.Remove(s.sessionFilePath(id)); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
@@ -277,17 +277,7 @@ func (s *Store) writeSessionFile(id string, sf *sessionFile) error {
 // keychain runs a keychain call with a timeout. If wait is set, a notice is printed at the timeout, and the call is
 // still waited for. After a failure, other calls fail with the same error.
 func (s *Store) keychain(wait bool, fn func() (string, error)) (string, error) {
-	s.keychainErrMu.Lock()
-	defer s.keychainErrMu.Unlock()
-	if s.keychainErr != nil {
-		return "", s.keychainErr
-	}
-	v, err := s.keychainCallLocked(wait, fn, nil)
-	// Errors about one entry do not mean that the keychain is unavailable.
-	if err != nil && !errors.Is(err, keyring.ErrNotFound) && !errors.Is(err, keyring.ErrSetDataTooBig) {
-		s.keychainErr = err
-	}
-	return v, err
+	return s.keychainCall(wait, fn, nil)
 }
 
 // keychainCall is like keychain. If the call is abandoned after the timeout and then succeeds, onLate is run.
@@ -298,10 +288,21 @@ func (s *Store) keychainCall(wait bool, fn func() (string, error), onLate func()
 		return "", s.keychainErr
 	}
 	v, err := s.keychainCallLocked(wait, fn, onLate)
+	// Errors about one entry do not mean that the keychain is unavailable.
 	if err != nil && !errors.Is(err, keyring.ErrNotFound) && !errors.Is(err, keyring.ErrSetDataTooBig) {
 		s.keychainErr = err
 	}
 	return v, err
+}
+
+// keychainCleanUp runs an optional keychain call, ignoring its result, unless the keychain has already failed. Its
+// failure is not remembered, so that it does not affect other calls.
+func (s *Store) keychainCleanUp(fn func() error) {
+	s.keychainErrMu.Lock()
+	defer s.keychainErrMu.Unlock()
+	if s.keychainErr == nil {
+		_, _ = s.keychainCallLocked(false, func() (string, error) { return "", fn() }, nil)
+	}
 }
 
 func (s *Store) keychainCallLocked(wait bool, fn func() (string, error), onLate func()) (string, error) {
