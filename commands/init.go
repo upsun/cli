@@ -109,7 +109,7 @@ func runInitCommand(
 
 	cnf := config.FromContext(cmd.Context())
 
-	httpClient, ensureAuthenticated, apiURL, err := initAuth(cmd, cnf)
+	ia, err := newInitAuth(cmd, cnf)
 	if err != nil {
 		return err
 	}
@@ -130,8 +130,11 @@ func runInitCommand(
 	var isInteractive = !viper.GetBool("no-interaction")
 
 	debugLogf("Checking selected organization")
-	org, err := handleOrganizations(cmd.Context(), cnf, apiURL, httpClient, ensureAuthenticated, initOptions)
-	if err != nil {
+	var org *api.Organization
+	if err := ia.withLogin(func() (err error) {
+		org, err = handleOrganizations(cmd.Context(), cnf, ia.apiURL, ia.httpClient, ia.ensureAuthenticated, initOptions)
+		return err
+	}); err != nil {
 		return err
 	}
 	if org != nil {
@@ -168,7 +171,7 @@ func runInitCommand(
 			"Note: AI configuration is only compatible with `%s` organizations\n", api.OrgTypeFlexible))
 	}
 
-	if err := ensureAuthenticated(); err != nil {
+	if err := ia.ensureAuthenticated(); err != nil {
 		return err
 	}
 
@@ -178,8 +181,8 @@ func runInitCommand(
 		return err
 	}
 
-	initOptions.HTTPClient = httpClient
-	initOptions.APIURL = apiURL
+	initOptions.HTTPClient = ia.httpClient
+	initOptions.APIURL = ia.apiURL
 	initOptions.UserAgent = cnf.UserAgent()
 	initOptions.IsInteractive = isInteractive
 	initOptions.Yes = viper.GetBool("yes")
@@ -189,26 +192,41 @@ func runInitCommand(
 	return _init.RunAIConfig(cmd.Context(), cnf, dg, gitRoot, initOptions, cmd.OutOrStdout(), cmd.ErrOrStderr())
 }
 
-// initAuth returns an authenticated HTTP client, a function that ensures a login, and the API URL.
-func initAuth(cmd *cobra.Command, cnf *config.Config) (*http.Client, func() error, string, error) {
+// initAuth provides authentication for init, using Go auth or the legacy CLI.
+type initAuth struct {
+	httpClient          *http.Client
+	apiURL              string
+	ensureAuthenticated func() error
+	// withLogin runs a function, and with Go auth, offers a login and runs it again if login is required.
+	withLogin func(fn func() error) error
+}
+
+func newInitAuth(cmd *cobra.Command, cnf *config.Config) (*initAuth, error) {
 	if !cnf.GoAuthEnabled() {
 		legacyCLIClient, err := auth.NewLegacyCLIClient(cmd.Context(),
 			makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), cmd.ErrOrStderr(), cmd.InOrStdin()))
 		if err != nil {
-			return nil, nil, "", err
+			return nil, err
 		}
-		ensureAuthenticated := func() error { return legacyCLIClient.EnsureAuthenticated(cmd.Context()) }
-		return legacyCLIClient.HTTPClient, ensureAuthenticated, cnf.API.BaseURL, nil
+		return &initAuth{
+			httpClient:          legacyCLIClient.HTTPClient,
+			apiURL:              cnf.API.BaseURL,
+			ensureAuthenticated: func() error { return legacyCLIClient.EnsureAuthenticated(cmd.Context()) },
+			withLogin:           func(fn func() error) error { return fn() },
+		}, nil
 	}
-	authManager, err := newAuthManager(cnf, cmd.ErrOrStderr())
+	m, err := newAuthManager(cnf, cmd.ErrOrStderr())
 	if err != nil {
-		return nil, nil, "", err
+		return nil, err
 	}
-	httpClient := auth.NewClient(authManager, auth.NewHTTPClient(cnf, authManager.Settings).Transport)
-	ensureAuthenticated := func() error {
-		return withLogin(cmd, cnf, authManager, func() error { return authManager.EnsureAuthenticated(cmd.Context()) })
-	}
-	return httpClient, ensureAuthenticated, authManager.Settings.BaseURL, nil
+	withLoginFn := func(fn func() error) error { return withLogin(cmd, cnf, m, fn) }
+	ensureAuthenticated := func() error { return m.EnsureAuthenticated(cmd.Context()) }
+	return &initAuth{
+		httpClient:          auth.NewClient(m, auth.NewHTTPClient(cnf, m.Settings).Transport),
+		apiURL:              m.Settings.BaseURL,
+		ensureAuthenticated: func() error { return withLoginFn(ensureAuthenticated) },
+		withLogin:           withLoginFn,
+	}, nil
 }
 
 // handleOrganizations manages organization selection and validation.
