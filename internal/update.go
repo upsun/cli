@@ -43,10 +43,12 @@ func StartUpdateCheck(cnf *config.Config) *UpdateCheck {
 		return nil
 	}
 	// Record the attempt first, so a request that outlives the process is not retried on every run.
-	//nolint:errcheck // not being able to set the state should have no impact on the rest of the program
-	state.Update(cnf, func(s *state.State) {
+	// If the state cannot be saved, the result could not be cached either.
+	if err := state.Update(cnf, func(s *state.State) {
 		s.Updates.LastChecked = time.Now().Unix()
-	})
+	}); err != nil {
+		return nil
+	}
 	c := &UpdateCheck{done: make(chan struct{})}
 	go func() {
 		defer close(c.done)
