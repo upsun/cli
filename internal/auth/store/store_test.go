@@ -252,3 +252,48 @@ func TestStore_KeychainAccountPerSession(t *testing.T) {
 	_, err = keyring.Get("test-cli-auth", sf.Account)
 	assert.ErrorIs(t, err, keyring.ErrNotFound)
 }
+
+// TestStore_FirstSaveTimeout checks that a timed-out first write falls back to a file, and that a late write is
+// deleted, either by the process or when the session is deleted.
+func TestStore_FirstSaveTimeout(t *testing.T) {
+	keyring.MockInit()
+	deleted := make(chan string, 1)
+	origSet, origDelete := setSecret, deleteSecret
+	setSecret = func(service, user, password string) error {
+		time.Sleep(100 * time.Millisecond)
+		return keyring.Set(service, user, password)
+	}
+	deleteSecret = func(service, user string) error {
+		err := keyring.Delete(service, user)
+		deleted <- user
+		return err
+	}
+	t.Cleanup(func() { setSecret, deleteSecret = origSet, origDelete })
+
+	s := &Store{
+		Dir: t.TempDir(), Service: "test-cli-auth", UseKeychain: useKeychain, KeychainTimeout: 10 * time.Millisecond,
+	}
+	require.NoError(t, s.Save("default", &Entry{AccessToken: "a"}))
+	sf, err := s.readSessionFile("default")
+	require.NoError(t, err)
+	assert.Equal(t, BackendFile, sf.Backend)
+	require.NotEmpty(t, sf.Account, "the account must be recorded, to delete a late write")
+
+	// The process deletes the late write.
+	select {
+	case account := <-deleted:
+		assert.Equal(t, sf.Account, account)
+	case <-time.After(time.Second):
+		t.Fatal("the late write was not deleted")
+	}
+	_, err = keyring.Get("test-cli-auth", sf.Account)
+	assert.ErrorIs(t, err, keyring.ErrNotFound)
+
+	// If the process ended first, deleting the session deletes the late write.
+	require.NoError(t, keyring.Set("test-cli-auth", sf.Account, "late"))
+	s2 := &Store{Dir: s.Dir, Service: "test-cli-auth"}
+	require.NoError(t, s2.Save("default", &Entry{AccessToken: "b"}))
+	require.NoError(t, s2.Delete("default"))
+	_, err = keyring.Get("test-cli-auth", sf.Account)
+	assert.ErrorIs(t, err, keyring.ErrNotFound)
+}
