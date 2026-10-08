@@ -60,6 +60,17 @@ func newListCommand(cnf *config.Config) *cobra.Command {
 				list.AddCommand(&appProjectConvertCommand)
 			}
 
+			for _, c := range authCommands(cnf) {
+				desc := commandFromCobra(cnf, c)
+				if desc.Hidden && !viper.GetBool("all") {
+					continue
+				}
+				if !list.DescribesNamespace() || list.Namespace == desc.Name.Namespace {
+					list.RemoveCommand(desc.Name.String())
+					list.AddCommand(&desc)
+				}
+			}
+
 			format := viper.GetString("format")
 			raw := viper.GetBool("raw")
 
