@@ -236,10 +236,6 @@ scoops:
     description: Platform.sh CLI
     license: MIT
 
-    depends:
-      # PHP currently depends on the Microsoft Visual C++ Redistributable
-      - extras/vcredist2022
-
   - name: upsun
     skip_upload: '{{ envOrDefault "SKIP_UPLOAD_TAPS" "auto" }}'
     repository:
@@ -257,10 +253,6 @@ scoops:
     homepage: https://docs.upsun.com/anchors/cli/
     description: Upsun CLI
     license: MIT
-
-    depends:
-      # PHP currently depends on the Microsoft Visual C++ Redistributable
-      - extras/vcredist2022
 
 nfpms:
   - id: platform
