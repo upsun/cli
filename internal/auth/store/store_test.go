@@ -231,21 +231,24 @@ func TestStore_FirstSaveAfterKeychainFailure(t *testing.T) {
 	assert.Equal(t, BackendFile, sf.Backend, "the keychain must not be tried again in this process")
 }
 
-// TestStore_KeychainLimit checks that a limited call gives up, and that an abandoned call that later succeeds runs
-// the clean-up.
-func TestStore_KeychainLimit(t *testing.T) {
-	var stderr strings.Builder
-	s := &Store{KeychainTimeout: 10 * time.Millisecond, Stderr: &stderr}
-	late := make(chan struct{})
-	_, err := s.keychainWithLimit(50*time.Millisecond, func() (string, error) {
-		time.Sleep(200 * time.Millisecond)
-		return "", nil
-	}, func() { close(late) })
-	assert.ErrorContains(t, err, "timed out after 50ms")
-	assert.Contains(t, stderr.String(), "Waiting for the keychain")
-	select {
-	case <-late:
-	case <-time.After(time.Second):
-		t.Fatal("the clean-up did not run")
-	}
+// TestStore_KeychainAccountPerSession checks that each saved session uses its own keychain account, so that a write
+// abandoned by another process, e.g. after a timeout, cannot overwrite it.
+func TestStore_KeychainAccountPerSession(t *testing.T) {
+	keyring.MockInit()
+	s := &Store{Dir: t.TempDir(), Service: "test-cli-auth", UseKeychain: useKeychain}
+	require.NoError(t, s.Save("default", &Entry{AccessToken: "a"}))
+	sf, err := s.readSessionFile("default")
+	require.NoError(t, err)
+	require.Equal(t, BackendKeychain, sf.Backend)
+	assert.NotEqual(t, "default", sf.Account)
+
+	// A late write for the session ID, by an earlier attempt, does not change the session.
+	require.NoError(t, keyring.Set("test-cli-auth", "default", `{"access_token": "stale"}`))
+	e, err := s.Load("default")
+	require.NoError(t, err)
+	assert.Equal(t, "a", e.AccessToken)
+
+	require.NoError(t, s.Delete("default"))
+	_, err = keyring.Get("test-cli-auth", sf.Account)
+	assert.ErrorIs(t, err, keyring.ErrNotFound)
 }
