@@ -8,9 +8,10 @@ import (
 
 const secretServiceName = "org.freedesktop.secrets"
 
-// secretServiceAvailable checks whether the Secret Service D-Bus name is owned or can be activated.
+// secretServiceAvailable checks whether the Secret Service D-Bus name is owned or can be activated, without starting
+// a session bus.
 func secretServiceAvailable() bool {
-	conn, err := dbus.SessionBusPrivate()
+	conn, err := dbus.SessionBusPrivateNoAutoStartup()
 	if err != nil {
 		return false
 	}
