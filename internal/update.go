@@ -42,19 +42,21 @@ func StartUpdateCheck(cnf *config.Config) *UpdateCheck {
 		// Updates were already checked recently.
 		return nil
 	}
+	// Record the attempt first, so a request that outlives the process is not retried on every run.
+	//nolint:errcheck // not being able to set the state should have no impact on the rest of the program
+	state.Update(cnf, func(s *state.State) {
+		s.Updates.LastChecked = time.Now().Unix()
+	})
 	c := &UpdateCheck{done: make(chan struct{})}
 	go func() {
 		defer close(c.done)
-		var latest string
-		if releaseInfo, err := getLatestReleaseInfo(cnf.Wrapper.GitHubRepo); err == nil {
-			latest = releaseInfo.Version
+		releaseInfo, err := getLatestReleaseInfo(cnf.Wrapper.GitHubRepo)
+		if err != nil || releaseInfo.Version == "" {
+			return
 		}
 		//nolint:errcheck // not being able to set the state should have no impact on the rest of the program
 		state.Update(cnf, func(s *state.State) {
-			s.Updates.LastChecked = time.Now().Unix()
-			if latest != "" {
-				s.Updates.KnownLatestVersion = latest
-			}
+			s.Updates.KnownLatestVersion = releaseInfo.Version
 		})
 	}()
 	return c
