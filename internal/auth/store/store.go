@@ -54,8 +54,9 @@ type Store struct {
 	Dir string
 	// Service is the keychain service name.
 	Service string
-	// UseKeychain reports whether a new session should try the keychain.
-	UseKeychain bool
+	// UseKeychain reports whether a new session should try the keychain. It is only called when a session is first
+	// saved, as checking can be slow. It may be nil.
+	UseKeychain func() bool
 	// KeychainTimeout limits each keychain read, and the first write of a session. It defaults to 10s.
 	// Other changes are waited for, so that they cannot finish after the session's lock is released.
 	KeychainTimeout time.Duration
@@ -113,7 +114,7 @@ func (s *Store) Save(id string, e *Entry) error {
 	switch {
 	case sf != nil:
 		backend = sf.Backend
-	case s.UseKeychain:
+	case s.UseKeychain != nil && s.UseKeychain():
 		// The backend is chosen once, so any keychain failure here (including data that is too big) falls back to
 		// a file.
 		if err := s.keychainSet(id, b, false); err == nil {

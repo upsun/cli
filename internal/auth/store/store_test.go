@@ -32,7 +32,7 @@ func TestStore(t *testing.T) {
 			} else {
 				keyring.MockInit()
 			}
-			s := &Store{Dir: filepath.Join(t.TempDir(), "auth"), Service: "test-cli-auth", UseKeychain: c.useKeychain}
+			s := &Store{Dir: filepath.Join(t.TempDir(), "auth"), Service: "test-cli-auth", UseKeychain: func() bool { return c.useKeychain }}
 
 			e, err := s.Load("default")
 			require.NoError(t, err)
@@ -79,7 +79,7 @@ func TestStore(t *testing.T) {
 
 func TestStore_KeychainFailsLater(t *testing.T) {
 	keyring.MockInit()
-	s := &Store{Dir: t.TempDir(), Service: "test-cli-auth", UseKeychain: true}
+	s := &Store{Dir: t.TempDir(), Service: "test-cli-auth", UseKeychain: useKeychain}
 	require.NoError(t, s.Save("default", &Entry{AccessToken: "a"}))
 
 	// A session stored in the keychain must not silently move to a file.
@@ -93,7 +93,7 @@ func TestStore_KeychainFailsLater(t *testing.T) {
 
 func TestStore_KeychainTooBig(t *testing.T) {
 	keyring.MockInitWithError(keyring.ErrSetDataTooBig)
-	s := &Store{Dir: t.TempDir(), Service: "test-cli-auth", UseKeychain: true}
+	s := &Store{Dir: t.TempDir(), Service: "test-cli-auth", UseKeychain: useKeychain}
 	require.NoError(t, s.Save("default", &Entry{AccessToken: "a"}))
 	sf, err := s.readSessionFile("default")
 	require.NoError(t, err)
@@ -126,7 +126,7 @@ func TestStore_KeychainWait(t *testing.T) {
 
 func TestStore_DeleteAll_KeychainError(t *testing.T) {
 	keyring.MockInit()
-	s := &Store{Dir: t.TempDir(), Service: "test-cli-auth", UseKeychain: true}
+	s := &Store{Dir: t.TempDir(), Service: "test-cli-auth", UseKeychain: useKeychain}
 	require.NoError(t, s.Save("a", &Entry{AccessToken: "a"}))
 
 	keyring.MockInitWithError(errors.New("locked"))
@@ -155,7 +155,7 @@ func TestStore_DeleteAll(t *testing.T) {
 
 func TestStore_Forget(t *testing.T) {
 	keyring.MockInit()
-	s := &Store{Dir: t.TempDir(), Service: "test-cli-auth", UseKeychain: true}
+	s := &Store{Dir: t.TempDir(), Service: "test-cli-auth", UseKeychain: useKeychain}
 	require.NoError(t, s.Save("default", &Entry{AccessToken: "a"}))
 
 	// A session whose keychain is unusable can be replaced, e.g. with a file.
@@ -165,4 +165,18 @@ func TestStore_Forget(t *testing.T) {
 	sf, err := s.readSessionFile("default")
 	require.NoError(t, err)
 	assert.Equal(t, BackendFile, sf.Backend)
+}
+
+func useKeychain() bool { return true }
+
+func TestStore_UseKeychainOnlyOnFirstSave(t *testing.T) {
+	calls := 0
+	s := &Store{Dir: t.TempDir(), UseKeychain: func() bool { calls++; return false }}
+	_, err := s.Load("default")
+	require.NoError(t, err)
+	require.NoError(t, s.Save("default", &Entry{AccessToken: "a"}))
+	require.NoError(t, s.Save("default", &Entry{AccessToken: "b"}))
+	_, err = s.Load("default")
+	require.NoError(t, err)
+	assert.Equal(t, 1, calls)
 }

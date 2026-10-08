@@ -81,7 +81,7 @@ func NewManager(cnf *config.Config, stderr io.Writer) (*Manager, error) {
 		Store: &store.Store{
 			Dir:         filepath.Join(dir, "auth"),
 			Service:     cnf.Application.Slug + "-cli-auth",
-			UseKeychain: !settings.DisableCredentialHelpers && store.KeychainSupported(),
+			UseKeychain: func() bool { return !settings.DisableCredentialHelpers && store.KeychainSupported() },
 			Stderr:      stderr,
 		},
 		OAuth: &OAuthClient{

@@ -374,7 +374,7 @@ func TestManager_LogoutToReplace_LockedKeychain(t *testing.T) {
 	srv := newTestAuthServer(t)
 	m := newTestManager(srv, t.TempDir(), &config.Auth{})
 	m.Store.Service = "test-cli-auth"
-	m.Store.UseKeychain = true
+	m.Store.UseKeychain = func() bool { return true }
 	apiSession := APITokenSessionID("good-api-token")
 	require.NoError(t, m.Store.Save("default", &store.Entry{APIToken: "good-api-token"}))
 	require.NoError(t, m.Store.Save(apiSession, &store.Entry{AccessToken: "api-at"}))
