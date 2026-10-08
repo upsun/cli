@@ -60,7 +60,7 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 				// Completions must be fast and quiet.
 				return
 			}
-			quiet := viper.GetBool("quiet") && !viper.GetBool("debug") && !viper.GetBool("verbose")
+			quiet := isQuiet()
 			if quiet {
 				viper.Set("no-interaction", true)
 				cmd.SetErr(io.Discard)
@@ -294,6 +294,11 @@ func debugLogf(format string, v ...any) {
 	fmt.Fprintf(color.Error, prefix+" "+strings.TrimSpace(format)+"\n", v...)
 }
 
+// isQuiet reports whether quiet mode is on, which --debug and --verbose override.
+func isQuiet() bool {
+	return viper.GetBool("quiet") && !viper.GetBool("debug") && !viper.GetBool("verbose")
+}
+
 func exitWithError(err error) {
 	var execErr *exec.ExitError
 	if errors.As(err, &execErr) {
@@ -301,7 +306,7 @@ func exitWithError(err error) {
 		debugLogf(err.Error())
 		os.Exit(exitCode)
 	}
-	if !viper.GetBool("quiet") {
+	if !isQuiet() {
 		fmt.Fprintln(color.Error, color.RedString(err.Error()))
 	}
 	os.Exit(1)
