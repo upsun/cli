@@ -184,3 +184,47 @@ func TestStore_UseKeychainOnlyOnFirstSave(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, calls)
 }
+
+// TestStore_KeychainFailureRemembered checks that a failed keychain call is not repeated, e.g. after a dismissed
+// unlock prompt, which would otherwise prompt again.
+func TestStore_KeychainFailureRemembered(t *testing.T) {
+	s := &Store{}
+	calls := 0
+	fail := func() (string, error) {
+		calls++
+		return "", errors.New("dismissed")
+	}
+	_, err := s.keychain(false, fail)
+	require.Error(t, err)
+	_, err = s.keychain(false, fail)
+	assert.ErrorContains(t, err, "dismissed")
+	assert.Equal(t, 1, calls)
+
+	// Not found is not a failure.
+	s = &Store{}
+	notFound := func() (string, error) {
+		calls++
+		return "", keyring.ErrNotFound
+	}
+	calls = 0
+	_, _ = s.keychain(false, notFound)
+	_, _ = s.keychain(false, notFound)
+	assert.Equal(t, 2, calls)
+}
+
+// TestStore_FirstSaveAfterKeychainFailure checks that a new session uses a file without trying the keychain again.
+func TestStore_FirstSaveAfterKeychainFailure(t *testing.T) {
+	keyring.MockInit()
+	s := &Store{Dir: t.TempDir(), Service: "test-cli-auth", UseKeychain: useKeychain}
+	require.NoError(t, s.Save("old", &Entry{AccessToken: "a"}))
+
+	keyring.MockInitWithError(errors.New("dismissed"))
+	_, err := s.Load("old")
+	require.Error(t, err)
+
+	keyring.MockInit()
+	require.NoError(t, s.Save("new", &Entry{AccessToken: "b"}))
+	sf, err := s.readSessionFile("new")
+	require.NoError(t, err)
+	assert.Equal(t, BackendFile, sf.Backend, "the keychain must not be tried again in this process")
+}

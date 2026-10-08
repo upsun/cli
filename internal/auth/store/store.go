@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/zalando/go-keyring"
@@ -62,6 +63,11 @@ type Store struct {
 	KeychainTimeout time.Duration
 	// Stderr receives a notice while waiting for the keychain. It may be nil.
 	Stderr io.Writer
+
+	// keychainErr is the first keychain failure, which is returned instead of trying again, as each try could prompt
+	// the user, e.g. to unlock the keychain.
+	keychainErr   error
+	keychainErrMu sync.Mutex
 }
 
 // KeychainError is returned when the keychain cannot be used for a session that is stored there.
@@ -248,8 +254,21 @@ func (s *Store) keychainSet(id string, secret []byte, wait bool) error {
 }
 
 // keychain runs a keychain call with a timeout. If wait is set, a notice is printed at the timeout, and the call is
-// still waited for.
+// still waited for. After a failure, other calls fail with the same error.
 func (s *Store) keychain(wait bool, fn func() (string, error)) (string, error) {
+	s.keychainErrMu.Lock()
+	defer s.keychainErrMu.Unlock()
+	if s.keychainErr != nil {
+		return "", s.keychainErr
+	}
+	v, err := s.keychainCall(wait, fn)
+	if err != nil && !errors.Is(err, keyring.ErrNotFound) {
+		s.keychainErr = err
+	}
+	return v, err
+}
+
+func (s *Store) keychainCall(wait bool, fn func() (string, error)) (string, error) {
 	timeout := s.KeychainTimeout
 	if timeout == 0 {
 		timeout = defaultKeychainTimeout
