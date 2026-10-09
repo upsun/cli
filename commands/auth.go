@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -272,12 +273,92 @@ func withLogin(cmd *cobra.Command, cnf *config.Config, m *auth.Manager, fn func(
 	return fn()
 }
 
-// hasDisplay matches the legacy CLI's Url::hasDisplay().
+// hasDisplay matches the legacy CLI's Url::hasDisplay(). It also counts WSL, if a Windows browser can be opened.
 func hasDisplay() bool {
 	if d := os.Getenv("DISPLAY"); d != "" {
 		return d != "none"
 	}
-	return runtime.GOOS == "windows" || runtime.GOOS == "darwin"
+	return runtime.GOOS == "windows" || runtime.GOOS == "darwin" || (isWSL() && wslBrowserCommand() != nil)
+}
+
+// isWSL reports whether this is Linux in the Windows Subsystem for Linux. This includes Docker Desktop's containers,
+// which share its kernel, but have no Windows browser: see wslBrowserCommand.
+func isWSL() bool {
+	if runtime.GOOS != "linux" {
+		return false
+	}
+	if os.Getenv("WSL_DISTRO_NAME") != "" || os.Getenv("WSL_INTEROP") != "" {
+		return true
+	}
+	b, err := os.ReadFile("/proc/sys/kernel/osrelease")
+	return err == nil && strings.Contains(strings.ToLower(string(b)), "microsoft")
+}
+
+// WSL's binfmt_misc directory, config file, and the usual path to rundll32.exe (overridden in tests).
+var (
+	wslBinfmtDir    = "/proc/sys/fs/binfmt_misc"
+	wslConfPath     = "/etc/wsl.conf"
+	wslRundll32Path = "/mnt/c/Windows/System32/rundll32.exe"
+)
+
+// wslInteropEnabled reports whether WSL can run Windows programs. Its binfmt_misc entry is named WSLInterop or
+// WSLInterop-late. WSL1 removes it when interop is off, but WSL2 keeps it enabled, so wsl.conf is checked too.
+func wslInteropEnabled() bool {
+	paths, _ := filepath.Glob(filepath.Join(wslBinfmtDir, "WSLInterop*"))
+	for _, p := range paths {
+		if b, err := os.ReadFile(p); err == nil && strings.HasPrefix(string(b), "enabled") {
+			return !wslConfDisablesInterop()
+		}
+	}
+	return false
+}
+
+// wslConfDisablesInterop reports whether wsl.conf sets "enabled = false" in its [interop] section.
+func wslConfDisablesInterop() bool {
+	b, err := os.ReadFile(wslConfPath)
+	if err != nil {
+		return false
+	}
+	var section string
+	for line := range strings.Lines(string(b)) {
+		line, _, _ = strings.Cut(line, "#")
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			section = strings.ToLower(strings.TrimSpace(line[1 : len(line)-1]))
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if ok && section == "interop" && strings.EqualFold(strings.TrimSpace(key), "enabled") {
+			return strings.EqualFold(strings.TrimSpace(value), "false")
+		}
+	}
+	return false
+}
+
+// wslBrowserCommand returns a command to open URLs in a Windows browser from WSL, or nil if none is found.
+func wslBrowserCommand() []string {
+	// The openers run Windows programs.
+	if !wslInteropEnabled() {
+		return nil
+	}
+	// Searching PATH is slow under WSL2 (tens of ms, as it has Windows directories), so the usual path is tried first.
+	for _, p := range []string{wslRundll32Path, "rundll32.exe"} {
+		if p, err := exec.LookPath(p); err == nil {
+			return []string{p, "url.dll,FileProtocolHandler"}
+		}
+	}
+	return nil
+}
+
+// wslBrowser returns the program to open URLs in a Windows browser, if this is WSL, for the legacy CLI.
+func wslBrowser() string {
+	if !isWSL() {
+		return ""
+	}
+	if c := wslBrowserCommand(); c != nil {
+		return c[0]
+	}
+	return ""
 }
 
 // browserCommand returns the command to open URLs, or nil if none should be used.
@@ -295,6 +376,10 @@ func browserCommand(browserOption string) []string {
 		return []string{"rundll32", "url.dll,FileProtocolHandler"}
 	case runtime.GOOS == "darwin":
 		return []string{"open"}
+	case isWSL():
+		if c := wslBrowserCommand(); c != nil {
+			return c
+		}
 	}
 	for _, b := range []string{"xdg-open", "gnome-open"} {
 		if _, err := exec.LookPath(b); err == nil {

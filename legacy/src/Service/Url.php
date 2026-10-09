@@ -16,7 +16,7 @@ class Url implements InputConfiguringInterface
 {
     protected OutputInterface $stdErr;
 
-    public function __construct(protected Shell $shell, protected InputInterface $input, protected OutputInterface $output)
+    public function __construct(protected Shell $shell, protected InputInterface $input, protected OutputInterface $output, protected Config $config)
     {
         $this->stdErr = $this->output instanceof ConsoleOutputInterface
             ? $this->output->getErrorOutput()
@@ -84,6 +84,8 @@ class Url implements InputConfiguringInterface
             if (OsUtil::isWindows() && $browser === 'start') {
                 // The start command needs an extra (title) argument.
                 $args = [$browser, '', $url];
+            } elseif (str_ends_with($browser, 'rundll32.exe')) {
+                $args = [$browser, 'url.dll,FileProtocolHandler', $url];
             } else {
                 $args  = [$browser, $url];
             }
@@ -100,7 +102,7 @@ class Url implements InputConfiguringInterface
     }
 
     /**
-     * Check for a display (if not on Windows or OS X).
+     * Check for a display (if not on Windows or OS X). WSL counts, if a Windows browser can be opened.
      *
      * @return bool
      */
@@ -110,7 +112,7 @@ class Url implements InputConfiguringInterface
             return getenv('DISPLAY') !== 'none';
         }
 
-        return OsUtil::isWindows() || OsUtil::isOsX();
+        return OsUtil::isWindows() || OsUtil::isOsX() || $this->getWslBrowser() !== false;
     }
 
     /**
@@ -151,6 +153,9 @@ class Url implements InputConfiguringInterface
         if (OsUtil::isOsX()) {
             return 'open';
         }
+        if (($browser = $this->getWslBrowser()) !== false) {
+            return $browser;
+        }
         $browsers = ['xdg-open', 'gnome-open'];
         foreach ($browsers as $browser) {
             if ($this->shell->commandExists($browser)) {
@@ -159,5 +164,13 @@ class Url implements InputConfiguringInterface
         }
 
         return false;
+    }
+
+    /**
+     * Returns the command to open URLs in a Windows browser from WSL, which the Go wrapper finds, or false.
+     */
+    private function getWslBrowser(): string|false
+    {
+        return getenv($this->config->getStr('application.env_prefix') . 'WSL_BROWSER') ?: false;
     }
 }
