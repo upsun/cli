@@ -272,12 +272,38 @@ func withLogin(cmd *cobra.Command, cnf *config.Config, m *auth.Manager, fn func(
 	return fn()
 }
 
-// hasDisplay matches the legacy CLI's Url::hasDisplay().
+// hasDisplay matches the legacy CLI's Url::hasDisplay(), and also counts WSL, where a Windows browser can be used.
 func hasDisplay() bool {
 	if d := os.Getenv("DISPLAY"); d != "" {
 		return d != "none"
 	}
-	return runtime.GOOS == "windows" || runtime.GOOS == "darwin"
+	return runtime.GOOS == "windows" || runtime.GOOS == "darwin" || isWSL()
+}
+
+// isWSL reports whether this is Linux in the Windows Subsystem for Linux.
+func isWSL() bool {
+	if runtime.GOOS != "linux" {
+		return false
+	}
+	if os.Getenv("WSL_DISTRO_NAME") != "" || os.Getenv("WSL_INTEROP") != "" {
+		return true
+	}
+	b, err := os.ReadFile("/proc/sys/kernel/osrelease")
+	return err == nil && strings.Contains(strings.ToLower(string(b)), "microsoft")
+}
+
+// wslBrowserCommand returns a command to open URLs in a Windows browser from WSL, or nil if none is found.
+func wslBrowserCommand() []string {
+	if p, err := exec.LookPath("wslview"); err == nil {
+		return []string{p}
+	}
+	// Windows paths can be left out of PATH (appendWindowsPath=false in wsl.conf).
+	for _, p := range []string{"rundll32.exe", "/mnt/c/Windows/System32/rundll32.exe"} {
+		if p, err := exec.LookPath(p); err == nil {
+			return []string{p, "url.dll,FileProtocolHandler"}
+		}
+	}
+	return nil
 }
 
 // browserCommand returns the command to open URLs, or nil if none should be used.
@@ -295,6 +321,10 @@ func browserCommand(browserOption string) []string {
 		return []string{"rundll32", "url.dll,FileProtocolHandler"}
 	case runtime.GOOS == "darwin":
 		return []string{"open"}
+	case isWSL():
+		if c := wslBrowserCommand(); c != nil {
+			return c
+		}
 	}
 	for _, b := range []string{"xdg-open", "gnome-open"} {
 		if _, err := exec.LookPath(b); err == nil {
