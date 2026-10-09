@@ -31,6 +31,21 @@ class OsUtil
     }
 
     /**
+     * Checks for Linux in the Windows Subsystem for Linux (or a Docker Desktop container, which shares its kernel).
+     */
+    public static function isWsl(): bool
+    {
+        if (!self::isLinux()) {
+            return false;
+        }
+        if (getenv('WSL_DISTRO_NAME') || getenv('WSL_INTEROP')) {
+            return true;
+        }
+
+        return stripos((string) @file_get_contents('/proc/sys/kernel/osrelease'), 'microsoft') !== false;
+    }
+
+    /**
      * Escapes a shell argument for POSIX shells, even when run on Windows.
      *
      * PHP's escapeshellarg() function adapts its output depending on the
