@@ -188,7 +188,7 @@ Environment variables include:
 - `UPSUN_CLI_TOKEN`: an API token, for non-interactive use such as CI. An API
   token can act as the account that created it, so use a separate machine
   account to limit its access. Interactively, prefer `upsun auth:api-token-login`.
-- `UPSUN_CLI_DEBUG=1`: enable debug output. This can print HTTP request details,
+- `UPSUN_CLI_DEBUG=1`: enable debug output, like the `--debug` flag. This can print HTTP request details,
   including access tokens.
 - `UPSUN_CLI_DEFAULT_TIMEOUT`: the timeout in seconds for most API requests
   (default 30).
