@@ -16,8 +16,24 @@ type Command struct {
 	Name    string   `json:"name"`
 	Aliases []string `json:"aliases"`
 	// HiddenAliases only work in full: they are not matched by abbreviations.
-	HiddenAliases []string `json:"hidden_aliases"`
-	Hidden        bool     `json:"hidden"`
+	HiddenAliases []string   `json:"hidden_aliases"`
+	Hidden        bool       `json:"hidden"`
+	Description   string     `json:"description"`
+	Definition    Definition `json:"definition"`
+}
+
+// Definition describes a legacy command's input, without the application's global options.
+type Definition struct {
+	Options map[string]Option `json:"options"`
+}
+
+// Option describes an option of a legacy command.
+type Option struct {
+	Name        string `json:"name"`     // With the "--" prefix.
+	Shortcut    string `json:"shortcut"` // With the "-" prefix, e.g. "-p", or "-a|-b" for several.
+	AcceptValue bool   `json:"accept_value"`
+	Description string `json:"description"`
+	Hidden      bool   `json:"hidden"`
 }
 
 // Commands returns every legacy command, regardless of whether it is enabled by config.
