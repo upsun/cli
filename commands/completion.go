@@ -70,7 +70,8 @@ func newCompletionCommand(cnf *config.Config) *cobra.Command {
 
 // newCompleteCommand answers the hidden _complete command, which the
 // completion scripts call to fetch suggestions. Command and option names are
-// suggested in Go; argument and option values are left to the legacy CLI.
+// suggested in Go, unless user config may change them; argument and option
+// values are left to the legacy CLI.
 //
 // Cobra must not parse its arguments. The scripts pass
 // the shell as a glued short option (-szsh, -sbash, -sfish), which Cobra
@@ -86,7 +87,7 @@ func newCompleteCommand(cnf *config.Config) *cobra.Command {
 		DisableFlagParsing: true,
 		SilenceErrors:      true,
 		Run: func(cmd *cobra.Command, args []string) {
-			if r, ok := parseCompleteRequest(args); ok {
+			if r, ok := parseCompleteRequest(args); ok && !legacyConfigOverridden(cnf) {
 				legacyCmds, err := enabledLegacyCommands(cnf, legacy.Commands)()
 				if err == nil {
 					if suggestions, ok := completeInGo(cmd.Root(), cnf, legacyCmds, r); ok {

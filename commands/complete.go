@@ -2,7 +2,11 @@ package commands
 
 import (
 	"cmp"
+	"errors"
 	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -92,6 +96,25 @@ func cutCompleteOption(arg string) (value, name string, ok bool) {
 		}
 	}
 	return "", "", false
+}
+
+// legacyConfigOverridden tests if the user's config file or environment may change the legacy CLI's commands and
+// options (e.g. hidden commands or experiments), so that the embedded index does not apply.
+func legacyConfigOverridden(cnf *config.Config) bool {
+	for _, e := range os.Environ() {
+		name, _, _ := strings.Cut(e, "=")
+		for _, section := range []string{"API_", "APPLICATION_", "EXPERIMENTAL_"} {
+			if strings.HasPrefix(name, cnf.Application.EnvPrefix+section) {
+				return true
+			}
+		}
+	}
+	home, err := cnf.HomeDir()
+	if err != nil {
+		return true
+	}
+	_, err = os.Stat(filepath.Join(home, cnf.Application.UserConfigDir, "config.yaml"))
+	return !errors.Is(err, fs.ErrNotExist)
 }
 
 // completeInGo answers a completion request for command or option names, mimicking Symfony's CompleteCommand.
@@ -263,9 +286,9 @@ func newCompletionOption(name, shortcut, description string, hidden bool) comple
 	}
 }
 
-func flagOptions(fs *pflag.FlagSet) []completionOption {
+func flagOptions(flags *pflag.FlagSet) []completionOption {
 	var opts []completionOption
-	fs.VisitAll(func(f *pflag.Flag) {
+	flags.VisitAll(func(f *pflag.Flag) {
 		o := completionOption{name: f.Name, description: f.Usage, hidden: f.Hidden}
 		if f.Shorthand != "" {
 			o.shorthands = []string{f.Shorthand}
