@@ -1,6 +1,9 @@
 package commands
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/platformsh/platformify/vendorization"
@@ -46,4 +49,31 @@ func TestAuthCommands_GoAuthDisabled(t *testing.T) {
 func TestBrowserCommand_Whitespace(t *testing.T) {
 	assert.Nil(t, browserCommand("0"))
 	assert.NotPanics(t, func() { browserCommand("  ") })
+}
+
+func TestBrowserCommand_WSL(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("WSL is Linux")
+	}
+	dir := t.TempDir()
+	rundll := filepath.Join(dir, "rundll32.exe")
+	require.NoError(t, os.WriteFile(rundll, []byte("#!/bin/sh\n"), 0o700)) //nolint:gosec // an executable stub
+	t.Setenv("PATH", dir)
+	t.Setenv("DISPLAY", "")
+	t.Setenv("WSL_INTEROP", "")
+	t.Setenv("WSL_DISTRO_NAME", "Ubuntu")
+
+	assert.True(t, isWSL())
+	assert.True(t, hasDisplay(), "a Windows browser can be used without a display")
+	assert.Equal(t, []string{rundll, "url.dll,FileProtocolHandler"}, browserCommand(""))
+	assert.True(t, canOpenURLs(""))
+}
+
+func TestIsWSL_NotWSL(t *testing.T) {
+	if _, err := os.Stat("/proc/sys/fs/binfmt_misc/WSLInterop"); err == nil {
+		t.Skip("running in WSL")
+	}
+	t.Setenv("WSL_DISTRO_NAME", "")
+	t.Setenv("WSL_INTEROP", "")
+	assert.False(t, isWSL())
 }
