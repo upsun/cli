@@ -165,11 +165,11 @@ ifndef VENDOR_BINARY
 endif
 
 .PHONY: vendor-release
-vendor-release:  check-vendor .goreleaser.vendor.yaml goreleaser clean-phar internal/legacy/archives/platform.phar internal/legacy/archives/commands-vendor.json php ## Release a vendor CLI
+vendor-release:  check-vendor .goreleaser.vendor.yaml goreleaser clean-phar internal/legacy/archives/platform.phar $(LEGACY_INDEXES) internal/legacy/archives/commands-vendor.json php ## Release a vendor CLI
 	PHP_VERSION=$(PHP_VERSION) VENDOR_BINARY="$(VENDOR_BINARY)" VENDOR_NAME="$(VENDOR_NAME)" goreleaser release --clean --config=.goreleaser.vendor.yaml
 
 .PHONY: vendor-snapshot
-vendor-snapshot: check-vendor .goreleaser.vendor.yaml goreleaser internal/legacy/archives/platform.phar internal/legacy/archives/commands-vendor.json php ## Build a vendor CLI snapshot
+vendor-snapshot: check-vendor .goreleaser.vendor.yaml goreleaser internal/legacy/archives/platform.phar $(LEGACY_INDEXES) internal/legacy/archives/commands-vendor.json php ## Build a vendor CLI snapshot
 	PHP_VERSION=$(PHP_VERSION) VENDOR_BINARY="$(VENDOR_BINARY)" VENDOR_NAME="$(VENDOR_NAME)" goreleaser build --snapshot --clean --config=.goreleaser.vendor.yaml
 
 .PHONY: goreleaser-check
