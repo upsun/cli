@@ -84,6 +84,8 @@ class Url implements InputConfiguringInterface
             if (OsUtil::isWindows() && $browser === 'start') {
                 // The start command needs an extra (title) argument.
                 $args = [$browser, '', $url];
+            } elseif (str_ends_with($browser, 'rundll32.exe')) {
+                $args = [$browser, 'url.dll,FileProtocolHandler', $url];
             } else {
                 $args  = [$browser, $url];
             }
@@ -100,7 +102,7 @@ class Url implements InputConfiguringInterface
     }
 
     /**
-     * Check for a display (if not on Windows or OS X).
+     * Check for a display (if not on Windows or OS X). WSL counts, if a Windows browser can be opened.
      *
      * @return bool
      */
@@ -110,7 +112,7 @@ class Url implements InputConfiguringInterface
             return getenv('DISPLAY') !== 'none';
         }
 
-        return OsUtil::isWindows() || OsUtil::isOsX();
+        return OsUtil::isWindows() || OsUtil::isOsX() || (OsUtil::isWsl() && $this->getWslBrowser() !== false);
     }
 
     /**
@@ -151,8 +153,26 @@ class Url implements InputConfiguringInterface
         if (OsUtil::isOsX()) {
             return 'open';
         }
+        if (OsUtil::isWsl() && ($browser = $this->getWslBrowser()) !== false) {
+            return $browser;
+        }
         $browsers = ['xdg-open', 'gnome-open'];
         foreach ($browsers as $browser) {
+            if ($this->shell->commandExists($browser)) {
+                return $browser;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Finds a command to open URLs in a Windows browser from WSL.
+     */
+    private function getWslBrowser(): string|false
+    {
+        // Windows paths can be left out of PATH (appendWindowsPath=false in wsl.conf).
+        foreach (['wslview', 'rundll32.exe', '/mnt/c/Windows/System32/rundll32.exe'] as $browser) {
             if ($this->shell->commandExists($browser)) {
                 return $browser;
             }
