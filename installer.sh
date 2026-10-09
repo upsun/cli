@@ -170,7 +170,7 @@ exit_with_error() {
 
     output "\nGet help with your $vendor_name CLI installation:" "heading"
     output "  Inspect the logs: ${INSTALL_LOG}"
-    output "  Read the docs: $docs_url/administration/cli.html"
+    output "  Read the docs: $docs_url/anchors/cli/"
     output "  Get help: $support_url"
 
     exit 1
