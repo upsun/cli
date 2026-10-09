@@ -58,16 +58,16 @@ func TestStripDebugFlag(t *testing.T) {
 	cases := []struct {
 		args      []string
 		want      []string
-		wantDebug bool
+		wantDebug *bool
 	}{
-		{[]string{"cc"}, []string{"cc"}, false},
-		{[]string{"cc", "--debug"}, []string{"cc"}, true},
-		{[]string{"--debug", "cc", "-v"}, []string{"cc", "-v"}, true},
-		{[]string{"cc", "--debug=1"}, []string{"cc"}, true},
-		{[]string{"cc", "--debug=false"}, []string{"cc"}, false},
-		{[]string{"cc", "--debug=foo"}, []string{"cc", "--debug=foo"}, false},
-		{[]string{"ssh", "--", "cmd", "--debug"}, []string{"ssh", "--", "cmd", "--debug"}, false},
-		{[]string{"ssh", "--debug", "--", "--debug"}, []string{"ssh", "--", "--debug"}, true},
+		{[]string{"cc"}, []string{"cc"}, nil},
+		{[]string{"cc", "--debug"}, []string{"cc"}, new(true)},
+		{[]string{"--debug", "cc", "-v"}, []string{"cc", "-v"}, new(true)},
+		{[]string{"cc", "--debug=1"}, []string{"cc"}, new(true)},
+		{[]string{"cc", "--debug=false"}, []string{"cc"}, new(false)},
+		{[]string{"cc", "--debug=foo"}, []string{"cc", "--debug=foo"}, nil},
+		{[]string{"ssh", "--", "cmd", "--debug"}, []string{"ssh", "--", "cmd", "--debug"}, nil},
+		{[]string{"ssh", "--debug", "--", "--debug"}, []string{"ssh", "--", "--debug"}, new(true)},
 	}
 	for _, c := range cases {
 		t.Run(strings.Join(c.args, " "), func(t *testing.T) {

@@ -15,8 +15,8 @@ func newHelpCommand(cnf *config.Config) *cobra.Command {
 		DisableFlagParsing: true,
 		Run: func(cmd *cobra.Command, args []string) {
 			args, debug := stripDebugFlag(args)
-			if debug {
-				viper.Set("debug", true)
+			if debug != nil {
+				viper.Set("debug", *debug)
 			}
 			loadLegacyCmds := enabledLegacyCommands(cnf, legacy.Commands)
 			if expanded, ok, err := expandAbbreviation(cmd.Root(), loadLegacyCmds, args); err != nil {

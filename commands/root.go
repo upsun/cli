@@ -298,20 +298,20 @@ func debugLogf(format string, v ...any) {
 }
 
 // stripDebugFlag removes the --debug flag, which the legacy CLI does not accept, from args before any "--"
-// separator. It reports whether the flag enabled debug mode.
-func stripDebugFlag(args []string) (stripped []string, debug bool) {
+// separator. It returns the flag's value, or nil if it was not given.
+func stripDebugFlag(args []string) (stripped []string, debug *bool) {
 	stripped = make([]string, 0, len(args))
 	for i, arg := range args {
 		if arg == "--" {
 			return append(stripped, args[i:]...), debug
 		}
 		if arg == "--debug" {
-			debug = true
+			debug = new(true)
 			continue
 		}
 		if v, ok := strings.CutPrefix(arg, "--debug="); ok {
 			if b, err := strconv.ParseBool(v); err == nil {
-				debug = b
+				debug = new(b)
 				continue
 			}
 		}
