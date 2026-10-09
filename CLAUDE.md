@@ -93,6 +93,11 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 - JWT handling and OAuth2 flow
 - Custom transport for API authentication
 
+**Table Output**: `internal/table/`
+- Renders tables with the same `--format`, `--columns` and `--no-header` options as the legacy CLI's `Table` service
+- The `csv`, `tsv` and `plain` formats match the legacy output, with ANSI escape sequences removed
+- The `table` format wraps cells to the terminal width (a port of the legacy `AdaptiveTable`), and supports ANSI-styled cells
+
 **Project Initialization**: `internal/init/`
 - AI-powered project configuration generation
 - Integrates with whatsun library for codebase analysis
