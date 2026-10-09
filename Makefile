@@ -37,8 +37,7 @@ internal/legacy/archives/platform.phar: legacy/vendor/autoload.php
 # wrapper, so that the CLI does not try to read it from Git. Usage: $(call legacy-index,phar,config-file)
 define legacy-index
 	tmp=$$(mktemp -d) && \
-	prefix=$$(sed -n 's/^  env_prefix: *["'\'']*\([A-Z0-9_]*\).*/\1/p' $(2) | head -n 1) && \
-	test -n "$$prefix" && \
+	prefix=$$(go run ./scripts/env-prefix $(2)) && \
 	env HOME=$$tmp CLI_CONFIG_FILE=$(abspath $(2)) "$${prefix}NO_LEGACY_WARNING=1" "$${prefix}APPLICATION_VERSION=0.0.0" \
 		php $(1) list --all --format=json --no-interaction < /dev/null > $$tmp/commands.json && \
 	mv $$tmp/commands.json $@; \
