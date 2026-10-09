@@ -240,7 +240,9 @@ func legacyGlobalOptions(cnf *config.Config) []completionOption {
 	globals := globalOptions(cnf)
 	opts := make([]completionOption, 0, len(globals))
 	for _, o := range globals {
-		opts = append(opts, newCompletionOption(o.Name, o.Shortcut, string(o.Description), o.Hidden))
+		// The list hides --quiet, unlike the legacy CLI's input definition.
+		hidden := o.Hidden && o.Name != QuietOption.Name
+		opts = append(opts, newCompletionOption(o.Name, o.Shortcut, string(o.Description), hidden))
 	}
 	return opts
 }

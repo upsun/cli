@@ -93,9 +93,9 @@ func TestCompleteInGo(t *testing.T) {
 		{Name: "welcome", Hidden: true},
 	}
 
-	globals := []string{"--help", "--no-interaction", "--verbose", "--version", "--yes"}
+	globals := []string{"--help", "--no-interaction", "--quiet", "--verbose", "--version", "--yes"}
 	projectInfoOpts := []string{
-		"--help", "--no-interaction", "--project", "--refresh", "--verbose", "--version", "--yes",
+		"--help", "--no-interaction", "--project", "--quiet", "--refresh", "--verbose", "--version", "--yes",
 	}
 	allCommands := []string{"init", "list", "pinfo", "project:info", "project:init", "project:list", "projects"}
 
@@ -124,7 +124,7 @@ func TestCompleteInGo(t *testing.T) {
 		{name: "native options", tokens: []string{"upsun", "init", "--"}, current: 2,
 			want: []string{"--ai", "--debug", "--help"}},
 		{name: "native command replacing a legacy one", tokens: []string{"upsun", "list", "--"}, current: 2,
-			want: []string{"--help", "--no-interaction", "--raw", "--verbose", "--version", "--yes"}},
+			want: []string{"--help", "--no-interaction", "--quiet", "--raw", "--verbose", "--version", "--yes"}},
 		{name: "native argument", tokens: []string{"upsun", "init"}, current: 2, want: nil},
 		{name: "legacy argument", tokens: []string{"upsun", "project:info"}, current: 2, toPHP: true},
 		{name: "option value", tokens: []string{"upsun", "pinfo", "--project"}, current: 3, toPHP: true},
