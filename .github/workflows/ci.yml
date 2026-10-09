@@ -138,6 +138,9 @@ jobs:
       - name: Build CLI
         run: make single
 
+      - name: Install shells for completion tests
+        run: sudo apt-get update && sudo apt-get install -y bash-completion zsh fish
+
       - name: Run integration tests
         run: make integration-test
 
