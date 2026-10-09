@@ -56,7 +56,7 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 - Go layer: Handles new commands (init, list, version, config:install, project:convert) and core infrastructure
 - PHP layer: Legacy commands are proxied through `internal/legacy/CLIWrapper`
 - The PHP CLI (platform.phar) is embedded at build time via go:embed
-- An index of legacy commands (`commands-<flavor>.json`, from `list --all --format=json` with the embedded config) is embedded too, so the Go layer can resolve abbreviations like `p:init` in the same way as Symfony Console, and answer shell completion (`_complete`) for command and option names; PHP is only started for argument and option values
+- An index of legacy commands (`commands-<flavor>.json`, from `list --all --format=json` with the embedded config) is embedded too, so the Go layer can resolve abbreviations like `p:init` in the same way as Symfony Console, and answer shell completion (`_complete`) for command and option names; PHP is only started for argument and option values, or when a user config file or environment variable may change the commands
 
 ### Key Components
 

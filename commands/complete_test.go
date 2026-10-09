@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -180,6 +182,38 @@ func TestWriteSuggestions(t *testing.T) {
 			var b strings.Builder
 			require.NoError(t, writeSuggestions(&b, c.shell, c.suggestions))
 			assert.Equal(t, c.want, b.String())
+		})
+	}
+}
+
+func TestLegacyConfigOverridden(t *testing.T) {
+	cases := []struct {
+		name       string
+		env        map[string]string
+		userConfig bool
+		want       bool
+	}{
+		{name: "default"},
+		{name: "unrelated variable", env: map[string]string{"TEST_TOKEN": "abc"}},
+		{name: "experiment", env: map[string]string{"TEST_EXPERIMENTAL_ALL_EXPERIMENTS": "1"}, want: true},
+		{name: "API setting", env: map[string]string{"TEST_API_SIZING": "0"}, want: true},
+		{name: "user config file", userConfig: true, want: true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cnf := testConfig()
+			home := t.TempDir()
+			t.Setenv("TEST_HOME", home)
+			for k, v := range c.env {
+				t.Setenv(k, v)
+			}
+			if c.userConfig {
+				dir := filepath.Join(home, cnf.Application.UserConfigDir)
+				require.NoError(t, os.MkdirAll(dir, 0o700))
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("{}"), 0o600))
+			}
+			assert.Equal(t, c.want, legacyConfigOverridden(cnf))
 		})
 	}
 }
