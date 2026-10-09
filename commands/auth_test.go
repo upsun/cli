@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/platformsh/platformify/vendorization"
@@ -70,7 +71,7 @@ func TestBrowserCommand_WSL(t *testing.T) {
 }
 
 func TestIsWSL_NotWSL(t *testing.T) {
-	if _, err := os.Stat("/proc/sys/fs/binfmt_misc/WSLInterop"); err == nil {
+	if b, _ := os.ReadFile("/proc/sys/kernel/osrelease"); strings.Contains(strings.ToLower(string(b)), "microsoft") {
 		t.Skip("running in WSL")
 	}
 	t.Setenv("WSL_DISTRO_NAME", "")
