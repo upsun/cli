@@ -52,15 +52,22 @@ func TestBrowserCommand_Whitespace(t *testing.T) {
 	assert.NotPanics(t, func() { browserCommand("  ") })
 }
 
-// setWSLInterop fakes WSL's binfmt_misc entry for Windows interop; an empty state leaves it out.
-func setWSLInterop(t *testing.T, state string) {
+// setWSLInterop fakes WSL's binfmt_misc entry for Windows interop (an empty state leaves it out), wsl.conf, and the
+// System32 rundll32.exe (missing). It returns the paths for wsl.conf and rundll32.exe.
+func setWSLInterop(t *testing.T, state string) (conf, rundll string) {
 	dir := t.TempDir()
 	if state != "" {
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "WSLInterop"), []byte(state+"\ninterpreter /init\n"), 0o600))
 	}
-	origDir, origConf := wslBinfmtDir, wslConfPath
-	wslBinfmtDir, wslConfPath = dir, filepath.Join(dir, "wsl.conf")
-	t.Cleanup(func() { wslBinfmtDir, wslConfPath = origDir, origConf })
+	origDir, origConf, origRundll := wslBinfmtDir, wslConfPath, wslRundll32Path
+	wslBinfmtDir, wslConfPath, wslRundll32Path = dir, filepath.Join(dir, "wsl.conf"), filepath.Join(dir, "rundll32.exe")
+	t.Cleanup(func() { wslBinfmtDir, wslConfPath, wslRundll32Path = origDir, origConf, origRundll })
+	return wslConfPath, wslRundll32Path
+}
+
+// writeStub writes an executable stub.
+func writeStub(t *testing.T, path string) {
+	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n"), 0o700)) //nolint:gosec // an executable stub
 }
 
 // TestWSLInteropEnabled covers WSL2, which keeps the binfmt_misc entry enabled when wsl.conf disables interop.
@@ -82,9 +89,9 @@ func TestWSLInteropEnabled(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			setWSLInterop(t, c.binfmt)
+			conf, _ := setWSLInterop(t, c.binfmt)
 			if c.wslConf != "" {
-				require.NoError(t, os.WriteFile(wslConfPath, []byte(c.wslConf), 0o600))
+				require.NoError(t, os.WriteFile(conf, []byte(c.wslConf), 0o600))
 			}
 			assert.Equal(t, c.want, wslInteropEnabled())
 		})
@@ -95,20 +102,36 @@ func TestBrowserCommand_WSL(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("WSL is Linux")
 	}
-	setWSLInterop(t, "enabled")
+	_, system32 := setWSLInterop(t, "enabled")
+	writeStub(t, system32)
 	dir := t.TempDir()
-	rundll := filepath.Join(dir, "rundll32.exe")
-	require.NoError(t, os.WriteFile(rundll, []byte("#!/bin/sh\n"), 0o700)) //nolint:gosec // an executable stub
+	writeStub(t, filepath.Join(dir, "rundll32.exe"))
 	t.Setenv("PATH", dir)
 	t.Setenv("DISPLAY", "")
 	t.Setenv("WSL_INTEROP", "")
 	t.Setenv("WSL_DISTRO_NAME", "Ubuntu")
 
 	assert.True(t, isWSL())
-	assert.Equal(t, rundll, wslBrowser())
+	assert.Equal(t, system32, wslBrowser(), "System32 is checked before PATH")
 	assert.True(t, hasDisplay(), "a Windows browser can be used without a display")
-	assert.Equal(t, []string{rundll, "url.dll,FileProtocolHandler"}, browserCommand(""))
+	assert.Equal(t, []string{system32, "url.dll,FileProtocolHandler"}, browserCommand(""))
 	assert.True(t, canOpenURLs(""))
+}
+
+// TestBrowserCommand_WSLRundll32InPath checks the PATH fallback, e.g. when the Windows drive is not mounted at /mnt/c.
+func TestBrowserCommand_WSLRundll32InPath(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("WSL is Linux")
+	}
+	setWSLInterop(t, "enabled")
+	dir := t.TempDir()
+	rundll := filepath.Join(dir, "rundll32.exe")
+	writeStub(t, rundll)
+	t.Setenv("PATH", dir)
+	t.Setenv("DISPLAY", "")
+	t.Setenv("WSL_DISTRO_NAME", "Ubuntu")
+
+	assert.Equal(t, rundll, wslBrowser())
 }
 
 // TestBrowserCommand_WSLWithoutOpener checks WSL without a Windows opener, e.g. with interop disabled, or a Docker
@@ -117,9 +140,7 @@ func TestBrowserCommand_WSLWithoutOpener(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("WSL is Linux")
 	}
-	if _, err := os.Stat("/mnt/c/Windows/System32/rundll32.exe"); err == nil {
-		t.Skip("a Windows opener exists")
-	}
+	setWSLInterop(t, "enabled")
 	t.Setenv("PATH", t.TempDir())
 	t.Setenv("DISPLAY", "")
 	t.Setenv("WSL_DISTRO_NAME", "Ubuntu")
@@ -133,15 +154,12 @@ func TestBrowserCommand_WSLInteropOff(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("WSL is Linux")
 	}
-	dir := t.TempDir()
-	rundll := filepath.Join(dir, "rundll32.exe")
-	require.NoError(t, os.WriteFile(rundll, []byte("#!/bin/sh\n"), 0o700)) //nolint:gosec // an executable stub
-	t.Setenv("PATH", dir)
 	t.Setenv("DISPLAY", "")
 	t.Setenv("WSL_DISTRO_NAME", "Ubuntu")
 
 	for _, state := range []string{"", "disabled"} {
-		setWSLInterop(t, state)
+		_, rundll := setWSLInterop(t, state)
+		writeStub(t, rundll)
 		assert.False(t, hasDisplay(), "interop state %q", state)
 		assert.Empty(t, wslBrowser(), "interop state %q", state)
 		assert.False(t, canOpenURLs(""), "interop state %q", state)
