@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/fatih/color"
@@ -107,7 +108,8 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		},
 		Run: func(cmd *cobra.Command, _ []string) {
 			c := makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), cmd.ErrOrStderr(), cmd.InOrStdin())
-			if err := c.Exec(cmd.Context(), os.Args[1:]...); err != nil {
+			args, _ := stripDebugFlag(os.Args[1:])
+			if err := c.Exec(cmd.Context(), args...); err != nil {
 				exitWithError(err)
 			}
 		},
@@ -127,6 +129,7 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		}
 
 		// Others will be passed to the legacy CLI's help command.
+		args, _ = stripDebugFlag(args)
 		if !slices.Contains(args, "--help") && !slices.Contains(args, "-h") {
 			args = append([]string{"help"}, args...)
 		}
@@ -294,6 +297,29 @@ func debugLogf(format string, v ...any) {
 	fmt.Fprintf(color.Error, prefix+" "+strings.TrimSpace(format)+"\n", v...)
 }
 
+// stripDebugFlag removes the --debug flag, which the legacy CLI does not accept, from args before any "--"
+// separator. It reports whether the flag enabled debug mode.
+func stripDebugFlag(args []string) (stripped []string, debug bool) {
+	stripped = make([]string, 0, len(args))
+	for i, arg := range args {
+		if arg == "--" {
+			return append(stripped, args[i:]...), debug
+		}
+		if arg == "--debug" {
+			debug = true
+			continue
+		}
+		if v, ok := strings.CutPrefix(arg, "--debug="); ok {
+			if b, err := strconv.ParseBool(v); err == nil {
+				debug = b
+				continue
+			}
+		}
+		stripped = append(stripped, arg)
+	}
+	return stripped, debug
+}
+
 func exitWithError(err error) {
 	var execErr *exec.ExitError
 	if errors.As(err, &execErr) {
@@ -311,6 +337,7 @@ func makeLegacyCLIWrapper(cnf *config.Config, stdout, stderr io.Writer, stdin io
 	return &legacy.CLIWrapper{
 		Config:             cnf,
 		Version:            config.Version,
+		Debug:              viper.GetBool("debug"),
 		DebugLogFunc:       debugLogf,
 		DisableInteraction: viper.GetBool("no-interaction"),
 		Stdout:             stdout,

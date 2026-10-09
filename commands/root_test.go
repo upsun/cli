@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -50,5 +51,29 @@ func TestShellQuote(t *testing.T) {
 	}
 	for _, c := range cases {
 		assert.Equal(t, c.want, shellQuote(c.in))
+	}
+}
+
+func TestStripDebugFlag(t *testing.T) {
+	cases := []struct {
+		args      []string
+		want      []string
+		wantDebug bool
+	}{
+		{[]string{"cc"}, []string{"cc"}, false},
+		{[]string{"cc", "--debug"}, []string{"cc"}, true},
+		{[]string{"--debug", "cc", "-v"}, []string{"cc", "-v"}, true},
+		{[]string{"cc", "--debug=1"}, []string{"cc"}, true},
+		{[]string{"cc", "--debug=false"}, []string{"cc"}, false},
+		{[]string{"cc", "--debug=foo"}, []string{"cc", "--debug=foo"}, false},
+		{[]string{"ssh", "--", "cmd", "--debug"}, []string{"ssh", "--", "cmd", "--debug"}, false},
+		{[]string{"ssh", "--debug", "--", "--debug"}, []string{"ssh", "--", "--debug"}, true},
+	}
+	for _, c := range cases {
+		t.Run(strings.Join(c.args, " "), func(t *testing.T) {
+			got, debug := stripDebugFlag(c.args)
+			assert.Equal(t, c.want, got)
+			assert.Equal(t, c.wantDebug, debug)
+		})
 	}
 }

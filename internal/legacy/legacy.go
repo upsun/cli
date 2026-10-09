@@ -149,6 +149,9 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 	if c.DisableInteraction {
 		cmd.Env = append(cmd.Env, envPrefix+"NO_INTERACTION=1")
 	}
+	if c.Debug {
+		cmd.Env = append(cmd.Env, envPrefix+"DEBUG=1")
+	}
 	if c.ForceColor {
 		cmd.Env = append(cmd.Env, "CLICOLOR_FORCE=1")
 	}

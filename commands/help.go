@@ -2,6 +2,7 @@ package commands
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/legacy"
@@ -13,6 +14,10 @@ func newHelpCommand(cnf *config.Config) *cobra.Command {
 		// Disable flag parsing so flags like --format are preserved for the legacy CLI.
 		DisableFlagParsing: true,
 		Run: func(cmd *cobra.Command, args []string) {
+			args, debug := stripDebugFlag(args)
+			if debug {
+				viper.Set("debug", true)
+			}
 			loadLegacyCmds := enabledLegacyCommands(cnf, legacy.Commands)
 			if expanded, ok, err := expandAbbreviation(cmd.Root(), loadLegacyCmds, args); err != nil {
 				debugLogf("Failed to load the legacy command index: %s", err)
