@@ -74,7 +74,8 @@ func TestComplete(t *testing.T) {
 }
 
 // shellHarnesses print the suggestions of a completion script ($1) for a
-// command line ($2), one per line, without an interactive shell.
+// command line ($2) of an executable ($3), one per line, without an
+// interactive shell.
 var shellHarnesses = map[string]string{
 	"bash": `source /usr/share/bash-completion/bash_completion
 source "$1"
@@ -83,7 +84,7 @@ COMP_POINT=${#COMP_LINE}
 read -ra COMP_WORDS <<< "$COMP_LINE"
 [[ $COMP_LINE == *' ' ]] && COMP_WORDS+=('')
 COMP_CWORD=$(( ${#COMP_WORDS[@]} - 1 ))
-_sf_platform-test
+"_sf_$3"
 printf '%s\n' "${COMPREPLY[@]}"`,
 	// The completion system is stubbed out, to print the values that the script passes to it.
 	"zsh": `compdef() {}
@@ -92,28 +93,29 @@ source "$1"
 words=(${(z)2})
 [[ $2 == *' ' ]] && words+=('')
 CURRENT=${#words}
-_sf_platform-test`,
+"_sf_$3"`,
 	"fish": `source $argv[1]; complete -C $argv[2]`,
 }
 
 // TestShellCompletion runs the completion scripts in each shell, for
 // suggestions answered in Go (command and option names) and by the legacy CLI
 // (argument values).
+//
+// It uses the embedded config, as completion in Go relies on the command index
+// generated for it.
 func TestShellCompletion(t *testing.T) {
-	f := newCommandFactory(t, "", "")
-
-	// The scripts run the CLI by the configured executable name.
-	binDir := t.TempDir()
-	require.NoError(t, os.Symlink(getCommandName(t), filepath.Join(binDir, "platform-test")))
-	env := append(testEnv(t.TempDir()), "PATH="+binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	// The binary is named after its configured executable, which the scripts run.
+	exe := getCommandName(t)
+	name := filepath.Base(exe)
+	env := []string{"HOME=" + t.TempDir(), "PATH=" + filepath.Dir(exe) + string(os.PathListSeparator) + os.Getenv("PATH")}
 
 	cases := []struct {
-		line     string
+		args     string
 		expected string
 	}{
-		{line: "platform-test ini", expected: "init"},
-		{line: "platform-test env:info --pro", expected: "--project"},
-		{line: "platform-test completion ", expected: "zsh"},
+		{args: "ini", expected: "init"},
+		{args: "env:info --pro", expected: "--project"},
+		{args: "completion ", expected: "zsh"},
 	}
 
 	for shell, harness := range shellHarnesses {
@@ -124,21 +126,26 @@ func TestShellCompletion(t *testing.T) {
 			if _, err := os.Stat("/usr/share/bash-completion/bash_completion"); shell == "bash" && err != nil {
 				t.Skip("bash-completion is not installed")
 			}
+			gen := exec.Command(exe, "completion", shell)
+			gen.Env = env
+			b, err := gen.Output()
+			require.NoError(t, err)
 			script := filepath.Join(t.TempDir(), "completion."+shell)
-			require.NoError(t, os.WriteFile(script, []byte(f.Run("completion", shell)), 0o600))
+			require.NoError(t, os.WriteFile(script, b, 0o600))
 
 			for _, c := range cases {
-				t.Run(c.line, func(t *testing.T) {
-					cmd := exec.Command(shell, "-c", harness, shell, script, c.line)
+				t.Run(c.args, func(t *testing.T) {
+					line := name + " " + c.args
+					cmd := exec.Command(shell, "-c", harness, shell, script, line, name)
 					if shell == "fish" {
-						cmd = exec.Command(shell, "-c", harness, script, c.line)
+						cmd = exec.Command(shell, "-c", harness, script, line)
 					}
 					cmd.Env = env
 					out, err := cmd.Output()
 					require.NoError(t, err)
 					var values []string
-					for line := range strings.Lines(string(out)) {
-						value, _, _ := strings.Cut(strings.TrimSuffix(line, "\n"), "\t")
+					for l := range strings.Lines(string(out)) {
+						value, _, _ := strings.Cut(strings.TrimSuffix(l, "\n"), "\t")
 						values = append(values, value)
 					}
 					assert.Contains(t, values, c.expected)

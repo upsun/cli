@@ -55,3 +55,16 @@ func TestFromYAML(t *testing.T) {
 		assert.Equal(t, filepath.Join(tempDir, "tmp", cnf.Application.TempSubDir), d)
 	})
 }
+
+func TestIsEmbedded(t *testing.T) {
+	t.Setenv("CLI_CONFIG_FILE", "")
+	b, err := config.LoadYAML()
+	require.NoError(t, err)
+	cnf, err := config.FromYAML(b)
+	require.NoError(t, err)
+	assert.True(t, cnf.IsEmbedded())
+
+	cnf, err = config.FromYAML([]byte(validConfig))
+	require.NoError(t, err)
+	assert.False(t, cnf.IsEmbedded())
+}
