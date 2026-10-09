@@ -46,4 +46,22 @@ class OsUtilTest extends TestCase
             putenv($interop === false ? 'WSL_INTEROP' : "WSL_INTEROP=$interop");
         }
     }
+
+    public function testIsWslInteropEnabled(): void
+    {
+        $dir = sys_get_temp_dir() . '/binfmt-' . bin2hex(random_bytes(4));
+        mkdir($dir);
+        try {
+            $this->assertFalse(OsUtil::isWslInteropEnabled($dir));
+            file_put_contents($dir . '/WSLInterop', "disabled\ninterpreter /init\n");
+            $this->assertFalse(OsUtil::isWslInteropEnabled($dir));
+            file_put_contents($dir . '/WSLInterop-late', "enabled\ninterpreter /init\n");
+            $this->assertTrue(OsUtil::isWslInteropEnabled($dir));
+        } finally {
+            foreach (glob($dir . '/*') ?: [] as $file) {
+                unlink($file);
+            }
+            rmdir($dir);
+        }
+    }
 }

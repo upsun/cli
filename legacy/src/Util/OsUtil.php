@@ -46,6 +46,21 @@ class OsUtil
     }
 
     /**
+     * Checks whether WSL can run Windows programs. Its binfmt_misc entry is named WSLInterop or WSLInterop-late, and is
+     * missing or disabled when interop is off.
+     */
+    public static function isWslInteropEnabled(string $binfmtDir = '/proc/sys/fs/binfmt_misc'): bool
+    {
+        foreach (glob($binfmtDir . '/WSLInterop*') ?: [] as $path) {
+            if (str_starts_with((string) @file_get_contents($path), 'enabled')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Escapes a shell argument for POSIX shells, even when run on Windows.
      *
      * PHP's escapeshellarg() function adapts its output depending on the

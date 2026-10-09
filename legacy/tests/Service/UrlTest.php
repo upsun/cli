@@ -11,7 +11,9 @@ use Platformsh\Cli\Service\Url;
 use Platformsh\Cli\Util\OsUtil;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Input\InputDefinition;
+use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Console\Output\OutputInterface;
 
 class UrlTest extends TestCase
 {
@@ -43,14 +45,24 @@ class UrlTest extends TestCase
     /**
      * @param string[] $commands
      */
-    private function urlService(array $commands): Url
+    private function urlService(array $commands, bool $interop = true): Url
     {
         $this->shell = $this->createMock(Shell::class);
         $this->shell->method('commandExists')->willReturnCallback(fn(string $c): bool => in_array($c, $commands, true));
         $definition = new InputDefinition();
         Url::configureInput($definition);
 
-        return new Url($this->shell, new ArrayInput([], $definition), new BufferedOutput());
+        return new class ($interop, $this->shell, new ArrayInput([], $definition), new BufferedOutput()) extends Url {
+            public function __construct(private readonly bool $interop, Shell $shell, InputInterface $input, OutputInterface $output)
+            {
+                parent::__construct($shell, $input, $output);
+            }
+
+            protected function isWslInteropEnabled(): bool
+            {
+                return $this->interop;
+            }
+        };
     }
 
     public function testWslOpensUrlsWithRundll32(): void
@@ -90,6 +102,13 @@ class UrlTest extends TestCase
     public function testWslWithoutOpener(): void
     {
         $url = $this->urlService([]);
+        $this->assertFalse($url->hasDisplay());
+        $this->assertFalse($url->canOpenUrls());
+    }
+
+    public function testWslInteropOff(): void
+    {
+        $url = $this->urlService(['wslview', 'rundll32.exe'], false);
         $this->assertFalse($url->hasDisplay());
         $this->assertFalse($url->canOpenUrls());
     }

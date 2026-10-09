@@ -52,10 +52,22 @@ func TestBrowserCommand_Whitespace(t *testing.T) {
 	assert.NotPanics(t, func() { browserCommand("  ") })
 }
 
+// setWSLInterop fakes WSL's binfmt_misc entry for Windows interop; an empty state leaves it out.
+func setWSLInterop(t *testing.T, state string) {
+	dir := t.TempDir()
+	if state != "" {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "WSLInterop"), []byte(state+"\ninterpreter /init\n"), 0o600))
+	}
+	orig := wslBinfmtDir
+	wslBinfmtDir = dir
+	t.Cleanup(func() { wslBinfmtDir = orig })
+}
+
 func TestBrowserCommand_WSL(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("WSL is Linux")
 	}
+	setWSLInterop(t, "enabled")
 	dir := t.TempDir()
 	rundll := filepath.Join(dir, "rundll32.exe")
 	require.NoError(t, os.WriteFile(rundll, []byte("#!/bin/sh\n"), 0o700)) //nolint:gosec // an executable stub
@@ -85,6 +97,25 @@ func TestBrowserCommand_WSLWithoutOpener(t *testing.T) {
 
 	assert.False(t, hasDisplay())
 	assert.False(t, canOpenURLs(""))
+}
+
+// TestBrowserCommand_WSLInteropOff checks that a Windows opener is not used when interop is off, as it cannot run.
+func TestBrowserCommand_WSLInteropOff(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("WSL is Linux")
+	}
+	dir := t.TempDir()
+	rundll := filepath.Join(dir, "rundll32.exe")
+	require.NoError(t, os.WriteFile(rundll, []byte("#!/bin/sh\n"), 0o700)) //nolint:gosec // an executable stub
+	t.Setenv("PATH", dir)
+	t.Setenv("DISPLAY", "")
+	t.Setenv("WSL_DISTRO_NAME", "Ubuntu")
+
+	for _, state := range []string{"", "disabled"} {
+		setWSLInterop(t, state)
+		assert.False(t, hasDisplay(), "interop state %q", state)
+		assert.False(t, canOpenURLs(""), "interop state %q", state)
+	}
 }
 
 func TestIsWSL_NotWSL(t *testing.T) {
