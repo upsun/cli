@@ -38,6 +38,8 @@ type CLIWrapper struct {
 	DisableInteraction bool
 	ForceColor         bool
 	DebugLogFunc       func(string, ...any)
+	// WSLBrowser is a command to open URLs in a Windows browser from WSL, or empty.
+	WSLBrowser string
 
 	initOnce  sync.Once
 	_cacheDir string
@@ -150,6 +152,8 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 	if exe, err := os.Executable(); err == nil {
 		cmd.Env = append(cmd.Env, envPrefix+"WRAPPER_EXECUTABLE="+exe)
 	}
+	// The legacy CLI uses this to open URLs from WSL. It is always set, so the user's environment can't override it.
+	cmd.Env = append(cmd.Env, envPrefix+"WSL_BROWSER="+c.WSLBrowser)
 	if c.DisableInteraction {
 		cmd.Env = append(cmd.Env, envPrefix+"NO_INTERACTION=1")
 	}
