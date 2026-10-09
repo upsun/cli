@@ -70,6 +70,23 @@ func TestBrowserCommand_WSL(t *testing.T) {
 	assert.True(t, canOpenURLs(""))
 }
 
+// TestBrowserCommand_WSLWithoutOpener checks WSL without a Windows opener, e.g. with interop disabled, or a Docker
+// Desktop container (which shares the WSL kernel).
+func TestBrowserCommand_WSLWithoutOpener(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("WSL is Linux")
+	}
+	if _, err := os.Stat("/mnt/c/Windows/System32/rundll32.exe"); err == nil {
+		t.Skip("a Windows opener exists")
+	}
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv("DISPLAY", "")
+	t.Setenv("WSL_DISTRO_NAME", "Ubuntu")
+
+	assert.False(t, hasDisplay())
+	assert.False(t, canOpenURLs(""))
+}
+
 func TestIsWSL_NotWSL(t *testing.T) {
 	if b, _ := os.ReadFile("/proc/sys/kernel/osrelease"); strings.Contains(strings.ToLower(string(b)), "microsoft") {
 		t.Skip("running in WSL")

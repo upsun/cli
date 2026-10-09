@@ -272,15 +272,16 @@ func withLogin(cmd *cobra.Command, cnf *config.Config, m *auth.Manager, fn func(
 	return fn()
 }
 
-// hasDisplay matches the legacy CLI's Url::hasDisplay(), and also counts WSL, where a Windows browser can be used.
+// hasDisplay matches the legacy CLI's Url::hasDisplay(). It also counts WSL, if a Windows browser can be opened.
 func hasDisplay() bool {
 	if d := os.Getenv("DISPLAY"); d != "" {
 		return d != "none"
 	}
-	return runtime.GOOS == "windows" || runtime.GOOS == "darwin" || isWSL()
+	return runtime.GOOS == "windows" || runtime.GOOS == "darwin" || (isWSL() && wslBrowserCommand() != nil)
 }
 
-// isWSL reports whether this is Linux in the Windows Subsystem for Linux.
+// isWSL reports whether this is Linux in the Windows Subsystem for Linux. This includes Docker Desktop's containers,
+// which share its kernel, but have no Windows browser: see wslBrowserCommand.
 func isWSL() bool {
 	if runtime.GOOS != "linux" {
 		return false
