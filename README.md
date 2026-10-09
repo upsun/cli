@@ -18,7 +18,10 @@ brew install upsun/tap/upsun-cli
 
 ### Scoop
 
+Scoop needs Git to add a bucket:
+
 ```console
+scoop install git
 scoop bucket add upsun https://github.com/upsun/homebrew-tap.git
 scoop install upsun
 ```
