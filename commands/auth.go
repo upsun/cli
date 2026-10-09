@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -293,8 +294,27 @@ func isWSL() bool {
 	return err == nil && strings.Contains(strings.ToLower(string(b)), "microsoft")
 }
 
+// wslBinfmtDir is where WSL registers Windows interop (overridden in tests).
+var wslBinfmtDir = "/proc/sys/fs/binfmt_misc"
+
+// wslInteropEnabled reports whether WSL can run Windows programs. Its binfmt_misc entry is named WSLInterop or
+// WSLInterop-late, and is missing or disabled when interop is off.
+func wslInteropEnabled() bool {
+	paths, _ := filepath.Glob(filepath.Join(wslBinfmtDir, "WSLInterop*"))
+	for _, p := range paths {
+		if b, err := os.ReadFile(p); err == nil && strings.HasPrefix(string(b), "enabled") {
+			return true
+		}
+	}
+	return false
+}
+
 // wslBrowserCommand returns a command to open URLs in a Windows browser from WSL, or nil if none is found.
 func wslBrowserCommand() []string {
+	// The openers run Windows programs.
+	if !wslInteropEnabled() {
+		return nil
+	}
 	if p, err := exec.LookPath("wslview"); err == nil {
 		return []string{p}
 	}

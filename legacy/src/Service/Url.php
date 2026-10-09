@@ -166,11 +166,20 @@ class Url implements InputConfiguringInterface
         return false;
     }
 
+    protected function isWslInteropEnabled(): bool
+    {
+        return OsUtil::isWslInteropEnabled();
+    }
+
     /**
      * Finds a command to open URLs in a Windows browser from WSL.
      */
     private function getWslBrowser(): string|false
     {
+        // The openers run Windows programs.
+        if (!$this->isWslInteropEnabled()) {
+            return false;
+        }
         // Windows paths can be left out of PATH (appendWindowsPath=false in wsl.conf).
         foreach (['wslview', 'rundll32.exe', '/mnt/c/Windows/System32/rundll32.exe'] as $browser) {
             if ($this->shell->commandExists($browser)) {
