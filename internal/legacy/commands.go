@@ -1,15 +1,9 @@
 package legacy
 
 import (
-	_ "embed"
 	"encoding/json"
 	"sync"
 )
-
-// commandIndex is the legacy CLI's "list --all --format=json" output, generated at build time with all commands enabled.
-//
-//go:embed archives/commands.json
-var commandIndex []byte
 
 // Command describes a legacy CLI command.
 type Command struct {
