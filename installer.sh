@@ -198,7 +198,7 @@ outro() {
     fi
 
     output "\nUseful links:" "heading"
-    output "  CLI introduction: $docs_url/get-started/introduction.html#cli"
+    output "  CLI introduction: $docs_url/anchors/cli/"
 
     if [ ! -z "$footer_notes" ]; then
         output "\nWarning during installation:" "heading"
