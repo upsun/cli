@@ -294,10 +294,11 @@ func isWSL() bool {
 	return err == nil && strings.Contains(strings.ToLower(string(b)), "microsoft")
 }
 
-// WSL's binfmt_misc directory and config file (overridden in tests).
+// WSL's binfmt_misc directory, config file, and the usual path to rundll32.exe (overridden in tests).
 var (
-	wslBinfmtDir = "/proc/sys/fs/binfmt_misc"
-	wslConfPath  = "/etc/wsl.conf"
+	wslBinfmtDir    = "/proc/sys/fs/binfmt_misc"
+	wslConfPath     = "/etc/wsl.conf"
+	wslRundll32Path = "/mnt/c/Windows/System32/rundll32.exe"
 )
 
 // wslInteropEnabled reports whether WSL can run Windows programs. Its binfmt_misc entry is named WSLInterop or
@@ -340,11 +341,8 @@ func wslBrowserCommand() []string {
 	if !wslInteropEnabled() {
 		return nil
 	}
-	if p, err := exec.LookPath("wslview"); err == nil {
-		return []string{p}
-	}
-	// Windows paths can be left out of PATH (appendWindowsPath=false in wsl.conf).
-	for _, p := range []string{"rundll32.exe", "/mnt/c/Windows/System32/rundll32.exe"} {
+	// Searching PATH is slow under WSL2 (tens of ms, as it has Windows directories), so the usual path is tried first.
+	for _, p := range []string{wslRundll32Path, "rundll32.exe"} {
 		if p, err := exec.LookPath(p); err == nil {
 			return []string{p, "url.dll,FileProtocolHandler"}
 		}

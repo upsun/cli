@@ -70,17 +70,6 @@ class UrlTest extends TestCase
         $this->assertTrue($url->openUrl('http://127.0.0.1:5000', false));
     }
 
-    public function testWslOpensUrlsWithWslview(): void
-    {
-        putenv('MOCK_CLI_WSL_BROWSER=/usr/bin/wslview');
-        $url = $this->urlService();
-        $this->shell->expects($this->once())
-            ->method('execute')
-            ->with(['/usr/bin/wslview', 'http://127.0.0.1:5000'])
-            ->willReturn('');
-        $this->assertTrue($url->openUrl('http://127.0.0.1:5000', false));
-    }
-
     public function testNoWslBrowser(): void
     {
         putenv('MOCK_CLI_WSL_BROWSER=');
