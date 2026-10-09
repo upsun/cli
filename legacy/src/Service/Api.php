@@ -28,6 +28,7 @@ use Platformsh\Cli\CredentialHelper\Manager;
 use Platformsh\Cli\CredentialHelper\SessionStorage as CredentialHelperStorage;
 use Platformsh\Cli\Event\EnvironmentsChangedEvent;
 use Platformsh\Cli\Event\LoginRequiredEvent;
+use Platformsh\Cli\Exception\GoLoginRequiredException;
 use Platformsh\Cli\Exception\ProcessFailedException;
 use Platformsh\Cli\GuzzleDebugMiddleware;
 use Platformsh\Cli\Model\Route;
@@ -85,6 +86,7 @@ class Api
     private readonly OutputInterface $stdErr;
     private readonly TokenConfig $tokenConfig;
     private readonly FileLock $fileLock;
+    private readonly GoAuth $goAuth;
     private readonly Io $io;
 
     /**
@@ -130,6 +132,18 @@ class Api
     public bool $inLoginCheck = false;
 
     /**
+     * The prefix of placeholder refresh tokens, which identify the access token held by the OAuth 2.0 middleware.
+     *
+     * With Go auth, tokens are refreshed by the Go wrapper, so these are never sent anywhere.
+     */
+    private const GO_REFRESH_TOKEN_PREFIX = 'go:';
+
+    /**
+     * The last token from the Go wrapper.
+     */
+    private static ?AccessToken $goToken = null;
+
+    /**
      * Constructor.
      *
      * @param Config|null $config
@@ -139,6 +153,7 @@ class Api
      * @param EventDispatcherInterface|null $dispatcher
      * @param FileLock|null $fileLock
      * @param Io|null $io
+     * @param GoAuth|null $goAuth
      */
     public function __construct(
         ?Config                   $config = null,
@@ -148,6 +163,7 @@ class Api
         ?TokenConfig              $tokenConfig = null,
         ?FileLock                 $fileLock = null,
         ?EventDispatcherInterface $dispatcher = null,
+        ?GoAuth                   $goAuth = null,
     ) {
         $this->config = $config ?: new Config();
         $this->output = $output ?: new ConsoleOutput();
@@ -156,6 +172,7 @@ class Api
         $this->tokenConfig = $tokenConfig ?: new TokenConfig($this->config);
         $this->fileLock = $fileLock ?: new FileLock($this->config);
         $this->dispatcher = $dispatcher ?: new EventDispatcher();
+        $this->goAuth = $goAuth ?: new GoAuth($this->config, $this->output);
         $this->cache = $cache ?: CacheFactory::createCacheProvider($this->config);
     }
 
@@ -183,13 +200,20 @@ class Api
     /**
      * Returns whether the CLI is authenticating using an API token.
      *
-     * @param bool $includeStored
+     * @param bool $includeStored Whether to include an API token saved by auth:api-token-login.
      *
      * @return bool
      */
     public function hasApiToken(bool $includeStored = true): bool
     {
-        return $this->tokenConfig->getAccessToken() || $this->tokenConfig->getApiToken($includeStored);
+        if (!$this->goAuth->isEnabled()) {
+            return $this->tokenConfig->getAccessToken() || $this->tokenConfig->getApiToken($includeStored);
+        }
+        if ($this->tokenConfig->getAccessToken() || $this->tokenConfig->getApiToken(false)) {
+            return true;
+        }
+
+        return $includeStored && $this->goAuth->getStatus()['has_stored_api_token'];
     }
 
     /**
@@ -201,6 +225,9 @@ class Api
      */
     public function listSessionIds(): array
     {
+        if ($this->goAuth->isEnabled()) {
+            return $this->goAuth->getStatus()['session_ids'];
+        }
         $ids = [];
         if ($this->sessionStorage instanceof CredentialHelperStorage) {
             $ids = $this->sessionStorage->listSessionIds();
@@ -226,6 +253,9 @@ class Api
      */
     public function anySessionsExist(): bool
     {
+        if ($this->goAuth->isEnabled()) {
+            return $this->goAuth->getStatus()['session_ids'] !== [];
+        }
         if ($this->sessionStorage instanceof CredentialHelperStorage && $this->sessionStorage->hasAnySessions()) {
             return true;
         }
@@ -296,6 +326,44 @@ class Api
         $connectorOptions['user_agent'] = $this->config->getUserAgent();
         $connectorOptions['timeout'] = $this->config->getInt('api.default_timeout');
 
+        $connectorOptions['proxy'] = $this->guzzleProxyConfig();
+
+        $connectorOptions['token_url'] = $this->config->get('api.oauth2_token_url');
+        $connectorOptions['revoke_url'] = $this->config->get('api.oauth2_revoke_url');
+
+        if ($this->goAuth->isEnabled()) {
+            // Tokens are refreshed by the Go wrapper. The middleware calls this when its token has expired, or after a 401.
+            $connectorOptions['on_refresh_start'] = fn(string $refreshToken): AccessToken => $this->refreshFromGo($refreshToken);
+        } else {
+            $this->addLegacyAuthOptions($connectorOptions);
+        }
+
+        $connectorOptions['on_step_up_auth_response'] = fn(ResponseInterface $response) => $this->onStepUpAuthResponse($response);
+
+        $connectorOptions['centralized_permissions_enabled'] = $this->config->getBool('api.centralized_permissions') && $this->config->getBool('api.organizations');
+
+        // Add middlewares.
+        $connectorOptions['middlewares'] = [];
+        // Debug responses.
+        $connectorOptions['middlewares'][] = new GuzzleDebugMiddleware($this->output, $this->config->getBool('api.debug'));
+        // Handle 403 errors.
+        $connectorOptions['middlewares'][] = fn(callable $handler): \Closure => fn(RequestInterface $request, array $options) => $handler($request, $options)->then(function (ResponseInterface $response) use ($request): ResponseInterface {
+            if ($response->getStatusCode() === 403) {
+                $this->on403($request);
+            }
+            return $response;
+        });
+
+        return $connectorOptions;
+    }
+
+    /**
+     * Adds the connector options for the legacy auth implementation: API tokens, and token refresh under a lock.
+     *
+     * @param array<string, mixed> $connectorOptions
+     */
+    private function addLegacyAuthOptions(array &$connectorOptions): void
+    {
         if ($apiToken = $this->tokenConfig->getApiToken()) {
             $connectorOptions['api_token'] = $apiToken;
             $connectorOptions['api_token_type'] = 'exchange';
@@ -303,11 +371,6 @@ class Api
             $connectorOptions['api_token'] = $accessToken;
             $connectorOptions['api_token_type'] = 'access';
         }
-
-        $connectorOptions['proxy'] = $this->guzzleProxyConfig();
-
-        $connectorOptions['token_url'] = $this->config->get('api.oauth2_token_url');
-        $connectorOptions['revoke_url'] = $this->config->get('api.oauth2_revoke_url');
 
         // Acquire a lock to prevent tokens being refreshed at the same time in
         // different CLI processes.
@@ -342,24 +405,6 @@ class Api
         };
 
         $connectorOptions['on_refresh_error'] = fn(IdentityProviderException $e): ?AccessToken => $this->onRefreshError($e);
-
-        $connectorOptions['on_step_up_auth_response'] = fn(ResponseInterface $response) => $this->onStepUpAuthResponse($response);
-
-        $connectorOptions['centralized_permissions_enabled'] = $this->config->getBool('api.centralized_permissions') && $this->config->getBool('api.organizations');
-
-        // Add middlewares.
-        $connectorOptions['middlewares'] = [];
-        // Debug responses.
-        $connectorOptions['middlewares'][] = new GuzzleDebugMiddleware($this->output, $this->config->getBool('api.debug'));
-        // Handle 403 errors.
-        $connectorOptions['middlewares'][] = fn(callable $handler): \Closure => fn(RequestInterface $request, array $options) => $handler($request, $options)->then(function (ResponseInterface $response) use ($request): ResponseInterface {
-            if ($response->getStatusCode() === 403) {
-                $this->on403($request);
-            }
-            return $response;
-        });
-
-        return $connectorOptions;
     }
 
     /**
@@ -399,6 +444,9 @@ class Api
         $this->dispatcher->dispatch(new LoginRequiredEvent($authMethods, $maxAge, $this->hasApiToken()), 'login.required');
 
         $this->stdErr->writeln('');
+        if ($this->goAuth->isEnabled()) {
+            return $this->setGoToken($this->fetchGoToken());
+        }
         $session = $this->getClient(false)->getConnector()->getSession();
         $newAccessToken = $this->tokenFromSession($session);
         if ($newAccessToken && $newAccessToken->getToken() !== $previousAccessToken) {
@@ -406,6 +454,61 @@ class Api
         }
 
         return null;
+    }
+
+    /**
+     * Gets a new token from the Go wrapper, for the OAuth 2.0 middleware.
+     *
+     * @param string $refreshToken The placeholder refresh token of the middleware's current access token.
+     */
+    private function refreshFromGo(string $refreshToken): AccessToken
+    {
+        // If the middleware's token has not expired locally, it was rejected by the API.
+        $current = substr($refreshToken, strlen(self::GO_REFRESH_TOKEN_PREFIX));
+        $rejected = null;
+        if ($current !== '' && self::$goToken?->getToken() === $current && !self::$goToken->hasExpired()) {
+            $rejected = $current;
+        }
+
+        return $this->setGoToken($this->fetchGoToken($rejected));
+    }
+
+    /**
+     * Gets a token from the Go wrapper, offering a login if one is required.
+     *
+     * @return array{access_token: string, expires?: int}
+     */
+    private function fetchGoToken(?string $rejected = null): array
+    {
+        try {
+            return $this->goAuth->getToken($rejected);
+        } catch (GoLoginRequiredException $e) {
+            if ($e->notice !== '') {
+                $this->stdErr->writeln('<comment>' . $e->notice . '</comment>');
+                $this->stdErr->writeln('');
+            }
+            // The listener logs in, or throws a LoginRequiredException.
+            $this->dispatcher->dispatch($e->toEvent(), 'login.required');
+            $this->goAuth->reset();
+
+            return $this->goAuth->getToken();
+        }
+    }
+
+    /**
+     * Saves a token from Go, in the form used by the OAuth 2.0 middleware, which refreshes it when Go would.
+     *
+     * @param array{access_token: string, expires?: int} $token
+     */
+    private function setGoToken(array $token): AccessToken
+    {
+        $expires = !empty($token['expires']) ? $token['expires'] - 120 : 2147483647;
+
+        return self::$goToken = new AccessToken([
+            'access_token' => $token['access_token'],
+            'expires' => max($expires, time() + 1),
+            'refresh_token' => self::GO_REFRESH_TOKEN_PREFIX . $token['access_token'],
+        ]);
     }
 
     /**
@@ -557,29 +660,17 @@ class Api
         if (!isset(self::$client) || $reset) {
             $options = $this->getConnectorOptions();
 
-            $sessionId = $this->config->getSessionId();
-
-            // Override the session ID if an API token is set.
-            // This ensures file storage from other credentials will not be
-            // reused.
-            if (!empty($options['api_token'])) {
-                $sessionId = 'api-token-' . \substr(\hash('sha256', (string) $options['api_token']), 0, 32);
-            }
-
-            // Set up a session to store OAuth2 tokens.
-            // By default this uses in-memory storage.
-            $session = new Session($sessionId);
-
-            // Set up persistent session storage
-            // (unless an access token was set directly).
-            if (!isset($options['api_token']) || $options['api_token_type'] !== 'access') {
-                $this->initSessionStorage();
-                $this->io->debug('Loading session');
-                try {
-                    $session->setStorage($this->sessionStorage);
-                } catch (\RuntimeException $e) {
-                    throw $this->convertStorageException($e);
-                }
+            if ($this->goAuth->isEnabled()) {
+                // The session is only kept in memory: tokens are stored by the Go wrapper. It starts with an expired
+                // placeholder, which the middleware replaces with a token from Go before the first request.
+                $session = new Session($this->config->getSessionId());
+                $this->setSessionToken($session, new AccessToken([
+                    'access_token' => 'pending',
+                    'expires' => time() - 1,
+                    'refresh_token' => self::GO_REFRESH_TOKEN_PREFIX,
+                ]));
+            } else {
+                $session = $this->legacySession($options);
             }
 
             $connector = new Connector($options, $session);
@@ -594,12 +685,65 @@ class Api
                 self::$printedApiTokenWarning = true;
             }
 
-            if ($autoLogin && !$connector->isLoggedIn()) {
+            if (!$this->goAuth->isEnabled() && $autoLogin && !$connector->isLoggedIn()) {
                 $this->dispatcher->dispatch(new LoginRequiredEvent([], null, $this->hasApiToken()), 'login.required');
             }
         }
 
-        return self::$client;
+        $client = self::$client;
+
+        // With Go auth, get a token now, so that a login is offered if needed, and the token can be read from the
+        // session.
+        $session = $client->getConnector()->getSession();
+        if ($this->goAuth->isEnabled() && $autoLogin && $session->get('accessToken') === 'pending') {
+            $this->setSessionToken($session, self::$goToken !== null && !self::$goToken->hasExpired()
+                ? self::$goToken
+                : $this->setGoToken($this->fetchGoToken()));
+        }
+
+        return $client;
+    }
+
+    /**
+     * Sets up a session for the legacy auth implementation, with persistent storage.
+     *
+     * @param array<string, mixed> $options The connector options.
+     */
+    private function legacySession(array $options): Session
+    {
+        $sessionId = $this->config->getSessionId();
+
+        // Override the session ID if an API token is set.
+        // This ensures file storage from other credentials will not be
+        // reused.
+        if (!empty($options['api_token'])) {
+            $sessionId = 'api-token-' . \substr(\hash('sha256', (string) $options['api_token']), 0, 32);
+        }
+
+        // Set up a session to store OAuth2 tokens.
+        // By default this uses in-memory storage.
+        $session = new Session($sessionId);
+
+        // Set up persistent session storage
+        // (unless an access token was set directly).
+        if (!isset($options['api_token']) || $options['api_token_type'] !== 'access') {
+            $this->initSessionStorage();
+            $this->io->debug('Loading session');
+            try {
+                $session->setStorage($this->sessionStorage);
+            } catch (\RuntimeException $e) {
+                throw $this->convertStorageException($e);
+            }
+        }
+
+        return $session;
+    }
+
+    private function setSessionToken(SessionInterface $session, AccessToken $token): void
+    {
+        $session->set('accessToken', $token->getToken());
+        $session->set('expires', $token->getExpires());
+        $session->set('refreshToken', $token->getRefreshToken());
     }
 
     /**
@@ -1301,6 +1445,10 @@ class Api
      */
     public function isLoggedIn(): bool
     {
+        if ($this->goAuth->isEnabled()) {
+            return $this->goAuth->getStatus()['logged_in'];
+        }
+
         return $this->getClient(false)->getConnector()->isLoggedIn();
     }
 
@@ -1425,6 +1573,15 @@ class Api
         // Check for an externally configured access token.
         if ($accessToken = $this->tokenConfig->getAccessToken()) {
             return $accessToken;
+        }
+
+        if ($this->goAuth->isEnabled()) {
+            $this->getClient();
+            if ($forceNew || self::$goToken === null || self::$goToken->hasExpired()) {
+                return $this->setGoToken($this->fetchGoToken($forceNew ? self::$goToken?->getToken() : null))->getToken();
+            }
+
+            return self::$goToken->getToken();
         }
 
         // Get the access token from the session.

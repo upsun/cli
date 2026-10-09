@@ -22,4 +22,7 @@ func initCustomValidators(v *validator.Validate) {
 	_ = v.RegisterValidation("version", func(fl validator.FieldLevel) bool {
 		return fl.Field().Kind() == reflect.String && version.Validate(fl.Field().String())
 	})
+	_ = v.RegisterValidation("session_id", func(fl validator.FieldLevel) bool {
+		return fl.Field().Kind() == reflect.String && ValidateSessionID(fl.Field().String()) == nil
+	})
 }

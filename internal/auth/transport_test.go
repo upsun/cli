@@ -84,7 +84,7 @@ func TestTransport_RoundTrip_RetryOn401(t *testing.T) {
 	}
 
 	// Create our Transport with the mock refresher
-	transport := &Transport{
+	transport := &legacyTransport{
 		base: &oauth2.Transport{
 			Source: mockRef,
 			Base:   http.DefaultTransport,

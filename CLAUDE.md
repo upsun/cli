@@ -67,7 +67,7 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 
 **Commands**: `commands/`
 - `root.go`: Root command that sets up the Cobra CLI and delegates to legacy CLI when needed
-- Native Go commands: init, list, version, config:install, project:convert, completion
+- Native Go commands: init, list, version, config:install, project:convert, completion, and with Go auth (below): auth:browser-login (login), auth:api-token-login, auth:logout (logout), auth:token
 - Unrecognized commands are passed to the legacy PHP CLI
 
 **Configuration**: `internal/config/`
@@ -90,8 +90,12 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 - Handles authentication, organizations, and resource management
 
 **Authentication**: `internal/auth/`
-- JWT handling and OAuth2 flow
-- Custom transport for API authentication
+- Authentication is moving from PHP to Go, behind a feature flag: `<PREFIX>GO_AUTH=1` (an env var for us and support, read by both Go and PHP). Without it, the legacy PHP CLI handles auth as before, and Go gets tokens from it (`LegacyCLIClient`)
+- With Go auth, Go is the only component that stores or refreshes credentials. `auth.Manager` resolves tokens (API tokens, `api.access_token`, stored sessions) and refreshes them under a per-session flock (`<writable dir>/auth/<id>.lock`), re-reading the store under the lock because refresh tokens rotate
+- `internal/auth/store`: one entry per session ID, in the system keychain (go-keyring) or in `<writable dir>/auth/<id>.json`
+- Auth settings are read by `config.Auth()` with the legacy CLI's precedence: embedded config, the user's `config.yaml`, env vars
+- The legacy CLI gets tokens and auth state by running the hidden `auth:internal token|status` command (via `<PREFIX>WRAPPER_EXECUTABLE`), and Go runs the hidden PHP commands `auth:post-login` (SSH certificates and config) and `auth:export-sessions` (a one-time migration of the legacy storage, recorded in `auth/.migrated`)
+- Integration tests run with legacy auth by default, and with Go auth if `TEST_CLI_GO_AUTH=1` is set. Tests of Go-only behavior use `newGoAuthCommandFactory`
 
 **Project Initialization**: `internal/init/`
 - AI-powered project configuration generation

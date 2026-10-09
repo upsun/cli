@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -532,4 +533,12 @@ func (l *List) AddCommand(cmd *Command) {
 			return l.Commands[i].Name.String() < l.Commands[j].Name.String()
 		}
 	})
+}
+
+// RemoveCommand removes a command by name, e.g. a legacy command that is replaced by a native one.
+func (l *List) RemoveCommand(name string) {
+	l.Commands = slices.DeleteFunc(l.Commands, func(c *Command) bool { return c.Name.String() == name })
+	for i := range l.Namespaces {
+		l.Namespaces[i].Commands = slices.DeleteFunc(l.Namespaces[i].Commands, func(n string) bool { return n == name })
+	}
 }
