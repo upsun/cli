@@ -1,8 +1,6 @@
 package tests
 
 import (
-	"encoding/json"
-	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
@@ -69,12 +67,10 @@ func TestResourcesSizingDisabled(t *testing.T) {
 					"environments=/projects/"+projectID+"/environments",
 				),
 				DefaultBranch: "main",
+				Settings:      map[string]any{"sizing_api_enabled": false},
 			}})
 			apiHandler.SetEnvironments([]*mockapi.Environment{
 				makeEnv(projectID, "main", "production", "active", nil),
-			})
-			apiHandler.Get("/projects/"+projectID+"/settings", func(w http.ResponseWriter, _ *http.Request) {
-				_ = json.NewEncoder(w).Encode(map[string]any{"sizing_api_enabled": false})
 			})
 
 			apiServer := httptest.NewServer(apiHandler)
