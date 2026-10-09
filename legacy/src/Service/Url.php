@@ -16,7 +16,7 @@ class Url implements InputConfiguringInterface
 {
     protected OutputInterface $stdErr;
 
-    public function __construct(protected Shell $shell, protected InputInterface $input, protected OutputInterface $output)
+    public function __construct(protected Shell $shell, protected InputInterface $input, protected OutputInterface $output, protected Config $config)
     {
         $this->stdErr = $this->output instanceof ConsoleOutputInterface
             ? $this->output->getErrorOutput()
@@ -112,7 +112,7 @@ class Url implements InputConfiguringInterface
             return getenv('DISPLAY') !== 'none';
         }
 
-        return OsUtil::isWindows() || OsUtil::isOsX() || (OsUtil::isWsl() && $this->getWslBrowser() !== false);
+        return OsUtil::isWindows() || OsUtil::isOsX() || $this->getWslBrowser() !== false;
     }
 
     /**
@@ -153,7 +153,7 @@ class Url implements InputConfiguringInterface
         if (OsUtil::isOsX()) {
             return 'open';
         }
-        if (OsUtil::isWsl() && ($browser = $this->getWslBrowser()) !== false) {
+        if (($browser = $this->getWslBrowser()) !== false) {
             return $browser;
         }
         $browsers = ['xdg-open', 'gnome-open'];
@@ -166,27 +166,11 @@ class Url implements InputConfiguringInterface
         return false;
     }
 
-    protected function isWslInteropEnabled(): bool
-    {
-        return OsUtil::isWslInteropEnabled();
-    }
-
     /**
-     * Finds a command to open URLs in a Windows browser from WSL.
+     * Returns the command to open URLs in a Windows browser from WSL, which the Go wrapper finds, or false.
      */
     private function getWslBrowser(): string|false
     {
-        // The openers run Windows programs.
-        if (!$this->isWslInteropEnabled()) {
-            return false;
-        }
-        // Windows paths can be left out of PATH (appendWindowsPath=false in wsl.conf).
-        foreach (['wslview', 'rundll32.exe', '/mnt/c/Windows/System32/rundll32.exe'] as $browser) {
-            if ($this->shell->commandExists($browser)) {
-                return $browser;
-            }
-        }
-
-        return false;
+        return getenv($this->config->getStr('application.env_prefix') . 'WSL_BROWSER') ?: false;
     }
 }

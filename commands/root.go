@@ -345,6 +345,7 @@ func makeLegacyCLIWrapper(cnf *config.Config, stdout, stderr io.Writer, stdin io
 		Version:            config.Version,
 		DebugLogFunc:       debugLogf,
 		DisableInteraction: viper.GetBool("no-interaction"),
+		WSLBrowser:         wslBrowser(),
 		Stdout:             stdout,
 		Stderr:             stderr,
 		Stdin:              stdin,

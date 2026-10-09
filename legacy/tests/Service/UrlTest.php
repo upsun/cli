@@ -6,14 +6,13 @@ namespace Platformsh\Cli\Tests\Service;
 
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\Shell;
 use Platformsh\Cli\Service\Url;
 use Platformsh\Cli\Util\OsUtil;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Input\InputDefinition;
-use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\BufferedOutput;
-use Symfony\Component\Console\Output\OutputInterface;
 
 class UrlTest extends TestCase
 {
@@ -27,12 +26,11 @@ class UrlTest extends TestCase
         if (!OsUtil::isLinux()) {
             $this->markTestSkipped('WSL is Linux');
         }
-        foreach (['DISPLAY', 'WSL_DISTRO_NAME', 'WSL_INTEROP'] as $name) {
+        foreach (['DISPLAY', 'MOCK_CLI_WSL_BROWSER'] as $name) {
             $this->env[$name] = getenv($name);
         }
         putenv('DISPLAY');
-        putenv('WSL_INTEROP');
-        putenv('WSL_DISTRO_NAME=Ubuntu');
+        putenv('MOCK_CLI_WSL_BROWSER');
     }
 
     protected function tearDown(): void
@@ -42,46 +40,29 @@ class UrlTest extends TestCase
         }
     }
 
-    /**
-     * @param string[] $commands
-     */
-    private function urlService(array $commands, bool $interop = true): Url
+    private function urlService(): Url
     {
         $this->shell = $this->createMock(Shell::class);
-        $this->shell->method('commandExists')->willReturnCallback(fn(string $c): bool => in_array($c, $commands, true));
+        $this->shell->method('commandExists')->willReturn(false);
         $definition = new InputDefinition();
         Url::configureInput($definition);
 
-        return new class ($interop, $this->shell, new ArrayInput([], $definition), new BufferedOutput()) extends Url {
-            public function __construct(private readonly bool $interop, Shell $shell, InputInterface $input, OutputInterface $output)
-            {
-                parent::__construct($shell, $input, $output);
-            }
-
-            protected function isWslInteropEnabled(): bool
-            {
-                return $this->interop;
-            }
-        };
+        return new Url(
+            $this->shell,
+            new ArrayInput([], $definition),
+            new BufferedOutput(),
+            new Config([], __DIR__ . '/../data/mock-cli-config.yaml'),
+        );
     }
 
     public function testWslOpensUrlsWithRundll32(): void
     {
-        $url = $this->urlService(['rundll32.exe']);
+        $rundll32 = '/mnt/c/Windows/System32/rundll32.exe';
+        putenv('MOCK_CLI_WSL_BROWSER=' . $rundll32);
+        $url = $this->urlService();
         $this->assertTrue($url->hasDisplay());
         $this->assertTrue($url->canOpenUrls());
 
-        $this->shell->expects($this->once())
-            ->method('execute')
-            ->with(['rundll32.exe', 'url.dll,FileProtocolHandler', 'http://127.0.0.1:5000'])
-            ->willReturn('');
-        $this->assertTrue($url->openUrl('http://127.0.0.1:5000', false));
-    }
-
-    public function testWslFindsRundll32OutsidePath(): void
-    {
-        $rundll32 = '/mnt/c/Windows/System32/rundll32.exe';
-        $url = $this->urlService([$rundll32]);
         $this->shell->expects($this->once())
             ->method('execute')
             ->with([$rundll32, 'url.dll,FileProtocolHandler', 'http://127.0.0.1:5000'])
@@ -89,26 +70,21 @@ class UrlTest extends TestCase
         $this->assertTrue($url->openUrl('http://127.0.0.1:5000', false));
     }
 
-    public function testWslPrefersWslview(): void
+    public function testWslOpensUrlsWithWslview(): void
     {
-        $url = $this->urlService(['wslview', 'rundll32.exe']);
+        putenv('MOCK_CLI_WSL_BROWSER=/usr/bin/wslview');
+        $url = $this->urlService();
         $this->shell->expects($this->once())
             ->method('execute')
-            ->with(['wslview', 'http://127.0.0.1:5000'])
+            ->with(['/usr/bin/wslview', 'http://127.0.0.1:5000'])
             ->willReturn('');
         $this->assertTrue($url->openUrl('http://127.0.0.1:5000', false));
     }
 
-    public function testWslWithoutOpener(): void
+    public function testNoWslBrowser(): void
     {
-        $url = $this->urlService([]);
-        $this->assertFalse($url->hasDisplay());
-        $this->assertFalse($url->canOpenUrls());
-    }
-
-    public function testWslInteropOff(): void
-    {
-        $url = $this->urlService(['wslview', 'rundll32.exe'], false);
+        putenv('MOCK_CLI_WSL_BROWSER=');
+        $url = $this->urlService();
         $this->assertFalse($url->hasDisplay());
         $this->assertFalse($url->canOpenUrls());
     }

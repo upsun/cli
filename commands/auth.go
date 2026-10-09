@@ -294,16 +294,41 @@ func isWSL() bool {
 	return err == nil && strings.Contains(strings.ToLower(string(b)), "microsoft")
 }
 
-// wslBinfmtDir is where WSL registers Windows interop (overridden in tests).
-var wslBinfmtDir = "/proc/sys/fs/binfmt_misc"
+// WSL's binfmt_misc directory and config file (overridden in tests).
+var (
+	wslBinfmtDir = "/proc/sys/fs/binfmt_misc"
+	wslConfPath  = "/etc/wsl.conf"
+)
 
 // wslInteropEnabled reports whether WSL can run Windows programs. Its binfmt_misc entry is named WSLInterop or
-// WSLInterop-late, and is missing or disabled when interop is off.
+// WSLInterop-late. WSL1 removes it when interop is off, but WSL2 keeps it enabled, so wsl.conf is checked too.
 func wslInteropEnabled() bool {
 	paths, _ := filepath.Glob(filepath.Join(wslBinfmtDir, "WSLInterop*"))
 	for _, p := range paths {
 		if b, err := os.ReadFile(p); err == nil && strings.HasPrefix(string(b), "enabled") {
-			return true
+			return !wslConfDisablesInterop()
+		}
+	}
+	return false
+}
+
+// wslConfDisablesInterop reports whether wsl.conf sets "enabled = false" in its [interop] section.
+func wslConfDisablesInterop() bool {
+	b, err := os.ReadFile(wslConfPath)
+	if err != nil {
+		return false
+	}
+	var section string
+	for line := range strings.Lines(string(b)) {
+		line, _, _ = strings.Cut(line, "#")
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			section = strings.ToLower(strings.TrimSpace(line[1 : len(line)-1]))
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if ok && section == "interop" && strings.EqualFold(strings.TrimSpace(key), "enabled") {
+			return strings.EqualFold(strings.TrimSpace(value), "false")
 		}
 	}
 	return false
@@ -325,6 +350,17 @@ func wslBrowserCommand() []string {
 		}
 	}
 	return nil
+}
+
+// wslBrowser returns the program to open URLs in a Windows browser, if this is WSL, for the legacy CLI.
+func wslBrowser() string {
+	if !isWSL() {
+		return ""
+	}
+	if c := wslBrowserCommand(); c != nil {
+		return c[0]
+	}
+	return ""
 }
 
 // browserCommand returns the command to open URLs, or nil if none should be used.

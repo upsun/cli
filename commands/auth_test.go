@@ -58,9 +58,37 @@ func setWSLInterop(t *testing.T, state string) {
 	if state != "" {
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "WSLInterop"), []byte(state+"\ninterpreter /init\n"), 0o600))
 	}
-	orig := wslBinfmtDir
-	wslBinfmtDir = dir
-	t.Cleanup(func() { wslBinfmtDir = orig })
+	origDir, origConf := wslBinfmtDir, wslConfPath
+	wslBinfmtDir, wslConfPath = dir, filepath.Join(dir, "wsl.conf")
+	t.Cleanup(func() { wslBinfmtDir, wslConfPath = origDir, origConf })
+}
+
+// TestWSLInteropEnabled covers WSL2, which keeps the binfmt_misc entry enabled when wsl.conf disables interop.
+func TestWSLInteropEnabled(t *testing.T) {
+	cases := []struct {
+		name    string
+		binfmt  string
+		wslConf string
+		want    bool
+	}{
+		{name: "enabled", binfmt: "enabled", want: true},
+		{name: "no entry", want: false},
+		{name: "entry disabled", binfmt: "disabled", want: false},
+		{name: "wsl.conf disables", binfmt: "enabled", wslConf: "[boot]\nsystemd=true\n[interop]\nenabled=false\n"},
+		{name: "wsl.conf spacing and case", binfmt: "enabled", wslConf: "[Interop]\n  Enabled = False # off\n"},
+		{name: "wsl.conf enables", binfmt: "enabled", wslConf: "[interop]\nenabled=true\n", want: true},
+		{name: "other section", binfmt: "enabled", wslConf: "[automount]\nenabled=false\n", want: true},
+		{name: "comment", binfmt: "enabled", wslConf: "[interop]\n# enabled=false\n", want: true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			setWSLInterop(t, c.binfmt)
+			if c.wslConf != "" {
+				require.NoError(t, os.WriteFile(wslConfPath, []byte(c.wslConf), 0o600))
+			}
+			assert.Equal(t, c.want, wslInteropEnabled())
+		})
+	}
 }
 
 func TestBrowserCommand_WSL(t *testing.T) {
@@ -77,6 +105,7 @@ func TestBrowserCommand_WSL(t *testing.T) {
 	t.Setenv("WSL_DISTRO_NAME", "Ubuntu")
 
 	assert.True(t, isWSL())
+	assert.Equal(t, rundll, wslBrowser())
 	assert.True(t, hasDisplay(), "a Windows browser can be used without a display")
 	assert.Equal(t, []string{rundll, "url.dll,FileProtocolHandler"}, browserCommand(""))
 	assert.True(t, canOpenURLs(""))
@@ -114,6 +143,7 @@ func TestBrowserCommand_WSLInteropOff(t *testing.T) {
 	for _, state := range []string{"", "disabled"} {
 		setWSLInterop(t, state)
 		assert.False(t, hasDisplay(), "interop state %q", state)
+		assert.Empty(t, wslBrowser(), "interop state %q", state)
 		assert.False(t, canOpenURLs(""), "interop state %q", state)
 	}
 }
