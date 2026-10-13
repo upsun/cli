@@ -37,6 +37,17 @@ func (h *Handler) handleGetProject(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 }
 
+func (h *Handler) handleGetProjectSettings(w http.ResponseWriter, req *http.Request) {
+	h.RLock()
+	defer h.RUnlock()
+	p, ok := h.projects[chi.URLParam(req, "project_id")]
+	if !ok || p.Settings == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(p.Settings)
+}
+
 func (h *Handler) handlePatchProject(w http.ResponseWriter, req *http.Request) {
 	h.Lock()
 	defer h.Unlock()

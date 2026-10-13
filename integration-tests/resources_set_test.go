@@ -1,10 +1,6 @@
 package tests
 
 import (
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,93 +22,30 @@ import (
 // --size app:0.1 change is then requested with --dry-run, forcing the
 // command to print the previous-vs-new summary before exiting.
 func TestResourcesSet_CurrentSizeMissingFromContainerProfiles(t *testing.T) {
-	authServer := mockapi.NewAuthServer(t)
-	defer authServer.Close()
-
-	myUserID := "my-user-id"
 	apiHandler := mockapi.NewHandler(t)
-	apiHandler.SetMyUser(&mockapi.User{ID: myUserID})
-
-	orgID := "org-id-1"
-	apiHandler.SetOrgs([]*mockapi.Org{{
-		ID:           orgID,
-		Type:         "flexible",
-		Name:         "acme",
-		Label:        "Acme",
-		Owner:        myUserID,
-		Capabilities: []string{},
-		Links: mockapi.MakeHALLinks(
-			"self=/organizations/"+url.PathEscape(orgID),
-			"profile=/organizations/"+url.PathEscape(orgID)+"/profile",
-		),
-	}})
-
-	projectID := mockapi.ProjectID()
-
-	apiHandler.SetProjects([]*mockapi.Project{{
-		ID:           projectID,
-		Organization: orgID,
-		Links: mockapi.MakeHALLinks(
-			"self=/projects/"+projectID,
-			"environments=/projects/"+projectID+"/environments",
-		),
-		DefaultBranch: "main",
-	}})
-
-	apiHandler.SetEnvironments([]*mockapi.Environment{
-		makeEnv(projectID, "main", "production", "active", nil),
-	})
-
-	apiHandler.Get("/projects/"+projectID+"/settings", func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"sizing_api_enabled": true,
-		})
-	})
-
 	// No trial endpoint is mocked: the trial-limit branch that would
 	// otherwise reach into $current['sizes'] is skipped (a separate
 	// nullable path not under test here).
-	nextPath := "/projects/" + projectID + "/environments/main/deployments/next"
-	apiHandler.Get(nextPath, func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"webapps": map[string]any{
-				"app": map[string]any{
-					"name":              "app",
-					"type":              "golang:1.23",
-					"container_profile": "BALANCED",
-					"resources": map[string]any{
-						// Current size "0.5" is intentionally NOT
-						// present in container_profiles["BALANCED"]
-						// below, so sizeInfo() returns null.
-						"profile_size": "0.5",
-					},
-					"instance_count": 1,
-					"disk":           512,
-				},
+	projectID, _ := setUpResourcesProject(apiHandler, "org-id-1", nextDeployment(map[string]any{
+		"app": map[string]any{
+			"name":              "app",
+			"type":              "golang:1.23",
+			"container_profile": "BALANCED",
+			"resources": map[string]any{
+				// Current size "0.5" is intentionally NOT present in
+				// container_profiles["BALANCED"] below, so sizeInfo()
+				// returns null.
+				"profile_size": "0.5",
 			},
-			"services": map[string]any{},
-			"workers":  map[string]any{},
-			"routes":   map[string]any{},
-			"project_info": map[string]any{
-				"settings":     map[string]any{},
-				"capabilities": map[string]any{},
-			},
-			"container_profiles": map[string]any{
-				"BALANCED": map[string]any{
-					"0.1": map[string]any{
-						"cpu":      "0.1",
-						"memory":   "256",
-						"cpu_type": "guaranteed",
-					},
-				},
-			},
-		})
-	})
-
-	apiServer := httptest.NewServer(apiHandler)
-	defer apiServer.Close()
-
-	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+			"instance_count": 1,
+			"disk":           512,
+		},
+	}, map[string]any{
+		"BALANCED": map[string]any{
+			"0.1": map[string]any{"cpu": "0.1", "memory": "256", "cpu_type": "guaranteed"},
+		},
+	}))
+	f := serveAPI(t, apiHandler)
 
 	stdout, stderr, err := f.RunCombinedOutput(
 		"resources:set",
@@ -137,36 +70,24 @@ func TestResourcesSet_CurrentSizeMissingFromContainerProfiles(t *testing.T) {
 // is shown in the error for a profile size below it.
 func TestResourcesSet_SizeBelowMinimumCPU(t *testing.T) {
 	apiHandler := mockapi.NewHandler(t)
-	projectID := setUpResourcesSetOrg(apiHandler, "org-min-cpu")
-	// Replace the deployment with one whose app has a minimum CPU.
-	nextPath := "/projects/" + projectID + "/environments/main/deployments/next"
-	apiHandler.Get(nextPath, func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"webapps": map[string]any{
-				"app": map[string]any{
-					"name":              "app",
-					"type":              "golang:1.23",
-					"container_profile": "BALANCED",
-					"resources": map[string]any{
-						"profile_size": "0.5",
-						"minimum":      map[string]any{"cpu": 0.25, "memory": 64},
-					},
-					"instance_count": 1,
-					"disk":           512,
-				},
+	projectID, _ := setUpResourcesProject(apiHandler, "org-min-cpu", nextDeployment(map[string]any{
+		"app": map[string]any{
+			"name":              "app",
+			"type":              "golang:1.23",
+			"container_profile": "BALANCED",
+			"resources": map[string]any{
+				"profile_size": "0.5",
+				"minimum":      map[string]any{"cpu": 0.25, "memory": 64},
 			},
-			"services":     map[string]any{},
-			"workers":      map[string]any{},
-			"routes":       map[string]any{},
-			"project_info": map[string]any{"settings": map[string]any{}, "capabilities": map[string]any{}},
-			"container_profiles": map[string]any{
-				"BALANCED": map[string]any{
-					"0.1": map[string]any{"cpu": 0.1, "memory": 64, "cpu_type": "shared"},
-					"0.5": map[string]any{"cpu": 0.5, "memory": 128, "cpu_type": "shared"},
-				},
-			},
-		})
-	})
+			"instance_count": 1,
+			"disk":           512,
+		},
+	}, map[string]any{
+		"BALANCED": map[string]any{
+			"0.1": map[string]any{"cpu": 0.1, "memory": 64, "cpu_type": "shared"},
+			"0.5": map[string]any{"cpu": 0.5, "memory": 128, "cpu_type": "shared"},
+		},
+	}))
 
 	_, stderr, err := runResourcesSet(t, apiHandler, projectID, "app:0.1")
 
