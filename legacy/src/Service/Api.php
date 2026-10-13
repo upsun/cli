@@ -14,7 +14,6 @@ use GuzzleHttp\Exception\RequestException;
 use Platformsh\Client\Model\Integration;
 use Composer\CaBundle\CaBundle;
 use Doctrine\Common\Cache\CacheProvider;
-use Doctrine\Common\Cache\VoidCache;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\BadResponseException;
@@ -1371,17 +1370,21 @@ class Api
     /**
      * Returns the cache for API data, namespaced by the current user's ID.
      *
-     * Getting the user ID needs a valid access token, so cached data is not used with other credentials.
-     * The cache is bypassed if the token has expired, as its claims cannot be trusted until it is refreshed.
+     * The ID is read from the access token's claims, without verification, or from the API if the token is not a JWT.
+     * So cached data is not used with an invalid opaque token, or with another user's credentials.
      */
     public function userCache(): CacheProvider
     {
-        $userId = $this->getMyUserId();
-        $accessToken = $this->getClient()->getConnector()->getSession()->get('accessToken');
+        $client = $this->getClient();
+        $accessToken = $client->getConnector()->getSession()->get('accessToken');
         $claims = is_string($accessToken) ? (new Jwt($accessToken))->unsafeGetUnverifiedClaims() : false;
+        $reset = false;
         if ($claims !== false && isset($claims['exp']) && is_int($claims['exp']) && $claims['exp'] <= time()) {
-            return new VoidCache();
+            // Make a request to refresh an expired token, or reject it, before its claims are used.
+            $client->getUser('me');
+            $reset = true;
         }
+        $userId = $this->getMyUserId($reset);
         if ($this->userCache?->getNamespace() !== $userId) {
             $this->userCache = new NamespacedCache($this->cache, $userId);
         }

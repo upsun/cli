@@ -34,22 +34,29 @@ class ApiUserCacheTest extends TestCase
         $this->assertSame(['user-a', 'user-a', 'user-b', 'user-a'], $userIds);
     }
 
-    public function testCacheIsBypassedWithAnExpiredToken(): void
+    public function testAnExpiredTokenIsRefreshedBeforeTheCacheIsUsed(): void
     {
         $session = new Session('user-cache-test');
-        $session->set('accessToken', $this->jwt(['sub' => 'user-a', 'exp' => time() - 60]));
         $connector = $this->createMock(ConnectorInterface::class);
         $connector->method('getSession')->willReturn($session);
         $client = $this->createMock(PlatformClient::class);
         $client->method('getConnector')->willReturn($connector);
-        $client->expects($this->exactly(2))
+        $api = $this->createApi($client, new ArrayCache(), 'user-a');
+
+        $session->set('accessToken', $this->jwt(['sub' => 'user-a', 'exp' => time() + 600]));
+        $api->userCache()->save('me', ['id' => 'user-a', 'username' => 'cached']);
+
+        // The request refreshes the token, as the API client's middleware would.
+        $session->set('accessToken', $this->jwt(['sub' => 'user-a', 'exp' => time() - 60]));
+        $client->expects($this->once())
             ->method('getUser')
             ->with('me')
-            ->willReturn($this->user('user-a'));
+            ->willReturnCallback(function () use ($session): User {
+                $session->set('accessToken', $this->jwt(['sub' => 'user-a', 'exp' => time() + 600]));
+                return $this->user('user-a');
+            });
 
-        $api = $this->createApi($client, new ArrayCache(), 'user-a');
-        $api->getUser();
-        $api->getUser();
+        $this->assertSame('cached', $api->getUser()->getProperty('username'));
     }
 
     /**
@@ -62,7 +69,7 @@ class ApiUserCacheTest extends TestCase
 
     private function user(string $id): User
     {
-        return new User(['id' => $id], 'https://api.example.test/api/users', new Client());
+        return new User(['id' => $id, 'username' => 'fetched'], 'https://api.example.test/api/users', new Client());
     }
 
     private function createApi(PlatformClient $client, ArrayCache $cache, string $userId): Api
