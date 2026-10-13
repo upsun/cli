@@ -76,8 +76,9 @@ func TestAuthRefresh_ManyExpiries(t *testing.T) {
 	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
-	// Tokens are refreshed 2 minutes before they expire, so they are usable for 3 seconds.
-	authServer.SetTokenLifetime(123 * time.Second)
+	// Tokens are refreshed 2 minutes before they expire, so they are usable for 2 seconds.
+	const usable = 2 * time.Second
+	authServer.SetTokenLifetime(2*time.Minute + usable)
 	authServer.AddRefreshToken("initial-refresh-token")
 
 	apiHandler := mockapi.NewHandler(t)
@@ -100,13 +101,14 @@ func TestAuthRefresh_ManyExpiries(t *testing.T) {
 
 	const (
 		workers  = 6
-		duration = 10 * time.Second
+		duration = 5 * time.Second
 	)
 	commands := [][]string{
 		{"auth:token", "--no-warn"},
 		{"auth:info", "id", "--refresh"},
 	}
-	deadline := time.Now().Add(duration)
+	start := time.Now()
+	deadline := start.Add(duration)
 	var (
 		wg   sync.WaitGroup
 		mu   sync.Mutex
@@ -130,7 +132,8 @@ func TestAuthRefresh_ManyExpiries(t *testing.T) {
 
 	assert.Empty(t, errs)
 	assert.False(t, authServer.ReuseDetected(), "a rotated refresh token was reused")
-	expiries := int(duration/(3*time.Second)) + 1
+	// Commands started before the deadline may finish after it.
+	expiries := int(time.Since(start)/usable) + 1
 	refreshes := authServer.RefreshRequests()
 	t.Logf("%d commands, %d refreshes", runs, refreshes)
 	assert.GreaterOrEqual(t, refreshes, 2)
