@@ -212,12 +212,7 @@ func handleLoginRequired(cmd *cobra.Command, cnf *config.Config, m *auth.Manager
 		fmt.Fprintln(stderr, color.YellowString(lerr.Notice))
 		fmt.Fprintln(stderr)
 	}
-	// The browser login refuses to run when a token is set via config.
-	hasConfiguredToken, err := m.HasConfiguredToken()
-	if err != nil {
-		return err
-	}
-	if !hasConfiguredToken && isInteractive(cmd) && canOpenURLs("") {
+	if isInteractive(cmd) && canOpenURLs("") && !hasConfiguredToken(m) {
 		fmt.Fprintln(stderr, lerr.Message())
 		fmt.Fprintln(stderr)
 		if advice := sessionAdvice(cmd.Context(), cnf, m, "To switch sessions, run"); advice != nil {
@@ -244,6 +239,13 @@ func handleLoginRequired(cmd *cobra.Command, cnf *config.Config, m *auth.Manager
 	}
 	fmt.Fprintln(stderr, loginRequiredMessage(cnf, lerr))
 	return &exitError{code: auth.ExitCodeLoginRequired}
+}
+
+// hasConfiguredToken reports whether a token is set via config, which makes the browser login refuse to run.
+// An error reading the token also counts, as the browser login would fail with it.
+func hasConfiguredToken(m *auth.Manager) bool {
+	has, err := m.HasConfiguredToken()
+	return has || err != nil
 }
 
 // loginRequiredMessage matches the legacy CLI's LoginRequiredEvent::getExtendedMessage().

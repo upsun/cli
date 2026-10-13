@@ -3,6 +3,8 @@ package tests
 import (
 	"fmt"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -107,4 +109,25 @@ func TestAuthLoginRequired_StoredToken(t *testing.T) {
 			assert.Contains(t, stderr, "Log in via a browser?")
 		})
 	}
+}
+
+// TestAuthLoginRequired_UnreadableTokenFile checks that an unreadable token file, which is not used when an API token
+// is stored, does not hide the login-required error.
+func TestAuthLoginRequired_UnreadableTokenFile(t *testing.T) {
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+
+	f := newGoAuthCommandFactory(t, "", authServer.URL)
+	f.extraEnv = append(f.extraEnv,
+		EnvPrefix+"TOKEN=",
+		EnvPrefix+"API_TOKEN_FILE="+filepath.Join(t.TempDir(), "missing"),
+	)
+	// An invalid API token saved by auth:api-token-login, in the legacy CLI's storage (which is migrated).
+	sessDir := filepath.Join(f.home, ".platform-test-cli", ".session", "sess-cli-default")
+	require.NoError(t, os.MkdirAll(sessDir, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(sessDir, "api-token"), []byte("invalid-token"), 0o600))
+
+	_, stderr, err := f.RunCombinedOutput("auth:token", "--no-warn")
+	assertExitCode(t, 3, err)
+	assert.Contains(t, stderr, "The API token is invalid.")
 }
