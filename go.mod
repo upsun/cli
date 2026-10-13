@@ -10,6 +10,7 @@ require (
 	github.com/fatih/color v1.19.0
 	github.com/go-chi/chi/v5 v5.3.2
 	github.com/go-playground/validator/v10 v10.30.5
+	github.com/godbus/dbus/v5 v5.2.2
 	github.com/gofrs/flock v0.13.1
 	github.com/oklog/ulid/v2 v2.1.2
 	github.com/platformsh/platformify v0.5.0
@@ -21,6 +22,7 @@ require (
 	github.com/upsun/lib-sun v0.3.16
 	github.com/upsun/whatsun v0.2.1
 	github.com/wk8/go-ordered-map/v2 v2.1.8
+	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/crypto v0.57.0
 	golang.org/x/oauth2 v0.37.0
 	golang.org/x/sync v0.23.0
@@ -57,6 +59,7 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
+	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/dlclark/regexp2/v2 v2.2.1 // indirect
 	github.com/dsnet/compress v0.0.2-0.20230904184137-39efe44ab707 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect

@@ -130,8 +130,8 @@ func TestAuthBrowserLogin_Success(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// writeOAuthSession writes a pre-populated OAuth session directly to the filesystem for a given
-// homeDir and session ID. This bypasses the session.Manager so integration tests can set up
+// writeOAuthSession writes an OAuth session in the legacy CLI's file format, for a given homeDir and
+// session ID. The CLI migrates it to its own storage on first use, so integration tests can set up
 // authenticated state without running a full login flow.
 func writeOAuthSession(t *testing.T, homeDir, sessionID string, s map[string]any) {
 	t.Helper()
