@@ -109,6 +109,7 @@ func TestAuthRefresh_ManyExpiries(t *testing.T) {
 	}
 	start := time.Now()
 	deadline := start.Add(duration)
+	f.quiet = true
 	var (
 		wg   sync.WaitGroup
 		mu   sync.Mutex

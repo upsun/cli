@@ -78,6 +78,7 @@ type cmdFactory struct {
 	dir      string // Working directory; defaults to a per-test temporary directory.
 	home     string // CLI home directory; a per-test temporary directory.
 	stdin    io.Reader
+	quiet    bool // Don't log commands or echo their stderr, e.g. in stress tests.
 }
 
 func newCommandFactory(t *testing.T, apiURL, authURL string) *cmdFactory {
@@ -113,10 +114,12 @@ func (f *cmdFactory) RunCombinedOutput(args ...string) (stdOut, stdErr string, e
 	var stdErrBuffer bytes.Buffer
 	cmd.Stdout = &stdOutBuffer
 	cmd.Stderr = &stdErrBuffer
-	if testing.Verbose() {
-		cmd.Stderr = io.MultiWriter(&stdErrBuffer, os.Stderr)
+	if !f.quiet {
+		if testing.Verbose() {
+			cmd.Stderr = io.MultiWriter(&stdErrBuffer, os.Stderr)
+		}
+		f.t.Log("Running:", cmd)
 	}
-	f.t.Log("Running:", cmd)
 	err = cmd.Run()
 	return stdOutBuffer.String(), stdErrBuffer.String(), err
 }
