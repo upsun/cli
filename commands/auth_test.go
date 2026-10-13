@@ -52,21 +52,22 @@ func TestBrowserCommand_Whitespace(t *testing.T) {
 	assert.NotPanics(t, func() { browserCommand("  ") })
 }
 
-// setWSLInterop fakes WSL's binfmt_misc entry for Windows interop (an empty state leaves it out), wsl.conf, and the
-// System32 rundll32.exe (missing). It returns the paths for wsl.conf and rundll32.exe.
+// setWSLInterop fakes WSL's binfmt_misc entry for Windows interop (an empty state leaves it out), wsl.conf (missing),
+// and the default automount root. It returns the paths for wsl.conf and System32's rundll32.exe (missing).
 func setWSLInterop(t *testing.T, state string) (conf, rundll string) {
 	dir := t.TempDir()
 	if state != "" {
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "WSLInterop"), []byte(state+"\ninterpreter /init\n"), 0o600))
 	}
-	origDir, origConf, origRundll := wslBinfmtDir, wslConfPath, wslRundll32Path
-	wslBinfmtDir, wslConfPath, wslRundll32Path = dir, filepath.Join(dir, "wsl.conf"), filepath.Join(dir, "rundll32.exe")
-	t.Cleanup(func() { wslBinfmtDir, wslConfPath, wslRundll32Path = origDir, origConf, origRundll })
-	return wslConfPath, wslRundll32Path
+	origDir, origConf, origRoot := wslBinfmtDir, wslConfPath, wslDefaultMountRoot
+	wslBinfmtDir, wslConfPath, wslDefaultMountRoot = dir, filepath.Join(dir, "wsl.conf"), dir+"/"
+	t.Cleanup(func() { wslBinfmtDir, wslConfPath, wslDefaultMountRoot = origDir, origConf, origRoot })
+	return wslConfPath, filepath.Join(dir, "c", "Windows", "System32", "rundll32.exe")
 }
 
-// writeStub writes an executable stub.
+// writeStub writes an executable stub, creating its directory.
 func writeStub(t *testing.T, path string) {
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
 	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n"), 0o700)) //nolint:gosec // an executable stub
 }
 
@@ -89,11 +90,8 @@ func TestWSLInteropEnabled(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			conf, _ := setWSLInterop(t, c.binfmt)
-			if c.wslConf != "" {
-				require.NoError(t, os.WriteFile(conf, []byte(c.wslConf), 0o600))
-			}
-			assert.Equal(t, c.want, wslInteropEnabled())
+			setWSLInterop(t, c.binfmt)
+			assert.Equal(t, c.want, wslInteropEnabled(c.wslConf))
 		})
 	}
 }
@@ -104,34 +102,75 @@ func TestBrowserCommand_WSL(t *testing.T) {
 	}
 	_, system32 := setWSLInterop(t, "enabled")
 	writeStub(t, system32)
-	dir := t.TempDir()
-	writeStub(t, filepath.Join(dir, "rundll32.exe"))
-	t.Setenv("PATH", dir)
 	t.Setenv("DISPLAY", "")
 	t.Setenv("WSL_INTEROP", "")
 	t.Setenv("WSL_DISTRO_NAME", "Ubuntu")
 
 	assert.True(t, isWSL())
-	assert.Equal(t, system32, wslBrowser(), "System32 is checked before PATH")
+	assert.Equal(t, system32, wslBrowser())
 	assert.True(t, hasDisplay(), "a Windows browser can be used without a display")
 	assert.Equal(t, []string{system32, "url.dll,FileProtocolHandler"}, browserCommand(""))
 	assert.True(t, canOpenURLs(""))
 }
 
-// TestBrowserCommand_WSLRundll32InPath checks the PATH fallback, e.g. when the Windows drive is not mounted at /mnt/c.
-func TestBrowserCommand_WSLRundll32InPath(t *testing.T) {
+// TestWSLBrowser_MountRoot checks that rundll32.exe is found via wsl.conf's automount root, and not via PATH.
+func TestWSLBrowser_MountRoot(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("WSL is Linux")
 	}
-	setWSLInterop(t, "enabled")
-	dir := t.TempDir()
-	rundll := filepath.Join(dir, "rundll32.exe")
-	writeStub(t, rundll)
-	t.Setenv("PATH", dir)
-	t.Setenv("DISPLAY", "")
-	t.Setenv("WSL_DISTRO_NAME", "Ubuntu")
+	custom := t.TempDir()
+	customRundll := filepath.Join(custom, "c", "Windows", "System32", "rundll32.exe")
+	cases := []struct {
+		name    string
+		wslConf string
+		stub    string // Where to write rundll32.exe: "default", "custom" (roots), "path", or nowhere.
+		want    string // The expected root: "default", "custom", or none.
+	}{
+		{name: "default root", stub: "default", want: "default"},
+		{name: "custom root", wslConf: "[automount]\nroot = " + custom + "/\n", stub: "custom", want: "custom"},
+		{name: "custom root without slash", wslConf: "[Automount]\nRoot=" + custom + "\n", stub: "custom", want: "custom"},
+		{name: "custom root, rundll32 in default root", wslConf: "[automount]\nroot=" + custom + "/\n", stub: "default"},
+		{name: "rundll32 only in PATH", stub: "path"},
+		{name: "no rundll32"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			conf, defaultRundll := setWSLInterop(t, "enabled")
+			if c.wslConf != "" {
+				require.NoError(t, os.WriteFile(conf, []byte(c.wslConf), 0o600))
+			}
+			require.NoError(t, os.RemoveAll(filepath.Join(custom, "c")))
+			pathDir := t.TempDir()
+			t.Setenv("PATH", pathDir)
+			t.Setenv("WSL_DISTRO_NAME", "Ubuntu")
+			switch c.stub {
+			case "default":
+				writeStub(t, defaultRundll)
+			case "custom":
+				writeStub(t, customRundll)
+			case "path":
+				writeStub(t, filepath.Join(pathDir, "rundll32.exe"))
+			}
 
-	assert.Equal(t, rundll, wslBrowser())
+			switch c.want {
+			case "default":
+				assert.Equal(t, defaultRundll, wslBrowser())
+			case "custom":
+				assert.Equal(t, customRundll, wslBrowser())
+			default:
+				assert.Empty(t, wslBrowser())
+				assert.Nil(t, wslBrowserCommand())
+			}
+		})
+	}
+}
+
+func TestWSLConfValue(t *testing.T) {
+	conf := "[boot]\nsystemd=true\nroot=/boot/\n\n[Automount] # mounts\n  Root = /win/ # comment\n"
+	assert.Equal(t, "true", wslConfValue(conf, "boot", "systemd"))
+	assert.Equal(t, "/win/", wslConfValue(conf, "automount", "root"))
+	assert.Empty(t, wslConfValue(conf, "interop", "enabled"))
+	assert.Empty(t, wslConfValue("", "automount", "root"))
 }
 
 // TestBrowserCommand_WSLWithoutOpener checks WSL without a Windows opener, e.g. with interop disabled, or a Docker

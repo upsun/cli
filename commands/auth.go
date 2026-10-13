@@ -294,58 +294,58 @@ func isWSL() bool {
 	return err == nil && strings.Contains(strings.ToLower(string(b)), "microsoft")
 }
 
-// WSL's binfmt_misc directory, config file, and the usual path to rundll32.exe (overridden in tests).
+// WSL's binfmt_misc directory, config file, and default automount root (overridden in tests).
 var (
-	wslBinfmtDir    = "/proc/sys/fs/binfmt_misc"
-	wslConfPath     = "/etc/wsl.conf"
-	wslRundll32Path = "/mnt/c/Windows/System32/rundll32.exe"
+	wslBinfmtDir        = "/proc/sys/fs/binfmt_misc"
+	wslConfPath         = "/etc/wsl.conf"
+	wslDefaultMountRoot = "/mnt/"
 )
 
 // wslInteropEnabled reports whether WSL can run Windows programs. Its binfmt_misc entry is named WSLInterop or
 // WSLInterop-late. WSL1 removes it when interop is off, but WSL2 keeps it enabled, so wsl.conf is checked too.
-func wslInteropEnabled() bool {
+func wslInteropEnabled(wslConf string) bool {
 	paths, _ := filepath.Glob(filepath.Join(wslBinfmtDir, "WSLInterop*"))
 	for _, p := range paths {
 		if b, err := os.ReadFile(p); err == nil && strings.HasPrefix(string(b), "enabled") {
-			return !wslConfDisablesInterop()
+			return !strings.EqualFold(wslConfValue(wslConf, "interop", "enabled"), "false")
 		}
 	}
 	return false
 }
 
-// wslConfDisablesInterop reports whether wsl.conf sets "enabled = false" in its [interop] section.
-func wslConfDisablesInterop() bool {
-	b, err := os.ReadFile(wslConfPath)
-	if err != nil {
-		return false
-	}
-	var section string
-	for line := range strings.Lines(string(b)) {
+// wslConfValue returns the value of a key in a section of wsl.conf's contents, or an empty string.
+func wslConfValue(wslConf, section, key string) string {
+	var current string
+	for line := range strings.Lines(wslConf) {
 		line, _, _ = strings.Cut(line, "#")
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-			section = strings.ToLower(strings.TrimSpace(line[1 : len(line)-1]))
+			current = strings.TrimSpace(line[1 : len(line)-1])
 			continue
 		}
-		key, value, ok := strings.Cut(line, "=")
-		if ok && section == "interop" && strings.EqualFold(strings.TrimSpace(key), "enabled") {
-			return strings.EqualFold(strings.TrimSpace(value), "false")
+		k, v, ok := strings.Cut(line, "=")
+		if ok && strings.EqualFold(current, section) && strings.EqualFold(strings.TrimSpace(k), key) {
+			return strings.TrimSpace(v)
 		}
 	}
-	return false
+	return ""
 }
 
 // wslBrowserCommand returns a command to open URLs in a Windows browser from WSL, or nil if none is found.
 func wslBrowserCommand() []string {
+	b, _ := os.ReadFile(wslConfPath)
+	wslConf := string(b)
 	// The openers run Windows programs.
-	if !wslInteropEnabled() {
+	if !wslInteropEnabled(wslConf) {
 		return nil
 	}
-	// Searching PATH is slow under WSL2 (tens of ms, as it has Windows directories), so the usual path is tried first.
-	for _, p := range []string{wslRundll32Path, "rundll32.exe"} {
-		if p, err := exec.LookPath(p); err == nil {
-			return []string{p, "url.dll,FileProtocolHandler"}
-		}
+	// PATH is not searched, as that is slow under WSL2 (tens of ms, as it has Windows directories).
+	root := wslConfValue(wslConf, "automount", "root")
+	if root == "" {
+		root = wslDefaultMountRoot
+	}
+	if p, err := exec.LookPath(filepath.Join(root, "c", "Windows", "System32", "rundll32.exe")); err == nil {
+		return []string{p, "url.dll,FileProtocolHandler"}
 	}
 	return nil
 }
