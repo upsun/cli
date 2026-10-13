@@ -42,9 +42,10 @@ LEGACY_SOURCES := $(shell find legacy/bin legacy/src legacy/config legacy/resour
 
 .PHONY: help
 help: ## Show this help
-	@awk 'BEGIN { FS = ":.*## " } \
-		/^##@ / { printf "\n%s:\n", substr($$0, 5) } \
-		/^[a-zA-Z0-9_-]+:.*## / { printf "  %-20s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@if [ -t 1 ] && [ -z "$$NO_COLOR" ]; then bold=$$(printf '\033[1m'); reset=$$(printf '\033[0m'); fi; \
+	awk -v bold="$$bold" -v reset="$$reset" 'BEGIN { FS = ":.*## " } \
+		/^##@ / { printf "\n%s%s%s\n", bold, substr($$0, 5), reset } \
+		/^[a-zA-Z0-9_-]+:.*## / { printf "%-20s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 # Targets with a "##" description are listed by `make help`. Those automated in CI workflows are not.
 
