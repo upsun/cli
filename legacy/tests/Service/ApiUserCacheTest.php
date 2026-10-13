@@ -103,6 +103,19 @@ class ApiUserCacheTest extends TestCase
         $this->assertSame(2, $rejections);
     }
 
+    public function testCacheIsNotUsedWithoutAUserId(): void
+    {
+        $client = $this->createMock(PlatformClient::class);
+        $client->expects($this->exactly(2))
+            ->method('getUser')
+            ->with('me')
+            ->willReturn($this->user('user-a'));
+
+        $api = $this->createApi($client, new ArrayCache(), false);
+        $api->getUser();
+        $api->getUser();
+    }
+
     /**
      * @param array<string, mixed> $claims
      */
@@ -116,12 +129,12 @@ class ApiUserCacheTest extends TestCase
         return new User(['id' => $id, 'username' => 'fetched'], 'https://api.example.test/api/users', new Client());
     }
 
-    private function createApi(PlatformClient $client, ArrayCache $cache, string $userId): Api
+    private function createApi(PlatformClient $client, ArrayCache $cache, string|false $userId): Api
     {
         $config = new Config(['PLATFORMSH_CLI_SESSION_ID' => 'user-cache-test']);
 
         return new class ($client, $config, $cache, $userId) extends Api {
-            public function __construct(private readonly PlatformClient $client, Config $config, ArrayCache $cache, private readonly string $userId)
+            public function __construct(private readonly PlatformClient $client, Config $config, ArrayCache $cache, private readonly string|false $userId)
             {
                 parent::__construct($config, $cache, new BufferedOutput());
             }
@@ -131,7 +144,7 @@ class ApiUserCacheTest extends TestCase
                 return $this->client;
             }
 
-            public function getMyUserId(bool $reset = false): string
+            protected function findMyUserId(bool $reset = false): string|false
             {
                 return $this->userId;
             }

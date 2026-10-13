@@ -245,7 +245,7 @@ class ApiSshKeyTest extends TestCase
                 return $this->httpClient;
             }
 
-            public function getMyUserId(bool $reset = false): string
+            protected function findMyUserId(bool $reset = false): string
             {
                 return 'user-id';
             }

@@ -88,7 +88,11 @@ readonly class EventSubscriber implements EventSubscriberInterface
         // When an environment is found to be in the wrong state, perhaps our
         // cache is old - we should invalidate it.
         if ($error instanceof EnvironmentStateException) {
-            ($this->getApi)()->clearEnvironmentsCache($error->getEnvironment()->project);
+            try {
+                ($this->getApi)()->clearEnvironmentsCache($error->getEnvironment()->project);
+            } catch (\Exception) {
+                // Clearing the cache may need an API request: do not replace the original error if that fails.
+            }
         }
     }
 

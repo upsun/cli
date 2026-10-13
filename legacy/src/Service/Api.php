@@ -14,6 +14,7 @@ use GuzzleHttp\Exception\RequestException;
 use Platformsh\Client\Model\Integration;
 use Composer\CaBundle\CaBundle;
 use Doctrine\Common\Cache\CacheProvider;
+use Doctrine\Common\Cache\VoidCache;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\BadResponseException;
@@ -1091,11 +1092,19 @@ class Api
      */
     public function getMyUserId(bool $reset = false): string
     {
-        $id = $this->getClient()->getMyUserId($reset);
+        $id = $this->findMyUserId($reset);
         if (!$id) {
             throw new \RuntimeException('No user ID found for the current session.');
         }
         return $id;
+    }
+
+    /**
+     * Returns the ID of the current user, or false if it cannot be found, e.g. for some API tokens.
+     */
+    protected function findMyUserId(bool $reset = false): string|false
+    {
+        return $this->getClient()->getMyUserId($reset);
     }
 
     /**
@@ -1372,7 +1381,8 @@ class Api
      * Returns the cache for API data, namespaced by the current user's ID.
      *
      * The ID is read from the access token's claims, without verification, or from the API if the token is not a JWT.
-     * So cached data is not used with an invalid opaque token, or with another user's credentials.
+     * So cached data is not used with an invalid opaque token, or with another user's credentials. Nothing is cached if
+     * there is no user ID.
      */
     public function userCache(): CacheProvider
     {
@@ -1388,7 +1398,10 @@ class Api
             $this->checkedExpiredToken = $accessToken;
             $reset = true;
         }
-        $userId = $this->getMyUserId($reset);
+        $userId = $this->findMyUserId($reset);
+        if ($userId === false) {
+            return new VoidCache();
+        }
         if ($this->userCache?->getNamespace() !== $userId) {
             $this->userCache = new NamespacedCache($this->cache, $userId);
         }
