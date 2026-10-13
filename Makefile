@@ -46,6 +46,8 @@ help: ## Show this help
 		/^##@ / { printf "\n%s:\n", substr($$0, 5) } \
 		/^[a-zA-Z0-9_-]+:.*## / { printf "  %-20s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
+# Targets with a "##" description are listed by `make help`. Those automated in CI workflows are not.
+
 ##@ Build
 
 .PHONY: single
@@ -76,8 +78,9 @@ phar: $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) ## Build the legacy CLI phar a
 .PHONY: php
 php: $(ARCHIVES)/php_$(GOOS)_$(GOARCH) ## Download the PHP binary for the current platform
 
+# Download PHP binaries for all platforms.
 .PHONY: download-php
-download-php: $(PHP_UNIX_BINARIES) $(ARCHIVES)/php_windows.exe $(ARCHIVES)/cacert.pem ## Download PHP binaries for all platforms
+download-php: $(PHP_UNIX_BINARIES) $(ARCHIVES)/php_windows.exe $(ARCHIVES)/cacert.pem
 
 # Build the legacy CLI phar from the legacy/ subdirectory.
 # The self:build command handles composer --no-dev rebuild, Box installation, and cache warming.
@@ -132,8 +135,9 @@ FORCE:
 
 ##@ Release
 
+# Create and publish a release.
 .PHONY: release
-release: goreleaser clean $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php $(ARCHIVES)/cacert.pem ## Create and publish a release
+release: goreleaser clean $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php $(ARCHIVES)/cacert.pem
 ifndef RSA_SIGNING_KEY_FILE
 	$(error RSA_SIGNING_KEY_FILE is not set. Set it to the path of your RSA private key for APK signing.)
 endif
@@ -146,8 +150,9 @@ endif
 vendor-release: check-vendor .goreleaser.vendor.yaml goreleaser clean $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) $(ARCHIVES)/commands-vendor.json php ## Release a vendor CLI (needs VENDOR_NAME, VENDOR_BINARY)
 	PHP_VERSION=$(PHP_VERSION) VENDOR_BINARY="$(VENDOR_BINARY)" VENDOR_NAME="$(VENDOR_NAME)" goreleaser release --clean --config=.goreleaser.vendor.yaml
 
+# Check the goreleaser configs.
 .PHONY: goreleaser-check
-goreleaser-check: goreleaser ## Check the goreleaser configs
+goreleaser-check: goreleaser
 	PHP_VERSION=$(PHP_VERSION) goreleaser check --config=.goreleaser.yaml
 
 .PHONY: goreleaser
@@ -212,8 +217,9 @@ lint-phpstan: composer-dev ## Run PHPStan
 lint-assets: ## Refresh the embedded lint registry from upstream
 	cd internal/lint/registry && go run gen.go
 
+# Fail if the embedded lint registry is stale.
 .PHONY: lint-assets-check
-lint-assets-check: lint-assets ## Fail if the embedded lint registry is stale
+lint-assets-check: lint-assets
 	git diff --exit-code -- internal/lint/registry/registry.json
 
 # Installs dev dependencies, which a phar build removes.
@@ -232,16 +238,19 @@ clean: ## Remove the phar, command indexes, legacy dependencies and caches
 clean-all: clean npm-clean ## Also remove PHP binaries and build output
 	rm -rf $(ARCHIVES) dist .goreleaser.vendor.yaml
 
-##@ npm distribution (see npm/README.md)
-
-.PHONY: npm-pack
-npm-pack: ## Build npm tarballs from existing GoReleaser archives in dist/
-	bash npm/scripts/build.sh
-
-.PHONY: npm-publish
-npm-publish: ## Publish npm tarballs (requires npm auth). NPM_TAG=latest|next, DRY_RUN=1 to dry-run
-	bash npm/scripts/publish.sh
-
 .PHONY: npm-clean
 npm-clean: ## Remove npm/dist working directory
 	rm -rf npm/dist
+
+# ----- npm distribution -----
+# See npm/README.md.
+
+# Build npm tarballs from existing GoReleaser archives in dist/.
+.PHONY: npm-pack
+npm-pack:
+	bash npm/scripts/build.sh
+
+# Publish npm tarballs (requires npm auth). NPM_TAG=latest|next, DRY_RUN=1 to dry-run.
+.PHONY: npm-publish
+npm-publish:
+	bash npm/scripts/publish.sh
