@@ -42,18 +42,18 @@ class AdaptiveTableTest extends TestCase
         $this->assertLessThanOrEqual($maxTableWidth, max($lineWidths));
 
         $expected = <<<'EOT'
-            +-----+------------+------------+------------+----------+
-            | Row | Lorem      | ipsum      | dolor      | sit      |
-            +-----+------------+------------+------------+----------+
-            | #1  | amet       | consectetu | adipiscing | Quisque  |
-            |     |            | r          | elit       | pulvinar |
-            | #2  | tellus sit | sollicitud | tincidunt  | risus    |
-            |     | amet       | in         |            |          |
-            +-----+------------+------------+------------+----------+
-            | #3  | risus      | sem        | mattis     | ex       |
-            | #4  | quis       | luctus     | lorem      | ligula   |
-            |     |            | metus      | cursus     |          |
-            +-----+------------+------------+------------+----------+
+            +-----+----------+--------------+------------+----------+
+            | Row | Lorem    | ipsum        | dolor      | sit      |
+            +-----+----------+--------------+------------+----------+
+            | #1  | amet     | consectetur  | adipiscing | Quisque  |
+            |     |          |              | elit       | pulvinar |
+            | #2  | tellus   | sollicitudin | tincidunt  | risus    |
+            |     | sit amet |              |            |          |
+            +-----+----------+--------------+------------+----------+
+            | #3  | risus    | sem          | mattis     | ex       |
+            | #4  | quis     | luctus metus | lorem      | ligula   |
+            |     |          |              | cursus     |          |
+            +-----+----------+--------------+------------+----------+
 
             EOT;
         $this->assertEquals($expected, $result);
@@ -88,18 +88,17 @@ class AdaptiveTableTest extends TestCase
         $this->assertLessThanOrEqual($maxTableWidth, max($lineWidths));
 
         $expected = <<<'EOT'
-            +-----+------------+-------------+--------------+------------+
-            | Row | Lorem      | ipsum       | dolor        | Indented   |
-            +-----+------------+-------------+--------------+------------+
-            | #1  | amet       | consectetur | adipiscing   |   Quisque  |
-            |     |            |             | elit         |   pulvinar |
-            | #2  | tellus sit | sollicitudi | tincidunt    |   risus    |
-            |     | amet       | n           |              |            |
-            +-----+------------+-------------+--------------+------------+
-            | #3  | risus      | sem         | mattis       |   ex       |
-            | #4  | quis       | luctus      | lorem cursus |   ligula   |
-            |     |            | metus       |              |            |
-            +-----+------------+-------------+--------------+------------+
+            +-----+------------+--------------+--------------+------------+
+            | Row | Lorem      | ipsum        | dolor        | Indented   |
+            +-----+------------+--------------+--------------+------------+
+            | #1  | amet       | consectetur  | adipiscing   |   Quisque  |
+            |     |            |              | elit         |   pulvinar |
+            | #2  | tellus sit | sollicitudin | tincidunt    |   risus    |
+            |     | amet       |              |              |            |
+            +-----+------------+--------------+--------------+------------+
+            | #3  | risus      | sem          | mattis       |   ex       |
+            | #4  | quis       | luctus metus | lorem cursus |   ligula   |
+            +-----+------------+--------------+--------------+------------+
 
             EOT;
         $this->assertEquals($expected, $result);
@@ -126,20 +125,85 @@ class AdaptiveTableTest extends TestCase
         $result = $buffer->fetch();
 
         $expected = <<<'EOT'
-            +-----+------------+--------------+------------+----------+
-            | Row | Lorem      | ipsum        | dolor      | sit      |
-            +-----+------------+--------------+------------+----------+
-            | #1  | amet       | consectetur  | adipiscing | Quisque  |
-            |     |            |              | elit       | pulvinar |
-            | #2  | tellus sit | sollicitudin | tincidunt  | risus    |
-            |     | amet       |              |            |          |
-            | #3  | risus      | sem          | mattis     | ex       |
-            | #4  | quis       | luctus metus | lorem      | ligula   |
-            |     |            |              | cursus     |          |
-            +-----+------------+--------------+------------+----------+
+            +-----+----------+--------------+------------+----------+
+            | Row | Lorem    | ipsum        | dolor      | sit      |
+            +-----+----------+--------------+------------+----------+
+            | #1  | amet     | consectetur  | adipiscing | Quisque  |
+            |     |          |              | elit       | pulvinar |
+            | #2  | tellus   | sollicitudin | tincidunt  | risus    |
+            |     | sit amet |              |            |          |
+            | #3  | risus    | sem          | mattis     | ex       |
+            | #4  | quis     | luctus metus | lorem      | ligula   |
+            |     |          |              | cursus     |          |
+            +-----+----------+--------------+------------+----------+
 
             EOT;
         $this->assertEquals($expected, $result);
+    }
+
+    /**
+     * Test that the width of unbroken words is reduced for the table to fit.
+     */
+    public function testAdaptedRowsReduceUnbrokenWidth(): void
+    {
+        $buffer = new BufferedOutput();
+        $table = new AdaptiveTable($buffer, 80);
+        $table->setHeaders([['ID', 'Title', 'Created', 'Updated', 'Status']]);
+        $table->setRows([
+            ['abc123def456', 'A project with a reasonably long title for testing', '2026-01-01T00:00:00+00:00', '2026-01-02T00:00:00+00:00', 'active'],
+        ]);
+        $table->render();
+
+        $expected = <<<'EOT'
+            +--------------+------------+--------------------+--------------------+--------+
+            | ID           | Title      | Created            | Updated            | Status |
+            +--------------+------------+--------------------+--------------------+--------+
+            | abc123def456 | A project  | 2026-01-01T00:00:0 | 2026-01-02T00:00:0 | active |
+            |              | with a     | 0+00:00            | 0+00:00            |        |
+            |              | reasonably |                    |                    |        |
+            |              | long title |                    |                    |        |
+            |              | for        |                    |                    |        |
+            |              | testing    |                    |                    |        |
+            +--------------+------------+--------------------+--------------------+--------+
+
+            EOT;
+        $this->assertEquals($expected, $buffer->fetch());
+    }
+
+    /**
+     * Test that indentation is included in the minimum column width.
+     */
+    public function testAdaptedRowsIndentInMinimumWidth(): void
+    {
+        $buffer = new BufferedOutput();
+        $table = new AdaptiveTable($buffer, 10);
+        $table->setHeaders([['K', 'V']]);
+        $table->setRows([['x', '  ab cd']]);
+        $table->render();
+
+        $expected = <<<'EOT'
+            +---+------+
+            | K | V    |
+            +---+------+
+            | x |   ab |
+            |   |   cd |
+            +---+------+
+
+            EOT;
+        $this->assertEquals($expected, $buffer->fetch());
+    }
+
+    /**
+     * Test that a cell's minimum width does not exceed its width, if a later line is not indented.
+     */
+    public function testAdaptedRowsMultilineIndent(): void
+    {
+        $table = new AdaptiveTable(new BufferedOutput(), 5);
+        $table->setHeaders([['A']]);
+        $table->setRows([["  a\nwwwwww"]]);
+
+        $method = new \ReflectionMethod($table, 'getMaxColumnWidths');
+        $this->assertEquals([6], $method->invoke($table));
     }
 
     /**
