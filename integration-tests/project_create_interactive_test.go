@@ -14,6 +14,7 @@ import (
 // TestProjectCreate_AcceptDefaults sends two newlines to accept the
 // "Default branch" prompt and the cost-confirmation [Y/n] prompt.
 func TestProjectCreate_AcceptDefaults(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

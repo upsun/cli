@@ -111,6 +111,7 @@ func runResourcesSetArgs(
 // organization without a trial, and no longer fetches the organization
 // profile (whose endpoint returns 403 since the billing system migration).
 func TestResourcesSet_NoTrial(t *testing.T) {
+	t.Parallel()
 	apiHandler := mockapi.NewHandler(t)
 	orgID := "org-no-trial"
 	projectID := setUpResourcesSetOrg(apiHandler, orgID)
@@ -138,6 +139,7 @@ func TestResourcesSet_NoTrial(t *testing.T) {
 // TestResourcesSet_TrialLimitExceeded checks that the resource limits of an
 // active trial are enforced.
 func TestResourcesSet_TrialLimitExceeded(t *testing.T) {
+	t.Parallel()
 	apiHandler := mockapi.NewHandler(t)
 	orgID := "org-trial-exceeded"
 	projectID := setUpResourcesSetOrg(apiHandler, orgID)
@@ -155,6 +157,7 @@ func TestResourcesSet_TrialLimitExceeded(t *testing.T) {
 // TestResourcesSet_TrialWithinLimits checks that changes within an active
 // trial's resource limits are allowed.
 func TestResourcesSet_TrialWithinLimits(t *testing.T) {
+	t.Parallel()
 	apiHandler := mockapi.NewHandler(t)
 	orgID := "org-trial-within"
 	projectID := setUpResourcesSetOrg(apiHandler, orgID)
@@ -171,6 +174,7 @@ func TestResourcesSet_TrialWithinLimits(t *testing.T) {
 // TestResourcesSet_TrialNullCaps checks that null resource limits are treated
 // as not capped, while the other limits are still enforced.
 func TestResourcesSet_TrialNullCaps(t *testing.T) {
+	t.Parallel()
 	apiHandler := mockapi.NewHandler(t)
 	orgID := "org-trial-null-caps"
 	projectID := setUpResourcesSetOrg(apiHandler, orgID)
@@ -188,6 +192,7 @@ func TestResourcesSet_TrialNullCaps(t *testing.T) {
 // TestResourcesSet_TrialsNotEnabled checks that an error from the trial
 // endpoint is tolerated, e.g. for vendors without trials.
 func TestResourcesSet_TrialsNotEnabled(t *testing.T) {
+	t.Parallel()
 	apiHandler := mockapi.NewHandler(t)
 	orgID := "org-trial-disabled"
 	projectID := setUpResourcesSetOrg(apiHandler, orgID)
@@ -211,6 +216,7 @@ func TestResourcesSet_TrialsNotEnabled(t *testing.T) {
 // computed from the current profile size when an update does not change it,
 // e.g. when only setting object storage and the instance count.
 func TestResourcesSet_TrialWithoutSizeChange(t *testing.T) {
+	t.Parallel()
 	apiHandler := mockapi.NewHandler(t)
 	orgID := "org-trial-no-size"
 	projectID := setUpResourcesSetOrg(apiHandler, orgID)
@@ -230,6 +236,7 @@ func TestResourcesSet_TrialWithoutSizeChange(t *testing.T) {
 // limits count the current size even if it is a guaranteed CPU size that the
 // project no longer offers.
 func TestResourcesSet_TrialFromUnsupportedGuaranteedSize(t *testing.T) {
+	t.Parallel()
 	apiHandler := mockapi.NewHandler(t)
 	orgID := "org-trial-guaranteed"
 	projectID := setUpResourcesSetOrgWithSize(apiHandler, orgID, "2")

@@ -192,7 +192,7 @@ test-php: composer-dev ## Run PHP unit tests (excludes slow tests)
 
 .PHONY: test-integration
 test-integration: single ## Build the CLI and run integration tests
-	cd integration-tests && go test -v -count=1 ./...
+	cd integration-tests && go test -count=1 ./...
 
 .PHONY: integration-test
 integration-test: test-integration

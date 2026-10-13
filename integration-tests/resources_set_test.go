@@ -22,6 +22,7 @@ import (
 // --size app:0.1 change is then requested with --dry-run, forcing the
 // command to print the previous-vs-new summary before exiting.
 func TestResourcesSet_CurrentSizeMissingFromContainerProfiles(t *testing.T) {
+	t.Parallel()
 	apiHandler := mockapi.NewHandler(t)
 	// No trial endpoint is mocked: the trial-limit branch that would
 	// otherwise reach into $current['sizes'] is skipped (a separate
@@ -69,6 +70,7 @@ func TestResourcesSet_CurrentSizeMissingFromContainerProfiles(t *testing.T) {
 // TestResourcesSet_SizeBelowMinimumCPU checks that a fractional minimum CPU
 // is shown in the error for a profile size below it.
 func TestResourcesSet_SizeBelowMinimumCPU(t *testing.T) {
+	t.Parallel()
 	apiHandler := mockapi.NewHandler(t)
 	projectID, _ := setUpResourcesProject(apiHandler, "org-min-cpu", nextDeployment(map[string]any{
 		"app": map[string]any{

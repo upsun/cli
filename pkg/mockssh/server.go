@@ -274,22 +274,14 @@ func (s *Server) handleChannels(conn ssh.ConnMetadata, chans <-chan ssh.NewChann
 	}
 }
 
-var hostKey ssh.Signer
-
-func generateHostKey() (ssh.Signer, error) {
-	if hostKey == nil {
-		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
-		if err != nil {
-			return nil, err
-		}
-		s, err := ssh.NewSignerFromKey(privateKey)
-		if err != nil {
-			return nil, err
-		}
-		hostKey = s
+// generateHostKey returns a host key, generated once, as servers may run in parallel tests.
+var generateHostKey = sync.OnceValues(func() (ssh.Signer, error) {
+	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, err
 	}
-	return hostKey, nil
-}
+	return ssh.NewSignerFromKey(privateKey)
+})
 
 func fetchAuthorityKeys(ctx context.Context, url string) ([]ssh.PublicKey, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)

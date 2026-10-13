@@ -15,6 +15,7 @@ import (
 )
 
 func TestAppList(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -80,6 +81,7 @@ app	golang:1.23
 // TestAppListEmptyLocalConfig checks that "apps" tolerates an empty or
 // comment-only local app config file.
 func TestAppListEmptyLocalConfig(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -125,7 +127,7 @@ func TestAppListEmptyLocalConfig(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			f := newCommandFactory(t, apiServer.URL, authServer.URL)
-			f.extraEnv = []string{"CLI_CONFIG_FILE=" + configFile}
+			f.useConfig(configFile)
 			f.dir = repoLayout{git: true, branch: "main", remoteName: "platform-test"}.build(t)
 			appConfigFile := filepath.Join(f.dir, ".platform.app.yaml")
 			require.NoError(t, os.WriteFile(appConfigFile, []byte(c.content), 0o600))

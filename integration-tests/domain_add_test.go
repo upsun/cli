@@ -16,6 +16,7 @@ import (
 // TestDomainAdd is a regression test for a TypeError raised by the legacy
 // domain:add command on a production environment when --attach was not given.
 func TestDomainAdd(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

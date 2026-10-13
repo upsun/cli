@@ -11,6 +11,7 @@ import (
 )
 
 func TestCertificateList(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -61,6 +62,7 @@ func TestCertificateList(t *testing.T) {
 }
 
 func TestCertificateListEmpty(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

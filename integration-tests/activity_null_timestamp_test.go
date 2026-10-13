@@ -19,6 +19,7 @@ import (
 // timestamps) by wrapping the handler and serving raw JSON for the activities
 // endpoints.
 func TestActivityNullTimestamp(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

@@ -15,7 +15,6 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/alecthomas/chroma/v2/quick"
 	"github.com/fatih/color"
 	"github.com/upsun/whatsun/pkg/digest"
 	"github.com/upsun/whatsun/pkg/files"
@@ -172,7 +171,7 @@ func RunAIConfig(
 
 	// Check if stdout is a terminal and supports color
 	if f, ok := stdout.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
-		if err := quick.Highlight(stdout, yamlContent+"\n", "yaml", "terminal", "bw"); err != nil {
+		if err := highlightYAML(stdout, yamlContent+"\n"); err != nil {
 			// Fall back to plain text if highlighting fails
 			fmt.Fprintln(stdout, yamlContent)
 		}

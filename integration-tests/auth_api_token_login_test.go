@@ -13,6 +13,7 @@ import (
 )
 
 func TestAuthAPITokenLogin_Valid(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiHandler := mockapi.NewHandler(t)
@@ -35,6 +36,7 @@ func TestAuthAPITokenLogin_Valid(t *testing.T) {
 
 // TestAuthAPITokenLogin_CommandAfterLogin checks that other commands use the stored API token.
 func TestAuthAPITokenLogin_CommandAfterLogin(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -69,6 +71,7 @@ func TestAuthAPITokenLogin_CommandAfterLogin(t *testing.T) {
 }
 
 func TestAuthAPITokenLogin_NonInteractive(t *testing.T) {
+	t.Parallel()
 	f := newCommandFactory(t, "", "")
 	_, stderr, err := f.RunCombinedOutput("auth:api-token-login")
 	assertExitCode(t, 1, err)
@@ -78,6 +81,7 @@ func TestAuthAPITokenLogin_NonInteractive(t *testing.T) {
 // TestAuthAPITokenLogin_RetryOnInvalid: feeding an invalid token then a valid one
 // should succeed on the second attempt (retry up to 5 times on invalid token).
 func TestAuthAPITokenLogin_RetryOnInvalid(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiHandler := mockapi.NewHandler(t)
@@ -105,6 +109,7 @@ func TestAuthAPITokenLogin_RetryOnInvalid(t *testing.T) {
 
 // TestAuthAPITokenLogin_ExhaustsRetries: 5 consecutive invalid tokens should fail.
 func TestAuthAPITokenLogin_ExhaustsRetries(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiServer := httptest.NewServer(mockapi.NewHandler(t))

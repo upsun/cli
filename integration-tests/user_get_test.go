@@ -14,6 +14,7 @@ import (
 // TestUserGet covers user:get with missing optional inputs, which previously
 // caused TypeErrors in the legacy CLI.
 func TestUserGet(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

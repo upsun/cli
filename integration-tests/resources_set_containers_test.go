@@ -77,6 +77,7 @@ func setUpResourcesSetContainers(apiHandler *mockapi.Handler) (projectID string)
 // TestResourcesSet_Containers checks resources:set options across apps,
 // workers, services and tasks: the updates sent, and the validation errors.
 func TestResourcesSet_Containers(t *testing.T) {
+	t.Parallel()
 	type patch map[string]map[string]map[string]any
 
 	cases := []struct {
@@ -241,6 +242,7 @@ func TestResourcesSet_Containers(t *testing.T) {
 // services: the instance count is asked only for a scalable service, and
 // accepting the defaults changes nothing.
 func TestResourcesSet_ContainersInteractive(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name      string
 		service   string

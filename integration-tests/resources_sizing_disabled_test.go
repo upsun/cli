@@ -14,6 +14,7 @@ import (
 // TestResourcesSizingDisabled checks the error shown when the project does not
 // support flexible resources, which mentions Fixed only for Fixed orgs.
 func TestResourcesSizingDisabled(t *testing.T) {
+	t.Parallel()
 	const (
 		fixedNote = "not available for Fixed organizations"
 		fixedURL  = "https://docs.cli-tests.example.com/fixed/"

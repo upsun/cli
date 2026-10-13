@@ -10,6 +10,7 @@ import (
 )
 
 func TestEnvironmentPause(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -42,6 +43,7 @@ func TestEnvironmentPause(t *testing.T) {
 }
 
 func TestEnvironmentResume(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

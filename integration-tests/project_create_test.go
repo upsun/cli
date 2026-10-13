@@ -13,6 +13,7 @@ import (
 )
 
 func TestProjectCreate(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -72,6 +73,7 @@ func TestProjectCreate(t *testing.T) {
 }
 
 func TestProjectCreate_CanCreateError(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		orgName            string
 		canCreateResponse  *mockapi.CanCreateResponse

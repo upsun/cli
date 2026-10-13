@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,12 +26,18 @@ import (
 	"github.com/upsun/cli/pkg/mockapi"
 )
 
-var _validatedCommand string
+var (
+	_validatedCommand   string
+	_validatedCommandMu sync.Mutex
+)
 
 func getCommandName(t *testing.T) string {
 	if testing.Short() {
 		t.Skip("skipping integration test due to -short flag")
 	}
+	// Tests run in parallel: validate once.
+	_validatedCommandMu.Lock()
+	defer _validatedCommandMu.Unlock()
 	if _validatedCommand != "" {
 		return _validatedCommand
 	}
@@ -71,6 +78,7 @@ type cmdFactory struct {
 	dir      string // Working directory; defaults to a per-test temporary directory.
 	home     string // CLI home directory; a per-test temporary directory.
 	stdin    io.Reader
+	quiet    bool // Don't log commands or echo their stderr, e.g. in stress tests.
 }
 
 func newCommandFactory(t *testing.T, apiURL, authURL string) *cmdFactory {
@@ -93,8 +101,11 @@ func goAuthMode() bool {
 // Run runs a command, asserts that it did not error, and returns its normal (stdout) output.
 func (f *cmdFactory) Run(args ...string) string {
 	cmd := f.buildCommand(args...)
+	var stdErrBuffer bytes.Buffer
+	cmd.Stderr = &stdErrBuffer
 	f.t.Log("Running:", cmd)
 	b, err := cmd.Output()
+	f.logStderr(stdErrBuffer.String())
 	require.NoError(f.t, err)
 	return string(b)
 }
@@ -106,11 +117,13 @@ func (f *cmdFactory) RunCombinedOutput(args ...string) (stdOut, stdErr string, e
 	var stdErrBuffer bytes.Buffer
 	cmd.Stdout = &stdOutBuffer
 	cmd.Stderr = &stdErrBuffer
-	if testing.Verbose() {
-		cmd.Stderr = io.MultiWriter(&stdErrBuffer, os.Stderr)
+	if !f.quiet {
+		f.t.Log("Running:", cmd)
 	}
-	f.t.Log("Running:", cmd)
 	err = cmd.Run()
+	if !f.quiet {
+		f.logStderr(stdErrBuffer.String())
+	}
 	return stdOutBuffer.String(), stdErrBuffer.String(), err
 }
 
@@ -133,11 +146,9 @@ func (f *cmdFactory) RunInteractive(stdinInput string, args ...string) (stdOut, 
 	var stdErrBuffer bytes.Buffer
 	cmd.Stdout = &stdOutBuffer
 	cmd.Stderr = &stdErrBuffer
-	if testing.Verbose() {
-		cmd.Stderr = io.MultiWriter(&stdErrBuffer, os.Stderr)
-	}
 	f.t.Log("Running (interactive):", cmd)
 	err = cmd.Run()
+	f.logStderr(stdErrBuffer.String())
 	return stdOutBuffer.String(), stdErrBuffer.String(), err
 }
 
@@ -151,9 +162,6 @@ func (f *cmdFactory) buildCommand(args ...string) *exec.Cmd {
 	}
 	cmd.Env = testEnv(f.home)
 	cmd.Dir = f.dir
-	if testing.Verbose() {
-		cmd.Stderr = os.Stderr
-	}
 	if f.apiURL != "" {
 		cmd.Env = append(cmd.Env, EnvPrefix+"API_BASE_URL="+f.apiURL)
 	}
@@ -165,6 +173,19 @@ func (f *cmdFactory) buildCommand(args ...string) *exec.Cmd {
 		cmd.Stdin = f.stdin
 	}
 	return cmd
+}
+
+// logStderr logs a command's stderr to the test log, which is shown if the test fails or runs with -v.
+func (f *cmdFactory) logStderr(s string) {
+	if s != "" {
+		f.t.Logf("stderr:\n%s", s)
+	}
+}
+
+// useConfig sets a CLI config file. It also sets a private temporary directory, as
+// the legacy CLI copies the config to a shared cache file, which parallel tests would overwrite.
+func (f *cmdFactory) useConfig(path string) {
+	f.extraEnv = append(f.extraEnv, "CLI_CONFIG_FILE="+path, EnvPrefix+"TMP="+f.t.TempDir())
 }
 
 func assertTrimmed(t *testing.T, expected, actual string) {

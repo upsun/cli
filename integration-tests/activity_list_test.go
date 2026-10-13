@@ -12,6 +12,7 @@ import (
 )
 
 func TestActivityList(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

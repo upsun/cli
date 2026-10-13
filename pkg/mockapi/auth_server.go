@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 )
@@ -169,9 +168,7 @@ func (s *AuthServer) RevokedTokens() []string {
 // The caller must call Close() on the server when finished.
 func NewAuthServer(t *testing.T) *AuthServer {
 	mux := chi.NewRouter()
-	if testing.Verbose() {
-		mux.Use(middleware.DefaultLogger)
-	}
+	mux.Use(RequestLogger(t))
 
 	type pendingAuth struct {
 		codeChallenge string
@@ -349,45 +346,23 @@ func writeOAuthError(w http.ResponseWriter, code, description string) {
 
 // publicKeys returns the server's public keys, e.g. for SSH certificate generation.
 func publicKeys() ([]crypto.PublicKey, error) {
-	pub, _, err := keyPair()
+	priv, err := privateKey()
 	if err != nil {
 		return nil, err
 	}
-
-	return []crypto.PublicKey{pub}, nil
+	return []crypto.PublicKey{priv.Public()}, nil
 }
 
-var (
-	privateKey crypto.PrivateKey
-	publicKey  crypto.PublicKey
-)
-
-func keyPair() (crypto.PublicKey, crypto.PrivateKey, error) {
-	if privateKey == nil || publicKey == nil {
-		pub, priv, err := ed25519.GenerateKey(rand.Reader)
-		if err != nil {
-			return nil, nil, err
-		}
-		privateKey = priv
-		publicKey = pub
-	}
-	return publicKey, privateKey, nil
-}
-
-var signer ssh.Signer
+// privateKey returns the server's key, generated once, as servers may run in parallel tests.
+var privateKey = sync.OnceValues(func() (ed25519.PrivateKey, error) {
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	return priv, err
+})
 
 func sshSigner() (ssh.Signer, error) {
-	if signer != nil {
-		return signer, nil
-	}
-	_, priv, err := keyPair()
+	priv, err := privateKey()
 	if err != nil {
 		return nil, err
 	}
-	s, err := ssh.NewSignerFromKey(priv)
-	if err != nil {
-		return nil, err
-	}
-	signer = s
-	return s, nil
+	return ssh.NewSignerFromKey(priv)
 }

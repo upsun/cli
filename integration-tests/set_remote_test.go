@@ -47,6 +47,7 @@ func gitConfig(t *testing.T, dir, key string) string {
 }
 
 func TestProjectSetRemote(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -174,6 +175,7 @@ func TestProjectSetRemote(t *testing.T) {
 // TestEnvironmentSetRemoteDetachedHead is a regression test for a TypeError
 // raised by environment:set-remote in a detached HEAD without a branch argument.
 func TestEnvironmentSetRemoteDetachedHead(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
