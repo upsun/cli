@@ -40,7 +40,7 @@ applications:
         gin: 'v1.9.1'
 `,
 			wantErrs: []string{
-				"applications.app.dependencies.golang: invalid dependency type 'golang'; must be one of: nodejs, php, python3, ruby", //nolint:lll
+				"applications.app.dependencies.golang: invalid dependency type 'golang'; must be one of: nodejs, php, python, python3, ruby", //nolint:lll
 			},
 		},
 		{
@@ -56,8 +56,8 @@ applications:
         spring: '2.7.0'
 `,
 			wantErrs: []string{
-				"applications.app.dependencies.golang: invalid dependency type 'golang'; must be one of: nodejs, php, python3, ruby", //nolint:lll
-				"applications.app.dependencies.java: invalid dependency type 'java'; must be one of: nodejs, php, python3, ruby",
+				"applications.app.dependencies.golang: invalid dependency type 'golang'; must be one of: nodejs, php, python, python3, ruby", //nolint:lll
+				"applications.app.dependencies.java: invalid dependency type 'java'; must be one of: nodejs, php, python, python3, ruby",     //nolint:lll
 			},
 		},
 		{

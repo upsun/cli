@@ -20,7 +20,7 @@ func CheckDependencies(cfg *Config) *Result {
 			// Lint dependency type
 			if !validTypes[depType] {
 				path := "applications." + appName + ".dependencies." + depType
-				msg := fmt.Sprintf("invalid dependency type '%s'; must be one of: nodejs, php, python3, ruby", depType)
+				msg := fmt.Sprintf("invalid dependency type '%s'; must be one of: nodejs, php, python, python3, ruby", depType)
 				result.AddError(path, msg)
 				continue
 			}

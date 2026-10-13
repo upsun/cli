@@ -60,6 +60,21 @@ applications:
 				"`then` can only be used in an `if`",
 		},
 		{
+			name: "invalid cron command",
+			yamlContent: `
+applications:
+  app1:
+    type: "nodejs:20"
+    crons:
+      backup:
+        spec: "0 0 * * *"
+        commands:
+          start: "echo 'Missing quote"
+`,
+			expectErrorMessage: "linter errors:\n  - applications.app1.crons.backup.commands.start: invalid syntax: 1:6: " +
+				"reached EOF without closing quote `'`",
+		},
+		{
 			name: "invalid start command with pipe error",
 			yamlContent: `
 applications:

@@ -20,9 +20,8 @@ import (
 	"github.com/upsun/cli/internal/lint"
 )
 
-// errLintFailed signals that the configuration has errors, for a non-zero exit
-// code. Its message is empty because output is printed by the command itself.
-var errLintFailed = errors.New("")
+// errLintFailed exits with code 1 when the configuration has errors, without another message.
+var errLintFailed = &exitError{code: 1}
 
 func newLintCommand(cnf *config.Config) *cobra.Command {
 	cmd := &cobra.Command{

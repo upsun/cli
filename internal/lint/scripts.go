@@ -22,7 +22,7 @@ func CheckScripts(cfg *Config) *Result {
 		scripts[keyPrefix+"web.commands.start"] = app.Web.Commands.Start
 		scripts[keyPrefix+"web.commands.post_start"] = app.Web.Commands.PostStart
 		for cronName, cron := range app.Crons {
-			cronPrefix := keyPrefix + "crons." + cronName + "."
+			cronPrefix := keyPrefix + "crons." + cronName + ".commands."
 			scripts[cronPrefix+"start"] = cron.Commands.Start
 			scripts[cronPrefix+"stop"] = cron.Commands.Stop
 		}
