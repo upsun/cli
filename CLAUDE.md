@@ -95,6 +95,7 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 - PHP binaries are embedded per platform via go:embed and build tags
 - Uses file locking to prevent concurrent initialization
 - Copies PHP binary and phar to cache directory on first run
+- The legacy CLI caches API data under the current user's ID (`Api::userCache()`), read from the access token's claims (refreshing it first if it has expired) or from the API, so cached data is not shared between users
 
 **API Client**: `internal/api/`
 - HTTP client for interacting with Upsun API

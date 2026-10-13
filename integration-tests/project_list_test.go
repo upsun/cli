@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/upsun/cli/pkg/mockapi"
 )
 
@@ -122,4 +124,40 @@ func makeProject(id, org, vendor, title, region string) *mockapi.Project {
 		Region:       region,
 		Links:        mockapi.MakeHALLinks("self=/projects/" + url.PathEscape(id)),
 	}
+}
+
+func TestProjectListCacheIsPerUser(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.SetMyUser(&mockapi.User{ID: "user-1"})
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	apiHandler.SetOrgs([]*mockapi.Org{makeOrg("org-id-1", "org-1", "Org 1", "user-1", "flexible")})
+	apiHandler.SetProjects([]*mockapi.Project{
+		makeProject("project-id-1", "org-id-1", "test-vendor", "Project 1", "region-1"),
+	})
+	apiHandler.SetUserGrants([]*mockapi.UserGrant{{
+		ResourceID:     "project-id-1",
+		ResourceType:   "project",
+		OrganizationID: "org-id-1",
+		UserID:         "user-1",
+		Permissions:    []string{"admin"},
+	}})
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	assert.Equal(t, "project-id-1\n", f.Run("projects", "--pipe", "--refresh=0"))
+
+	// Another user does not see the cached list.
+	apiHandler.SetMyUser(&mockapi.User{ID: "user-2"})
+	assert.Equal(t, "", f.Run("projects", "--pipe", "--refresh=0"))
+
+	// Invalid credentials fail before the cache is read.
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=invalid")
+	stdOut, _, err := f.RunCombinedOutput("projects", "--pipe", "--refresh=0")
+	assert.Error(t, err)
+	assert.Empty(t, stdOut)
 }

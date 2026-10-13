@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Console;
 
-use Doctrine\Common\Cache\CacheProvider;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\ServerException;
+use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Exception\ConnectionFailedException;
 use Platformsh\Cli\Exception\LoginRequiredException;
@@ -20,7 +20,10 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 readonly class EventSubscriber implements EventSubscriberInterface
 {
-    public function __construct(private CacheProvider $cache, private Config $config) {}
+    /**
+     * @param \Closure(): Api $getApi
+     */
+    public function __construct(private \Closure $getApi, private Config $config) {}
 
     /**
      * {@inheritdoc}
@@ -85,7 +88,11 @@ readonly class EventSubscriber implements EventSubscriberInterface
         // When an environment is found to be in the wrong state, perhaps our
         // cache is old - we should invalidate it.
         if ($error instanceof EnvironmentStateException) {
-            $this->cache->delete('environments:' . $error->getEnvironment()->project);
+            try {
+                ($this->getApi)()->clearEnvironmentsCache($error->getEnvironment()->project);
+            } catch (\Exception) {
+                // Clearing the cache may need an API request: do not replace the original error if that fails.
+            }
         }
     }
 

@@ -14,6 +14,7 @@ use GuzzleHttp\Exception\RequestException;
 use Platformsh\Client\Model\Integration;
 use Composer\CaBundle\CaBundle;
 use Doctrine\Common\Cache\CacheProvider;
+use Doctrine\Common\Cache\VoidCache;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\BadResponseException;
@@ -32,6 +33,8 @@ use Platformsh\Cli\Exception\GoLoginRequiredException;
 use Platformsh\Cli\Exception\ProcessFailedException;
 use Platformsh\Cli\GuzzleDebugMiddleware;
 use Platformsh\Cli\Model\Route;
+use Platformsh\Cli\Util\Jwt;
+use Platformsh\Cli\Util\NamespacedCache;
 use Platformsh\Cli\Util\NestedArrayUtil;
 use Platformsh\Cli\Util\Sort;
 use Platformsh\Client\Connection\Connector;
@@ -82,6 +85,8 @@ class Api
     private readonly EventDispatcherInterface $dispatcher;
     private readonly Config $config;
     private readonly CacheProvider $cache;
+    private ?NamespacedCache $userCache = null;
+    private ?string $checkedExpiredToken = null;
     private readonly OutputInterface $output;
     private readonly OutputInterface $stdErr;
     private readonly TokenConfig $tokenConfig;
@@ -836,7 +841,7 @@ class Api
         /** @var string[]|string|null $vendorFilter */
         $vendorFilter = $this->config->getWithDefault('api.vendor_filter', null);
         $cacheKey = $this->myProjectsCacheKey();
-        $cached = $this->cache->fetch($cacheKey);
+        $cached = $this->userCache()->fetch($cacheKey);
 
         if ($refresh === false && !$cached) {
             return [];
@@ -858,7 +863,7 @@ class Api
                     }
                 }
             }
-            $this->cache->save($cacheKey, $projects, $this->config->getInt('api.projects_ttl'));
+            $this->userCache()->save($cacheKey, $projects, $this->config->getInt('api.projects_ttl'));
         } else {
             $projects = $cached;
             $this->io->debug('Loaded user project data from cache');
@@ -884,8 +889,8 @@ class Api
             $host = null;
         }
 
-        $cacheKey = sprintf('%s:project:%s', $this->config->getSessionId(), $id);
-        $cached = $this->cache->fetch($cacheKey);
+        $cacheKey = 'project:' . $id;
+        $cached = $this->userCache()->fetch($cacheKey);
 
         if ($refresh || !$cached) {
             $scheme = 'https';
@@ -898,7 +903,7 @@ class Api
             if ($project) {
                 $toCache = $project->getData();
                 $toCache['_endpoint'] = $project->getUri(true);
-                $this->cache->save($cacheKey, $toCache, $this->config->getInt('api.projects_ttl'));
+                $this->userCache()->save($cacheKey, $toCache, $this->config->getInt('api.projects_ttl'));
             } else {
                 return false;
             }
@@ -934,7 +939,7 @@ class Api
         }
 
         $cacheKey = 'environments:' . $projectId;
-        $cached = $this->cache->fetch($cacheKey);
+        $cached = $this->userCache()->fetch($cacheKey);
 
         if ($refresh === false && !$cached) {
             return [];
@@ -959,7 +964,7 @@ class Api
                 );
             }
 
-            $this->cache->save($cacheKey, $toCache, $this->config->getInt('api.environments_ttl'));
+            $this->userCache()->save($cacheKey, $toCache, $this->config->getInt('api.environments_ttl'));
         } else {
             $environments = [];
             $endpoint = $project->getUri();
@@ -994,7 +999,7 @@ class Api
             return false;
         }
 
-        $environmentsRefreshed = $refresh === true || ($refresh === null && empty(self::$environmentsCache[$project->id]) && !$this->cache->fetch('environments:' . $project->id));
+        $environmentsRefreshed = $refresh === true || ($refresh === null && empty(self::$environmentsCache[$project->id]) && !$this->userCache()->fetch('environments:' . $project->id));
         $environments = $this->getEnvironments($project, $refresh);
 
         // Look for the environment by ID.
@@ -1040,14 +1045,14 @@ class Api
         /** @var EnvironmentType[] $types */
         $types = [];
 
-        $cached = $this->cache->fetch($cacheKey);
+        $cached = $this->userCache()->fetch($cacheKey);
 
         if ($refresh === false && !$cached) {
             return [];
         } elseif ($refresh || !$cached) {
             $types = $project->getEnvironmentTypes();
             $cachedTypes = \array_map(fn(EnvironmentType $type) => $type->getData() + ['_uri' => $type->getUri()], $types);
-            $this->cache->save($cacheKey, $cachedTypes, $this->config->getInt('api.environments_ttl'));
+            $this->userCache()->save($cacheKey, $cachedTypes, $this->config->getInt('api.environments_ttl'));
         } else {
             $guzzleClient = $this->getHttpClient();
             foreach ((array) $cached as $data) {
@@ -1087,11 +1092,19 @@ class Api
      */
     public function getMyUserId(bool $reset = false): string
     {
-        $id = $this->getClient()->getMyUserId($reset);
+        $id = $this->findMyUserId($reset);
         if (!$id) {
             throw new \RuntimeException('No user ID found for the current session.');
         }
         return $id;
+    }
+
+    /**
+     * Returns the ID of the current user, or false if it cannot be found, e.g. for some API tokens.
+     */
+    protected function findMyUserId(bool $reset = false): string|false
+    {
+        return $this->getClient()->getMyUserId($reset);
     }
 
     /**
@@ -1142,7 +1155,7 @@ class Api
      */
     private function sshKeysCacheKey(string $source): string
     {
-        return sprintf('%s:ssh-keys:%s', $this->config->getSessionId(), $source);
+        return 'ssh-keys:' . $source;
     }
 
     /**
@@ -1166,10 +1179,10 @@ class Api
     {
         $source = $this->getSshKeySource($reset);
         $cacheKey = $this->sshKeysCacheKey($source);
-        $items = $this->cache->fetch($cacheKey);
+        $items = $this->userCache()->fetch($cacheKey);
         if ($reset || !is_array($items)) {
             $items = $source === self::SSH_KEY_SOURCE_ACCOUNTS ? $this->fetchLegacySshKeys() : $this->fetchSshKeys();
-            $this->cache->save($cacheKey, $items, $this->config->getInt('api.users_ttl'));
+            $this->userCache()->save($cacheKey, $items, $this->config->getInt('api.users_ttl'));
         } else {
             $this->io->debug('Loaded SSH keys from cache');
         }
@@ -1309,8 +1322,8 @@ class Api
      */
     public function clearSshKeysCache(): void
     {
-        $this->cache->delete($this->sshKeysCacheKey(self::SSH_KEY_SOURCE_ACCOUNTS));
-        $this->cache->delete($this->sshKeysCacheKey(self::SSH_KEY_SOURCE_AUTH));
+        $this->userCache()->delete($this->sshKeysCacheKey(self::SSH_KEY_SOURCE_ACCOUNTS));
+        $this->userCache()->delete($this->sshKeysCacheKey(self::SSH_KEY_SOURCE_AUTH));
     }
 
     /**
@@ -1330,14 +1343,14 @@ class Api
             $cacheKey = 'user:' . $id;
         } else {
             $id = 'me';
-            $cacheKey = sprintf('%s:me', $this->config->getSessionId());
+            $cacheKey = 'me';
         }
-        if ($reset || !($data = $this->cache->fetch($cacheKey))) {
+        if ($reset || !($data = $this->userCache()->fetch($cacheKey))) {
             $user = $this->getClient()->getUser($id);
             if (!$user) {
                 throw new \InvalidArgumentException('User not found: ' . $id);
             }
-            $this->cache->save($cacheKey, $user->getData(), $this->config->getInt('api.users_ttl'));
+            $this->userCache()->save($cacheKey, $user->getData(), $this->config->getInt('api.users_ttl'));
         } else {
             $this->io->debug('Loaded user info from cache: ' . $id);
             $connector = $this->getClient()->getConnector();
@@ -1355,13 +1368,45 @@ class Api
      */
     public function clearEnvironmentsCache(string $projectId): void
     {
-        $this->cache->delete('environments:' . $projectId);
+        $this->userCache()->delete('environments:' . $projectId);
         unset(self::$environmentsCache[$projectId]);
         foreach (array_keys(self::$notFound) as $key) {
             if (str_starts_with($key, $projectId . ':')) {
                 unset(self::$notFound[$key]);
             }
         }
+    }
+
+    /**
+     * Returns the cache for API data, namespaced by the current user's ID.
+     *
+     * The ID is read from the access token's claims, without verification, or from the API if the token is not a JWT.
+     * So cached data is not used with an invalid opaque token, or with another user's credentials. Nothing is cached if
+     * there is no user ID.
+     */
+    public function userCache(): CacheProvider
+    {
+        $client = $this->getClient();
+        $accessToken = $client->getConnector()->getSession()->get('accessToken');
+        $claims = is_string($accessToken) ? (new Jwt($accessToken))->unsafeGetUnverifiedClaims() : false;
+        $reset = false;
+        if ($claims !== false && isset($claims['exp']) && is_int($claims['exp']) && $claims['exp'] <= time()
+            && $accessToken !== $this->checkedExpiredToken) {
+            // Make a request to refresh an expired token, or reject it, before its claims are used. This is done once
+            // per token, as the API client may not refresh it, e.g. if the local clock is ahead.
+            $client->getUser('me');
+            $this->checkedExpiredToken = $accessToken;
+            $reset = true;
+        }
+        $userId = $this->findMyUserId($reset);
+        if ($userId === false) {
+            return new VoidCache();
+        }
+        if ($this->userCache?->getNamespace() !== $userId) {
+            $this->userCache = new NamespacedCache($this->cache, $userId);
+        }
+
+        return $this->userCache;
     }
 
     /**
@@ -1374,7 +1419,7 @@ class Api
         $new = $this->config->getBool('api.centralized_permissions') && $this->config->getBool('api.organizations');
         /** @var string[]|string|null $vendorFilter */
         $vendorFilter = $this->config->getWithDefault('api.vendor_filter', null);
-        return sprintf('%s:my-projects%s:%s', $this->config->getSessionId(), $new ? ':new' : '', is_array($vendorFilter) ? implode(',', $vendorFilter) : (string) $vendorFilter);
+        return sprintf('my-projects%s:%s', $new ? ':new' : '', is_array($vendorFilter) ? implode(',', $vendorFilter) : (string) $vendorFilter);
     }
 
     /**
@@ -1382,7 +1427,7 @@ class Api
      */
     public function clearProjectsCache(): void
     {
-        $this->cache->delete($this->myProjectsCacheKey());
+        $this->userCache()->delete($this->myProjectsCacheKey());
     }
 
     /**
@@ -1654,7 +1699,7 @@ class Api
         if (!$refresh && isset(self::$deploymentsCache[$cacheKey])) {
             return self::$deploymentsCache[$cacheKey];
         }
-        $data = $this->cache->fetch($cacheKey);
+        $data = $this->userCache()->fetch($cacheKey);
         if ($data === false || $refresh) {
             try {
                 /** @var EnvironmentDeployment $deployment */
@@ -1667,7 +1712,7 @@ class Api
             }
             $data = $deployment->getData();
             $data['_uri'] = $deployment->getUri();
-            $this->cache->save($cacheKey, $data);
+            $this->userCache()->save($cacheKey, $data);
         } else {
             $this->io->debug('Loaded environment deployment from cache for environment: ' . $environment->id);
             $deployment = new EnvironmentDeployment($data, $data['_uri'], $this->getHttpClient(), true);
@@ -1687,7 +1732,7 @@ class Api
     {
         $cacheKey = implode(':', ['current-deployment', $environment->project, $environment->id, $environment->head_commit]);
 
-        return isset(self::$deploymentsCache[$cacheKey]) || $this->cache->contains($cacheKey);
+        return isset(self::$deploymentsCache[$cacheKey]) || ($this->isLoggedIn() && $this->userCache()->contains($cacheKey));
     }
 
     /**
@@ -1885,7 +1930,7 @@ class Api
     public function getOrganizationById(string $id, bool $reset = false): Organization|false
     {
         $cacheKey = 'organization:' . $id;
-        if (!$reset && ($cached = $this->cache->fetch($cacheKey))) {
+        if (!$reset && ($cached = $this->userCache()->fetch($cacheKey))) {
             $this->io->debug('Loaded organization from cache: ' . $id);
             return new Organization($cached, $cached['_url'], $this->getHttpClient());
         }
@@ -1893,7 +1938,7 @@ class Api
         if ($organization) {
             $data = $organization->getData();
             $data['_url'] = $organization->getUri();
-            $this->cache->save($cacheKey, $data, $this->config->getInt('api.orgs_ttl'));
+            $this->userCache()->save($cacheKey, $data, $this->config->getInt('api.orgs_ttl'));
         }
         return $organization;
     }
@@ -1914,8 +1959,8 @@ class Api
      */
     public function clearOrganizationCache(Organization $org): void
     {
-        $this->cache->delete('organization:' . $org->id);
-        $this->cache->delete('organization:name=' . $org->name);
+        $this->userCache()->delete('organization:' . $org->id);
+        $this->userCache()->delete('organization:name=' . $org->name);
     }
 
     /**
@@ -2035,14 +2080,14 @@ class Api
     public function getProjectSettings(Project $project, bool $refresh = false): array
     {
         $cacheKey = 'project-settings:' . $project->id;
-        $cachedSettings = $this->cache->fetch($cacheKey);
+        $cachedSettings = $this->userCache()->fetch($cacheKey);
         if (!empty($cachedSettings) && !$refresh) {
             return $cachedSettings;
         }
         $request = new Request('GET', $project->getUri() . '/settings');
         $response = $this->getHttpClient()->send($request);
         $settings = (array) Utils::jsonDecode((string) $response->getBody(), true);
-        $this->cache->save($cacheKey, $settings, $this->config->getInt('api.projects_ttl'));
+        $this->userCache()->save($cacheKey, $settings, $this->config->getInt('api.projects_ttl'));
         return $settings;
     }
 
@@ -2058,13 +2103,13 @@ class Api
     public function getProjectCapabilities(Project $project, bool $refresh = false): Capabilities
     {
         $cacheKey = 'project-capabilities:' . $project->id;
-        $cachedCapabilities = $this->cache->fetch($cacheKey);
+        $cachedCapabilities = $this->userCache()->fetch($cacheKey);
         if (!empty($cachedCapabilities) && !$refresh) {
             return $cachedCapabilities;
         }
 
         $capabilities = $project->getCapabilities();
-        $this->cache->save($cacheKey, $capabilities, $this->config->getInt('api.projects_ttl'));
+        $this->userCache()->save($cacheKey, $capabilities, $this->config->getInt('api.projects_ttl'));
         return $capabilities;
     }
 

@@ -24,6 +24,8 @@ services:
     Platformsh\Cli\Selector\Selector: {}
 
     # A few other services have to be public; they are used in Application.
+    Platformsh\Cli\Service\Api:
+        public: true
     Platformsh\Cli\Service\LegacyMigration:
         public: true
     Platformsh\Cli\Service\SelfInstallChecker:
@@ -31,7 +33,6 @@ services:
 
     # Configure the cache service, which is created via a factory.
     Doctrine\Common\Cache\CacheProvider:
-        public: true
         factory:   'Platformsh\Cli\Service\CacheFactory::createCacheProvider'
         arguments: ['@Platformsh\Cli\Service\Config']
 
