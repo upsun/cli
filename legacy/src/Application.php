@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli;
 
-use Doctrine\Common\Cache\CacheProvider;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Command\HelpCommand;
 use Platformsh\Cli\Command\ListCommand;
@@ -14,6 +13,7 @@ use Platformsh\Cli\Console\EventSubscriber;
 use Platformsh\Cli\Console\HiddenAliasesCommandLoader;
 use Platformsh\Cli\Console\HiddenAliasesPass;
 use Platformsh\Cli\Console\HiddenInputOption;
+use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\LegacyMigration;
 use Platformsh\Cli\Service\SelfInstallChecker;
@@ -94,9 +94,11 @@ class Application extends ParentApplication
 
         // Set up an event subscriber, which will listen for Console events.
         $dispatcher = new EventDispatcher();
-        /** @var CacheProvider $cache */
-        $cache = $this->container()->get(CacheProvider::class);
-        $dispatcher->addSubscriber(new EventSubscriber($cache, $this->config));
+        // The Api service is loaded lazily, as it depends on the output.
+        $dispatcher->addSubscriber(new EventSubscriber(function (): Api {
+            /** @var Api */
+            return $this->container()->get(Api::class);
+        }, $this->config));
         $this->setDispatcher($dispatcher);
     }
 

@@ -43,6 +43,8 @@ func (h *Handler) RequireStepUp(amr []string) {
 
 func NewHandler(t *testing.T) *Handler {
 	h := &Handler{t: t}
+	// The legacy CLI needs the current user's ID, e.g. to namespace its cache.
+	h.myUser = &User{ID: "my-user-id", Username: "my-user", Email: "my-user@example.com"}
 	h.Mux = chi.NewRouter()
 
 	if testing.Verbose() {

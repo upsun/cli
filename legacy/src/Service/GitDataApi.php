@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Service;
 
-use Doctrine\Common\Cache\CacheProvider;
 use Platformsh\Client\Exception\EnvironmentStateException;
 use Platformsh\Client\Exception\GitObjectTypeException;
 use Platformsh\Client\Model\Environment;
@@ -21,14 +20,10 @@ class GitDataApi
     public const COMMIT_SYNTAX_HELP = 'This can also accept "HEAD", and caret (^) or tilde (~) suffixes for parent commits.';
 
     private readonly Api $api;
-    private readonly CacheProvider $cache;
 
-    public function __construct(
-        ?Api $api = null,
-        ?CacheProvider $cache = null,
-    ) {
+    public function __construct(?Api $api = null)
+    {
         $this->api = $api ?: new Api();
-        $this->cache = $cache ?: CacheFactory::createCacheProvider(new Config());
     }
 
     /**
@@ -102,7 +97,7 @@ class GitDataApi
     {
         $cacheKey = $environment->project . ':' . $sha;
         $client = $this->api->getHttpClient();
-        if ($cached = $this->cache->fetch($cacheKey)) {
+        if ($cached = $this->api->userCache()->fetch($cacheKey)) {
             return new Commit($cached['data'], $cached['uri'], $client, true);
         }
         $baseUrl = Project::getProjectBaseFromUrl($environment->getUri()) . '/git/commits';
@@ -115,7 +110,7 @@ class GitDataApi
         if (isset($data['_links']['self']['meta'])) {
             unset($data['_links']['self']['meta']);
         }
-        $this->cache->save($cacheKey, [
+        $this->api->userCache()->save($cacheKey, [
             'data' => $data,
             'uri' => $baseUrl,
         ], 0);
@@ -169,7 +164,7 @@ class GitDataApi
     {
         $commitSha = $this->normalizeSha($environment, $commitSha);
         $cacheKey = implode(':', ['raw', $environment->project, $filename, $commitSha]);
-        $data = $this->cache->fetch($cacheKey);
+        $data = $this->api->userCache()->fetch($cacheKey);
         if (!is_array($data)) {
             $object = $this->getObject($filename, $environment, $commitSha);
             if ($object instanceof Tree) {
@@ -180,7 +175,7 @@ class GitDataApi
                 $data['raw'] = $object->getRawContent();
                 // Cache the file if it is smaller than 100 KiB.
                 if (strlen($data['raw']) < 102400) {
-                    $this->cache->save($cacheKey, $data);
+                    $this->api->userCache()->save($cacheKey, $data);
                 }
             }
         }
@@ -204,8 +199,8 @@ class GitDataApi
     {
         $commitSha = $this->normalizeSha($environment, $commitSha);
         $cacheKey = implode(':', ['obj', $environment->project, $filename, $commitSha]);
-        if ($this->cache->contains($cacheKey)) {
-            $data = $this->cache->fetch($cacheKey);
+        if ($this->api->userCache()->contains($cacheKey)) {
+            $data = $this->api->userCache()->fetch($cacheKey);
             if (isset($data['type']) && $data['type'] === 'not_found') {
                 return false;
             }
@@ -225,7 +220,7 @@ class GitDataApi
         } else {
             $toCache = ['type' => 'not_found'];
         }
-        $this->cache->save($cacheKey, $toCache);
+        $this->api->userCache()->save($cacheKey, $toCache);
         return $object;
     }
 
@@ -253,7 +248,7 @@ class GitDataApi
         $normalizedSha = $this->normalizeSha($environment, $commitSha);
         $normalizedPath = $this->normalizePath($path);
         $cacheKey = implode(':', ['tree', $environment->project, $normalizedPath, $normalizedSha]);
-        $data = $this->cache->fetch($cacheKey);
+        $data = $this->api->userCache()->fetch($cacheKey);
         if (!is_array($data)) {
             if ($onlyUseCache) {
                 return false;
@@ -283,7 +278,7 @@ class GitDataApi
                 $tree = $rootTree->getTree($normalizedPath);
             }
 
-            $this->cache->save($cacheKey, [
+            $this->api->userCache()->save($cacheKey, [
                 'tree' => $tree ? $tree->getData() : null,
                 'uri' => $tree ? $tree->getUri() : null,
             ]);
