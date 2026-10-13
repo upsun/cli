@@ -111,15 +111,25 @@ func sum(s []int) int {
 
 // longestWordWidth returns the display width of the longest whitespace-separated word in a cell,
 // plus its indentation, which is repeated on each wrapped line.
+// Like the legacy CLI, only ASCII whitespace separates words, so non-breaking spaces are kept within a word.
 func longestWordWidth(lines []string) int {
 	w := 0
 	for _, line := range lines {
-		for _, word := range strings.Fields(ansi.Strip(line)) {
+		for word := range strings.FieldsFuncSeq(ansi.Strip(line), isASCIISpace) {
 			w = max(w, ansi.StringWidth(word))
 		}
 	}
 	plain := ansi.Strip(strings.Join(lines, "\n"))
 	return w + len(plain) - len(strings.TrimLeft(plain, " "))
+}
+
+// isASCIISpace matches the characters of PCRE's \s without Unicode support.
+func isASCIISpace(r rune) bool {
+	switch r {
+	case ' ', '\t', '\n', '\v', '\f', '\r':
+		return true
+	}
+	return false
 }
 
 // cellWidth returns the display width of the longest line in a cell.

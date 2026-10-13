@@ -315,6 +315,25 @@ func TestRenderTableWrapping(t *testing.T) {
 				"|   | plain      |\n" +
 				"+---+------------+\n",
 		},
+		{
+			name:    "non-breaking spaces do not separate words",
+			columns: []Column{{Header: "A"}, {Header: "B"}},
+			rows:    [][]string{{"Disk:\u00a010\u00a0GB\u00a0free", "some text that can wrap at its spaces and more"}},
+			width:   30,
+			want: "+------------------+---------+\n" +
+				"| A                | B       |\n" +
+				"+------------------+---------+\n" +
+				"| Disk:\u00a010\u00a0GB\u00a0free | some    |\n" +
+				"|                  | text    |\n" +
+				"|                  | that    |\n" +
+				"|                  | can     |\n" +
+				"|                  | wrap at |\n" +
+				"|                  | its     |\n" +
+				"|                  | spaces  |\n" +
+				"|                  | and     |\n" +
+				"|                  | more    |\n" +
+				"+------------------+---------+\n",
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -479,4 +498,21 @@ func TestMaxColumnWidthsMultilineIndent(t *testing.T) {
 	}
 
 	assert.Equal(t, []int{6}, maxColumnWidths([][][]string{{{"  a", "wwwwww"}}}, 0, []bool{false}, 5))
+}
+
+func TestLongestWordWidth(t *testing.T) {
+	cases := []struct {
+		lines []string
+		want  int
+	}{
+		{[]string{"one three"}, 5},
+		{[]string{"one\tthree\vfour\fseven\rten"}, 5},
+		{[]string{"  ab cd"}, 4},
+		{[]string{"10\u00a0GB free"}, 5},
+		{[]string{"a\u2009b\u2009c d"}, 5},
+		{[]string{"\x1b[32mgreen\x1b[0m"}, 5},
+	}
+	for _, c := range cases {
+		assert.Equal(t, c.want, longestWordWidth(c.lines), "longestWordWidth(%q)", c.lines)
+	}
 }
