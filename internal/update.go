@@ -22,48 +22,57 @@ type ReleaseInfo struct {
 	PublishedAt time.Time `json:"published_at"`
 }
 
-// CheckForUpdate checks whether this software has had a newer release on GitHub
-func CheckForUpdate(cnf *config.Config, currentVersion string) (*ReleaseInfo, error) {
-	if !shouldCheckForUpdate(cnf) {
-		return nil, nil
-	}
+// updateRequestTimeout limits the request to GitHub for the latest release.
+const updateRequestTimeout = 5 * time.Second
 
+// UpdateCheck is a background check for a newer release.
+type UpdateCheck struct {
+	done chan struct{}
+}
+
+// StartUpdateCheck starts a background check for a newer release on GitHub,
+// if one is due. The result is cached in the state, for PendingNotification
+// to read in a later invocation. It returns nil if no check was started.
+func StartUpdateCheck(cnf *config.Config) *UpdateCheck {
+	if !shouldCheckForUpdate(cnf) {
+		return nil
+	}
 	s, err := state.Load(cnf)
 	if err == nil && time.Now().Unix()-s.Updates.LastChecked < int64(cnf.Updates.CheckInterval) {
 		// Updates were already checked recently.
-		return nil, nil
+		return nil
 	}
-
-	var latest string
-	defer func() {
-		// After checking, save the last check time.
+	// Record the attempt first, so a request that outlives the process is not retried on every run.
+	// If the state cannot be saved, the result could not be cached either.
+	if err := state.Update(cnf, func(s *state.State) {
+		s.Updates.LastChecked = time.Now().Unix()
+	}); err != nil {
+		return nil
+	}
+	c := &UpdateCheck{done: make(chan struct{})}
+	go func() {
+		defer close(c.done)
+		releaseInfo, err := getLatestReleaseInfo(cnf.Wrapper.GitHubRepo)
+		if err != nil || releaseInfo.Version == "" {
+			return
+		}
 		//nolint:errcheck // not being able to set the state should have no impact on the rest of the program
 		state.Update(cnf, func(s *state.State) {
-			s.Updates.LastChecked = time.Now().Unix()
-			if latest != "" {
-				s.Updates.KnownLatestVersion = latest
-			}
+			s.Updates.KnownLatestVersion = releaseInfo.Version
 		})
 	}()
+	return c
+}
 
-	releaseInfo, err := getLatestReleaseInfo(cnf.Wrapper.GitHubRepo)
-	if err != nil {
-		return nil, fmt.Errorf("could not determine latest release: %w", err)
+// Wait waits for the check to finish, up to the given timeout.
+func (c *UpdateCheck) Wait(timeout time.Duration) {
+	if c == nil {
+		return
 	}
-
-	// Cache the latest known version so the next invocation can show a message
-	// before its command runs, without blocking on the network.
-	latest = releaseInfo.Version
-
-	cmp, err := version.Compare(releaseInfo.Version, currentVersion)
-	if err != nil {
-		return nil, fmt.Errorf("could not compare versions: %w", err)
+	select {
+	case <-c.done:
+	case <-time.After(timeout):
 	}
-	if cmp > 0 {
-		return releaseInfo, nil
-	}
-
-	return nil, nil
 }
 
 // notifyInterval is the minimum time between showing update messages.
@@ -137,7 +146,8 @@ func getLatestReleaseInfo(repo string) (*ReleaseInfo, error) {
 		return nil, err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	client := &http.Client{Timeout: updateRequestTimeout}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
