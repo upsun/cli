@@ -1,5 +1,10 @@
 PHP_VERSION = 8.4.26
 
+.DEFAULT_GOAL := help
+
+# Delete a target if its recipe fails, e.g. a partial download.
+.DELETE_ON_ERROR:
+
 GOOS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 GOARCH := $(shell uname -m)
 ifeq ($(GOARCH), x86_64)
@@ -26,11 +31,65 @@ REPOGEN_VERSION=v1.0.4
 PHP_BUILDS_REPO = upsun/cli-php-builds
 PHP_RELEASE_URL = https://github.com/$(PHP_BUILDS_REPO)/releases/download/php-$(PHP_VERSION)
 
+# Files embedded in the Go binary.
+ARCHIVES = internal/legacy/archives
+PHP_UNIX_BINARIES = $(foreach p,linux_amd64 linux_arm64 darwin_amd64 darwin_arm64,$(ARCHIVES)/php_$(p))
+LEGACY_INDEXES = $(ARCHIVES)/commands-upsun.json $(ARCHIVES)/commands-platformsh.json
+
+# Files that the legacy CLI phar is built from.
+LEGACY_SOURCES := $(shell find legacy/bin legacy/src legacy/config legacy/resources -type f -not -path 'legacy/config/cache/*') \
+	$(wildcard legacy/*.yaml legacy/*.tmpl.rc) legacy/constants.php legacy/box.json legacy/composer.lock \
+	legacy/vendor-bin/box/composer.json legacy/vendor-bin/box/composer.lock
+
+.PHONY: help
+help: ## Show this help
+	@if [ -t 1 ] && [ -z "$$NO_COLOR" ]; then bold=$$(printf '\033[1m'); reset=$$(printf '\033[0m'); fi; \
+	awk -v bold="$$bold" -v reset="$$reset" 'BEGIN { FS = ":.*## " } \
+		/^##@ / { printf "\n%s%s%s\n", bold, substr($$0, 5), reset } \
+		/^[a-zA-Z0-9_-]+:.*## / { printf "%-20s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+# Targets with a "##" description are listed by `make help`. Those automated in CI workflows are not.
+
+##@ Build
+
+.PHONY: single
+single: goreleaser $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php ## Build a single binary for the current platform, in dist/
+	PHP_VERSION=$(PHP_VERSION) goreleaser build --single-target --id=$(GORELEASER_ID) --snapshot --clean
+
+.PHONY: snapshot
+snapshot: goreleaser $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php $(ARCHIVES)/cacert.pem ## Build all release artifacts in dist/ without publishing (needs signing keys)
+ifndef RSA_SIGNING_KEY_FILE
+	$(error RSA_SIGNING_KEY_FILE is not set. Set it to the path of your RSA private key for APK signing, or use 'make snapshot-no-nfpm' to skip packaging.)
+endif
+ifndef GPG_SIGNING_KEY_FILE
+	$(error GPG_SIGNING_KEY_FILE is not set. Set it to the path of your GPG private key for RPM signing, or use 'make snapshot-no-nfpm' to skip packaging.)
+endif
+	PHP_VERSION=$(PHP_VERSION) goreleaser release --snapshot --clean --skip=publish,announce
+
+.PHONY: snapshot-no-nfpm
+snapshot-no-nfpm: goreleaser $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php ## Build release artifacts in dist/ without Linux packages or signing
+	PHP_VERSION=$(PHP_VERSION) goreleaser release --snapshot --clean --skip=publish,announce,nfpm
+
+.PHONY: vendor-snapshot
+vendor-snapshot: check-vendor .goreleaser.vendor.yaml goreleaser $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) $(ARCHIVES)/commands-vendor.json php ## Build vendor CLI binaries for all platforms (needs VENDOR_NAME, VENDOR_BINARY)
+	PHP_VERSION=$(PHP_VERSION) VENDOR_BINARY="$(VENDOR_BINARY)" VENDOR_NAME="$(VENDOR_NAME)" goreleaser build --snapshot --clean --config=.goreleaser.vendor.yaml
+
+.PHONY: phar
+phar: $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) ## Build the legacy CLI phar and its command indexes
+
+.PHONY: php
+php: $(ARCHIVES)/php_$(GOOS)_$(GOARCH) ## Download the PHP binary for the current platform
+
+# Download PHP binaries for all platforms.
+.PHONY: download-php
+download-php: $(PHP_UNIX_BINARIES) $(ARCHIVES)/php_windows.exe $(ARCHIVES)/cacert.pem
+
 # Build the legacy CLI phar from the legacy/ subdirectory.
 # The self:build command handles composer --no-dev rebuild, Box installation, and cache warming.
-internal/legacy/archives/platform.phar: legacy/vendor/autoload.php
-	mkdir -p internal/legacy/archives
-	cd legacy && php bin/platform self:build --no-interaction --output=../internal/legacy/archives/platform.phar
+# The vendor directory is order-only, because self:build and composer-dev both rewrite it.
+$(ARCHIVES)/platform.phar: $(LEGACY_SOURCES) | legacy/vendor/autoload.php
+	mkdir -p $(ARCHIVES)
+	cd legacy && php bin/platform self:build --no-interaction --output=../$@
 
 # Index the legacy CLI's commands for each embedded config, so the Go layer can resolve abbreviations of its own
 # commands and complete command and option names. HOME is isolated from user config. The version is set, as by the Go
@@ -44,52 +103,59 @@ define legacy-index
 	status=$$?; rm -rf $$tmp; exit $$status
 endef
 
-LEGACY_INDEXES = internal/legacy/archives/commands-upsun.json internal/legacy/archives/commands-platformsh.json
-
-internal/legacy/archives/commands-%.json: internal/legacy/archives/platform.phar internal/config/%-cli.yaml
+$(ARCHIVES)/commands-%.json: $(ARCHIVES)/platform.phar internal/config/%-cli.yaml
 	$(call legacy-index,$<,internal/config/$*-cli.yaml)
 
-internal/legacy/archives/commands-vendor.json: internal/legacy/archives/platform.phar internal/config/embedded-config.yaml
+$(ARCHIVES)/commands-vendor.json: $(ARCHIVES)/platform.phar internal/config/embedded-config.yaml
 	$(call legacy-index,$<,internal/config/embedded-config.yaml)
 
 legacy/vendor/autoload.php:
 	cd legacy && composer install --no-interaction
 
-# Download PHP binary for the current platform.
-internal/legacy/archives/php_darwin_$(GOARCH):
-	mkdir -p internal/legacy/archives
-	curl -fSL "$(PHP_RELEASE_URL)/php-$(PHP_VERSION)-darwin-$(GOARCH)" -o $@
+# Records PHP_VERSION, so that the PHP binaries are downloaded again when it changes.
+$(ARCHIVES)/php-version: FORCE
+	@mkdir -p $(ARCHIVES)
+	@echo $(PHP_VERSION) | cmp -s - $@ || echo $(PHP_VERSION) > $@
+
+$(PHP_UNIX_BINARIES): $(ARCHIVES)/php_%: $(ARCHIVES)/php-version
+	curl -fSL "$(PHP_RELEASE_URL)/php-$(PHP_VERSION)-$(subst _,-,$*)" -o $@
 	chmod +x $@
 
-internal/legacy/archives/php_linux_$(GOARCH):
-	mkdir -p internal/legacy/archives
-	curl -fSL "$(PHP_RELEASE_URL)/php-$(PHP_VERSION)-linux-$(GOARCH)" -o $@
-	chmod +x $@
-
-internal/legacy/archives/php_windows_amd64: internal/legacy/archives/php_windows.exe internal/legacy/archives/cacert.pem
-
-internal/legacy/archives/php_windows.exe:
-	mkdir -p internal/legacy/archives
+$(ARCHIVES)/php_windows.exe: $(ARCHIVES)/php-version
 	curl -fSL "$(PHP_RELEASE_URL)/php-$(PHP_VERSION)-windows-amd64.exe" -o $@
 
-.PHONY: internal/legacy/archives/cacert.pem
-internal/legacy/archives/cacert.pem:
-	mkdir -p internal/legacy/archives
-	curl -fSL https://curl.se/ca/cacert.pem -o internal/legacy/archives/cacert.pem
+.PHONY: $(ARCHIVES)/php_windows_amd64
+$(ARCHIVES)/php_windows_amd64: $(ARCHIVES)/php_windows.exe $(ARCHIVES)/cacert.pem
 
-# Download all PHP binaries (for release builds).
-.PHONY: download-php
-download-php:
-	mkdir -p internal/legacy/archives
-	curl -fSL "$(PHP_RELEASE_URL)/php-$(PHP_VERSION)-linux-amd64" -o internal/legacy/archives/php_linux_amd64
-	curl -fSL "$(PHP_RELEASE_URL)/php-$(PHP_VERSION)-linux-arm64" -o internal/legacy/archives/php_linux_arm64
-	curl -fSL "$(PHP_RELEASE_URL)/php-$(PHP_VERSION)-darwin-amd64" -o internal/legacy/archives/php_darwin_amd64
-	curl -fSL "$(PHP_RELEASE_URL)/php-$(PHP_VERSION)-darwin-arm64" -o internal/legacy/archives/php_darwin_arm64
-	curl -fSL "$(PHP_RELEASE_URL)/php-$(PHP_VERSION)-windows-amd64.exe" -o internal/legacy/archives/php_windows.exe
-	curl -fSL https://curl.se/ca/cacert.pem -o internal/legacy/archives/cacert.pem
-	chmod +x internal/legacy/archives/php_linux_* internal/legacy/archives/php_darwin_*
+.PHONY: $(ARCHIVES)/cacert.pem
+$(ARCHIVES)/cacert.pem:
+	mkdir -p $(ARCHIVES)
+	curl -fSL https://curl.se/ca/cacert.pem -o $@
 
-php: internal/legacy/archives/php_$(GOOS)_$(GOARCH)
+.PHONY: FORCE
+FORCE:
+
+##@ Release
+
+# Create and publish a release.
+.PHONY: release
+release: goreleaser clean $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php $(ARCHIVES)/cacert.pem
+ifndef RSA_SIGNING_KEY_FILE
+	$(error RSA_SIGNING_KEY_FILE is not set. Set it to the path of your RSA private key for APK signing.)
+endif
+ifndef GPG_SIGNING_KEY_FILE
+	$(error GPG_SIGNING_KEY_FILE is not set. Set it to the path of your GPG private key for RPM signing.)
+endif
+	PHP_VERSION=$(PHP_VERSION) goreleaser release --clean
+
+.PHONY: vendor-release
+vendor-release: check-vendor .goreleaser.vendor.yaml goreleaser clean $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) $(ARCHIVES)/commands-vendor.json php ## Release a vendor CLI (needs VENDOR_NAME, VENDOR_BINARY)
+	PHP_VERSION=$(PHP_VERSION) VENDOR_BINARY="$(VENDOR_BINARY)" VENDOR_NAME="$(VENDOR_NAME)" goreleaser release --clean --config=.goreleaser.vendor.yaml
+
+# Check the goreleaser configs.
+.PHONY: goreleaser-check
+goreleaser-check: goreleaser
+	PHP_VERSION=$(PHP_VERSION) goreleaser check --config=.goreleaser.yaml
 
 .PHONY: goreleaser
 goreleaser:
@@ -99,73 +165,11 @@ goreleaser:
 repogen:
 	command -v repogen >/dev/null || go install github.com/ralt/repogen/cmd/repogen@$(REPOGEN_VERSION)
 
-.PHONY: single
-single: goreleaser internal/legacy/archives/platform.phar $(LEGACY_INDEXES) php ## Build a single target release
-	PHP_VERSION=$(PHP_VERSION) goreleaser build --single-target --id=$(GORELEASER_ID) --snapshot --clean
-
-.PHONY: snapshot
-snapshot: goreleaser internal/legacy/archives/platform.phar $(LEGACY_INDEXES) php internal/legacy/archives/cacert.pem ## Build a snapshot release
-ifndef RSA_SIGNING_KEY_FILE
-	$(error RSA_SIGNING_KEY_FILE is not set. Set it to the path of your RSA private key for APK signing, or use 'make snapshot-no-nfpm' to skip packaging.)
-endif
-ifndef GPG_SIGNING_KEY_FILE
-	$(error GPG_SIGNING_KEY_FILE is not set. Set it to the path of your GPG private key for RPM signing, or use 'make snapshot-no-nfpm' to skip packaging.)
-endif
-	PHP_VERSION=$(PHP_VERSION) goreleaser release --snapshot --clean --skip=publish,announce
-
-.PHONY: snapshot-no-nfpm
-snapshot-no-nfpm: goreleaser internal/legacy/archives/platform.phar $(LEGACY_INDEXES) php ## Build a snapshot release without package signing
-	PHP_VERSION=$(PHP_VERSION) goreleaser release --snapshot --clean --skip=publish,announce,nfpm
-
-.PHONY: clean-phar
-clean-phar: ## Clean up the legacy CLI phar
-	rm -f internal/legacy/archives/platform.phar internal/legacy/archives/commands-*.json
-	rm -rf legacy/vendor
-
-.PHONY: release
-release: goreleaser clean-phar internal/legacy/archives/platform.phar $(LEGACY_INDEXES) php internal/legacy/archives/cacert.pem ## Create and publish a release
-ifndef RSA_SIGNING_KEY_FILE
-	$(error RSA_SIGNING_KEY_FILE is not set. Set it to the path of your RSA private key for APK signing.)
-endif
-ifndef GPG_SIGNING_KEY_FILE
-	$(error GPG_SIGNING_KEY_FILE is not set. Set it to the path of your GPG private key for RPM signing.)
-endif
-	PHP_VERSION=$(PHP_VERSION) goreleaser release --clean
-
-.PHONY: test
-test: ## Run unit tests (excludes integration tests)
-	go test -v -race -cover -count=1 $$(go list ./... | grep -v /integration-tests)
-
-.PHONY: integration-test
-integration-test: single ## Run integration tests (requires built CLI)
-	cd integration-tests && go test -v -count=1 ./...
-
-.PHONY: lint
-lint: lint-gomod lint-golangci ## Run linters.
-
-.PHONY: lint-gomod
-lint-gomod:
-	go mod tidy -diff
-
-.PHONY: lint-golangci
-lint-golangci:
-	golangci-lint run --timeout=2m
-
-# The embedded lint registry is transformed from https://meta.upsun.com/images by gen.go.
-# The schemas in internal/lint/schema are maintained in this repository.
-.PHONY: lint-assets
-lint-assets: ## Refresh the embedded lint registry from upstream
-	cd internal/lint/registry && go run gen.go
-
-.PHONY: lint-assets-check
-lint-assets-check: lint-assets ## Fail if the embedded lint registry is stale
-	git diff --exit-code -- internal/lint/registry/registry.json
-
-.goreleaser.vendor.yaml: check-vendor ## Generate the goreleaser vendor config
+.goreleaser.vendor.yaml: check-vendor
 	cat .goreleaser.vendor.yaml.tpl | envsubst > .goreleaser.vendor.yaml
 
 .PHONY: check-vendor
-check-vendor: ## Check that the vendor CLI variables are set
+check-vendor:
 ifndef VENDOR_NAME
 	$(error VENDOR_NAME is undefined)
 endif
@@ -173,29 +177,78 @@ ifndef VENDOR_BINARY
 	$(error VENDOR_BINARY is undefined)
 endif
 
-.PHONY: vendor-release
-vendor-release:  check-vendor .goreleaser.vendor.yaml goreleaser clean-phar internal/legacy/archives/platform.phar $(LEGACY_INDEXES) internal/legacy/archives/commands-vendor.json php ## Release a vendor CLI
-	PHP_VERSION=$(PHP_VERSION) VENDOR_BINARY="$(VENDOR_BINARY)" VENDOR_NAME="$(VENDOR_NAME)" goreleaser release --clean --config=.goreleaser.vendor.yaml
+##@ Test and lint
 
-.PHONY: vendor-snapshot
-vendor-snapshot: check-vendor .goreleaser.vendor.yaml goreleaser internal/legacy/archives/platform.phar $(LEGACY_INDEXES) internal/legacy/archives/commands-vendor.json php ## Build a vendor CLI snapshot
-	PHP_VERSION=$(PHP_VERSION) VENDOR_BINARY="$(VENDOR_BINARY)" VENDOR_NAME="$(VENDOR_NAME)" goreleaser build --snapshot --clean --config=.goreleaser.vendor.yaml
+.PHONY: test
+test: test-go test-php ## Run Go and PHP unit tests
 
-.PHONY: goreleaser-check
-goreleaser-check:  goreleaser ## Check the goreleaser configs
-	PHP_VERSION=$(PHP_VERSION) goreleaser check --config=.goreleaser.yaml
+.PHONY: test-go
+test-go: ## Run Go unit tests (excludes integration tests)
+	go test -v -race -cover -count=1 $$(go list ./... | grep -v /integration-tests)
+
+.PHONY: test-php
+test-php: composer-dev ## Run PHP unit tests (excludes slow tests)
+	cd legacy && ./scripts/test/unit.sh
+
+.PHONY: test-integration
+test-integration: single ## Build the CLI and run integration tests
+	cd integration-tests && go test -v -count=1 ./...
+
+.PHONY: integration-test
+integration-test: test-integration
+
+.PHONY: lint
+lint: lint-go lint-php ## Run all linters
+
+.PHONY: lint-go
+lint-go: ## Run Go linters (go mod tidy, golangci-lint)
+	go mod tidy -diff
+	golangci-lint run --timeout=2m
+
+.PHONY: lint-php
+lint-php: composer-dev ## Run PHP linters (php-cs-fixer, PHPStan)
+	cd legacy && ./vendor/bin/php-cs-fixer check --config .php-cs-fixer.dist.php --diff
+	cd legacy && ./vendor/bin/phpstan analyse
+
+# The image registry, used by lint, is transformed from https://meta.upsun.com/images by gen.go.
+# The schemas in internal/lint/schema are maintained in this repository.
+.PHONY: update-registry
+update-registry: ## Refresh the embedded image registry from meta.upsun.com
+	cd internal/lint/registry && go run gen.go
+
+# Fail if the embedded image registry is stale.
+.PHONY: check-registry
+check-registry: update-registry
+	git diff --exit-code -- internal/lint/registry/registry.json
+
+# Installs dev dependencies, which a phar build removes. PHPStan's binary marks that they are installed.
+.PHONY: composer-dev
+composer-dev: legacy/vendor/bin/phpstan
+
+legacy/vendor/bin/phpstan: legacy/composer.lock
+	cd legacy && composer install --no-interaction
+	touch $@
+
+##@ Clean
+
+.PHONY: clean
+clean: ## Remove the phar, command indexes, legacy dependencies and caches
+	rm -f $(ARCHIVES)/platform.phar $(ARCHIVES)/commands*.json legacy/config/cache/container.php
+	rm -rf legacy/vendor legacy/vendor-bin/box/vendor
+
+.PHONY: clean-all
+clean-all: clean ## Also remove PHP binaries and build output
+	rm -rf $(ARCHIVES) dist npm/dist .goreleaser.vendor.yaml
 
 # ----- npm distribution -----
 # See npm/README.md.
 
+# Build npm tarballs from existing GoReleaser archives in dist/.
 .PHONY: npm-pack
-npm-pack: ## Build npm tarballs from existing GoReleaser archives in dist/
+npm-pack:
 	bash npm/scripts/build.sh
 
+# Publish npm tarballs (requires npm auth). NPM_TAG=latest|next, DRY_RUN=1 to dry-run.
 .PHONY: npm-publish
-npm-publish: ## Publish npm tarballs (requires npm auth). NPM_TAG=latest|next, DRY_RUN=1 to dry-run
+npm-publish:
 	bash npm/scripts/publish.sh
-
-.PHONY: npm-clean
-npm-clean: ## Remove npm/dist working directory
-	rm -rf npm/dist
