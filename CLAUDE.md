@@ -98,6 +98,11 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 - The legacy CLI gets tokens and auth state by running the hidden `auth:internal token|status` command (via `<PREFIX>WRAPPER_EXECUTABLE`), and Go runs the hidden PHP commands `auth:post-login` (SSH certificates and config) and `auth:export-sessions` (a one-time migration of the legacy storage, recorded in `auth/.migrated`)
 - Integration tests run with legacy auth by default, and with Go auth if `TEST_CLI_GO_AUTH=1` is set. Tests of Go-only behavior use `newGoAuthCommandFactory`
 
+**Table Output**: `internal/table/`
+- Renders tables with the same `--format`, `--columns` and `--no-header` options as the legacy CLI's `Table` service
+- The `csv`, `tsv` and `plain` formats match the legacy output, with ANSI escape sequences removed
+- The `table` format wraps cells to the terminal width (a port of the legacy `AdaptiveTable`), and supports ANSI-styled cells
+
 **Project Initialization**: `internal/init/`
 - AI-powered project configuration generation
 - Integrates with whatsun library for codebase analysis
