@@ -45,7 +45,7 @@ jobs:
           args: --timeout=5m
 
       - name: Run tests
-        run: make test
+        run: make test-go
 
       - name: Check goreleaser config
         run: make goreleaser-check
@@ -72,10 +72,6 @@ jobs:
   legacy-php:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: legacy
-
     steps:
       - name: Check out repository code
         uses: actions/checkout@v7
@@ -99,7 +95,7 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install dependencies
-        run: composer install --no-interaction
+        run: make composer-dev
 
       - name: Lint PHP (php-cs-fixer)
         run: make lint-php-cs-fixer
@@ -108,10 +104,10 @@ jobs:
         run: make lint-phpstan
 
       - name: Run PHPUnit tests
-        run: ./scripts/test/unit.sh
+        run: make test-php
 
       - name: Build platform.phar
-        run: php bin/platform self:build --no-interaction --output=platform.phar
+        run: make internal/legacy/archives/platform.phar
 
   integration-test:
     runs-on: ubuntu-latest
@@ -150,9 +146,7 @@ jobs:
         run: make php
 
       - name: Build platform.phar
-        run: |
-          mkdir -p internal/legacy/archives
-          cd legacy && php bin/platform self:build --no-interaction --output=../internal/legacy/archives/platform.phar
+        run: make phar
 
       - name: Build CLI
         run: make single

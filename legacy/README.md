@@ -25,17 +25,19 @@ Run the PHP CLI from source:
 ./bin/platform
 ```
 
-Run linters (php-cs-fixer and PHPStan) and unit tests:
+Make targets are in the [root Makefile](../Makefile). From the repository
+root, run linters (php-cs-fixer and PHPStan) and unit tests:
 
 ```sh
-make lint
-make test
+make lint-php-cs-fixer lint-phpstan
+make test-php
 ```
 
 After changing services or commands, delete the cached container
-(`make clean`).
+(`rm config/cache/container.php`, or `make clean` from the root).
 
-To build the embedded phar, run `make single` from the repository root.
+To build the embedded phar, run `make phar` or `make single` from the
+repository root.
 
 A Docker development environment is available: copy `.env-dist` to `.env`,
 then run `docker-compose up -d` and `docker-compose exec cli bash`.

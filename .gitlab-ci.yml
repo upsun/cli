@@ -59,8 +59,6 @@ legacy-php:
     - apt-get update && apt-get install -y zip unzip git
     - php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
     - php composer-setup.php --install-dir=/usr/local/bin --filename=composer
-    - cd legacy
-    - composer install --no-interaction
+    - make composer-dev
   script:
-    - make lint-php-cs-fixer lint-phpstan
-    - ./scripts/test/unit.sh
+    - make lint-php-cs-fixer lint-phpstan test-php
