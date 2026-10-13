@@ -55,7 +55,7 @@ single: goreleaser $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php ## Build a si
 	PHP_VERSION=$(PHP_VERSION) goreleaser build --single-target --id=$(GORELEASER_ID) --snapshot --clean
 
 .PHONY: snapshot
-snapshot: goreleaser $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php $(ARCHIVES)/cacert.pem ## Build a snapshot release (needs signing keys)
+snapshot: goreleaser $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php $(ARCHIVES)/cacert.pem ## Build all release artifacts in dist/ without publishing (needs signing keys)
 ifndef RSA_SIGNING_KEY_FILE
 	$(error RSA_SIGNING_KEY_FILE is not set. Set it to the path of your RSA private key for APK signing, or use 'make snapshot-no-nfpm' to skip packaging.)
 endif
@@ -65,11 +65,11 @@ endif
 	PHP_VERSION=$(PHP_VERSION) goreleaser release --snapshot --clean --skip=publish,announce
 
 .PHONY: snapshot-no-nfpm
-snapshot-no-nfpm: goreleaser $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php ## Build a snapshot release without packages
+snapshot-no-nfpm: goreleaser $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php ## Build release artifacts in dist/ without Linux packages or signing
 	PHP_VERSION=$(PHP_VERSION) goreleaser release --snapshot --clean --skip=publish,announce,nfpm
 
 .PHONY: vendor-snapshot
-vendor-snapshot: check-vendor .goreleaser.vendor.yaml goreleaser $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) $(ARCHIVES)/commands-vendor.json php ## Build a vendor CLI snapshot (needs VENDOR_NAME, VENDOR_BINARY)
+vendor-snapshot: check-vendor .goreleaser.vendor.yaml goreleaser $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) $(ARCHIVES)/commands-vendor.json php ## Build vendor CLI binaries for all platforms (needs VENDOR_NAME, VENDOR_BINARY)
 	PHP_VERSION=$(PHP_VERSION) VENDOR_BINARY="$(VENDOR_BINARY)" VENDOR_NAME="$(VENDOR_NAME)" goreleaser build --snapshot --clean --config=.goreleaser.vendor.yaml
 
 .PHONY: phar
