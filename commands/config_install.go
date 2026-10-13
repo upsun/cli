@@ -105,7 +105,7 @@ func runConfigInstall(cmd *cobra.Command, args []string) error {
 	cmd.PrintErrln()
 	if terminal.Stdin.IsInteractive() && !viper.GetBool("no-interaction") {
 		if !terminal.AskConfirmation("Are you sure you want to continue?", true) {
-			os.Exit(1)
+			return &exitError{code: 1}
 		}
 		cmd.PrintErrln()
 	}
