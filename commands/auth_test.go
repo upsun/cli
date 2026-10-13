@@ -65,6 +65,14 @@ func setWSLInterop(t *testing.T, state string) (conf, rundll string) {
 	return wslConfPath, filepath.Join(dir, "c", "Windows", "System32", "rundll32.exe")
 }
 
+// wslOpener returns the program wslBrowserCommand finds, or an empty string.
+func wslOpener() string {
+	if c := wslBrowserCommand(); c != nil {
+		return c[0]
+	}
+	return ""
+}
+
 // writeStub writes an executable stub, creating its directory.
 func writeStub(t *testing.T, path string) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
@@ -84,6 +92,7 @@ func TestWSLInteropEnabled(t *testing.T) {
 		{name: "entry disabled", binfmt: "disabled", want: false},
 		{name: "wsl.conf disables", binfmt: "enabled", wslConf: "[boot]\nsystemd=true\n[interop]\nenabled=false\n"},
 		{name: "wsl.conf spacing and case", binfmt: "enabled", wslConf: "[Interop]\n  Enabled = False # off\n"},
+		{name: "wsl.conf quoted", binfmt: "enabled", wslConf: "[interop]\nenabled = \"false\"\n"},
 		{name: "wsl.conf enables", binfmt: "enabled", wslConf: "[interop]\nenabled=true\n", want: true},
 		{name: "other section", binfmt: "enabled", wslConf: "[automount]\nenabled=false\n", want: true},
 		{name: "comment", binfmt: "enabled", wslConf: "[interop]\n# enabled=false\n", want: true},
@@ -107,13 +116,13 @@ func TestBrowserCommand_WSL(t *testing.T) {
 	t.Setenv("WSL_DISTRO_NAME", "Ubuntu")
 
 	assert.True(t, isWSL())
-	assert.Equal(t, system32, wslBrowser())
+	assert.Equal(t, system32, wslOpener())
 	assert.True(t, hasDisplay(), "a Windows browser can be used without a display")
 	assert.Equal(t, []string{system32, "url.dll,FileProtocolHandler"}, browserCommand(""))
 	assert.True(t, canOpenURLs(""))
 }
 
-// TestWSLBrowser_MountRoot checks that rundll32.exe is found via wsl.conf's automount root, and not via PATH.
+// TestWSLBrowser_MountRoot checks that rundll32.exe is found via wsl.conf's automount root, or else via PATH.
 func TestWSLBrowser_MountRoot(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("WSL is Linux")
@@ -124,13 +133,14 @@ func TestWSLBrowser_MountRoot(t *testing.T) {
 		name    string
 		wslConf string
 		stub    string // Where to write rundll32.exe: "default", "custom" (roots), "path", or nowhere.
-		want    string // The expected root: "default", "custom", or none.
+		want    string // Where it is expected to be found, as above, or nowhere.
 	}{
 		{name: "default root", stub: "default", want: "default"},
 		{name: "custom root", wslConf: "[automount]\nroot = " + custom + "/\n", stub: "custom", want: "custom"},
 		{name: "custom root without slash", wslConf: "[Automount]\nRoot=" + custom + "\n", stub: "custom", want: "custom"},
+		{name: "custom root, quoted", wslConf: "[automount]\nroot = \"" + custom + "/\"\n", stub: "custom", want: "custom"},
 		{name: "custom root, rundll32 in default root", wslConf: "[automount]\nroot=" + custom + "/\n", stub: "default"},
-		{name: "rundll32 only in PATH", stub: "path"},
+		{name: "rundll32 in PATH", stub: "path", want: "path"},
 		{name: "no rundll32"},
 	}
 	for _, c := range cases {
@@ -154,11 +164,13 @@ func TestWSLBrowser_MountRoot(t *testing.T) {
 
 			switch c.want {
 			case "default":
-				assert.Equal(t, defaultRundll, wslBrowser())
+				assert.Equal(t, defaultRundll, wslOpener())
 			case "custom":
-				assert.Equal(t, customRundll, wslBrowser())
+				assert.Equal(t, customRundll, wslOpener())
+			case "path":
+				assert.Equal(t, filepath.Join(pathDir, "rundll32.exe"), wslOpener())
 			default:
-				assert.Empty(t, wslBrowser())
+				assert.Empty(t, wslOpener())
 				assert.Nil(t, wslBrowserCommand())
 			}
 		})
@@ -171,6 +183,12 @@ func TestWSLConfValue(t *testing.T) {
 	assert.Equal(t, "/win/", wslConfValue(conf, "automount", "root"))
 	assert.Empty(t, wslConfValue(conf, "interop", "enabled"))
 	assert.Empty(t, wslConfValue("", "automount", "root"))
+
+	quoted := "[a]\nd=\"x\"\ns='y'\nm=\"z'\nq=\"\n"
+	assert.Equal(t, "x", wslConfValue(quoted, "a", "d"))
+	assert.Equal(t, "y", wslConfValue(quoted, "a", "s"))
+	assert.Equal(t, "\"z'", wslConfValue(quoted, "a", "m"))
+	assert.Equal(t, "\"", wslConfValue(quoted, "a", "q"))
 }
 
 // TestBrowserCommand_WSLWithoutOpener checks WSL without a Windows opener, e.g. with interop disabled, or a Docker
@@ -200,7 +218,7 @@ func TestBrowserCommand_WSLInteropOff(t *testing.T) {
 		_, rundll := setWSLInterop(t, state)
 		writeStub(t, rundll)
 		assert.False(t, hasDisplay(), "interop state %q", state)
-		assert.Empty(t, wslBrowser(), "interop state %q", state)
+		assert.Empty(t, wslOpener(), "interop state %q", state)
 		assert.False(t, canOpenURLs(""), "interop state %q", state)
 	}
 }

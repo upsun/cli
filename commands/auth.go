@@ -313,7 +313,8 @@ func wslInteropEnabled(wslConf string) bool {
 	return false
 }
 
-// wslConfValue returns the value of a key in a section of wsl.conf's contents, or an empty string.
+// wslConfValue returns the value of a key in a section of wsl.conf's contents, without surrounding quotes, or an
+// empty string.
 func wslConfValue(wslConf, section, key string) string {
 	var current string
 	for line := range strings.Lines(wslConf) {
@@ -325,7 +326,11 @@ func wslConfValue(wslConf, section, key string) string {
 		}
 		k, v, ok := strings.Cut(line, "=")
 		if ok && strings.EqualFold(current, section) && strings.EqualFold(strings.TrimSpace(k), key) {
-			return strings.TrimSpace(v)
+			v = strings.TrimSpace(v)
+			if len(v) >= 2 && (v[0] == '"' || v[0] == '\'') && v[len(v)-1] == v[0] {
+				v = v[1 : len(v)-1]
+			}
+			return v
 		}
 	}
 	return ""
@@ -339,26 +344,17 @@ func wslBrowserCommand() []string {
 	if !wslInteropEnabled(wslConf) {
 		return nil
 	}
-	// PATH is not searched, as that is slow under WSL2 (tens of ms, as it has Windows directories).
 	root := wslConfValue(wslConf, "automount", "root")
 	if root == "" {
 		root = wslDefaultMountRoot
 	}
-	if p, err := exec.LookPath(filepath.Join(root, "c", "Windows", "System32", "rundll32.exe")); err == nil {
-		return []string{p, "url.dll,FileProtocolHandler"}
+	// Searching PATH is slow under WSL2 (tens of ms, as it has Windows directories), so it is the fallback.
+	for _, p := range []string{filepath.Join(root, "c", "Windows", "System32", "rundll32.exe"), "rundll32.exe"} {
+		if p, err := exec.LookPath(p); err == nil {
+			return []string{p, "url.dll,FileProtocolHandler"}
+		}
 	}
 	return nil
-}
-
-// wslBrowser returns the program to open URLs in a Windows browser, if this is WSL, for the legacy CLI.
-func wslBrowser() string {
-	if !isWSL() {
-		return ""
-	}
-	if c := wslBrowserCommand(); c != nil {
-		return c[0]
-	}
-	return ""
 }
 
 // browserCommand returns the command to open URLs, or nil if none should be used.
