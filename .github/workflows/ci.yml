@@ -148,8 +148,9 @@ jobs:
       - name: Install shells for completion tests
         run: sudo apt-get update && sudo apt-get install -y bash-completion zsh fish
 
+      # Not `make test-integration`, which would build the CLI again.
       - name: Run integration tests
-        run: make test-integration
+        run: cd integration-tests && go test -count=1 ./...
 
       - name: Run integration tests with Go auth
         run: cd integration-tests && go test -count=1 ./...
