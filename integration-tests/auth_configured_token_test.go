@@ -16,14 +16,16 @@ import (
 // TestAuthLoginRequired_ConfiguredToken checks that no browser login is offered when an API token is set via config,
 // because the browser login would refuse to run.
 func TestAuthLoginRequired_ConfiguredToken(t *testing.T) {
+	t.Parallel()
+	// The parallel subtests run after this function returns, so servers are closed in cleanups.
 	authServer := mockapi.NewAuthServer(t)
-	defer authServer.Close()
+	t.Cleanup(authServer.Close)
 	apiServer := newMyUserAPI(t)
-	defer apiServer.Close()
+	t.Cleanup(apiServer.Close)
 	stepUpHandler := mockapi.NewHandler(t)
 	stepUpHandler.RequireStepUp([]string{"mfa"})
 	stepUpServer := httptest.NewServer(stepUpHandler)
-	defer stepUpServer.Close()
+	t.Cleanup(stepUpServer.Close)
 
 	mfaMessage := []string{
 		"Multi-factor authentication (MFA) is required.",
@@ -58,6 +60,7 @@ func TestAuthLoginRequired_ConfiguredToken(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			f := newCommandFactory(t, c.apiURL, authServer.URL)
 			if c.goAuth {
 				f = newGoAuthCommandFactory(t, c.apiURL, authServer.URL)
@@ -82,15 +85,17 @@ func TestAuthLoginRequired_ConfiguredToken(t *testing.T) {
 // TestAuthLoginRequired_StoredToken checks that a browser login is still offered with a stored API token, which a
 // browser login can replace.
 func TestAuthLoginRequired_StoredToken(t *testing.T) {
-	authServer := mockapi.NewAuthServer(t)
-	defer authServer.Close()
-	apiHandler := mockapi.NewHandler(t)
-	apiHandler.SetMyUser(&mockapi.User{ID: "u1", Username: "testuser", Email: "test@example.com"})
-	apiServer := httptest.NewServer(apiHandler)
-	defer apiServer.Close()
-
+	t.Parallel()
 	for _, goAuth := range []bool{true, false} {
 		t.Run(fmt.Sprintf("go auth %v", goAuth), func(t *testing.T) {
+			t.Parallel()
+			authServer := mockapi.NewAuthServer(t)
+			defer authServer.Close()
+			apiHandler := mockapi.NewHandler(t)
+			apiHandler.SetMyUser(&mockapi.User{ID: "u1", Username: "testuser", Email: "test@example.com"})
+			apiServer := httptest.NewServer(apiHandler)
+			defer apiServer.Close()
+
 			f := newCommandFactory(t, apiServer.URL, authServer.URL)
 			if goAuth {
 				f = newGoAuthCommandFactory(t, apiServer.URL, authServer.URL)
@@ -102,7 +107,6 @@ func TestAuthLoginRequired_StoredToken(t *testing.T) {
 			require.NoError(t, err, "stderr: %s", stderr)
 
 			apiHandler.RequireStepUp([]string{"mfa"})
-			defer apiHandler.RequireStepUp(nil)
 			f.fakeBrowser()
 			_, stderr, err = f.RunInteractive("n\n", "projects")
 			assertExitCode(t, 3, err)
@@ -114,6 +118,7 @@ func TestAuthLoginRequired_StoredToken(t *testing.T) {
 // TestAuthLoginRequired_UnreadableTokenFile checks that an unreadable token file, which is not used when an API token
 // is stored, does not hide the login-required error.
 func TestAuthLoginRequired_UnreadableTokenFile(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
