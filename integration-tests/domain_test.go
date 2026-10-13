@@ -11,6 +11,7 @@ import (
 )
 
 func TestDomainList(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -75,6 +76,7 @@ func TestDomainList(t *testing.T) {
 }
 
 func TestDomainListEmpty(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

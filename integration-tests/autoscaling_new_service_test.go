@@ -18,6 +18,7 @@ import (
 // AutoscalingSettingsSetCommand.php — summarizeChangesPerService receives
 // null when $settings[$service] is unset.
 func TestAutoscalingSettingsSetNewService(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

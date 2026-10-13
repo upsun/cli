@@ -18,6 +18,7 @@ import (
 // fix, PHP would throw a TypeError; after the fix the CLI must report a
 // readable error and exit non-zero.
 func TestAutoscalingSettingsSetMissingMetric(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

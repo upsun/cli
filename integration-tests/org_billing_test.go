@@ -75,6 +75,7 @@ func newBillingProfile(links ...string) *mockapi.BillingProfile {
 }
 
 func TestOrgBillingProfile_NewBilling(t *testing.T) {
+	t.Parallel()
 	apiHandler, f := setUpBillingOrg(t, newBillingOrg("bp-1", true), newBillingProfile("update", "update-address"))
 
 	out, _, err := f.RunCombinedOutput("org:billing:profile", "-o", "acme", "--format", "csv")
@@ -95,6 +96,7 @@ func TestOrgBillingProfile_NewBilling(t *testing.T) {
 }
 
 func TestOrgBillingAddress_NewBilling(t *testing.T) {
+	t.Parallel()
 	apiHandler, f := setUpBillingOrg(t, newBillingOrg("bp-1", true), newBillingProfile("update", "update-address"))
 
 	out, _, err := f.RunCombinedOutput("org:billing:address", "-o", "acme", "--format", "csv")
@@ -119,6 +121,7 @@ func TestOrgBillingAddress_NewBilling(t *testing.T) {
 }
 
 func TestOrgBillingAddress_NewBillingValidationError(t *testing.T) {
+	t.Parallel()
 	apiHandler, f := setUpBillingOrg(t, newBillingOrg("bp-1", true), newBillingProfile("update", "update-address"))
 	apiHandler.Patch("/billing/profiles/bp-1", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
@@ -138,6 +141,7 @@ func TestOrgBillingAddress_NewBillingValidationError(t *testing.T) {
 }
 
 func TestOrgBilling_NewBillingReadOnly(t *testing.T) {
+	t.Parallel()
 	apiHandler, f := setUpBillingOrg(t, newBillingOrg("bp-1", true), newBillingProfile())
 
 	_, stdErr, err := f.RunCombinedOutput("org:billing:profile", "-o", "acme", "name", "Acme SAS")
@@ -152,6 +156,7 @@ func TestOrgBilling_NewBillingReadOnly(t *testing.T) {
 }
 
 func TestOrgBilling_NewBillingNoAccess(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name      string
 		profileID string
@@ -173,6 +178,7 @@ func TestOrgBilling_NewBillingNoAccess(t *testing.T) {
 }
 
 func TestOrgBilling_Legacy(t *testing.T) {
+	t.Parallel()
 	apiHandler, f := setUpBillingOrg(t, &mockapi.Org{
 		ID:           "org-legacy",
 		Type:         "flexible",

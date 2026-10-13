@@ -48,6 +48,7 @@ func (s *tokenState) getFetches() int {
 }
 
 func TestApiCurlCommand(t *testing.T) {
+	t.Parallel()
 	state := &tokenState{validToken: "valid-token"}
 
 	mux := chi.NewMux()

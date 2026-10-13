@@ -14,6 +14,7 @@ import (
 // resulting deployment update. Accepting every default must change nothing;
 // entering new values must submit them in the deployment PATCH body.
 func TestResourcesSet_Interactive(t *testing.T) {
+	t.Parallel()
 	apiHandler := mockapi.NewHandler(t)
 	projectID, _ := setUpResourcesProject(apiHandler, "org-id-1", nextDeployment(map[string]any{
 		"app": map[string]any{

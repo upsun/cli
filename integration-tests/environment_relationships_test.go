@@ -46,6 +46,7 @@ func mockRelationships() map[string]any {
 }
 
 func TestRelationshipsLocal(t *testing.T) {
+	t.Parallel()
 	data, err := json.Marshal(mockRelationships())
 	require.NoError(t, err)
 
@@ -64,6 +65,7 @@ func TestRelationshipsLocal(t *testing.T) {
 }
 
 func TestRelationshipsRemote(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

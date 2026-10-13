@@ -23,6 +23,7 @@ import (
 // against a mock whose current settings have triggers.cpu but no
 // triggers.cpu.down. summarizeChanges then runs formatDurationChange(null, ...).
 func TestAutoscalingSettingsSetMissingDuration(t *testing.T) {
+	t.Parallel()
 	f, projectID := setupAutoscalingSettingsSet(t)
 
 	// Use --dry-run to skip the confirmation; we just need summarizeChanges to run.
@@ -48,6 +49,7 @@ func TestAutoscalingSettingsSetMissingDuration(t *testing.T) {
 // threshold, from an option or typed interactively, is reported as invalid
 // rather than causing a TypeError.
 func TestAutoscalingSettingsSetInvalidThreshold(t *testing.T) {
+	t.Parallel()
 	f, projectID := setupAutoscalingSettingsSet(t)
 
 	cases := []struct {
@@ -79,6 +81,7 @@ func TestAutoscalingSettingsSetInvalidThreshold(t *testing.T) {
 // TestAutoscalingSettingsSetAcceptDefaults checks that accepting the current
 // threshold at the interactive prompt is not reported as a change.
 func TestAutoscalingSettingsSetAcceptDefaults(t *testing.T) {
+	t.Parallel()
 	f, projectID := setupAutoscalingSettingsSet(t)
 
 	// Accept every default, including the metric (the only service is selected automatically).

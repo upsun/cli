@@ -12,6 +12,7 @@ import (
 )
 
 func TestBackupList(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -85,6 +86,7 @@ func TestBackupList(t *testing.T) {
 }
 
 func TestBackupCreate(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

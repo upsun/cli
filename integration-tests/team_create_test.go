@@ -13,6 +13,7 @@ import (
 // TestTeamCreateNoLabel is a regression test for a TypeError raised by the
 // legacy team:create command when --label was omitted in non-interactive mode.
 func TestTeamCreateNoLabel(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

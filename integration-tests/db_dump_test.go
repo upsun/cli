@@ -18,6 +18,7 @@ import (
 // Selector then called selectRemoteContainer() with the resulting null
 // environment.
 func TestDbDumpNoEnvironment(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

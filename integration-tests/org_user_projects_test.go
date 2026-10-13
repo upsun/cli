@@ -25,6 +25,7 @@ import (
 // non-null UserRef at runtime, so the lookup in the command body cannot return
 // null. The test confirms the command completes without a TypeError.
 func TestOrgUserProjects(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

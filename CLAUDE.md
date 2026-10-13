@@ -154,6 +154,8 @@ make download-php
 
 Tests use github.com/stretchr/testify for assertions. Table-driven tests are preferred with a "cases" slice containing simple test case structs.
 
+Integration tests (`integration-tests/`) call `t.Parallel()`, so they must not share state: no `t.Setenv` or unsynchronized package variables, and use `cmdFactory.useConfig` to change the CLI config file.
+
 ### Configuration
 
 The CLI uses Viper for configuration. Environment variables use the prefix defined in the config (UPSUN_CLI_ or PLATFORM_CLI_). The prefix is set in the config YAML.

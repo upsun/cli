@@ -18,6 +18,7 @@ import (
 // getSupportedMetrics($defaults), which is typed array, so PHP raised a
 // TypeError on null.
 func TestAutoscalingSettingsSetMissingDefaults(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

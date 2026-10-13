@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,12 +26,18 @@ import (
 	"github.com/upsun/cli/pkg/mockapi"
 )
 
-var _validatedCommand string
+var (
+	_validatedCommand   string
+	_validatedCommandMu sync.Mutex
+)
 
 func getCommandName(t *testing.T) string {
 	if testing.Short() {
 		t.Skip("skipping integration test due to -short flag")
 	}
+	// Tests run in parallel: validate once.
+	_validatedCommandMu.Lock()
+	defer _validatedCommandMu.Unlock()
 	if _validatedCommand != "" {
 		return _validatedCommand
 	}
@@ -165,6 +172,12 @@ func (f *cmdFactory) buildCommand(args ...string) *exec.Cmd {
 		cmd.Stdin = f.stdin
 	}
 	return cmd
+}
+
+// useConfig sets a CLI config file. It also sets a private temporary directory, as
+// the legacy CLI copies the config to a shared cache file, which parallel tests would overwrite.
+func (f *cmdFactory) useConfig(path string) {
+	f.extraEnv = append(f.extraEnv, "CLI_CONFIG_FILE="+path, EnvPrefix+"TMP="+f.t.TempDir())
 }
 
 func assertTrimmed(t *testing.T, expected, actual string) {

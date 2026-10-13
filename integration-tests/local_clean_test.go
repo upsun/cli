@@ -16,6 +16,7 @@ import (
 // TestLocalClean checks that --keep and --max-age, which Symfony passes as
 // strings, are accepted by local:clean.
 func TestLocalClean(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiServer := httptest.NewServer(mockapi.NewHandler(t))

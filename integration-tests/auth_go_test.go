@@ -19,6 +19,7 @@ import (
 
 // TestAuthMigration checks that sessions saved by the legacy CLI are migrated, and the legacy copies deleted.
 func TestAuthMigration(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	authServer.AddRefreshToken("legacy-refresh-token")
@@ -72,6 +73,7 @@ func TestAuthMigration(t *testing.T) {
 // TestAuthRefresh_ManyExpiries runs Go and PHP commands in parallel across several token expiries.
 // Each expiry must cause exactly one refresh, without reusing a rotated refresh token.
 func TestAuthRefresh_ManyExpiries(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	// Tokens are refreshed 2 minutes before they expire, so they are usable for 3 seconds.
@@ -137,6 +139,7 @@ func TestAuthRefresh_ManyExpiries(t *testing.T) {
 
 // TestAuthRefresh_KilledWhileRefreshing checks that a process killed while holding the lock does not block others.
 func TestAuthRefresh_KilledWhileRefreshing(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS == "windows" {
 		t.Skip("uses SIGKILL")
 	}
@@ -170,6 +173,7 @@ func TestAuthRefresh_KilledWhileRefreshing(t *testing.T) {
 
 // TestAuthRefresh_TransientError checks that server errors during a refresh keep the session.
 func TestAuthRefresh_TransientError(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	authServer.AddRefreshToken("initial-refresh-token")
@@ -199,6 +203,7 @@ func TestAuthRefresh_TransientError(t *testing.T) {
 
 // TestAuthRefresh_InvalidGrantClearsSessionFiles checks that an expired session's files are deleted.
 func TestAuthRefresh_InvalidGrantClearsSessionFiles(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -225,6 +230,7 @@ func TestAuthRefresh_InvalidGrantClearsSessionFiles(t *testing.T) {
 
 // TestAuthStepUp checks the message for a step-up authentication challenge (RFC 9470) in a PHP command.
 func TestAuthStepUp(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiHandler := mockapi.NewHandler(t)
@@ -248,6 +254,7 @@ func TestAuthStepUp(t *testing.T) {
 
 // TestAuthInternal checks the JSON output of the hidden command used by the legacy CLI.
 func TestAuthInternal(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -267,6 +274,7 @@ func TestAuthInternal(t *testing.T) {
 
 // TestAuthInternalCommandsHidden checks that the internal legacy commands are hidden, and not run via abbreviations.
 func TestAuthInternalCommandsHidden(t *testing.T) {
+	t.Parallel()
 	f := newGoAuthCommandFactory(t, "", "")
 
 	var list struct {
@@ -292,6 +300,7 @@ func TestAuthInternalCommandsHidden(t *testing.T) {
 
 // TestErrorOutput_QuietOverride checks that --verbose and --debug override --quiet for errors.
 func TestErrorOutput_QuietOverride(t *testing.T) {
+	t.Parallel()
 	f := newGoAuthCommandFactory(t, "", "")
 	cases := []struct {
 		args      []string
