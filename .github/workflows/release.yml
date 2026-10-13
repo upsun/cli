@@ -84,8 +84,10 @@ jobs:
         uses: actions/cache@v6
         id: php-cache
         with:
-          path: internal/legacy/archives/php_*
-          key: php-binaries-${{ steps.php-version.outputs.version }}
+          path: |
+            internal/legacy/archives/php_*
+            internal/legacy/archives/php-version
+          key: php-binaries-v2-${{ steps.php-version.outputs.version }}
 
       - name: Download all PHP binaries
         if: steps.php-cache.outputs.cache-hit != 'true'

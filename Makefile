@@ -38,7 +38,8 @@ LEGACY_INDEXES = $(ARCHIVES)/commands-upsun.json $(ARCHIVES)/commands-platformsh
 
 # Files that the legacy CLI phar is built from.
 LEGACY_SOURCES := $(shell find legacy/bin legacy/src legacy/config legacy/resources -type f -not -path 'legacy/config/cache/*') \
-	$(wildcard legacy/*.yaml legacy/*.tmpl.rc) legacy/constants.php legacy/box.json legacy/composer.lock
+	$(wildcard legacy/*.yaml legacy/*.tmpl.rc) legacy/constants.php legacy/box.json legacy/composer.lock \
+	legacy/vendor-bin/box/composer.json legacy/vendor-bin/box/composer.lock
 
 .PHONY: help
 help: ## Show this help
@@ -223,10 +224,13 @@ lint-assets: ## Refresh the embedded lint registry from upstream
 lint-assets-check: lint-assets
 	git diff --exit-code -- internal/lint/registry/registry.json
 
-# Installs dev dependencies, which a phar build removes.
+# Installs dev dependencies, which a phar build removes. PHPStan's binary marks that they are installed.
 .PHONY: composer-dev
-composer-dev:
+composer-dev: legacy/vendor/bin/phpstan
+
+legacy/vendor/bin/phpstan: legacy/composer.lock
 	cd legacy && composer install --no-interaction
+	touch $@
 
 ##@ Clean
 

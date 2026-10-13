@@ -139,9 +139,6 @@ jobs:
           key: ${{ runner.os }}-composer-${{ hashFiles('legacy/composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
 
-      - name: Install legacy dependencies
-        run: cd legacy && composer install --no-interaction
-
       - name: Download PHP binary
         run: make php
 
