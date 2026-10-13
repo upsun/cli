@@ -14,6 +14,7 @@ use GuzzleHttp\Exception\RequestException;
 use Platformsh\Client\Model\Integration;
 use Composer\CaBundle\CaBundle;
 use Doctrine\Common\Cache\CacheProvider;
+use Doctrine\Common\Cache\VoidCache;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\BadResponseException;
@@ -32,6 +33,7 @@ use Platformsh\Cli\Exception\GoLoginRequiredException;
 use Platformsh\Cli\Exception\ProcessFailedException;
 use Platformsh\Cli\GuzzleDebugMiddleware;
 use Platformsh\Cli\Model\Route;
+use Platformsh\Cli\Util\Jwt;
 use Platformsh\Cli\Util\NamespacedCache;
 use Platformsh\Cli\Util\NestedArrayUtil;
 use Platformsh\Cli\Util\Sort;
@@ -1370,10 +1372,16 @@ class Api
      * Returns the cache for API data, namespaced by the current user's ID.
      *
      * Getting the user ID needs a valid access token, so cached data is not used with other credentials.
+     * The cache is bypassed if the token has expired, as its claims cannot be trusted until it is refreshed.
      */
     public function userCache(): CacheProvider
     {
         $userId = $this->getMyUserId();
+        $accessToken = $this->getClient()->getConnector()->getSession()->get('accessToken');
+        $claims = is_string($accessToken) ? (new Jwt($accessToken))->unsafeGetUnverifiedClaims() : false;
+        if ($claims !== false && isset($claims['exp']) && is_int($claims['exp']) && $claims['exp'] <= time()) {
+            return new VoidCache();
+        }
         if ($this->userCache?->getNamespace() !== $userId) {
             $this->userCache = new NamespacedCache($this->cache, $userId);
         }

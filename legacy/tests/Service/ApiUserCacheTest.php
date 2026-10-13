@@ -9,8 +9,10 @@ use GuzzleHttp\Client;
 use PHPUnit\Framework\TestCase;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
+use Platformsh\Client\Connection\ConnectorInterface;
 use Platformsh\Client\Model\User;
 use Platformsh\Client\PlatformClient;
+use Platformsh\Client\Session\Session;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 class ApiUserCacheTest extends TestCase
@@ -30,6 +32,32 @@ class ApiUserCacheTest extends TestCase
         }
 
         $this->assertSame(['user-a', 'user-a', 'user-b', 'user-a'], $userIds);
+    }
+
+    public function testCacheIsBypassedWithAnExpiredToken(): void
+    {
+        $session = new Session('user-cache-test');
+        $session->set('accessToken', $this->jwt(['sub' => 'user-a', 'exp' => time() - 60]));
+        $connector = $this->createMock(ConnectorInterface::class);
+        $connector->method('getSession')->willReturn($session);
+        $client = $this->createMock(PlatformClient::class);
+        $client->method('getConnector')->willReturn($connector);
+        $client->expects($this->exactly(2))
+            ->method('getUser')
+            ->with('me')
+            ->willReturn($this->user('user-a'));
+
+        $api = $this->createApi($client, new ArrayCache(), 'user-a');
+        $api->getUser();
+        $api->getUser();
+    }
+
+    /**
+     * @param array<string, mixed> $claims
+     */
+    private function jwt(array $claims): string
+    {
+        return 'e30.' . base64_encode((string) json_encode($claims)) . '.signature';
     }
 
     private function user(string $id): User
