@@ -54,6 +54,7 @@ func setupVariableTest(t *testing.T) *variableTestSetup {
 }
 
 func TestVariableCreate(t *testing.T) {
+	t.Parallel()
 	s := setupVariableTest(t)
 	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
 	s.apiHandler.SetProjectVariables(s.projectID, []*mockapi.Variable{
@@ -99,6 +100,7 @@ func TestVariableCreate(t *testing.T) {
 }
 
 func TestVariableCreateDefaultEnvironment(t *testing.T) {
+	t.Parallel()
 	// Regression test for CLI-164: using "-e ." (the default-environment code)
 	// must not fail form validation of the --environment option.
 	s := setupVariableTest(t)
@@ -116,6 +118,7 @@ func TestVariableCreateDefaultEnvironment(t *testing.T) {
 }
 
 func TestVariableCreateUpdateWithLevel(t *testing.T) {
+	t.Parallel()
 	// Regression test for CLI-194: "var:create --update" must forward --level to var:update.
 	s := setupVariableTest(t)
 	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
@@ -159,6 +162,7 @@ func TestVariableCreateUpdateWithLevel(t *testing.T) {
 }
 
 func TestVariableCreateWithAppScope(t *testing.T) {
+	t.Parallel()
 	s := setupVariableTest(t)
 
 	// Set up deployment with app names for validation.
@@ -231,6 +235,7 @@ func TestVariableCreateWithAppScope(t *testing.T) {
 }
 
 func TestVariableCreateWithAppScopeNoDeployment(t *testing.T) {
+	t.Parallel()
 	// Uses an environment without a deployment, so app-scope validation is skipped.
 	s := setupVariableTest(t)
 	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})

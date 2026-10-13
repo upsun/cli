@@ -13,6 +13,7 @@ import (
 // TestSSHBrokenEnv checks SSH URL selection on an active environment whose
 // current deployment cannot be loaded.
 func TestSSHBrokenEnv(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

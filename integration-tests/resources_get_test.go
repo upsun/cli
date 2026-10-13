@@ -15,6 +15,7 @@ import (
 // default ([]) was being cast to string and treated as a worker name in
 // Selector::selectRemoteContainer.
 func TestResourcesGet(t *testing.T) {
+	t.Parallel()
 	apiHandler := mockapi.NewHandler(t)
 	projectID, _ := setUpResourcesProject(apiHandler, "org-id-1", nextDeployment(map[string]any{
 		"app": map[string]any{

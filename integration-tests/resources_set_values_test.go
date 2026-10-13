@@ -12,6 +12,7 @@ import (
 // TestResourcesSet_DiskKeywords checks the documented 'default' and 'min'
 // values for --disk.
 func TestResourcesSet_DiskKeywords(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		value string
 		want  int
@@ -56,6 +57,7 @@ func TestResourcesSet_DiskKeywords(t *testing.T) {
 // TestResourcesSet_InteractiveIntegerProfileSizes checks that choosing a
 // profile size returns the size, when every size offered is an integer.
 func TestResourcesSet_InteractiveIntegerProfileSizes(t *testing.T) {
+	t.Parallel()
 	apiHandler := mockapi.NewHandler(t)
 	projectID, _ := setUpResourcesProject(apiHandler, "org-id-1", nextDeployment(map[string]any{
 		"app": map[string]any{

@@ -131,6 +131,7 @@ func setupMetricsTest(t *testing.T, withStorage, withStorageMount bool) (f *cmdF
 }
 
 func TestMetricsStorage(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name             string
 		withStorage      bool
@@ -221,6 +222,7 @@ func TestMetricsStorage(t *testing.T) {
 }
 
 func TestMetricsStorageDisabledColumn(t *testing.T) {
+	t.Parallel()
 	f, projectID := setupMetricsTest(t, true, false)
 	f.extraEnv = []string{"TEST_CLI_API_METRICS_STORAGE=0"}
 

@@ -11,6 +11,7 @@ import (
 )
 
 func TestSessionSwitch_WritesIDFile(t *testing.T) {
+	t.Parallel()
 	// session:switch does not require API or auth server access.
 	f := newCommandFactory(t, "", "")
 
@@ -24,6 +25,7 @@ func TestSessionSwitch_WritesIDFile(t *testing.T) {
 }
 
 func TestSessionSwitch_BlockedByEnvVar(t *testing.T) {
+	t.Parallel()
 	f := newCommandFactory(t, "", "")
 	f.extraEnv = append(f.extraEnv, EnvPrefix+"SESSION_ID=env-session")
 

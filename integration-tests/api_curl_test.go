@@ -10,8 +10,9 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/upsun/cli/pkg/mockapi"
 )
 
 // tokenState holds mutable token state shared between the test and HTTP handlers.
@@ -48,12 +49,11 @@ func (s *tokenState) getFetches() int {
 }
 
 func TestApiCurlCommand(t *testing.T) {
+	t.Parallel()
 	state := &tokenState{validToken: "valid-token"}
 
 	mux := chi.NewMux()
-	if testing.Verbose() {
-		mux.Use(middleware.DefaultLogger)
-	}
+	mux.Use(mockapi.RequestLogger(t))
 	mux.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !strings.HasPrefix(r.URL.Path, "/oauth2") {

@@ -100,6 +100,7 @@ func (l repoLayout) build(t *testing.T) string {
 // the environment matching the checked-out branch, identifying the project from
 // either the Git remote or .platform/local/project.yaml.
 func TestEnvironmentSelectionByLayout(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

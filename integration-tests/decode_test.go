@@ -7,6 +7,7 @@ import (
 )
 
 func TestDecode(t *testing.T) {
+	t.Parallel()
 	f := &cmdFactory{t: t}
 
 	// Simple base64-encoded JSON.

@@ -10,6 +10,7 @@ import (
 )
 
 func TestMountList(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -59,6 +60,7 @@ source_path: files"
 }
 
 func TestMountListLocal(t *testing.T) {
+	t.Parallel()
 	f := cmdWithLocalApp(t, &mockapi.App{
 		Name: "local-app",
 		Type: "golang:1.24",

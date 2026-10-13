@@ -16,6 +16,7 @@ import (
 // TestActivityLogRefresh checks that --refresh, which Symfony passes as a
 // string, is accepted by activity:log for an in-progress activity.
 func TestActivityLogRefresh(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

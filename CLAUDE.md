@@ -8,6 +8,8 @@ The Upsun CLI is a Go-based command-line interface for [Upsun](https://upsun.com
 
 ## Build and Test Commands
 
+All targets are in the root `Makefile`, including those for the legacy PHP CLI. Run `make` to list them.
+
 Build a single binary for your platform:
 ```bash
 make single
@@ -18,20 +20,28 @@ Build a snapshot for all platforms:
 make snapshot
 ```
 
-Run tests:
+Run tests (Go and PHP unit tests):
 ```bash
 make test
-# or directly:
-go test -v -race -cover -count=1 ./...
+# or separately:
+make test-go
+make test-php
 ```
 
-Run linters:
+Run linters (Go and PHP):
 ```bash
 make lint
-# or individual linters:
-make lint-gomod
-make lint-golangci
+# or separately:
+make lint-go
+make lint-php
 ```
+
+Remove the phar, command indexes, legacy dependencies and caches (`clean-all` also removes PHP binaries and `dist/`):
+```bash
+make clean
+```
+
+The phar is rebuilt when files in `legacy/` change. Building it installs `legacy/vendor` without dev dependencies; the PHP lint and test targets reinstall them.
 
 Format code:
 ```bash
@@ -135,7 +145,7 @@ make download-php
 **Upgrading PHP Version**:
 1. Trigger the build workflow at [upsun/cli-php-builds](https://github.com/upsun/cli-php-builds/actions) with the new PHP version
 2. Update `PHP_VERSION` in the Makefile
-3. Run `make php` to download the new binary
+3. Run `make php` (or `make download-php`) to download the new binaries
 4. Test and release
 
 ## Development Notes
@@ -143,6 +153,8 @@ make download-php
 ### Testing
 
 Tests use github.com/stretchr/testify for assertions. Table-driven tests are preferred with a "cases" slice containing simple test case structs.
+
+Integration tests (`integration-tests/`) call `t.Parallel()`, so they must not share state: no `t.Setenv` or unsynchronized package variables, and use `cmdFactory.useConfig` to change the CLI config file. Write output with `t.Log` (e.g. `mockapi.RequestLogger`), not to stdout or stderr: it is then attributed to its test, and shown only on failure or with `-v`.
 
 ### Configuration
 

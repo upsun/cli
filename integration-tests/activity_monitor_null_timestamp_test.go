@@ -22,6 +22,7 @@ import (
 // requiring more mocking), the redeploy response embeds two non-integration
 // activities, so the multi-activity branch (lines 449-515) runs.
 func TestActivityMonitorNullTimestamp(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

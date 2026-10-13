@@ -37,6 +37,7 @@ func newMyUserAPI(t *testing.T) *httptest.Server {
 
 // TestAuthLogin_AcceptPromptInPHP accepts the login prompt in a PHP command, which runs the Go login.
 func TestAuthLogin_AcceptPromptInPHP(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiServer := newMyUserAPI(t)
@@ -56,6 +57,7 @@ func TestAuthLogin_AcceptPromptInPHP(t *testing.T) {
 
 // TestAuthLogin_AcceptPromptInGo accepts the login prompt in a Go command.
 func TestAuthLogin_AcceptPromptInGo(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiServer := newMyUserAPI(t)
@@ -71,6 +73,7 @@ func TestAuthLogin_AcceptPromptInGo(t *testing.T) {
 
 // TestAuthBrowserLogin_ReplacesSession checks the effects of a login over an existing session.
 func TestAuthBrowserLogin_ReplacesSession(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiServer := newMyUserAPI(t)
@@ -101,6 +104,7 @@ func TestAuthBrowserLogin_ReplacesSession(t *testing.T) {
 
 // TestAuthRefresh_RejectedToken checks that PHP gets a new token from Go when the API rejects one before it expires.
 func TestAuthRefresh_RejectedToken(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	authServer.SetUniqueAccessTokens(true)
@@ -127,6 +131,7 @@ func TestAuthRefresh_RejectedToken(t *testing.T) {
 
 // TestAuthLogout_AllRevokesEverySession checks the effects of logging out of all sessions.
 func TestAuthLogout_AllRevokesEverySession(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -161,6 +166,7 @@ func TestAuthLogout_AllRevokesEverySession(t *testing.T) {
 
 // TestAuthAPITokenLogin_Logout checks that logging out deletes a stored API token and revokes its tokens.
 func TestAuthAPITokenLogin_Logout(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiServer := newMyUserAPI(t)
@@ -181,6 +187,7 @@ func TestAuthAPITokenLogin_Logout(t *testing.T) {
 
 // TestSessionSwitch_UsesNewSession checks that PHP and Go use the same session after a switch.
 func TestSessionSwitch_UsesNewSession(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiServer := newMyUserAPI(t)

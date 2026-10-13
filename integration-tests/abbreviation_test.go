@@ -9,6 +9,7 @@ import (
 
 // TestAbbreviation checks that native commands can be abbreviated like legacy ones.
 func TestAbbreviation(t *testing.T) {
+	t.Parallel()
 	f := newCommandFactory(t, "", "")
 
 	cases := []struct {
