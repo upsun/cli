@@ -127,6 +127,7 @@ func makeProject(id, org, vendor, title, region string) *mockapi.Project {
 }
 
 func TestProjectListCacheIsPerUser(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
