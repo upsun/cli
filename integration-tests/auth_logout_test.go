@@ -13,6 +13,7 @@ import (
 )
 
 func TestAuthLogout_Single(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiHandler := mockapi.NewHandler(t)
@@ -30,6 +31,7 @@ func TestAuthLogout_Single(t *testing.T) {
 // TestAuthLogout_OtherSessionsHint: when other sessions still exist after a single logout,
 // the hint to log out of all sessions is shown.
 func TestAuthLogout_OtherSessionsHint(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -51,6 +53,7 @@ func TestAuthLogout_OtherSessionsHint(t *testing.T) {
 }
 
 func TestAuthLogout_All(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiServer := httptest.NewServer(mockapi.NewHandler(t))
@@ -64,6 +67,7 @@ func TestAuthLogout_All(t *testing.T) {
 }
 
 func TestAuthLogout_Other(t *testing.T) {
+	t.Parallel()
 	// Use the auth server so the revoke POST has a valid endpoint to hit.
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()

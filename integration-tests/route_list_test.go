@@ -13,6 +13,7 @@ import (
 )
 
 func TestRouteList(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -57,6 +58,7 @@ func TestRouteList(t *testing.T) {
 }
 
 func TestRouteListLocal(t *testing.T) {
+	t.Parallel()
 	f := &cmdFactory{t: t}
 	routes, err := json.Marshal(mockRoutes())
 	require.NoError(t, err)

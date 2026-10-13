@@ -15,6 +15,7 @@ import (
 // TestAuthRefresh_Concurrent runs several processes that load the same expired session.
 // Only one should use the refresh token: the others must use the token it saved.
 func TestAuthRefresh_Concurrent(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	// Keep the first refresh in progress while the other processes start.

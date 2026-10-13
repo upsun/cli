@@ -13,6 +13,7 @@ import (
 // TestEmptyInteractiveInput checks that pressing Enter at prompts with no
 // default is reported as a validation error rather than a crash.
 func TestEmptyInteractiveInput(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

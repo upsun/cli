@@ -20,6 +20,7 @@ import (
 )
 
 func TestEnvironmentLogAPI(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -252,6 +253,7 @@ func TestEnvironmentLogAPI(t *testing.T) {
 }
 
 func TestEnvironmentLogSSHFallback(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

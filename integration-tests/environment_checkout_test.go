@@ -14,6 +14,7 @@ import (
 // can offer environments whose IDs are all digits (which PHP turns into
 // integer array keys).
 func TestEnvironmentCheckoutNumericID(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

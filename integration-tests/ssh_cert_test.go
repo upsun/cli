@@ -10,6 +10,7 @@ import (
 )
 
 func TestSSHCerts(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name      string
 		algorithm string

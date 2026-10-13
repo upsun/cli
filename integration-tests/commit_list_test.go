@@ -18,6 +18,7 @@ import (
 // TestCommitList checks that --limit, which Symfony passes as a string, is
 // accepted by commit:list.
 func TestCommitList(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

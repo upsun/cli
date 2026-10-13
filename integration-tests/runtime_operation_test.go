@@ -19,6 +19,7 @@ import (
 // --app/--worker options are not provided. PHPStan flagged $appName as
 // potentially null at the call site; this test reproduces the exact path.
 func TestRuntimeOperationRun(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

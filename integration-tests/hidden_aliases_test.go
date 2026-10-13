@@ -9,6 +9,7 @@ import (
 )
 
 func TestHiddenAliases(t *testing.T) {
+	t.Parallel()
 	f := newCommandFactory(t, "", "")
 
 	cases := []struct {

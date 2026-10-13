@@ -7,6 +7,7 @@ import (
 )
 
 func TestList(t *testing.T) {
+	t.Parallel()
 	f := newCommandFactory(t, "", "")
 
 	output := f.Run("list")

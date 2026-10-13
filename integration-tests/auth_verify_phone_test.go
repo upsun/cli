@@ -13,6 +13,7 @@ import (
 )
 
 func TestAuthVerifyPhoneNumber_AlreadyVerified(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiHandler := mockapi.NewHandler(t)
@@ -35,6 +36,7 @@ func TestAuthVerifyPhoneNumber_AlreadyVerified(t *testing.T) {
 // TestAuthVerifyPhoneNumber_InvalidPhoneRetry: an invalid phone number is re-prompted
 // (not an immediate exit), then a valid number succeeds.
 func TestAuthVerifyPhoneNumber_InvalidPhoneRetry(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiHandler := mockapi.NewHandler(t)
@@ -55,6 +57,7 @@ func TestAuthVerifyPhoneNumber_InvalidPhoneRetry(t *testing.T) {
 // TestAuthVerifyPhoneNumber_InvalidCodeRetry: an invalid verification code is re-prompted
 // (not an immediate exit), then the correct code succeeds.
 func TestAuthVerifyPhoneNumber_InvalidCodeRetry(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiHandler := mockapi.NewHandler(t)
@@ -75,6 +78,7 @@ func TestAuthVerifyPhoneNumber_InvalidCodeRetry(t *testing.T) {
 // TestAuthVerifyPhoneNumber_ExhaustPhoneAttempts: invalid phone numbers are asked for again,
 // with no limit, until input runs out.
 func TestAuthVerifyPhoneNumber_ExhaustPhoneAttempts(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiHandler := mockapi.NewHandler(t)
@@ -93,6 +97,7 @@ func TestAuthVerifyPhoneNumber_ExhaustPhoneAttempts(t *testing.T) {
 
 // TestAuthVerifyPhoneNumber_ExhaustCodeAttempts: wrong codes are asked again, with no limit, until input runs out.
 func TestAuthVerifyPhoneNumber_ExhaustCodeAttempts(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiHandler := mockapi.NewHandler(t)
@@ -110,6 +115,7 @@ func TestAuthVerifyPhoneNumber_ExhaustCodeAttempts(t *testing.T) {
 }
 
 func TestAuthVerifyPhoneNumber_SMSFlow(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiHandler := mockapi.NewHandler(t)

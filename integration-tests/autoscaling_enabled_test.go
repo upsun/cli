@@ -16,6 +16,7 @@ import (
 // given metric's trigger, not the service-level "enabled" (which the API
 // computes as "any trigger is enabled").
 func TestAutoscalingSettingsSetEnabled(t *testing.T) {
+	t.Parallel()
 	cpuOnly := map[string]any{
 		"app": map[string]any{
 			"enabled": true,
