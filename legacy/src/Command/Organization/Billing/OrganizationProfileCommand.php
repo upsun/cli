@@ -7,7 +7,6 @@ namespace Platformsh\Cli\Command\Organization\Billing;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
 use GuzzleHttp\Exception\BadResponseException;
-use Platformsh\Cli\Command\Organization\OrganizationCommandBase;
 use Platformsh\Cli\Console\AdaptiveTableCell;
 use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Service\PropertyFormatter;
@@ -19,7 +18,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(name: 'organization:billing:profile', description: "View or change an organization's billing profile")]
-class OrganizationProfileCommand extends OrganizationCommandBase
+class OrganizationProfileCommand extends BillingCommandBase
 {
     public function __construct(private readonly Api $api, private readonly PropertyFormatter $propertyFormatter, private readonly Selector $selector, private readonly Table $table)
     {
@@ -37,14 +36,22 @@ class OrganizationProfileCommand extends OrganizationCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $org = $this->selector->selectOrganization($input, 'orders');
-        $profile = $org->getProfile();
+        $org = $this->selector->selectOrganization($input, self::BILLING_LINKS);
+        $newBilling = $this->isNewBilling($org);
+        if ($newBilling) {
+            $profile = $this->loadBillingProfile($org);
+            // The address is displayed by the org:billing:address command.
+            $properties = \array_diff_key($profile->getProperties(), \array_flip(self::PROFILE_ADDRESS_PROPERTIES));
+        } else {
+            $profile = $org->getProfile();
+            $properties = $profile->getProperties();
+        }
 
         $property = Argument::stringOrNull($input, 'property');
         if ($property === null) {
             $headings = [];
             $values = [];
-            foreach ($profile->getProperties() as $key => $value) {
+            foreach ($properties as $key => $value) {
                 $headings[] = new AdaptiveTableCell($key, ['wrap' => false]);
                 $values[] = $this->propertyFormatter->format($value, $key);
             }
@@ -66,16 +73,16 @@ class OrganizationProfileCommand extends OrganizationCommandBase
 
         $value = Argument::stringOrNull($input, 'value');
         if ($value === null) {
-            $this->propertyFormatter->displayData($output, $profile->getProperties(), $property);
+            $this->propertyFormatter->displayData($output, $properties, $property);
             return 0;
         }
 
-        return $this->setProperty($property, $value, $profile);
+        return $this->setProperty($property, $value, $profile, $newBilling);
     }
 
-    protected function setProperty(string $property, string $value, Profile $profile): int
+    protected function setProperty(string $property, string $value, Profile $profile, bool $newBilling): int
     {
-        if (!$this->validateValue($property, $value)) {
+        if (!$this->validateValue($property, $value, $newBilling)) {
             return 1;
         }
 
@@ -89,9 +96,19 @@ class OrganizationProfileCommand extends OrganizationCommandBase
 
             return 0;
         }
+        if ($newBilling && !$profile->hasLink('update')) {
+            $this->stdErr->writeln('You do not have permission to update the billing profile.');
+            return 1;
+        }
         try {
             $profile->update([$property => $value]);
         } catch (BadResponseException $e) {
+            if ($newBilling) {
+                if ($this->printBillingProfileError($e)) {
+                    return 1;
+                }
+                throw $e;
+            }
             // Translate validation error messages.
             if ($e->getResponse()->getStatusCode() === 400 && ($body = $e->getResponse()->getBody())) {
                 $detail = \json_decode((string) $body, true);
@@ -118,8 +135,17 @@ class OrganizationProfileCommand extends OrganizationCommandBase
     /**
      * Gets the type of a writable property.
      */
-    private function getType(string $property): string|false
+    private function getType(string $property, bool $newBilling): string|false
     {
+        if ($newBilling) {
+            $writableProperties = [
+                'name' => 'string',
+                'billing_email' => 'string',
+                'currency' => 'string',
+            ];
+
+            return $writableProperties[$property] ?? false;
+        }
         $writableProperties = [
             'company_name' => 'string',
             'billing_contact' => 'string',
@@ -131,9 +157,9 @@ class OrganizationProfileCommand extends OrganizationCommandBase
         return $writableProperties[$property] ?? false;
     }
 
-    private function validateValue(string $property, string &$value): bool
+    private function validateValue(string $property, string &$value, bool $newBilling): bool
     {
-        $type = $this->getType($property);
+        $type = $this->getType($property, $newBilling);
         if (!$type) {
             $this->stdErr->writeln("Property not writable: <error>$property</error>");
 
