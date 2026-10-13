@@ -85,6 +85,7 @@ class Api
     private readonly Config $config;
     private readonly CacheProvider $cache;
     private ?NamespacedCache $userCache = null;
+    private ?string $checkedExpiredToken = null;
     private readonly OutputInterface $output;
     private readonly OutputInterface $stdErr;
     private readonly TokenConfig $tokenConfig;
@@ -1379,8 +1380,11 @@ class Api
         $accessToken = $client->getConnector()->getSession()->get('accessToken');
         $claims = is_string($accessToken) ? (new Jwt($accessToken))->unsafeGetUnverifiedClaims() : false;
         $reset = false;
-        if ($claims !== false && isset($claims['exp']) && is_int($claims['exp']) && $claims['exp'] <= time()) {
-            // Make a request to refresh an expired token, or reject it, before its claims are used.
+        if ($claims !== false && isset($claims['exp']) && is_int($claims['exp']) && $claims['exp'] <= time()
+            && $accessToken !== $this->checkedExpiredToken) {
+            // Make a request to refresh an expired token, or reject it, before its claims are used. This is done once
+            // per token, as the API client may not refresh it, e.g. if the local clock is ahead.
+            $this->checkedExpiredToken = $accessToken;
             $client->getUser('me');
             $reset = true;
         }

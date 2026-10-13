@@ -59,6 +59,25 @@ class ApiUserCacheTest extends TestCase
         $this->assertSame('cached', $api->getUser()->getProperty('username'));
     }
 
+    public function testAnExpiredTokenIsCheckedOnce(): void
+    {
+        // The API client does not refresh the token, e.g. if the local clock is ahead of the server's.
+        $session = new Session('user-cache-test');
+        $session->set('accessToken', $this->jwt(['sub' => 'user-a', 'exp' => time() - 60]));
+        $connector = $this->createMock(ConnectorInterface::class);
+        $connector->method('getSession')->willReturn($session);
+        $client = $this->createMock(PlatformClient::class);
+        $client->method('getConnector')->willReturn($connector);
+        $client->expects($this->exactly(2))
+            ->method('getUser')
+            ->with('me')
+            ->willReturn($this->user('user-a'));
+
+        $api = $this->createApi($client, new ArrayCache(), 'user-a');
+        $api->getUser();
+        $api->getUser();
+    }
+
     /**
      * @param array<string, mixed> $claims
      */
