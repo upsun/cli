@@ -154,6 +154,7 @@ type Deployment struct {
 	WebApps  map[string]App    `json:"webapps"`
 	Services map[string]App    `json:"services"`
 	Workers  map[string]Worker `json:"workers"`
+	Tasks    map[string]App    `json:"tasks,omitempty"`
 
 	Routes map[string]any `json:"routes"`
 

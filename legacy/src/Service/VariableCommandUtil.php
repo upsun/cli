@@ -177,8 +177,8 @@ class VariableCommandUtil
         ]);
         $fields['application_scope'] = new ArrayField('Application scope', [
             'optionName' => 'app-scope',
-            'description' => 'A list of application names to which this variable will apply.',
-            'questionLine' => 'To which applications should this variable apply?',
+            'description' => 'A list of application, worker, or task names to which this variable will apply.',
+            'questionLine' => 'To which applications, workers, or tasks should this variable apply?',
             'default' => [],
             'required' => false,
             'avoidQuestion' => true,
@@ -192,7 +192,7 @@ class VariableCommandUtil
                 foreach ($values as $value) {
                     if (!in_array($value, $appNames, true)) {
                         throw new InvalidArgumentException(sprintf(
-                            'The app "%s" was not found. Valid app names are: %s',
+                            'The app, worker, or task "%s" was not found. Valid names are: %s',
                             $value,
                             implode(', ', $appNames)
                         ));
@@ -289,7 +289,7 @@ class VariableCommandUtil
     }
 
     /**
-     * List application names for validating application_scope values.
+     * List application, worker, and task names for validating application_scope values.
      *
      * @param Project $project
      * @param Environment|null $environment If not provided, the project's default environment will be used.
@@ -311,6 +311,13 @@ class VariableCommandUtil
         } catch (EnvironmentStateException $e) {
             return false;
         }
-        return array_keys($deployment->webapps);
+        $data = $deployment->getData();
+        $names = [];
+        foreach (['webapps', 'workers', 'tasks'] as $type) {
+            if (isset($data[$type]) && \is_array($data[$type])) {
+                $names = array_merge($names, array_map('strval', array_keys($data[$type])));
+            }
+        }
+        return $names;
     }
 }
