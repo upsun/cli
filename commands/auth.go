@@ -212,7 +212,12 @@ func handleLoginRequired(cmd *cobra.Command, cnf *config.Config, m *auth.Manager
 		fmt.Fprintln(stderr, color.YellowString(lerr.Notice))
 		fmt.Fprintln(stderr)
 	}
-	if isInteractive(cmd) && canOpenURLs("") {
+	// The browser login refuses to run when a token is set via config.
+	hasConfiguredToken, err := m.HasConfiguredToken()
+	if err != nil {
+		return err
+	}
+	if !hasConfiguredToken && isInteractive(cmd) && canOpenURLs("") {
 		fmt.Fprintln(stderr, lerr.Message())
 		fmt.Fprintln(stderr)
 		if advice := sessionAdvice(cmd.Context(), cnf, m, "To switch sessions, run"); advice != nil {

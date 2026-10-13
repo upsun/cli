@@ -44,7 +44,8 @@ readonly class AutoLoginListener
                 }
             }
 
-            if ($this->urlService->canOpenUrls()) {
+            // The browser login refuses to run when a token is set via config.
+            if (!$this->api->hasApiToken(false) && $this->urlService->canOpenUrls()) {
                 $this->stdErr->writeln($event->getMessage());
                 $this->stdErr->writeln('');
                 if ($sessionAdvice) {

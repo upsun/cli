@@ -1,0 +1,110 @@
+package tests
+
+import (
+	"fmt"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/upsun/cli/pkg/mockapi"
+)
+
+// TestAuthLoginRequired_ConfiguredToken checks that no browser login is offered when an API token is set via config,
+// because the browser login would refuse to run.
+func TestAuthLoginRequired_ConfiguredToken(t *testing.T) {
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiServer := newMyUserAPI(t)
+	defer apiServer.Close()
+	stepUpHandler := mockapi.NewHandler(t)
+	stepUpHandler.RequireStepUp([]string{"mfa"})
+	stepUpServer := httptest.NewServer(stepUpHandler)
+	defer stepUpServer.Close()
+
+	mfaMessage := []string{
+		"Multi-factor authentication (MFA) is required.",
+		"The API token may need to be re-created after enabling MFA.",
+	}
+	invalidMessage := []string{"The API token is invalid."}
+
+	cases := []struct {
+		name    string
+		goAuth  bool
+		token   string
+		apiURL  string
+		args    []string
+		message []string
+	}{
+		{
+			name: "go auth, invalid token, PHP command", goAuth: true, token: "invalid-token",
+			apiURL: apiServer.URL, args: []string{"projects"}, message: invalidMessage,
+		},
+		{
+			name: "go auth, invalid token, Go command", goAuth: true, token: "invalid-token",
+			apiURL: apiServer.URL, args: []string{"auth:token", "--no-warn"}, message: invalidMessage,
+		},
+		{
+			name: "go auth, step-up, PHP command", goAuth: true, token: mockapi.ValidAPITokens[0],
+			apiURL: stepUpServer.URL, args: []string{"projects"}, message: mfaMessage,
+		},
+		{
+			name: "legacy auth, step-up, PHP command", goAuth: false, token: mockapi.ValidAPITokens[0],
+			apiURL: stepUpServer.URL, args: []string{"projects"}, message: mfaMessage,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f := newCommandFactory(t, c.apiURL, authServer.URL)
+			if c.goAuth {
+				f = newGoAuthCommandFactory(t, c.apiURL, authServer.URL)
+			} else {
+				f.extraEnv = append(f.extraEnv, EnvPrefix+"GO_AUTH=0")
+			}
+			f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN="+c.token)
+			f.fakeBrowser()
+
+			_, stderr, err := f.RunInteractive("y\n", c.args...)
+			assertExitCode(t, 3, err)
+			for _, m := range c.message {
+				assert.Contains(t, stderr, m)
+			}
+			assert.NotContains(t, stderr, "Log in via a browser?")
+			assert.NotContains(t, stderr, "Cannot log in via the browser")
+			assert.NotContains(t, stderr, "Please log in by running")
+		})
+	}
+}
+
+// TestAuthLoginRequired_StoredToken checks that a browser login is still offered with a stored API token, which a
+// browser login can replace.
+func TestAuthLoginRequired_StoredToken(t *testing.T) {
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.SetMyUser(&mockapi.User{ID: "u1", Username: "testuser", Email: "test@example.com"})
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	for _, goAuth := range []bool{true, false} {
+		t.Run(fmt.Sprintf("go auth %v", goAuth), func(t *testing.T) {
+			f := newCommandFactory(t, apiServer.URL, authServer.URL)
+			if goAuth {
+				f = newGoAuthCommandFactory(t, apiServer.URL, authServer.URL)
+			} else {
+				f.extraEnv = append(f.extraEnv, EnvPrefix+"GO_AUTH=0")
+			}
+			f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
+			_, stderr, err := f.RunInteractive(mockapi.ValidAPITokens[0]+"\n", "auth:api-token-login")
+			require.NoError(t, err, "stderr: %s", stderr)
+
+			apiHandler.RequireStepUp([]string{"mfa"})
+			defer apiHandler.RequireStepUp(nil)
+			f.fakeBrowser()
+			_, stderr, err = f.RunInteractive("n\n", "projects")
+			assertExitCode(t, 3, err)
+			assert.Contains(t, stderr, "Log in via a browser?")
+		})
+	}
+}
