@@ -14,6 +14,7 @@ import (
 )
 
 func TestTaskRun(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -129,6 +130,7 @@ func TestTaskRun(t *testing.T) {
 // A project with no tasks defined at all should say so, rather than reporting
 // the requested task as missing or offering an empty list of choices.
 func TestTaskRunNoTasks(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

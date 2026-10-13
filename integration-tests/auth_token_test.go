@@ -12,6 +12,7 @@ import (
 )
 
 func TestAuthToken_PrintsToken(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiServer := httptest.NewServer(mockapi.NewHandler(t))
@@ -23,6 +24,7 @@ func TestAuthToken_PrintsToken(t *testing.T) {
 }
 
 func TestAuthToken_HeaderFlag(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiServer := httptest.NewServer(mockapi.NewHandler(t))
@@ -34,6 +36,7 @@ func TestAuthToken_HeaderFlag(t *testing.T) {
 }
 
 func TestAuthToken_WarnsByDefault(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiServer := httptest.NewServer(mockapi.NewHandler(t))

@@ -216,6 +216,12 @@ embedded config, so other builds of the CLI may use different ones.
 
 ## Building
 
+List the available `make` targets:
+
+```console
+make
+```
+
 Build a single binary:
 
 ```console

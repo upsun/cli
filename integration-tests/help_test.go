@@ -9,6 +9,7 @@ import (
 )
 
 func TestHelp(t *testing.T) {
+	t.Parallel()
 	f := newCommandFactory(t, "", "")
 
 	//nolint:lll

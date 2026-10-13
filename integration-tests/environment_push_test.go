@@ -13,6 +13,7 @@ import (
 // TestEnvironmentPushDetachedHead is a regression test for a TypeError raised
 // by the legacy push command in a detached HEAD without --target.
 func TestEnvironmentPushDetachedHead(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

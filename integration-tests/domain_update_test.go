@@ -19,6 +19,7 @@ import (
 // $this->domainName is typed ?string; this test asserts that the path runs
 // without a TypeError in practice.
 func TestDomainUpdateProjectScope(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -83,6 +84,7 @@ func TestDomainUpdateProjectScope(t *testing.T) {
 // DomainGetCommand. The PHPStan finding at line 56 ($environment->getLink) is
 // not reached because $forEnvironment is false when -e is not given.
 func TestDomainGetProjectScope(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

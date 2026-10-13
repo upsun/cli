@@ -13,6 +13,7 @@ import (
 )
 
 func TestAuthInfo(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -54,6 +55,7 @@ func TestAuthInfo(t *testing.T) {
 }
 
 func TestAuthInfo_NoAutoLogin_NotLoggedIn(t *testing.T) {
+	t.Parallel()
 	f := newCommandFactory(t, "", "")
 	// No auth configured — with --no-auto-login should exit 0 and produce no stdout.
 	out, stderr, err := f.RunCombinedOutput("auth:info", "--no-auto-login", "-P", "id")
@@ -63,6 +65,7 @@ func TestAuthInfo_NoAutoLogin_NotLoggedIn(t *testing.T) {
 }
 
 func TestAuthInfo_NotLoggedIn_DeclineRelogin(t *testing.T) {
+	t.Parallel()
 	f := newCommandFactory(t, "", "")
 	f.fakeBrowser()
 	f.extraEnv = append(f.extraEnv,
@@ -78,6 +81,7 @@ func TestAuthInfo_NotLoggedIn_DeclineRelogin(t *testing.T) {
 }
 
 func TestAuthInfo_ExpiredSession_DeclineRelogin(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -105,6 +109,7 @@ func TestAuthInfo_ExpiredSession_DeclineRelogin(t *testing.T) {
 }
 
 func TestAuthInfo_NotLoggedIn_NoInteraction(t *testing.T) {
+	t.Parallel()
 	// testEnv sets NO_INTERACTION=1 via env var — no prompt should appear.
 	f := newCommandFactory(t, "", "")
 
@@ -115,6 +120,7 @@ func TestAuthInfo_NotLoggedIn_NoInteraction(t *testing.T) {
 }
 
 func TestAuthInfo_NotLoggedIn_FlagNoInteraction(t *testing.T) {
+	t.Parallel()
 	// The --no-interaction flag must also suppress the prompt.
 	f := newCommandFactory(t, "", "")
 	f.extraEnv = append(f.extraEnv, EnvPrefix+"NO_INTERACTION=")
@@ -126,6 +132,7 @@ func TestAuthInfo_NotLoggedIn_FlagNoInteraction(t *testing.T) {
 }
 
 func TestAuthInfo_NotLoggedIn_FlagYes(t *testing.T) {
+	t.Parallel()
 	// --yes implies non-interactive use, so no login prompt is shown.
 	f := newCommandFactory(t, "", "")
 	f.extraEnv = append(f.extraEnv, EnvPrefix+"NO_INTERACTION=", "SHELL_INTERACTIVE=1")
@@ -137,6 +144,7 @@ func TestAuthInfo_NotLoggedIn_FlagYes(t *testing.T) {
 }
 
 func TestAuthInfo_DeprecatedAliases(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiHandler := mockapi.NewHandler(t)

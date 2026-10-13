@@ -22,6 +22,7 @@ import (
 )
 
 func TestAuthBrowserLogin_Success(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiHandler := mockapi.NewHandler(t)
@@ -146,6 +147,7 @@ func writeOAuthSession(t *testing.T, homeDir, sessionID string, s map[string]any
 }
 
 func TestAuthBrowserLogin_AlreadyLoggedInOAuth_DeclineRelogin(t *testing.T) {
+	t.Parallel()
 	// The CLI checks the session with a request for the current user.
 	apiHandler := mockapi.NewHandler(t)
 	apiHandler.SetMyUser(&mockapi.User{ID: "u1", Username: "testuser", Email: "test@example.com"})
@@ -176,6 +178,7 @@ func TestAuthBrowserLogin_AlreadyLoggedInOAuth_DeclineRelogin(t *testing.T) {
 }
 
 func TestAuthBrowserLogin_AlreadyLoggedIn(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiHandler := mockapi.NewHandler(t)
