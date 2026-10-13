@@ -235,12 +235,8 @@ clean: ## Remove the phar, command indexes, legacy dependencies and caches
 	rm -rf legacy/vendor legacy/vendor-bin/box/vendor
 
 .PHONY: clean-all
-clean-all: clean npm-clean ## Also remove PHP binaries and build output
-	rm -rf $(ARCHIVES) dist .goreleaser.vendor.yaml
-
-.PHONY: npm-clean
-npm-clean: ## Remove npm/dist working directory
-	rm -rf npm/dist
+clean-all: clean ## Also remove PHP binaries and build output
+	rm -rf $(ARCHIVES) dist npm/dist .goreleaser.vendor.yaml
 
 # ----- npm distribution -----
 # See npm/README.md.
