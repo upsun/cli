@@ -46,7 +46,7 @@ help: ## Show this help
 	@if [ -t 1 ] && [ -z "$$NO_COLOR" ]; then bold=$$(printf '\033[1m'); reset=$$(printf '\033[0m'); fi; \
 	awk -v bold="$$bold" -v reset="$$reset" 'BEGIN { FS = ":.*## " } \
 		/^##@ / { printf "\n%s%s%s\n", bold, substr($$0, 5), reset } \
-		/^[a-zA-Z0-9_-]+:.*## / { printf "%-20s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+		/^[a-zA-Z0-9_-]+:.*## / { printf "%-22s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 # Targets with a "##" description are listed by `make help`. Those automated in CI workflows are not.
 
@@ -190,38 +190,35 @@ test-go: ## Run Go unit tests (excludes integration tests)
 test-php: composer-dev ## Run PHP unit tests (excludes slow tests)
 	cd legacy && ./scripts/test/unit.sh
 
-.PHONY: integration-test
-integration-test: single ## Build the CLI and run integration tests
+.PHONY: test-integration
+test-integration: single ## Build the CLI and run integration tests
 	cd integration-tests && go test -v -count=1 ./...
 
+.PHONY: integration-test
+integration-test: test-integration
+
 .PHONY: lint
-lint: lint-gomod lint-golangci lint-php-cs-fixer lint-phpstan ## Run all linters
+lint: lint-go lint-php ## Run all linters
 
-.PHONY: lint-gomod
-lint-gomod: ## Check that go.mod is tidy
+.PHONY: lint-go
+lint-go: ## Run Go linters (go mod tidy, golangci-lint)
 	go mod tidy -diff
-
-.PHONY: lint-golangci
-lint-golangci: ## Run golangci-lint
 	golangci-lint run --timeout=2m
 
-.PHONY: lint-php-cs-fixer
-lint-php-cs-fixer: composer-dev ## Check PHP code style
+.PHONY: lint-php
+lint-php: composer-dev ## Run PHP linters (php-cs-fixer, PHPStan)
 	cd legacy && ./vendor/bin/php-cs-fixer check --config .php-cs-fixer.dist.php --diff
-
-.PHONY: lint-phpstan
-lint-phpstan: composer-dev ## Run PHPStan
 	cd legacy && ./vendor/bin/phpstan analyse
 
-# The embedded lint registry is transformed from https://meta.upsun.com/images by gen.go.
+# The image registry, used by lint, is transformed from https://meta.upsun.com/images by gen.go.
 # The schemas in internal/lint/schema are maintained in this repository.
-.PHONY: lint-assets
-lint-assets: ## Refresh the embedded lint registry from upstream
+.PHONY: update-image-registry
+update-image-registry: ## Refresh the embedded image registry from meta.upsun.com
 	cd internal/lint/registry && go run gen.go
 
-# Fail if the embedded lint registry is stale.
-.PHONY: lint-assets-check
-lint-assets-check: lint-assets
+# Fail if the embedded image registry is stale.
+.PHONY: check-image-registry
+check-image-registry: update-image-registry
 	git diff --exit-code -- internal/lint/registry/registry.json
 
 # Installs dev dependencies, which a phar build removes. PHPStan's binary marks that they are installed.

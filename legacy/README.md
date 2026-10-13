@@ -29,7 +29,7 @@ Make targets are in the [root Makefile](../Makefile). From the repository
 root, run linters (php-cs-fixer and PHPStan) and unit tests:
 
 ```sh
-make lint-php-cs-fixer lint-phpstan
+make lint-php
 make test-php
 ```
 

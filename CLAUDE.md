@@ -31,11 +31,9 @@ make test-php
 Run linters (Go and PHP):
 ```bash
 make lint
-# or individual linters:
-make lint-gomod
-make lint-golangci
-make lint-php-cs-fixer
-make lint-phpstan
+# or separately:
+make lint-go
+make lint-php
 ```
 
 Remove the phar, command indexes, legacy dependencies and caches (`clean-all` also removes PHP binaries and `dist/`):

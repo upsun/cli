@@ -61,4 +61,4 @@ legacy-php:
     - php composer-setup.php --install-dir=/usr/local/bin --filename=composer
     - make composer-dev
   script:
-    - make lint-php-cs-fixer lint-phpstan test-php
+    - make lint-php test-php
