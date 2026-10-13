@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -19,6 +20,11 @@ func LoadYAML() ([]byte, error) {
 		return b, nil
 	}
 	return embedded, nil
+}
+
+// IsEmbedded tests if the config was loaded from the embedded YAML, rather than from CLI_CONFIG_FILE.
+func (c *Config) IsEmbedded() bool {
+	return bytes.Equal(c.raw, embedded)
 }
 
 // FromYAML parses YAML configuration.

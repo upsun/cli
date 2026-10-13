@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/upsun/cli/internal/config"
+	"github.com/upsun/cli/internal/legacy"
 )
 
 // completeCommandName is the hidden legacy (Symfony Console) command that the
@@ -67,10 +68,13 @@ func newCompletionCommand(cnf *config.Config) *cobra.Command {
 	}
 }
 
-// newCompleteCommand proxies the hidden _complete command of the legacy CLI,
-// which the completion scripts call to fetch suggestions.
+// newCompleteCommand answers the hidden _complete command, which the
+// completion scripts call to fetch suggestions. Command and option names are
+// suggested in Go, unless the config differs from the one indexed at build
+// time (see legacyConfigOverridden); argument and option
+// values are left to the legacy CLI.
 //
-// It only exists to keep Cobra from parsing those arguments. The scripts pass
+// Cobra must not parse its arguments. The scripts pass
 // the shell as a glued short option (-szsh, -sbash, -sfish), which Cobra
 // splits into single-letter flags; as every supported shell name contains an
 // "h", that always produced a -h flag and the CLI printed help instead of
@@ -84,6 +88,17 @@ func newCompleteCommand(cnf *config.Config) *cobra.Command {
 		DisableFlagParsing: true,
 		SilenceErrors:      true,
 		Run: func(cmd *cobra.Command, args []string) {
+			if r, ok := parseCompleteRequest(args); ok && cnf.IsEmbedded() && !legacyConfigOverridden(cnf) {
+				legacyCmds, err := enabledLegacyCommands(cnf, legacy.Commands)()
+				if err == nil {
+					if suggestions, ok := completeInGo(cmd.Root(), cnf, legacyCmds, r); ok {
+						if err := writeSuggestions(cmd.OutOrStdout(), r.shell, suggestions); err != nil {
+							exitSilently(err)
+						}
+						return
+					}
+				}
+			}
 			err := holdStderr(cmd.ErrOrStderr(), func(stderr io.Writer) error {
 				c := makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), stderr, cmd.InOrStdin())
 				return c.Exec(cmd.Context(), append([]string{completeCommandName}, args...)...)
