@@ -31,6 +31,7 @@ func commandNames(listing string) []string {
 // TestListNamespace checks that naming a namespace lists the same commands as
 // "list <namespace>", without hidden commands.
 func TestListNamespace(t *testing.T) {
+	t.Parallel()
 	f := newCommandFactory(t, "", "")
 
 	viaList, _, err := f.RunCombinedOutput("list", "project")
@@ -95,8 +96,9 @@ func TestListNamespace(t *testing.T) {
 // TestCompletionHidesHiddenCommands checks that command name completion does
 // not suggest hidden or disabled commands.
 func TestCompletionHidesHiddenCommands(t *testing.T) {
+	t.Parallel()
 	f := newCommandFactory(t, "", "")
-	f.extraEnv = []string{"CLI_CONFIG_FILE=" + configDisabling(t, "project:create")}
+	f.useConfig(configDisabling(t, "project:create"))
 
 	// The long options are what the completion scripts send.
 	suggestions, _, err := f.RunCombinedOutput("_complete", "--no-interaction",
@@ -121,13 +123,14 @@ func TestCompletionHidesHiddenCommands(t *testing.T) {
 // TestListNamespaceDisabledCommand checks that a command disabled by
 // configuration, as a vendor distribution does, is not listed.
 func TestListNamespaceDisabledCommand(t *testing.T) {
+	t.Parallel()
 	f := newCommandFactory(t, "", "")
 
 	plain, _, err := f.RunCombinedOutput("list", "project")
 	require.NoError(t, err)
 	require.Contains(t, plain, "project:create")
 
-	f.extraEnv = []string{"CLI_CONFIG_FILE=" + configDisabling(t, "project:create")}
+	f.useConfig(configDisabling(t, "project:create"))
 	for _, args := range [][]string{{"project"}, {"help", "project"}, {"list", "project", "--all"}} {
 		stdOut, stdErr, _ := f.RunCombinedOutput(args...)
 		assert.Contains(t, stdOut+stdErr, "project:list", args)
@@ -136,7 +139,7 @@ func TestListNamespaceDisabledCommand(t *testing.T) {
 }
 
 // configDisabling writes a copy of the test config that disables the given
-// commands, for CLI_CONFIG_FILE: a later value wins over the one testEnv sets.
+// commands, for cmdFactory.useConfig.
 func configDisabling(t *testing.T, commands ...string) string {
 	baseConfig, err := os.ReadFile("config.yaml")
 	require.NoError(t, err)

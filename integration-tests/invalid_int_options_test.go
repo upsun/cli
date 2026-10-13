@@ -12,6 +12,7 @@ import (
 // TestInvalidIntegerOptions checks that non-integer values are rejected for
 // integer options, instead of being cast to 0 or passed on unvalidated.
 func TestInvalidIntegerOptions(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

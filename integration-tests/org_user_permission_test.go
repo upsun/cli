@@ -19,6 +19,7 @@ import (
 // the "members" and "invitations" links, and the commands must say so plainly
 // instead of failing on an API error or an unresolved HAL link.
 func TestOrgUserNoPermission(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
@@ -118,6 +119,7 @@ func TestOrgUserNoPermission(t *testing.T) {
 // TestOrgUserWithPermission is the counterpart: with the links present, the
 // commands must get past the permission check and reach their normal behavior.
 func TestOrgUserWithPermission(t *testing.T) {
+	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 

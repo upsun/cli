@@ -35,8 +35,8 @@ jobs:
           touch internal/legacy/archives/php_darwin_arm64
           touch internal/config/embedded-config.yaml
 
-      - name: Run lint-gomod
-        run: make lint-gomod
+      - name: Check go.mod is tidy
+        run: go mod tidy -diff
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
@@ -45,15 +45,15 @@ jobs:
           args: --timeout=5m
 
       - name: Run tests
-        run: make test
+        run: make test-go
 
       - name: Check goreleaser config
         run: make goreleaser-check
 
-  # Checks that the embedded lint registry matches upstream.
-  # Fails when upstream publishes changes; run `make lint-assets` to refresh.
+  # Checks that the embedded image registry matches upstream.
+  # Fails when upstream publishes changes; run `make update-registry` to refresh.
   # Non-blocking, since upstream changes are unrelated to the pull request.
-  lint-assets:
+  image-registry:
     runs-on: ubuntu-latest
     continue-on-error: true
 
@@ -66,15 +66,11 @@ jobs:
         with:
           go-version-file: ./go.mod
 
-      - name: Check embedded lint assets are up to date
-        run: make lint-assets-check
+      - name: Check the embedded image registry is up to date
+        run: make check-registry
 
   legacy-php:
     runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: legacy
 
     steps:
       - name: Check out repository code
@@ -89,7 +85,7 @@ jobs:
 
       - name: Get Composer cache directory
         id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+        run: echo "dir=$(composer config --global cache-files-dir)" >> $GITHUB_OUTPUT
 
       - name: Cache Composer dependencies
         uses: actions/cache@v6
@@ -99,19 +95,16 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install dependencies
-        run: composer install --no-interaction
+        run: make composer-dev
 
-      - name: Lint PHP (php-cs-fixer)
-        run: make lint-php-cs-fixer
-
-      - name: Lint PHP (phpstan)
-        run: make lint-phpstan
+      - name: Lint PHP
+        run: make lint-php
 
       - name: Run PHPUnit tests
-        run: ./scripts/test/unit.sh
+        run: make test-php
 
       - name: Build platform.phar
-        run: php bin/platform self:build --no-interaction --output=platform.phar
+        run: make internal/legacy/archives/platform.phar
 
   integration-test:
     runs-on: ubuntu-latest
@@ -134,7 +127,7 @@ jobs:
 
       - name: Get Composer cache directory
         id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+        run: echo "dir=$(composer config --global cache-files-dir)" >> $GITHUB_OUTPUT
 
       - name: Cache Composer dependencies
         uses: actions/cache@v6
@@ -143,16 +136,11 @@ jobs:
           key: ${{ runner.os }}-composer-${{ hashFiles('legacy/composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
 
-      - name: Install legacy dependencies
-        run: cd legacy && composer install --no-interaction
-
       - name: Download PHP binary
         run: make php
 
       - name: Build platform.phar
-        run: |
-          mkdir -p internal/legacy/archives
-          cd legacy && php bin/platform self:build --no-interaction --output=../internal/legacy/archives/platform.phar
+        run: make phar
 
       - name: Build CLI
         run: make single
@@ -161,10 +149,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y bash-completion zsh fish
 
       - name: Run integration tests
-        run: make integration-test
+        run: make test-integration
 
       - name: Run integration tests with Go auth
-        run: cd integration-tests && go test -v -count=1 ./...
+        run: cd integration-tests && go test -count=1 ./...
         env:
           TEST_CLI_GO_AUTH: '1'
 

@@ -15,6 +15,7 @@ import (
 // suggestions with the long --shell option, rather than the glued short option
 // (-szsh) that Symfony's templates use.
 func TestCompletionScript(t *testing.T) {
+	t.Parallel()
 	f := newCommandFactory(t, "", "")
 
 	cases := []struct {
@@ -38,6 +39,7 @@ func TestCompletionScript(t *testing.T) {
 // short options of the completion scripts must reach the legacy CLI unparsed:
 // the bundled -h of -szsh used to make the CLI print its help page instead.
 func TestComplete(t *testing.T) {
+	t.Parallel()
 	f := newCommandFactory(t, "", "")
 
 	cases := []struct {
@@ -104,6 +106,7 @@ CURRENT=${#words}
 // It uses the embedded config, as completion in Go relies on the command index
 // generated for it.
 func TestShellCompletion(t *testing.T) {
+	t.Parallel()
 	// The binary is named after its configured executable, which the scripts run.
 	exe := getCommandName(t)
 	name := filepath.Base(exe)
