@@ -101,8 +101,11 @@ func goAuthMode() bool {
 // Run runs a command, asserts that it did not error, and returns its normal (stdout) output.
 func (f *cmdFactory) Run(args ...string) string {
 	cmd := f.buildCommand(args...)
+	var stdErrBuffer bytes.Buffer
+	cmd.Stderr = &stdErrBuffer
 	f.t.Log("Running:", cmd)
 	b, err := cmd.Output()
+	f.logStderr(stdErrBuffer.String())
 	require.NoError(f.t, err)
 	return string(b)
 }
@@ -115,12 +118,12 @@ func (f *cmdFactory) RunCombinedOutput(args ...string) (stdOut, stdErr string, e
 	cmd.Stdout = &stdOutBuffer
 	cmd.Stderr = &stdErrBuffer
 	if !f.quiet {
-		if testing.Verbose() {
-			cmd.Stderr = io.MultiWriter(&stdErrBuffer, os.Stderr)
-		}
 		f.t.Log("Running:", cmd)
 	}
 	err = cmd.Run()
+	if !f.quiet {
+		f.logStderr(stdErrBuffer.String())
+	}
 	return stdOutBuffer.String(), stdErrBuffer.String(), err
 }
 
@@ -143,11 +146,9 @@ func (f *cmdFactory) RunInteractive(stdinInput string, args ...string) (stdOut, 
 	var stdErrBuffer bytes.Buffer
 	cmd.Stdout = &stdOutBuffer
 	cmd.Stderr = &stdErrBuffer
-	if testing.Verbose() {
-		cmd.Stderr = io.MultiWriter(&stdErrBuffer, os.Stderr)
-	}
 	f.t.Log("Running (interactive):", cmd)
 	err = cmd.Run()
+	f.logStderr(stdErrBuffer.String())
 	return stdOutBuffer.String(), stdErrBuffer.String(), err
 }
 
@@ -161,9 +162,6 @@ func (f *cmdFactory) buildCommand(args ...string) *exec.Cmd {
 	}
 	cmd.Env = testEnv(f.home)
 	cmd.Dir = f.dir
-	if testing.Verbose() {
-		cmd.Stderr = os.Stderr
-	}
 	if f.apiURL != "" {
 		cmd.Env = append(cmd.Env, EnvPrefix+"API_BASE_URL="+f.apiURL)
 	}
@@ -175,6 +173,13 @@ func (f *cmdFactory) buildCommand(args ...string) *exec.Cmd {
 		cmd.Stdin = f.stdin
 	}
 	return cmd
+}
+
+// logStderr logs a command's stderr to the test log, which is shown if the test fails or runs with -v.
+func (f *cmdFactory) logStderr(s string) {
+	if s != "" {
+		f.t.Logf("stderr:\n%s", s)
+	}
 }
 
 // useConfig sets a CLI config file. It also sets a private temporary directory, as

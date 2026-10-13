@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 )
@@ -169,9 +168,7 @@ func (s *AuthServer) RevokedTokens() []string {
 // The caller must call Close() on the server when finished.
 func NewAuthServer(t *testing.T) *AuthServer {
 	mux := chi.NewRouter()
-	if testing.Verbose() {
-		mux.Use(middleware.DefaultLogger)
-	}
+	mux.Use(RequestLogger(t))
 
 	type pendingAuth struct {
 		codeChallenge string

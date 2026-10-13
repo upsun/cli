@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,9 +44,7 @@ func NewHandler(t *testing.T) *Handler {
 	h := &Handler{t: t}
 	h.Mux = chi.NewRouter()
 
-	if testing.Verbose() {
-		h.Use(middleware.DefaultLogger)
-	}
+	h.Use(RequestLogger(t))
 
 	h.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

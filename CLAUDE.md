@@ -154,7 +154,7 @@ make download-php
 
 Tests use github.com/stretchr/testify for assertions. Table-driven tests are preferred with a "cases" slice containing simple test case structs.
 
-Integration tests (`integration-tests/`) call `t.Parallel()`, so they must not share state: no `t.Setenv` or unsynchronized package variables, and use `cmdFactory.useConfig` to change the CLI config file.
+Integration tests (`integration-tests/`) call `t.Parallel()`, so they must not share state: no `t.Setenv` or unsynchronized package variables, and use `cmdFactory.useConfig` to change the CLI config file. Write output with `t.Log` (e.g. `mockapi.RequestLogger`), not to stdout or stderr: it is then attributed to its test, and shown only on failure or with `-v`.
 
 ### Configuration
 

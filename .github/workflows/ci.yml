@@ -152,7 +152,7 @@ jobs:
         run: make test-integration
 
       - name: Run integration tests with Go auth
-        run: cd integration-tests && go test -v -count=1 ./...
+        run: cd integration-tests && go test -count=1 ./...
         env:
           TEST_CLI_GO_AUTH: '1'
 
