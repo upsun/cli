@@ -78,6 +78,31 @@ class ApiUserCacheTest extends TestCase
         $api->getUser();
     }
 
+    public function testARejectedExpiredTokenIsCheckedAgain(): void
+    {
+        $session = new Session('user-cache-test');
+        $session->set('accessToken', $this->jwt(['sub' => 'user-a', 'exp' => time() - 60]));
+        $connector = $this->createMock(ConnectorInterface::class);
+        $connector->method('getSession')->willReturn($session);
+        $client = $this->createMock(PlatformClient::class);
+        $client->method('getConnector')->willReturn($connector);
+        $client->expects($this->exactly(2))
+            ->method('getUser')
+            ->with('me')
+            ->willThrowException(new \RuntimeException('Unauthorized'));
+
+        $api = $this->createApi($client, new ArrayCache(), 'user-a');
+        $rejections = 0;
+        for ($i = 0; $i < 2; $i++) {
+            try {
+                $api->userCache();
+            } catch (\RuntimeException) {
+                $rejections++;
+            }
+        }
+        $this->assertSame(2, $rejections);
+    }
+
     /**
      * @param array<string, mixed> $claims
      */

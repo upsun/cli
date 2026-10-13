@@ -1384,8 +1384,8 @@ class Api
             && $accessToken !== $this->checkedExpiredToken) {
             // Make a request to refresh an expired token, or reject it, before its claims are used. This is done once
             // per token, as the API client may not refresh it, e.g. if the local clock is ahead.
-            $this->checkedExpiredToken = $accessToken;
             $client->getUser('me');
+            $this->checkedExpiredToken = $accessToken;
             $reset = true;
         }
         $userId = $this->getMyUserId($reset);
