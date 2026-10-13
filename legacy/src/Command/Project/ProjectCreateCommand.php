@@ -321,34 +321,29 @@ class ProjectCreateCommand extends CommandBase
     private function waitForProject(Subscription $subscription, int|float $totalTimeout, float $start): Project|false
     {
         $progressMessage = new ProgressMessage($this->stdErr);
-        $checkInterval = 1;
-        $lastCheck = time();
         $progressMessage->show('Loading project information...');
+        // Check immediately, as the project usually exists once the subscription is active.
         while (true) {
-            if (time() - $lastCheck >= $checkInterval) {
-                $lastCheck = time();
-                try {
-                    $project = $this->api->getProject($subscription->project_id);
-                    if ($project !== false) {
-                        $progressMessage->done();
-                        return $project;
-                    } else {
-                        $this->io->debug(sprintf('Project not found: %s (retrying)', $subscription->project_id));
-                    }
-                } catch (ConnectException $e) {
-                    if (str_contains($e->getMessage(), 'timed out')) {
-                        $this->io->debug($e->getMessage());
-                    } else {
-                        throw $e;
-                    }
-                } catch (BadResponseException $e) {
-                    if (in_array($e->getResponse()->getStatusCode(), [403, 502, 524])) {
-                        $this->io->debug(sprintf('Received status code %d from project: %s (retrying)', $e->getResponse()->getStatusCode(), $subscription->project_id));
-                    } else {
-                        throw $e;
-                    }
+            try {
+                $project = $this->api->getProject($subscription->project_id);
+                if ($project !== false) {
+                    $progressMessage->done();
+                    return $project;
+                } else {
+                    $this->io->debug(sprintf('Project not found: %s (retrying)', $subscription->project_id));
                 }
-                usleep(200000);
+            } catch (ConnectException $e) {
+                if (str_contains($e->getMessage(), 'timed out')) {
+                    $this->io->debug($e->getMessage());
+                } else {
+                    throw $e;
+                }
+            } catch (BadResponseException $e) {
+                if (in_array($e->getResponse()->getStatusCode(), [403, 502, 524])) {
+                    $this->io->debug(sprintf('Received status code %d from project: %s (retrying)', $e->getResponse()->getStatusCode(), $subscription->project_id));
+                } else {
+                    throw $e;
+                }
             }
             if ($totalTimeout && time() - $start > $totalTimeout) {
                 $progressMessage->done();
@@ -356,6 +351,7 @@ class ProjectCreateCommand extends CommandBase
                 $this->stdErr->writeln('The project may be accessible momentarily. Otherwise, please contact support.');
                 return false;
             }
+            sleep(1);
         }
     }
 
