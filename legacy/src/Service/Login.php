@@ -32,6 +32,22 @@ readonly class Login
         $this->api->getClient(false, true);
         $this->stdErr->writeln('You are logged in.');
 
+        $this->setUpSsh();
+
+        // Show user account info.
+        $account = $this->api->getMyAccount(true);
+        $this->stdErr->writeln(sprintf(
+            "\nUsername: <info>%s</info>\nEmail address: <info>%s</info>",
+            $account['username'],
+            $account['email'],
+        ));
+    }
+
+    /**
+     * Sets up SSH after a login: host keys, a certificate, and SSH configuration.
+     */
+    public function setUpSsh(): void
+    {
         // Configure SSH host keys.
         $this->sshConfig->configureHostKeys();
 
@@ -52,14 +68,6 @@ readonly class Login
         if ($this->sshConfig->configureSessionSsh()) {
             $this->sshConfig->addUserSshConfig($this->questionHelper);
         }
-
-        // Show user account info.
-        $account = $this->api->getMyAccount(true);
-        $this->stdErr->writeln(sprintf(
-            "\nUsername: <info>%s</info>\nEmail address: <info>%s</info>",
-            $account['username'],
-            $account['email'],
-        ));
     }
 
     /**

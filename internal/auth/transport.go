@@ -13,10 +13,10 @@ type refresher interface {
 	invalidateToken() error
 }
 
-// Transport is an HTTP RoundTripper similar to golang.org/x/oauth2.Transport.
+// legacyTransport is an HTTP RoundTripper similar to golang.org/x/oauth2.Transport.
 // It injects Authorization headers using a savingSource and, on a 401 response,
 // clears the cached token and retries the request once.
-type Transport struct {
+type legacyTransport struct {
 	// base is the underlying oauth2.Transport that adds the Authorization header.
 	base http.RoundTripper
 
@@ -29,7 +29,7 @@ type Transport struct {
 
 // RoundTrip adds Authorization via the underlying oauth2.Transport. If the
 // response is 401 Unauthorized, it clears the cached token and retries once.
-func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (t *legacyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.Body = wrapReader(req.Body)
 
 	resp, err := t.base.RoundTrip(req)
@@ -47,7 +47,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, err
 }
 
-func (t *Transport) log(msg string, args ...any) error {
+func (t *legacyTransport) log(msg string, args ...any) error {
 	if t.LogFunc == nil {
 		return nil
 	}

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\SshKey;
 
+use GuzzleHttp\Exception\BadResponseException;
 use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Console\Option;
+use Platformsh\Cli\Model\SshKey as SshKeyModel;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
@@ -112,7 +114,17 @@ class SshKeyAddCommand extends SshKeyCommandBase
         $fingerprint = $this->sshKey->getPublicKeyFingerprint($publicKeyPath);
 
         // Check whether the public key already exists in the user's account.
-        if ($this->keyExistsByFingerprint($fingerprint)) {
+        $existingKey = $this->findKeyByFingerprint($fingerprint);
+        if ($existingKey && !$existingKey->active) {
+            $this->stdErr->writeln('<error>This key already exists in your account, but it is inactive.</error>');
+            $this->stdErr->writeln(\sprintf(
+                'List your SSH keys with: <info>%s ssh-keys</info>',
+                $this->config->getStr('application.executable'),
+            ));
+
+            return 1;
+        }
+        if ($existingKey) {
             $this->stdErr->writeln('This key already exists in your account.');
             $this->stdErr->writeln(\sprintf(
                 'List your SSH keys with: <info>%s ssh-keys</info>',
@@ -130,7 +142,16 @@ class SshKeyAddCommand extends SshKeyCommandBase
         }
 
         // Add the new key.
-        $this->api->getClient()->addSshKey($publicKey, Option::stringOrNull($input, 'name'));
+        try {
+            $this->api->addSshKey($publicKey, Option::stringOrNull($input, 'name'));
+        } catch (BadResponseException $e) {
+            // The API rejects a key that is already registered, by anyone.
+            if ($e->getResponse()->getStatusCode() === 409) {
+                $this->stdErr->writeln('<error>This SSH key is already registered.</error>');
+                return 1;
+            }
+            throw $e;
+        }
 
         $this->stdErr->writeln(\sprintf(
             'The SSH key <info>%s</info> has been successfully added to your %s account.',
@@ -152,21 +173,19 @@ class SshKeyAddCommand extends SshKeyCommandBase
     }
 
     /**
-     * Check whether the SSH key already exists in the user's account.
+     * Find a key in the user's account by its fingerprint.
      *
-     * @param string $fingerprint The public key fingerprint (as an MD5 hash).
-     *
-     * @return bool
+     * @param string $fingerprint The public key fingerprint (as a SHA-256 hash).
      */
-    protected function keyExistsByFingerprint(string $fingerprint): bool
+    protected function findKeyByFingerprint(string $fingerprint): ?SshKeyModel
     {
-        foreach ($this->api->getClient()->getSshKeys() as $existingKey) {
-            if ($existingKey->fingerprint === $fingerprint) {
-                return true;
+        foreach ($this->api->getSshKeys(true) as $existingKey) {
+            if ($existingKey->sha256 === $fingerprint) {
+                return $existingKey;
             }
         }
 
-        return false;
+        return null;
     }
 
     /**

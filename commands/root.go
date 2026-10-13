@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/platformsh/platformify/vendorization"
@@ -41,7 +42,33 @@ func Execute(cnf *config.Config) error {
 	} else if ok {
 		cmd.SetArgs(args)
 	}
-	return cmd.ExecuteContext(ctx)
+	err := cmd.ExecuteContext(ctx)
+	var ee *exitError
+	if errors.As(err, &ee) {
+		waitForUpdateCheck()
+		os.Exit(ee.code)
+	}
+	if err != nil && !isQuiet() {
+		fmt.Fprintln(color.Error, "Error:", err)
+	}
+	waitForUpdateCheck()
+	return err
+}
+
+// isQuiet reports whether quiet mode is on, which --debug and --verbose override.
+func isQuiet() bool {
+	return viper.GetBool("quiet") && !viper.GetBool("debug") && !viper.GetBool("verbose")
+}
+
+// updateCheckWait is the maximum time to wait for a background update check before exiting.
+const updateCheckWait = time.Second
+
+// updateCheck is the background update check started by the root command, if any.
+var updateCheck *internal.UpdateCheck
+
+// waitForUpdateCheck gives a running update check a chance to save its result.
+func waitForUpdateCheck() {
+	updateCheck.Wait(updateCheckWait)
 }
 
 func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cobra.Command {
@@ -53,13 +80,14 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		DisableFlagParsing: false,
 		FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
 		SilenceUsage:       true,
-		SilenceErrors:      false,
+		// Errors are printed by Execute, which handles exit codes.
+		SilenceErrors: true,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
-			if isCompletionRequest(cmd) {
-				// Completions must be fast and quiet.
+			if isCompletionRequest(cmd) || isInternalCommand(cmd) {
+				// Completions and internal commands must be fast and quiet.
 				return
 			}
-			quiet := viper.GetBool("quiet") && !viper.GetBool("debug") && !viper.GetBool("verbose")
+			quiet := isQuiet()
 			if quiet {
 				viper.Set("no-interaction", true)
 				cmd.SetErr(io.Discard)
@@ -75,15 +103,18 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 			if viper.GetBool("yes") {
 				viper.Set("no-interaction", true)
 			}
+			// The check runs in the background and caches its result for the
+			// next invocation. It is waited for briefly before exiting.
+			updateCheck = internal.StartUpdateCheck(cnf)
 			if viper.GetBool("version") {
 				versionCommand.Run(cmd, []string{})
+				waitForUpdateCheck()
 				os.Exit(0)
 			}
 			if cnf.Wrapper.GitHubRepo != "" {
 				// Show any update found by a previous run, before the command's
-				// output. The check itself runs in the background (below) and
-				// caches its result for the next invocation. In quiet mode the
-				// notice would be discarded, so it is left for a later run.
+				// output. In quiet mode the notice would be discarded, so it is
+				// left for a later run.
 				if rel := internal.PendingNotification(cnf, config.Version); rel != nil && !quiet {
 					// Full detection can find package installs that lack the marker.
 					if !internal.DetectInstallMethod(cnf).AutoUpdating() {
@@ -91,10 +122,6 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 					}
 					internal.MarkNotified(cnf)
 				}
-				go func() {
-					//nolint:errcheck // a failed update check should not affect the command
-					internal.CheckForUpdate(cnf, config.Version)
-				}()
 			}
 			if alt.ShouldUpdate(cnf) {
 				go func() {
@@ -111,7 +138,7 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 			}
 		},
 		PersistentPostRun: func(cmd *cobra.Command, _ []string) {
-			if isCompletionRequest(cmd) {
+			if isCompletionRequest(cmd) || isInternalCommand(cmd) {
 				return
 			}
 			checkShellConfigLeftovers(cmd.ErrOrStderr(), cnf)
@@ -163,6 +190,14 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 	if cnf.Service.ProjectConfigFlavor == "upsun" {
 		cmd.AddCommand(newProjectConvertCommand(cnf))
 	}
+	if cnf.GoAuthEnabled() {
+		cmd.AddCommand(newAuthInternalCommand(cnf))
+	}
+	for _, c := range authCommands(cnf) {
+		addLegacyGlobalFlags(c)
+		c.PreRun = func(c *cobra.Command, _ []string) { applyLegacyGlobalFlags(c) }
+		cmd.AddCommand(useLegacyStyleHelp(cnf, c))
+	}
 
 	// Define the help flag before Cobra looks up the command, so that "--help init" does not treat "init" as its value.
 	cmd.InitDefaultHelpFlag()
@@ -171,6 +206,16 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 	viper.BindPFlags(cmd.PersistentFlags())
 
 	return cmd
+}
+
+// isInternalCommand reports whether the command is used internally by the legacy CLI.
+func isInternalCommand(cmd *cobra.Command) bool {
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Name() == "auth:internal" {
+			return true
+		}
+	}
+	return false
 }
 
 // checkShellConfigLeftovers checks .zshrc and .bashrc for any leftovers from the legacy CLI
@@ -290,11 +335,13 @@ func exitWithError(err error) {
 	if errors.As(err, &execErr) {
 		exitCode := execErr.ExitCode()
 		debugLogf(err.Error())
+		waitForUpdateCheck()
 		os.Exit(exitCode)
 	}
-	if !viper.GetBool("quiet") {
+	if !isQuiet() {
 		fmt.Fprintln(color.Error, color.RedString(err.Error()))
 	}
+	waitForUpdateCheck()
 	os.Exit(1)
 }
 

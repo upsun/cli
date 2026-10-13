@@ -45,7 +45,7 @@ func expandAbbreviation(
 		}
 		candidates = append(candidates, abbrevCandidate{names: names, hidden: c.Hidden, native: true})
 	}
-	if nativeNames[name] || resolveAbbreviation(name, candidates) == nil {
+	if nativeNames[name] || resolveAbbreviation(name, candidates) == -1 {
 		return nil, false, nil
 	}
 
@@ -65,12 +65,12 @@ func expandAbbreviation(
 		candidates = append(candidates, abbrevCandidate{names: names, hidden: c.Hidden})
 	}
 
-	target := resolveAbbreviation(name, candidates)
-	if target == nil || !target.native {
+	i := resolveAbbreviation(name, candidates)
+	if i == -1 || !candidates[i].native {
 		return nil, false, nil
 	}
 	expanded = slices.Clone(args)
-	expanded[pos] = target.names[0]
+	expanded[pos] = candidates[i].names[0]
 	return expanded, true, nil
 }
 
@@ -116,7 +116,8 @@ func enabledLegacyCommands(cnf *config.Config, load func() ([]legacy.Command, er
 }
 
 // resolveAbbreviation follows Symfony Console's rules to find the command abbreviated by name, if it is unique.
-func resolveAbbreviation(name string, candidates []abbrevCandidate) *abbrevCandidate {
+// It returns the index of the candidate, or -1.
+func resolveAbbreviation(name string, candidates []abbrevCandidate) int {
 	parts := strings.Split(name, ":")
 	for i, p := range parts {
 		parts[i] = regexp.QuoteMeta(p)
@@ -147,13 +148,13 @@ func resolveAbbreviation(name string, candidates []abbrevCandidate) *abbrevCandi
 	// Prefix-only matches (e.g. "project" for "project:variable:get") count toward ambiguity, but at least one
 	// command must match fully.
 	if !fullMatch {
-		return nil
+		return -1
 	}
 
 	// Hidden commands still count toward ambiguity: the legacy CLI's lazy-loaded commands do not reliably report
 	// whether they are hidden, so it can resolve to them.
 	if len(matched) != 1 || candidates[matched[0]].hidden {
-		return nil
+		return -1
 	}
-	return &candidates[matched[0]]
+	return matched[0]
 }

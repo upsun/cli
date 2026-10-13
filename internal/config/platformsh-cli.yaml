@@ -18,7 +18,6 @@ application:
 
   disabled_commands:
     - self:install
-    - self:update
 
 service:
   name: "Upsun (formerly Platform.sh)"

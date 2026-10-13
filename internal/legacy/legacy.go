@@ -141,12 +141,15 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 	cmd.Env = append(
 		cmd.Env,
 		"CLI_CONFIG_FILE="+filepath.Join(cacheDir, configBasename),
-		envPrefix+"UPDATES_CHECK=0",
 		envPrefix+"MIGRATE_CHECK=0",
 		envPrefix+"APPLICATION_PROMPT_SELF_INSTALL=0",
 		envPrefix+"WRAPPED=1",
 		envPrefix+"APPLICATION_VERSION="+c.Version,
 	)
+	// The legacy CLI gets tokens and auth state by running this executable's hidden auth:internal command.
+	if exe, err := os.Executable(); err == nil {
+		cmd.Env = append(cmd.Env, envPrefix+"WRAPPER_EXECUTABLE="+exe)
+	}
 	if c.DisableInteraction {
 		cmd.Env = append(cmd.Env, envPrefix+"NO_INTERACTION=1")
 	}

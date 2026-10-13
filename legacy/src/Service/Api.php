@@ -18,6 +18,8 @@ use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\BadResponseException;
 use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Psr7\Uri;
+use GuzzleHttp\Psr7\UriResolver;
 use GuzzleHttp\Utils;
 use League\OAuth2\Client\Provider\Exception\IdentityProviderException;
 use League\OAuth2\Client\Token\AccessToken;
@@ -26,6 +28,7 @@ use Platformsh\Cli\CredentialHelper\Manager;
 use Platformsh\Cli\CredentialHelper\SessionStorage as CredentialHelperStorage;
 use Platformsh\Cli\Event\EnvironmentsChangedEvent;
 use Platformsh\Cli\Event\LoginRequiredEvent;
+use Platformsh\Cli\Exception\GoLoginRequiredException;
 use Platformsh\Cli\Exception\ProcessFailedException;
 use Platformsh\Cli\GuzzleDebugMiddleware;
 use Platformsh\Cli\Model\Route;
@@ -44,7 +47,7 @@ use Platformsh\Client\Model\Organization\Organization;
 use Platformsh\Client\Model\Project;
 use Platformsh\Client\Model\Ref\UserRef;
 use Platformsh\Client\Model\ApiResourceBase as ApiResource;
-use Platformsh\Client\Model\SshKey;
+use Platformsh\Cli\Model\SshKey;
 use Platformsh\Client\Model\Subscription;
 use Platformsh\Client\Model\Team\TeamMember;
 use Platformsh\Client\Model\Team\TeamProjectAccess;
@@ -69,6 +72,11 @@ use Symfony\Contracts\Service\Attribute\Required;
  */
 class Api
 {
+    private const MAX_SSH_KEY_PAGES = 1000;
+
+    public const SSH_KEY_SOURCE_ACCOUNTS = 'accounts';
+    public const SSH_KEY_SOURCE_AUTH = 'auth';
+
     private static bool $printedApiTokenWarning = false;
 
     private readonly EventDispatcherInterface $dispatcher;
@@ -78,6 +86,7 @@ class Api
     private readonly OutputInterface $stdErr;
     private readonly TokenConfig $tokenConfig;
     private readonly FileLock $fileLock;
+    private readonly GoAuth $goAuth;
     private readonly Io $io;
 
     /**
@@ -123,6 +132,18 @@ class Api
     public bool $inLoginCheck = false;
 
     /**
+     * The prefix of placeholder refresh tokens, which identify the access token held by the OAuth 2.0 middleware.
+     *
+     * With Go auth, tokens are refreshed by the Go wrapper, so these are never sent anywhere.
+     */
+    private const GO_REFRESH_TOKEN_PREFIX = 'go:';
+
+    /**
+     * The last token from the Go wrapper.
+     */
+    private static ?AccessToken $goToken = null;
+
+    /**
      * Constructor.
      *
      * @param Config|null $config
@@ -132,6 +153,7 @@ class Api
      * @param EventDispatcherInterface|null $dispatcher
      * @param FileLock|null $fileLock
      * @param Io|null $io
+     * @param GoAuth|null $goAuth
      */
     public function __construct(
         ?Config                   $config = null,
@@ -141,6 +163,7 @@ class Api
         ?TokenConfig              $tokenConfig = null,
         ?FileLock                 $fileLock = null,
         ?EventDispatcherInterface $dispatcher = null,
+        ?GoAuth                   $goAuth = null,
     ) {
         $this->config = $config ?: new Config();
         $this->output = $output ?: new ConsoleOutput();
@@ -149,6 +172,7 @@ class Api
         $this->tokenConfig = $tokenConfig ?: new TokenConfig($this->config);
         $this->fileLock = $fileLock ?: new FileLock($this->config);
         $this->dispatcher = $dispatcher ?: new EventDispatcher();
+        $this->goAuth = $goAuth ?: new GoAuth($this->config, $this->output);
         $this->cache = $cache ?: CacheFactory::createCacheProvider($this->config);
     }
 
@@ -176,13 +200,20 @@ class Api
     /**
      * Returns whether the CLI is authenticating using an API token.
      *
-     * @param bool $includeStored
+     * @param bool $includeStored Whether to include an API token saved by auth:api-token-login.
      *
      * @return bool
      */
     public function hasApiToken(bool $includeStored = true): bool
     {
-        return $this->tokenConfig->getAccessToken() || $this->tokenConfig->getApiToken($includeStored);
+        if (!$this->goAuth->isEnabled()) {
+            return $this->tokenConfig->getAccessToken() || $this->tokenConfig->getApiToken($includeStored);
+        }
+        if ($this->tokenConfig->getAccessToken() || $this->tokenConfig->getApiToken(false)) {
+            return true;
+        }
+
+        return $includeStored && $this->goAuth->getStatus()['has_stored_api_token'];
     }
 
     /**
@@ -194,6 +225,9 @@ class Api
      */
     public function listSessionIds(): array
     {
+        if ($this->goAuth->isEnabled()) {
+            return $this->goAuth->getStatus()['session_ids'];
+        }
         $ids = [];
         if ($this->sessionStorage instanceof CredentialHelperStorage) {
             $ids = $this->sessionStorage->listSessionIds();
@@ -219,6 +253,9 @@ class Api
      */
     public function anySessionsExist(): bool
     {
+        if ($this->goAuth->isEnabled()) {
+            return $this->goAuth->getStatus()['session_ids'] !== [];
+        }
         if ($this->sessionStorage instanceof CredentialHelperStorage && $this->sessionStorage->hasAnySessions()) {
             return true;
         }
@@ -289,39 +326,17 @@ class Api
         $connectorOptions['user_agent'] = $this->config->getUserAgent();
         $connectorOptions['timeout'] = $this->config->getInt('api.default_timeout');
 
-        if ($apiToken = $this->tokenConfig->getApiToken()) {
-            $connectorOptions['api_token'] = $apiToken;
-            $connectorOptions['api_token_type'] = 'exchange';
-        } elseif ($accessToken = $this->tokenConfig->getAccessToken()) {
-            $connectorOptions['api_token'] = $accessToken;
-            $connectorOptions['api_token_type'] = 'access';
-        }
-
         $connectorOptions['proxy'] = $this->guzzleProxyConfig();
 
         $connectorOptions['token_url'] = $this->config->get('api.oauth2_token_url');
         $connectorOptions['revoke_url'] = $this->config->get('api.oauth2_revoke_url');
 
-        // Acquire a lock to prevent tokens being refreshed at the same time in
-        // different CLI processes.
-        $refreshLockName = 'refresh--' . $this->config->getSessionIdSlug();
-        $connectorOptions['on_refresh_start'] = function ($originalRefreshToken) use ($refreshLockName) {
-            $this->io->debug('Refreshing access token');
-            $connector = $this->getClient(false)->getConnector();
-            return $this->fileLock->acquireOrWait($refreshLockName, function (): void {
-                $this->stdErr->writeln('Waiting for token refresh lock', OutputInterface::VERBOSITY_VERBOSE);
-            }, function () use ($connector, $originalRefreshToken) {
-                $session = $connector->getSession();
-                $accessToken = $this->tokenFromSession($session);
-                return $accessToken && $accessToken->getRefreshToken() !== $originalRefreshToken
-                    ? $accessToken : null;
-            });
-        };
-        $connectorOptions['on_refresh_end'] = function () use ($refreshLockName): void {
-            $this->fileLock->release($refreshLockName);
-        };
-
-        $connectorOptions['on_refresh_error'] = fn(IdentityProviderException $e): ?AccessToken => $this->onRefreshError($e);
+        if ($this->goAuth->isEnabled()) {
+            // Tokens are refreshed by the Go wrapper. The middleware calls this when its token has expired, or after a 401.
+            $connectorOptions['on_refresh_start'] = fn(string $refreshToken): AccessToken => $this->refreshFromGo($refreshToken);
+        } else {
+            $this->addLegacyAuthOptions($connectorOptions);
+        }
 
         $connectorOptions['on_step_up_auth_response'] = fn(ResponseInterface $response) => $this->onStepUpAuthResponse($response);
 
@@ -340,6 +355,56 @@ class Api
         });
 
         return $connectorOptions;
+    }
+
+    /**
+     * Adds the connector options for the legacy auth implementation: API tokens, and token refresh under a lock.
+     *
+     * @param array<string, mixed> $connectorOptions
+     */
+    private function addLegacyAuthOptions(array &$connectorOptions): void
+    {
+        if ($apiToken = $this->tokenConfig->getApiToken()) {
+            $connectorOptions['api_token'] = $apiToken;
+            $connectorOptions['api_token_type'] = 'exchange';
+        } elseif ($accessToken = $this->tokenConfig->getAccessToken()) {
+            $connectorOptions['api_token'] = $accessToken;
+            $connectorOptions['api_token_type'] = 'access';
+        }
+
+        // Acquire a lock to prevent tokens being refreshed at the same time in
+        // different CLI processes.
+        $refreshLockName = 'refresh--' . $this->config->getSessionIdSlug();
+        $connectorOptions['on_refresh_start'] = function (string $originalRefreshToken) use ($refreshLockName): ?AccessToken {
+            $this->io->debug('Refreshing access token');
+            $this->fileLock->acquireOrWait($refreshLockName, function (): void {
+                $this->stdErr->writeln('Waiting for token refresh lock', OutputInterface::VERBOSITY_VERBOSE);
+            });
+            // Without the lock, the token could be refreshed or saved over another process's newer token.
+            if (!$this->fileLock->isHeld($refreshLockName)) {
+                throw new \RuntimeException('Timed out waiting for another process to refresh the access token. Please try again.');
+            }
+
+            // Refresh tokens are single-use, so use the stored token if another process has refreshed it.
+            $session = $this->getClient(false)->getConnector()->getSession();
+            try {
+                $session->reload();
+            } catch (\RuntimeException $e) {
+                throw $this->convertStorageException($e);
+            }
+            $storedToken = $this->tokenFromSession($session);
+            if ($storedToken && $storedToken->getRefreshToken() !== $originalRefreshToken) {
+                return $storedToken;
+            }
+
+            // The middleware refreshes the token, and saves it before calling on_refresh_end.
+            return null;
+        };
+        $connectorOptions['on_refresh_end'] = function () use ($refreshLockName): void {
+            $this->fileLock->release($refreshLockName);
+        };
+
+        $connectorOptions['on_refresh_error'] = fn(IdentityProviderException $e): ?AccessToken => $this->onRefreshError($e);
     }
 
     /**
@@ -379,6 +444,9 @@ class Api
         $this->dispatcher->dispatch(new LoginRequiredEvent($authMethods, $maxAge, $this->hasApiToken()), 'login.required');
 
         $this->stdErr->writeln('');
+        if ($this->goAuth->isEnabled()) {
+            return $this->setGoToken($this->fetchGoToken());
+        }
         $session = $this->getClient(false)->getConnector()->getSession();
         $newAccessToken = $this->tokenFromSession($session);
         if ($newAccessToken && $newAccessToken->getToken() !== $previousAccessToken) {
@@ -386,6 +454,61 @@ class Api
         }
 
         return null;
+    }
+
+    /**
+     * Gets a new token from the Go wrapper, for the OAuth 2.0 middleware.
+     *
+     * @param string $refreshToken The placeholder refresh token of the middleware's current access token.
+     */
+    private function refreshFromGo(string $refreshToken): AccessToken
+    {
+        // If the middleware's token has not expired locally, it was rejected by the API.
+        $current = substr($refreshToken, strlen(self::GO_REFRESH_TOKEN_PREFIX));
+        $rejected = null;
+        if ($current !== '' && self::$goToken?->getToken() === $current && !self::$goToken->hasExpired()) {
+            $rejected = $current;
+        }
+
+        return $this->setGoToken($this->fetchGoToken($rejected));
+    }
+
+    /**
+     * Gets a token from the Go wrapper, offering a login if one is required.
+     *
+     * @return array{access_token: string, expires?: int}
+     */
+    private function fetchGoToken(?string $rejected = null): array
+    {
+        try {
+            return $this->goAuth->getToken($rejected);
+        } catch (GoLoginRequiredException $e) {
+            if ($e->notice !== '') {
+                $this->stdErr->writeln('<comment>' . $e->notice . '</comment>');
+                $this->stdErr->writeln('');
+            }
+            // The listener logs in, or throws a LoginRequiredException.
+            $this->dispatcher->dispatch($e->toEvent(), 'login.required');
+            $this->goAuth->reset();
+
+            return $this->goAuth->getToken();
+        }
+    }
+
+    /**
+     * Saves a token from Go, in the form used by the OAuth 2.0 middleware, which refreshes it when Go would.
+     *
+     * @param array{access_token: string, expires?: int} $token
+     */
+    private function setGoToken(array $token): AccessToken
+    {
+        $expires = !empty($token['expires']) ? $token['expires'] - 120 : 2147483647;
+
+        return self::$goToken = new AccessToken([
+            'access_token' => $token['access_token'],
+            'expires' => max($expires, time() + 1),
+            'refresh_token' => self::GO_REFRESH_TOKEN_PREFIX . $token['access_token'],
+        ]);
     }
 
     /**
@@ -451,6 +574,22 @@ class Api
                 && str_contains((string) $body['error_description'], 'API token');
         }
         return false;
+    }
+
+    /**
+     * Converts a session storage error into a keyring error, if applicable.
+     */
+    private function convertStorageException(\RuntimeException $e): \RuntimeException
+    {
+        if ($this->sessionStorage instanceof CredentialHelperStorage) {
+            $previous = $e->getPrevious();
+            if ($previous instanceof ProcessTimedOutException) {
+                return KeyringUnavailableException::fromTimeout($previous);
+            } elseif ($previous instanceof ProcessFailedException) {
+                return KeyringUnavailableException::fromFailure($previous);
+            }
+        }
+        return $e;
     }
 
     /**
@@ -521,37 +660,17 @@ class Api
         if (!isset(self::$client) || $reset) {
             $options = $this->getConnectorOptions();
 
-            $sessionId = $this->config->getSessionId();
-
-            // Override the session ID if an API token is set.
-            // This ensures file storage from other credentials will not be
-            // reused.
-            if (!empty($options['api_token'])) {
-                $sessionId = 'api-token-' . \substr(\hash('sha256', (string) $options['api_token']), 0, 32);
-            }
-
-            // Set up a session to store OAuth2 tokens.
-            // By default this uses in-memory storage.
-            $session = new Session($sessionId);
-
-            // Set up persistent session storage
-            // (unless an access token was set directly).
-            if (!isset($options['api_token']) || $options['api_token_type'] !== 'access') {
-                $this->initSessionStorage();
-                $this->io->debug('Loading session');
-                try {
-                    $session->setStorage($this->sessionStorage);
-                } catch (\RuntimeException $e) {
-                    if ($this->sessionStorage instanceof CredentialHelperStorage) {
-                        $previous = $e->getPrevious();
-                        if ($previous instanceof ProcessTimedOutException) {
-                            throw KeyringUnavailableException::fromTimeout($previous);
-                        } elseif ($previous instanceof ProcessFailedException) {
-                            throw KeyringUnavailableException::fromFailure($previous);
-                        }
-                    }
-                    throw $e;
-                }
+            if ($this->goAuth->isEnabled()) {
+                // The session is only kept in memory: tokens are stored by the Go wrapper. It starts with an expired
+                // placeholder, which the middleware replaces with a token from Go before the first request.
+                $session = new Session($this->config->getSessionId());
+                $this->setSessionToken($session, new AccessToken([
+                    'access_token' => 'pending',
+                    'expires' => time() - 1,
+                    'refresh_token' => self::GO_REFRESH_TOKEN_PREFIX,
+                ]));
+            } else {
+                $session = $this->legacySession($options);
             }
 
             $connector = new Connector($options, $session);
@@ -566,12 +685,65 @@ class Api
                 self::$printedApiTokenWarning = true;
             }
 
-            if ($autoLogin && !$connector->isLoggedIn()) {
+            if (!$this->goAuth->isEnabled() && $autoLogin && !$connector->isLoggedIn()) {
                 $this->dispatcher->dispatch(new LoginRequiredEvent([], null, $this->hasApiToken()), 'login.required');
             }
         }
 
-        return self::$client;
+        $client = self::$client;
+
+        // With Go auth, get a token now, so that a login is offered if needed, and the token can be read from the
+        // session.
+        $session = $client->getConnector()->getSession();
+        if ($this->goAuth->isEnabled() && $autoLogin && $session->get('accessToken') === 'pending') {
+            $this->setSessionToken($session, self::$goToken !== null && !self::$goToken->hasExpired()
+                ? self::$goToken
+                : $this->setGoToken($this->fetchGoToken()));
+        }
+
+        return $client;
+    }
+
+    /**
+     * Sets up a session for the legacy auth implementation, with persistent storage.
+     *
+     * @param array<string, mixed> $options The connector options.
+     */
+    private function legacySession(array $options): Session
+    {
+        $sessionId = $this->config->getSessionId();
+
+        // Override the session ID if an API token is set.
+        // This ensures file storage from other credentials will not be
+        // reused.
+        if (!empty($options['api_token'])) {
+            $sessionId = 'api-token-' . \substr(\hash('sha256', (string) $options['api_token']), 0, 32);
+        }
+
+        // Set up a session to store OAuth2 tokens.
+        // By default this uses in-memory storage.
+        $session = new Session($sessionId);
+
+        // Set up persistent session storage
+        // (unless an access token was set directly).
+        if (!isset($options['api_token']) || $options['api_token_type'] !== 'access') {
+            $this->initSessionStorage();
+            $this->io->debug('Loading session');
+            try {
+                $session->setStorage($this->sessionStorage);
+            } catch (\RuntimeException $e) {
+                throw $this->convertStorageException($e);
+            }
+        }
+
+        return $session;
+    }
+
+    private function setSessionToken(SessionInterface $session, AccessToken $token): void
+    {
+        $session->set('accessToken', $token->getToken());
+        $session->set('expires', $token->getExpires());
+        $session->set('refreshToken', $token->getRefreshToken());
     }
 
     /**
@@ -911,27 +1083,6 @@ class Api
     }
 
     /**
-     * Get the current user's legacy account info, including SSH keys.
-     *
-     * @param bool $reset
-     *
-     * @return array{'id': string, 'username': string, 'mail': string, 'display_name': string, 'ssh_keys': array<string, mixed>}
-     */
-    private function getLegacyAccountInfo(bool $reset = false): array
-    {
-        $cacheKey = sprintf('%s:my-account', $this->config->getSessionId());
-        $info = $this->cache->fetch($cacheKey);
-        if (!$reset && $info) {
-            $this->io->debug('Loaded account information from cache');
-        } else {
-            $info = $this->getClient()->getAccountInfo($reset);
-            $this->cache->save($cacheKey, $info, $this->config->getInt('api.users_ttl'));
-        }
-
-        return $info;
-    }
-
-    /**
      * Shortcut to return the ID of the current user.
      */
     public function getMyUserId(bool $reset = false): string
@@ -944,6 +1095,67 @@ class Api
     }
 
     /**
+     * Returns which service owns the SSH key API: "accounts" (legacy) or "auth".
+     *
+     * An API that does not report a source (404) is treated as "accounts".
+     */
+    public function getSshKeySource(bool $reset = false): string
+    {
+        $cacheKey = sprintf('%s:ssh-key-source', $this->config->getSessionId());
+        $source = $reset ? false : $this->cache->fetch($cacheKey);
+        if (is_string($source)) {
+            return $source;
+        }
+        try {
+            $response = $this->getHttpClient()->request('GET', rtrim($this->config->getApiUrl(), '/') . '/ssh-key-source');
+            $data = (array) Utils::jsonDecode((string) $response->getBody(), true);
+            $source = $data['source'] ?? null;
+        } catch (BadResponseException $e) {
+            if ($e->getResponse()->getStatusCode() !== 404) {
+                throw ApiResponseException::wrapGuzzleException($e);
+            }
+            $source = self::SSH_KEY_SOURCE_ACCOUNTS;
+        }
+        if ($source !== self::SSH_KEY_SOURCE_ACCOUNTS && $source !== self::SSH_KEY_SOURCE_AUTH) {
+            throw new \RuntimeException('The API returned an unknown SSH key source.');
+        }
+        $this->cache->save($cacheKey, $source, $this->config->getInt('api.users_ttl'));
+
+        return $source;
+    }
+
+    /**
+     * Returns the base URL of the current user's SSH keys collection.
+     */
+    private function sshKeysUrl(string $source): string
+    {
+        $apiUrl = rtrim($this->config->getApiUrl(), '/');
+        if ($source === self::SSH_KEY_SOURCE_ACCOUNTS) {
+            return $apiUrl . '/ssh_keys';
+        }
+
+        return $apiUrl . '/users/' . rawurlencode($this->getMyUserId()) . '/ssh-keys';
+    }
+
+    /**
+     * Returns the cache key under which the current user's SSH keys are stored.
+     */
+    private function sshKeysCacheKey(string $source): string
+    {
+        return sprintf('%s:ssh-keys:%s', $this->config->getSessionId(), $source);
+    }
+
+    /**
+     * Converts SSH key data from the given source to a model.
+     *
+     * @param array<mixed> $data
+     */
+    private static function sshKeyFromData(string $source, array $data): SshKey
+    {
+        return $source === self::SSH_KEY_SOURCE_ACCOUNTS ? SshKey::fromLegacyData($data) : SshKey::fromData($data);
+    }
+
+    /**
      * Get the logged-in user's SSH keys.
      *
      * @param bool $reset
@@ -952,9 +1164,153 @@ class Api
      */
     public function getSshKeys(bool $reset = false): array
     {
-        $data = $this->getLegacyAccountInfo($reset);
+        $source = $this->getSshKeySource($reset);
+        $cacheKey = $this->sshKeysCacheKey($source);
+        $items = $this->cache->fetch($cacheKey);
+        if ($reset || !is_array($items)) {
+            $items = $source === self::SSH_KEY_SOURCE_ACCOUNTS ? $this->fetchLegacySshKeys() : $this->fetchSshKeys();
+            $this->cache->save($cacheKey, $items, $this->config->getInt('api.users_ttl'));
+        } else {
+            $this->io->debug('Loaded SSH keys from cache');
+        }
 
-        return SshKey::wrapCollection($data['ssh_keys'], rtrim($this->config->getApiUrl(), '/') . '/', $this->getHttpClient());
+        return array_map(fn(array $item): SshKey => self::sshKeyFromData($source, $item), array_filter($items, is_array(...)));
+    }
+
+    /**
+     * Fetches the raw SSH key list from the legacy account info API.
+     *
+     * @return array<mixed>
+     */
+    private function fetchLegacySshKeys(): array
+    {
+        try {
+            $response = $this->getHttpClient()->request('GET', rtrim($this->config->getApiUrl(), '/') . '/me');
+        } catch (BadResponseException $e) {
+            throw ApiResponseException::wrapGuzzleException($e);
+        }
+        $data = (array) Utils::jsonDecode((string) $response->getBody(), true);
+
+        return isset($data['ssh_keys']) && is_array($data['ssh_keys']) ? array_values($data['ssh_keys']) : [];
+    }
+
+    /**
+     * Fetches the raw SSH key list from the Auth API, following pagination.
+     *
+     * @return array<mixed>
+     */
+    private function fetchSshKeys(): array
+    {
+        $items = [];
+        $url = $this->sshKeysUrl(self::SSH_KEY_SOURCE_AUTH);
+        $visitedUrls = [];
+        // The list is paginated. Each "next" link is resolved against the
+        // request URL, so an absolute path must include any API base path.
+        while ($url !== null) {
+            if (isset($visitedUrls[$url])) {
+                throw new \RuntimeException('The SSH keys API returned a circular pagination link.');
+            }
+            if (count($visitedUrls) >= self::MAX_SSH_KEY_PAGES) {
+                throw new \RuntimeException('The SSH keys API returned too many pages.');
+            }
+            $visitedUrls[$url] = true;
+            try {
+                $response = $this->getHttpClient()->request('GET', $url);
+            } catch (BadResponseException $e) {
+                throw ApiResponseException::wrapGuzzleException($e);
+            }
+            $data = (array) Utils::jsonDecode((string) $response->getBody(), true);
+            if (isset($data['items']) && is_array($data['items'])) {
+                foreach ($data['items'] as $item) {
+                    $items[] = $item;
+                }
+            }
+            $links = $data['_links'] ?? null;
+            $next = is_array($links) && is_array($links['next'] ?? null) ? $links['next']['href'] ?? null : null;
+            $nextUrl = is_string($next)
+                ? (string) UriResolver::resolve(new Uri($url), new Uri($next))
+                : null;
+            // A "next" link to the current page means there are no more pages.
+            $url = $nextUrl !== $url ? $nextUrl : null;
+        }
+
+        return $items;
+    }
+
+    /**
+     * Get a single SSH key belonging to the logged-in user.
+     *
+     * @param string $id The key's ID.
+     *
+     * @return SshKey|null The key, or null if it does not exist.
+     */
+    public function getSshKey(string $id): ?SshKey
+    {
+        $source = $this->getSshKeySource();
+        try {
+            $response = $this->getHttpClient()->request('GET', $this->sshKeysUrl($source) . '/' . rawurlencode($id));
+        } catch (BadResponseException $e) {
+            if ($e->getResponse()->getStatusCode() === 404) {
+                return null;
+            }
+            throw ApiResponseException::wrapGuzzleException($e);
+        }
+
+        return self::sshKeyFromData($source, (array) Utils::jsonDecode((string) $response->getBody(), true));
+    }
+
+    /**
+     * Add an SSH public key to the logged-in user's account.
+     *
+     * @param string $value The public key, in OpenSSH format.
+     * @param string|null $label A human-readable label for the key.
+     *
+     * @return SshKey The newly created key.
+     */
+    public function addSshKey(string $value, ?string $label = null): SshKey
+    {
+        $source = $this->getSshKeySource();
+        $payload = ['value' => $value];
+        if ($label !== null && $label !== '') {
+            // The legacy API calls the label a "title".
+            $payload[$source === self::SSH_KEY_SOURCE_ACCOUNTS ? 'title' : 'label'] = $label;
+        }
+        try {
+            $response = $this->getHttpClient()->request('POST', $this->sshKeysUrl($source), ['json' => $payload]);
+        } catch (BadResponseException $e) {
+            // The command gives conflicts a purpose-specific message.
+            if ($e->getResponse()->getStatusCode() === 409) {
+                throw $e;
+            }
+            throw ApiResponseException::wrapGuzzleException($e);
+        }
+        $this->clearSshKeysCache();
+
+        return self::sshKeyFromData($source, (array) Utils::jsonDecode((string) $response->getBody(), true));
+    }
+
+    /**
+     * Delete an SSH key from the logged-in user's account.
+     *
+     * @param string $id The key's ID.
+     */
+    public function deleteSshKey(string $id): void
+    {
+        try {
+            $this->getHttpClient()->request('DELETE', $this->sshKeysUrl($this->getSshKeySource()) . '/' . rawurlencode($id));
+        } catch (BadResponseException $e) {
+            throw ApiResponseException::wrapGuzzleException($e);
+        }
+        $this->clearSshKeysCache();
+    }
+
+    /**
+     * Clear the cached list of the logged-in user's SSH keys.
+     */
+    public function clearSshKeysCache(): void
+    {
+        $this->cache->delete($this->sshKeysCacheKey(self::SSH_KEY_SOURCE_ACCOUNTS));
+        $this->cache->delete($this->sshKeysCacheKey(self::SSH_KEY_SOURCE_AUTH));
     }
 
     /**
@@ -1089,6 +1445,10 @@ class Api
      */
     public function isLoggedIn(): bool
     {
+        if ($this->goAuth->isEnabled()) {
+            return $this->goAuth->getStatus()['logged_in'];
+        }
+
         return $this->getClient(false)->getConnector()->isLoggedIn();
     }
 
@@ -1213,6 +1573,15 @@ class Api
         // Check for an externally configured access token.
         if ($accessToken = $this->tokenConfig->getAccessToken()) {
             return $accessToken;
+        }
+
+        if ($this->goAuth->isEnabled()) {
+            $this->getClient();
+            if ($forceNew || self::$goToken === null || self::$goToken->hasExpired()) {
+                return $this->setGoToken($this->fetchGoToken($forceNew ? self::$goToken?->getToken() : null))->getToken();
+            }
+
+            return self::$goToken->getToken();
         }
 
         // Get the access token from the session.

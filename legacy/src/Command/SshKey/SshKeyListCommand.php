@@ -18,12 +18,13 @@ class SshKeyListCommand extends SshKeyCommandBase
     /** @var array<string, string> */
     private array $tableHeader = [
         'id' => 'ID',
-        'title' => 'Title',
-        'fingerprint' => 'Fingerprint',
+        'label' => 'Label',
+        'sha256' => 'Fingerprint (SHA-256)',
+        'active' => 'Active',
         'path' => 'Local path',
     ];
     /** @var string[] */
-    private array $defaultColumns = ['id', 'title', 'path'];
+    private array $defaultColumns = ['id', 'label', 'active', 'path'];
     public function __construct(private readonly Api $api, private readonly Config $config, private readonly SshKey $sshKey, private readonly Table $table)
     {
         parent::__construct();
@@ -52,8 +53,8 @@ class SshKeyListCommand extends SshKeyCommandBase
             $sshKeyService = $this->sshKey;
             $rows = [];
             foreach ($keys as $key) {
-                $row = ['id' => (string) $key->key_id, 'title' => $key->title, 'fingerprint' => $key->fingerprint];
-                $identity = $sshKeyService->findIdentityMatchingPublicKeys([$key->fingerprint]);
+                $row = ['id' => $key->id, 'label' => $key->label, 'sha256' => $key->sha256, 'active' => $key->active ? 'Yes' : 'No'];
+                $identity = $sshKeyService->findIdentityMatchingPublicKeys([$key->sha256]);
                 $path = $identity ? $identity . '.pub' : '';
                 if (!$identity && !$table->formatIsMachineReadable()) {
                     $path = '<comment>Not found</comment>';

@@ -2,6 +2,7 @@ package internal
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -48,5 +49,32 @@ func TestNotificationFromState(t *testing.T) {
 	t.Run("notifies when last notified is in the future", func(t *testing.T) {
 		lastNotified := int64(now + 30*24*60*60) // clock skew
 		assert.NotNil(t, notificationFromState(newState("v2.0.0", lastNotified), "upsun/cli", "v1.0.0", now))
+	})
+}
+
+func TestUpdateCheckWait(t *testing.T) {
+	t.Run("nil check returns immediately", func(t *testing.T) {
+		var c *UpdateCheck
+		start := time.Now()
+		c.Wait(time.Second)
+		assert.Less(t, time.Since(start), 100*time.Millisecond)
+	})
+
+	t.Run("returns when the check finishes", func(t *testing.T) {
+		c := &UpdateCheck{done: make(chan struct{})}
+		go func() {
+			time.Sleep(10 * time.Millisecond)
+			close(c.done)
+		}()
+		start := time.Now()
+		c.Wait(5 * time.Second)
+		assert.Less(t, time.Since(start), time.Second)
+	})
+
+	t.Run("gives up after the timeout", func(t *testing.T) {
+		c := &UpdateCheck{done: make(chan struct{})}
+		start := time.Now()
+		c.Wait(50 * time.Millisecond)
+		assert.GreaterOrEqual(t, time.Since(start), 50*time.Millisecond)
 	})
 }

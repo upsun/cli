@@ -62,7 +62,7 @@ class ApiTokenLoginCommand extends CommandBase
             }
 
             try {
-                $provider = $this->api->getClient()->getConnector()->getOAuth2Provider();
+                $provider = $this->api->getClient(false)->getConnector()->getOAuth2Provider();
                 $token = $provider->getAccessToken(new ApiToken(), [
                     'api_token' => $apiToken,
                 ]);

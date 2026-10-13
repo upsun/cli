@@ -11,7 +11,7 @@ import (
 
 // variableTestSetup holds common test infrastructure for variable tests.
 type variableTestSetup struct {
-	authServer *httptest.Server
+	authServer *mockapi.AuthServer
 	apiServer  *httptest.Server
 	apiHandler *mockapi.Handler
 	projectID  string
@@ -115,6 +115,49 @@ func TestVariableCreateDefaultEnvironment(t *testing.T) {
 	assertTrimmed(t, "bar foo", f.Run("var:get", "-p", p, "-e", "main", "env:FOOBAR", "-P", "value"))
 }
 
+func TestVariableCreateUpdateWithLevel(t *testing.T) {
+	// Regression test for CLI-194: "var:create --update" must forward --level to var:update.
+	s := setupVariableTest(t)
+	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
+
+	f, p := s.factory, s.projectID
+
+	f.Run("var:create", "-p", p, "-l", "e", "-e", "main", "env:TEST", "--value", "e0")
+	f.Run("var:create", "-p", p, "-l", "p", "env:TEST", "--value", "p0")
+
+	//nolint:lll
+	_, stdErr, err := f.RunCombinedOutput("var:create", "-p", p, "-u", "-e", "main", "-l", "e", "env:TEST", "--value", "e1")
+	assert.NoError(t, err)
+	assert.NotContains(t, stdErr, "found at both")
+	assertTrimmed(t, "e1", f.Run("var:get", "-p", p, "-e", "main", "env:TEST", "-l", "e", "-P", "value"))
+	assertTrimmed(t, "p0", f.Run("var:get", "-p", p, "-e", "main", "env:TEST", "-l", "p", "-P", "value"))
+
+	_, _, err = f.RunCombinedOutput("var:create", "-p", p, "-u", "-e", "main", "-l", "p", "env:TEST", "--value", "p1")
+	assert.NoError(t, err)
+	assertTrimmed(t, "p1", f.Run("var:get", "-p", p, "-e", "main", "env:TEST", "-l", "p", "-P", "value"))
+	assertTrimmed(t, "e1", f.Run("var:get", "-p", p, "-e", "main", "env:TEST", "-l", "e", "-P", "value"))
+
+	// Project level, without an environment.
+	s = setupVariableTest(t)
+	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
+	f, p = s.factory, s.projectID
+
+	f.Run("var:create", "-p", p, "-l", "p", "env:P", "--value", "p0")
+	_, _, err = f.RunCombinedOutput("var:create", "-p", p, "-u", "-l", "p", "env:P", "--value", "p1")
+	assert.NoError(t, err)
+	assertTrimmed(t, "p1", f.Run("var:get", "-p", p, "env:P", "-l", "p", "-P", "value"))
+
+	// Without --level.
+	s = setupVariableTest(t)
+	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
+	f, p = s.factory, s.projectID
+
+	f.Run("var:create", "-p", p, "-l", "e", "-e", "main", "env:E", "--value", "e0")
+	_, _, err = f.RunCombinedOutput("var:create", "-p", p, "-u", "-e", "main", "env:E", "--value", "e1")
+	assert.NoError(t, err)
+	assertTrimmed(t, "e1", f.Run("var:get", "-p", p, "-e", "main", "env:E", "-l", "e", "-P", "value"))
+}
+
 func TestVariableCreateWithAppScope(t *testing.T) {
 	s := setupVariableTest(t)
 
@@ -123,6 +166,12 @@ func TestVariableCreateWithAppScope(t *testing.T) {
 		WebApps: map[string]mockapi.App{
 			"app1": {Name: "app1", Type: "golang:1.23"},
 			"app2": {Name: "app2", Type: "php:8.3"},
+		},
+		Workers: map[string]mockapi.Worker{
+			"app1--queue": {App: mockapi.App{Name: "app1--queue", Type: "golang:1.23"}},
+		},
+		Tasks: map[string]mockapi.App{
+			"task1": {Name: "task1", Type: "php:8.3"},
 		},
 		Routes: make(map[string]any),
 		Links:  mockapi.MakeHALLinks("self=/projects/" + s.projectID + "/environments/main/deployment/current"),
@@ -149,6 +198,22 @@ func TestVariableCreateWithAppScope(t *testing.T) {
 	out = f.Run("var:get", "-p", p, "-l", "p", "env:MULTI", "-P", "application_scope")
 	assert.Contains(t, out, "app1")
 	assert.Contains(t, out, "app2")
+
+	// Test creating variable scoped to a task.
+	_, _, err = f.RunCombinedOutput("var:create", "-p", p, "-l", "p",
+		"env:TASK", "--value", "val", "--app-scope", "task1")
+	assert.NoError(t, err)
+
+	out = f.Run("var:get", "-p", p, "-l", "p", "env:TASK", "-P", "application_scope")
+	assert.Contains(t, out, "task1")
+
+	// Test creating variable scoped to a worker.
+	_, _, err = f.RunCombinedOutput("var:create", "-p", p, "-l", "p",
+		"env:WORKER", "--value", "val", "--app-scope", "app1--queue")
+	assert.NoError(t, err)
+
+	out = f.Run("var:get", "-p", p, "-l", "p", "env:WORKER", "-P", "application_scope")
+	assert.Contains(t, out, "app1--queue")
 
 	// Test validation rejects invalid app names (when deployment exists).
 	_, stdErr, err = f.RunCombinedOutput("var:create", "-p", p, "-l", "p",

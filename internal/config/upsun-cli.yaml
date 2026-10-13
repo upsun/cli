@@ -18,7 +18,6 @@ application:
 
   disabled_commands:
     - self:install
-    - self:update
     - local:build
     - local:drush-aliases
     - project:variable:delete

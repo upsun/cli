@@ -4,7 +4,9 @@ package mockapi
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -12,12 +14,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var TestPhoneVerificationCode = "123456"
+
 type Handler struct {
 	*chi.Mux
 
 	t *testing.T
 
 	store
+
+	stepUpAMR      []string
+	rejectedTokens []string
+}
+
+// RejectAccessToken makes requests with an access token fail with a 401 error, as if it were revoked.
+func (h *Handler) RejectAccessToken(token string) {
+	h.Lock()
+	defer h.Unlock()
+	h.rejectedTokens = append(h.rejectedTokens, token)
+}
+
+// RequireStepUp makes every request fail with a step-up authentication challenge (RFC 9470).
+func (h *Handler) RequireStepUp(amr []string) {
+	h.Lock()
+	defer h.Unlock()
+	h.stepUpAMR = amr
 }
 
 func NewHandler(t *testing.T) *Handler {
@@ -33,15 +54,66 @@ func NewHandler(t *testing.T) *Handler {
 			authHeader := req.Header.Get("Authorization")
 			require.NotEmpty(t, authHeader)
 			require.True(t, strings.HasPrefix(authHeader, "Bearer "))
+			h.RLock()
+			stepUp := h.stepUpAMR
+			rejected := slices.Contains(h.rejectedTokens, strings.TrimPrefix(authHeader, "Bearer "))
+			h.RUnlock()
+			if rejected {
+				w.WriteHeader(http.StatusUnauthorized)
+				_ = json.NewEncoder(w).Encode(map[string]any{"error": "invalid_token"})
+				return
+			}
+			if stepUp != nil {
+				w.Header().Set("WWW-Authenticate", `Bearer error="insufficient_user_authentication"`)
+				w.WriteHeader(http.StatusUnauthorized)
+				_ = json.NewEncoder(w).Encode(map[string]any{"amr": stepUp})
+				return
+			}
 			next.ServeHTTP(w, req)
 		})
 	})
 
 	h.Get("/users/me", h.handleUsersMe)
+	h.Get("/me", h.handleUsersMe)
 	h.Get("/users/{user_id}/extended-access", h.handleUserExtendedAccess)
 	h.Get("/ref/users", h.handleUserRefs)
 	h.Post("/me/verification", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"state": false, "type": ""})
+	})
+
+	var (
+		phoneVerifyMu      sync.Mutex
+		pendingPhoneCode   = TestPhoneVerificationCode
+		phoneVerifyPending bool
+	)
+
+	// Phone verification endpoints — match the actual Upsun API (same paths the PHP CLI calls).
+	const phoneSID = "test-sid-1"
+	h.Post("/users/{user_id}/phonenumber", func(w http.ResponseWriter, _ *http.Request) {
+		phoneVerifyMu.Lock()
+		phoneVerifyPending = true
+		phoneVerifyMu.Unlock()
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"sid": phoneSID})
+	})
+	h.Post("/users/{user_id}/phonenumber/{sid}", func(w http.ResponseWriter, req *http.Request) {
+		var body struct {
+			Code string `json:"code"`
+		}
+		_ = json.NewDecoder(req.Body).Decode(&body)
+		phoneVerifyMu.Lock()
+		pending := phoneVerifyPending
+		phoneVerifyMu.Unlock()
+		if !pending || body.Code != pendingPhoneCode {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid code"})
+			return
+		}
+		phoneVerifyMu.Lock()
+		phoneVerifyPending = false
+		phoneVerifyMu.Unlock()
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "verified"})
 	})
 
 	h.Get("/organizations", h.handleListOrgs)
@@ -66,8 +138,12 @@ func NewHandler(t *testing.T) *Handler {
 		_ = json.NewEncoder(w).Encode(map[string]any{"total": "$1,000 USD"})
 	})
 
+	h.Get("/billing/profiles/{billing_profile_id}", h.handleGetBillingProfile)
+	h.Patch("/billing/profiles/{billing_profile_id}", h.handlePatchBillingProfile)
+
 	h.Get("/projects/{project_id}", h.handleGetProject)
 	h.Patch("/projects/{project_id}", h.handlePatchProject)
+	h.Get("/projects/{project_id}/settings", h.handleGetProjectSettings)
 	h.Get("/projects/{project_id}/environments", h.handleListEnvironments)
 	h.Get("/projects/{project_id}/environments/{environment_id}", h.handleGetEnvironment)
 	h.Patch("/projects/{project_id}/environments/{environment_id}", h.handlePatchEnvironment)
@@ -81,6 +157,9 @@ func NewHandler(t *testing.T) *Handler {
 	h.Get("/projects/{project_id}/environments/{environment_id}/backups", h.handleListBackups)
 	h.Post("/projects/{project_id}/environments/{environment_id}/backups", h.handleCreateBackup)
 	h.Get("/projects/{project_id}/environments/{environment_id}/deployments/current", h.handleGetCurrentDeployment)
+	h.Get("/projects/{project_id}/environments/{environment_id}/deployments/next", h.handleGetNextDeployment)
+	h.Patch("/projects/{project_id}/environments/{environment_id}/deployments/next", h.handlePatchNextDeployment)
+	h.Get("/projects/{project_id}/environments/{environment_id}/autoscaling", h.handleGetAutoscalingSettings)
 	h.Get("/projects/{project_id}/domains", h.handleListProjectDomains)
 	h.Get("/projects/{project_id}/domains/{name}", h.handleGetProjectDomain)
 	h.Get("/projects/{project_id}/integrations", h.handleListProjectIntegrations)

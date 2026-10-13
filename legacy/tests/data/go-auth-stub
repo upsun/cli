@@ -1,0 +1,14 @@
+#!/usr/bin/env php
+<?php
+// A stub for the Go wrapper's auth:internal command, which reports that the user is not logged in.
+
+if (($argv[1] ?? '') !== 'auth:internal') {
+    fwrite(STDERR, "Unsupported command\n");
+    exit(1);
+}
+if (($argv[2] ?? '') === 'status') {
+    echo json_encode(['logged_in' => false, 'session_ids' => [], 'has_stored_api_token' => false]) . "\n";
+    exit(0);
+}
+fwrite(STDERR, "{}\n");
+exit(3);

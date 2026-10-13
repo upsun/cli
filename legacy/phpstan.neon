@@ -1,15 +1,11 @@
 parameters:
 	level: 10
 	paths:
-		- dist
 		- resources
 		- src
 		- tests
 	scanFiles:
 		- config/cache/container.php
-		- dist/installer.php
-	excludePaths:
-		- dist/installer.php
 	stubFiles:
 		- phpstan-stubs/Activity.stub
 		- phpstan-stubs/Command.stub

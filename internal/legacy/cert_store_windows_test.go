@@ -252,7 +252,6 @@ func openMachineRootStore(t *testing.T) windows.Handle {
 	return store
 }
 
-
 // withoutHanging fails the test if fn does not return in time.
 func withoutHanging(t *testing.T, description string, fn func() error) {
 	t.Helper()

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -108,8 +109,7 @@ func runInitCommand(
 
 	cnf := config.FromContext(cmd.Context())
 
-	legacyCLIClient, err := auth.NewLegacyCLIClient(cmd.Context(),
-		makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), cmd.ErrOrStderr(), cmd.InOrStdin()))
+	ia, err := newInitAuth(cmd, cnf)
 	if err != nil {
 		return err
 	}
@@ -130,8 +130,11 @@ func runInitCommand(
 	var isInteractive = !viper.GetBool("no-interaction")
 
 	debugLogf("Checking selected organization")
-	org, err := handleOrganizations(cmd.Context(), cnf, legacyCLIClient, initOptions)
-	if err != nil {
+	var org *api.Organization
+	if err := ia.withLogin(func() (err error) {
+		org, err = handleOrganizations(cmd.Context(), cnf, ia.apiURL, ia.httpClient, ia.ensureAuthenticated, initOptions)
+		return err
+	}); err != nil {
 		return err
 	}
 	if org != nil {
@@ -168,7 +171,7 @@ func runInitCommand(
 			"Note: AI configuration is only compatible with `%s` organizations\n", api.OrgTypeFlexible))
 	}
 
-	if err := legacyCLIClient.EnsureAuthenticated(cmd.Context()); err != nil {
+	if err := ia.ensureAuthenticated(); err != nil {
 		return err
 	}
 
@@ -178,8 +181,8 @@ func runInitCommand(
 		return err
 	}
 
-	initOptions.HTTPClient = legacyCLIClient.HTTPClient
-	initOptions.APIURL = cnf.API.BaseURL
+	initOptions.HTTPClient = ia.httpClient
+	initOptions.APIURL = ia.apiURL
 	initOptions.UserAgent = cnf.UserAgent()
 	initOptions.IsInteractive = isInteractive
 	initOptions.Yes = viper.GetBool("yes")
@@ -189,16 +192,58 @@ func runInitCommand(
 	return _init.RunAIConfig(cmd.Context(), cnf, dg, gitRoot, initOptions, cmd.OutOrStdout(), cmd.ErrOrStderr())
 }
 
+// initAuth provides authentication for init, using Go auth or the legacy CLI.
+type initAuth struct {
+	httpClient          *http.Client
+	apiURL              string
+	ensureAuthenticated func() error
+	// withLogin runs a function, and with Go auth, offers a login and runs it again if login is required.
+	withLogin func(fn func() error) error
+}
+
+func newInitAuth(cmd *cobra.Command, cnf *config.Config) (*initAuth, error) {
+	if !cnf.GoAuthEnabled() {
+		legacyCLIClient, err := auth.NewLegacyCLIClient(cmd.Context(),
+			makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), cmd.ErrOrStderr(), cmd.InOrStdin()))
+		if err != nil {
+			return nil, err
+		}
+		return &initAuth{
+			httpClient:          legacyCLIClient.HTTPClient,
+			apiURL:              cnf.API.BaseURL,
+			ensureAuthenticated: func() error { return legacyCLIClient.EnsureAuthenticated(cmd.Context()) },
+			withLogin:           func(fn func() error) error { return fn() },
+		}, nil
+	}
+	m, err := newAuthManager(cnf, cmd.ErrOrStderr())
+	if err != nil {
+		return nil, err
+	}
+	withLoginFn := func(fn func() error) error { return withLogin(cmd, cnf, m, fn) }
+	ensureAuthenticated := func() error { return m.EnsureAuthenticated(cmd.Context()) }
+	return &initAuth{
+		httpClient:          auth.NewClient(m, auth.NewHTTPClient(cnf, m.Settings).Transport),
+		apiURL:              m.Settings.BaseURL,
+		ensureAuthenticated: func() error { return withLoginFn(ensureAuthenticated) },
+		withLogin:           withLoginFn,
+	}, nil
+}
+
 // handleOrganizations manages organization selection and validation.
 // It modifies initOptions.OrganizationID and initOptions.ProjectID.
 func handleOrganizations(
-	ctx context.Context, cnf *config.Config, legacyCLIClient *auth.LegacyCLIClient, initOptions *_init.Options,
+	ctx context.Context,
+	cnf *config.Config,
+	apiURL string,
+	httpClient *http.Client,
+	ensureAuthenticated func() error,
+	initOptions *_init.Options,
 ) (*api.Organization, error) {
 	if !cnf.API.EnableOrganizations {
 		return nil, nil
 	}
 
-	apiClient, err := api.NewClient(cnf.API.BaseURL, legacyCLIClient.HTTPClient)
+	apiClient, err := api.NewClient(apiURL, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +255,7 @@ func handleOrganizations(
 		return nil, nil
 	}
 
-	if err := legacyCLIClient.EnsureAuthenticated(ctx); err != nil {
+	if err := ensureAuthenticated(); err != nil {
 		return nil, err
 	}
 

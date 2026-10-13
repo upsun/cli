@@ -89,10 +89,7 @@ func setUpAutoscaling(apiHandler *mockapi.Handler, services map[string]any) (pro
 		DefaultBranch: "main",
 	}})
 
-	autoscalingPath := "/projects/" + projectID + "/environments/main/autoscaling"
 	main := makeEnv(projectID, "main", "production", "active", nil)
-	main.Links["#autoscaling"] = mockapi.HALLink{HREF: autoscalingPath}
-	main.Links["#manage-autoscaling"] = mockapi.HALLink{HREF: autoscalingPath}
 	apiHandler.SetEnvironments([]*mockapi.Environment{main})
 
 	apiHandler.Get("/projects/"+projectID+"/capabilities", func(w http.ResponseWriter, _ *http.Request) {
@@ -124,16 +121,13 @@ func setUpAutoscaling(apiHandler *mockapi.Handler, services map[string]any) (pro
 		"up":      map[string]any{"threshold": 80, "duration": 60},
 		"down":    map[string]any{"threshold": 20, "duration": 600},
 	}
-	apiHandler.Get(autoscalingPath, func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"defaults": map[string]any{
-				"triggers":       map[string]any{"cpu": trigger, "memory": trigger},
-				"scale_cooldown": map[string]any{"up": 300, "down": 300},
-				"instances":      map[string]any{"min": 1, "max": 10},
-			},
-			"services": services,
-			"_links":   mockapi.MakeHALLinks("self=" + autoscalingPath),
-		})
+	main.SetAutoscalingSettings(map[string]any{
+		"defaults": map[string]any{
+			"triggers":       map[string]any{"cpu": trigger, "memory": trigger},
+			"scale_cooldown": map[string]any{"up": 300, "down": 300},
+			"instances":      map[string]any{"min": 1, "max": 10},
+		},
+		"services": services,
 	})
 
 	return projectID

@@ -50,7 +50,7 @@ class LoginRequiredEvent extends Event
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array<string, string[]|int>
      */
     public function getLoginOptions(): array
     {
@@ -72,7 +72,7 @@ class LoginRequiredEvent extends Event
         $args = [];
         foreach ($this->getLoginOptions() as $option => $value) {
             $args[] = $option;
-            $args[] = OsUtil::escapeShellArg(is_array($value) ? implode(',', $value) : $value);
+            $args[] = OsUtil::escapeShellArg(is_array($value) ? implode(',', $value) : (string) $value);
         }
         return implode(' ', $args);
     }
