@@ -8,7 +8,6 @@ use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\Api;
-use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\Git;
 use Platformsh\Cli\Service\Identifier;
 use Platformsh\Cli\Local\LocalProject;
@@ -24,7 +23,7 @@ use Symfony\Component\Filesystem\Filesystem;
 #[AsCommand(name: 'project:set-remote', description: 'Set the remote project for the current Git repository', aliases: ['set-remote'])]
 class ProjectSetRemoteCommand extends CommandBase
 {
-    public function __construct(private readonly Api $api, private readonly Config $config, private readonly \Platformsh\Cli\Service\Filesystem $filesystem, private readonly Git $git, private readonly Identifier $identifier, private readonly Io $io, private readonly LocalProject $localProject, private readonly QuestionHelper $questionHelper, private readonly Selector $selector)
+    public function __construct(private readonly Api $api, private readonly \Platformsh\Cli\Service\Filesystem $filesystem, private readonly Git $git, private readonly Identifier $identifier, private readonly Io $io, private readonly LocalProject $localProject, private readonly QuestionHelper $questionHelper, private readonly Selector $selector)
     {
         parent::__construct();
     }
@@ -61,26 +60,23 @@ class ProjectSetRemoteCommand extends CommandBase
         $this->io->debug('Git repository found: ' . $root);
 
         if ($unset) {
-            $configFilename = $root . DIRECTORY_SEPARATOR . $this->config->getStr('local.project_config');
-            if (!\file_exists($configFilename)) {
-                $configFilename = null;
-            }
+            $configFiles = $this->localProject->findProjectConfigFiles($root);
             $this->git->ensureInstalled();
             $gitRemotes = [];
-            foreach ([$this->config->getStr('detection.git_remote_name'), 'origin'] as $remote) {
+            foreach ($this->localProject->getGitRemoteNames() as $remote) {
                 $url = $this->git->getConfig(sprintf('remote.%s.url', $remote));
                 if (\is_string($url) && $this->localProject->parseGitUrl($url) !== null) {
                     $gitRemotes[$remote] = $url;
                 }
             }
-            if (!$gitRemotes && !$configFilename) {
+            if (!$gitRemotes && !$configFiles) {
                 $this->stdErr->writeln('This repository is not mapped to a remote project.');
                 return 0;
             }
             $this->stdErr->writeln('Unsetting the remote project for this repository');
             $this->stdErr->writeln('');
-            if ($configFilename) {
-                $this->stdErr->writeln(sprintf('This config file will be deleted: <comment>%s</comment>', $this->filesystem->formatPathForDisplay($configFilename)));
+            foreach ($configFiles as $configFile) {
+                $this->stdErr->writeln(sprintf('This config file will be deleted: <comment>%s</comment>', $this->filesystem->formatPathForDisplay($configFile)));
             }
             if ($gitRemotes) {
                 $this->stdErr->writeln(sprintf('These Git remote(s) will be deleted: <comment>%s</comment>', \implode(', ', \array_keys($gitRemotes))));
@@ -96,9 +92,7 @@ class ProjectSetRemoteCommand extends CommandBase
                     true,
                 );
             }
-            if ($configFilename) {
-                (new Filesystem())->remove($configFilename);
-            }
+            (new Filesystem())->remove($configFiles);
             $this->stdErr->writeln('This repository is no longer mapped to a project.');
             return 0;
         }
