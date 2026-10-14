@@ -24,7 +24,9 @@ func TestConfigInstallCmd(t *testing.T) {
 	hostBinDir := filepath.Join(tempDir, "host-bin")
 	require.NoError(t, os.Mkdir(hostBinDir, 0o755))
 	hostPath := filepath.Join(hostBinDir, "test-cli-executable-host")
-	require.NoError(t, os.WriteFile(hostPath, []byte("#!/bin/sh\n"), 0o755)) //nolint:gosec // must be executable
+	self, err := os.Executable()
+	require.NoError(t, err)
+	require.NoError(t, os.Symlink(self, hostPath))
 	t.Setenv("HOME", tempDir)
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("PATH", hostBinDir+string(os.PathListSeparator)+os.Getenv("PATH"))
@@ -54,7 +56,7 @@ func TestConfigInstallCmd(t *testing.T) {
 
 	stdErrBuf := &bytes.Buffer{}
 	cmd.SetErr(stdErrBuf)
-	err := cmd.RunE(cmd, args)
+	err = cmd.RunE(cmd, args)
 	assert.ErrorContains(t, err, "cannot install config for same executable name as this program: test")
 
 	cnf.Application.Executable = "test-cli-executable-host"
@@ -99,4 +101,21 @@ func testConfig() *config.Config {
 	cnf.Service.ProjectConfigDir = ".test"
 	cnf.SSH.DomainWildcards = []string{"*"}
 	return cnf
+}
+
+func TestFindExecutableTarget(t *testing.T) {
+	self, err := os.Executable()
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	link := filepath.Join(dir, "test-cli-link")
+	require.NoError(t, os.Symlink(self, link))
+	other := filepath.Join(dir, "test-cli-other")
+	require.NoError(t, os.WriteFile(other, []byte("#!/bin/sh\n"), 0o700)) //nolint:gosec // an executable stub
+	t.Setenv("PATH", dir)
+
+	// The PATH entry is used, unresolved, even if it is a different file (e.g. the npm wrapper).
+	assert.Equal(t, link, findExecutableTarget("test-cli-link"))
+	assert.Equal(t, other, findExecutableTarget("test-cli-other"))
+	assert.Equal(t, self, findExecutableTarget("test-cli-missing"))
 }
