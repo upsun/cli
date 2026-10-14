@@ -98,7 +98,7 @@ func Update(ctx context.Context, cnf *config.Config, debugLog func(fmt string, i
 		return err
 	}
 
-	if err := writeFile(cnf.SourceFile, b, 0, 0o644); err != nil {
+	if err := writeFile(cnf.SourceFile, b, 0, stat.Mode().Perm()); err != nil {
 		return err
 	}
 	debugLog("Automatically updated config file: %s", cnf.SourceFile)
