@@ -67,26 +67,22 @@ class LocalProject
     }
 
     /**
-     * Finds the git remote URL for a repository.
+     * Finds the project from the first Git remote with a recognized URL.
      *
-     * @param string $dir
-     *
-     * @throws \RuntimeException
-     *   If no remote can be found.
-     *
-     * @return string|false
-     *   The Git remote URL.
+     * @return array{id: string, host: string}|null
+     *   The project ID and hostname, or null if no remote matches.
      */
-    protected function getGitRemoteUrl(string $dir): string|false
+    protected function findProjectFromGitRemotes(string $dir): ?array
     {
         $this->git->ensureInstalled();
         foreach ($this->getGitRemoteNames() as $remote) {
-            if ($url = $this->git->getConfig("remote.$remote.url", $dir)) {
-                return $url;
+            $url = $this->git->getConfig("remote.$remote.url", $dir);
+            if ($url && ($projectConfig = $this->parseGitUrl($url))) {
+                return $projectConfig;
             }
         }
 
-        return false;
+        return null;
     }
 
     /**
@@ -318,8 +314,8 @@ class LocalProject
         } elseif ($projectRoot && file_exists($projectRoot . '/.git')) {
             // Use file_exists rather than is_dir: in a Git worktree (or
             // submodule) .git is a file (a gitlink), not a directory.
-            $gitUrl = $this->getGitRemoteUrl($projectRoot);
-            if ($gitUrl && ($projectConfig = $this->parseGitUrl($gitUrl))) {
+            $projectConfig = $this->findProjectFromGitRemotes($projectRoot);
+            if ($projectConfig) {
                 $this->writeCurrentProjectConfig($projectConfig, $projectRoot);
             }
         }

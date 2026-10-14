@@ -87,6 +87,18 @@ class LocalProjectTest extends TestCase
         );
     }
 
+    public function testProjectConfigSkipsUnrecognizedGitRemote(): void
+    {
+        $dir = $this->initRepo();
+        exec('git -C ' . escapeshellarg($dir) . ' remote add legacy https://example.org/unrelated.git');
+        exec('git -C ' . escapeshellarg($dir) . ' remote add origin abcdefghijkl@git.eu-1.example.com:abcdefghijkl.git');
+
+        $this->assertSame(
+            ['id' => 'abcdefghijkl', 'host' => 'eu-1.example.com'],
+            $this->localProjectWithFallbacks()->getProjectConfig($dir),
+        );
+    }
+
     public function testProjectConfigFallbacksNotConfigured(): void
     {
         $dir = $this->initRepo();
