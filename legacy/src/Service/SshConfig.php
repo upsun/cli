@@ -438,15 +438,10 @@ class SshConfig
     }
 
     /**
-     * Returns the path to the user's global SSH config file.
-     *
-     * @return string
-     */
-    /**
      * Returns the home directory that the OpenSSH client uses to expand "~".
      *
      * On Unix, OpenSSH reads the home directory from the passwd database,
-     * not from HOME, which may differ (see quoteFilePath()).
+     * not from HOME, which may differ.
      */
     private function getSshHomeDirectory(): string
     {
@@ -461,6 +456,11 @@ class SshConfig
         return \realpath($entry['dir']) ?: $entry['dir'];
     }
 
+    /**
+     * Returns the path to the user's global SSH config file.
+     *
+     * @return string
+     */
     private function getUserSshConfigFilename(): string
     {
         return $this->config->getHomeDirectory() . DIRECTORY_SEPARATOR . '.ssh' . DIRECTORY_SEPARATOR . 'config';
