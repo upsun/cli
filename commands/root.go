@@ -117,8 +117,8 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 				// left for a later run.
 				if rel := internal.PendingNotification(cnf, config.Version); rel != nil && !quiet {
 					// Full detection can find package installs that lack the marker.
-					if !internal.DetectInstallMethod(cnf).AutoUpdating() {
-						printUpdateMessage(cmd.ErrOrStderr(), rel, cnf)
+					if method := internal.DetectInstallMethod(cnf); !method.AutoUpdating() {
+						printUpdateMessage(cmd.ErrOrStderr(), rel, cnf, method)
 					}
 					internal.MarkNotified(cnf)
 				}
@@ -258,11 +258,18 @@ func checkShellConfigLeftovers(w io.Writer, cnf *config.Config) {
 
 // printUpdateMessage describes the binary from its embedded config, as the
 // binary and its upgrade command are the same with or without CLI_CONFIG_FILE.
-func printUpdateMessage(w io.Writer, newRelease *internal.ReleaseInfo, cnf *config.Config) {
+// With CLI_CONFIG_FILE, it prints nothing if there is no upgrade command: the
+// binary may be a private copy, which the generic instructions do not update.
+func printUpdateMessage(w io.Writer, newRelease *internal.ReleaseInfo, cnf *config.Config, method internal.InstallMethod) {
 	if newRelease == nil {
 		return
 	}
 	bin := cnf.Embedded()
+	exe, _ := os.Executable()
+	upgradeCmd := upgradeCommandFor(bin, method, exe)
+	if upgradeCmd == "" && !cnf.IsEmbedded() {
+		return
+	}
 
 	fmt.Fprintf(w, "%s %s → %s\n",
 		color.YellowString(fmt.Sprintf("A new release of the %s is available:", bin.Application.Name)),
@@ -270,9 +277,8 @@ func printUpdateMessage(w io.Writer, newRelease *internal.ReleaseInfo, cnf *conf
 		color.CyanString(newRelease.Version),
 	)
 
-	exe, _ := os.Executable()
-	if cmd := upgradeCommandFor(bin, internal.DetectInstallMethod(cnf), exe); cmd != "" {
-		fmt.Fprintf(w, "To upgrade, run: %s\n", color.YellowString(cmd))
+	if upgradeCmd != "" {
+		fmt.Fprintf(w, "To upgrade, run: %s\n", color.YellowString(upgradeCmd))
 	} else if bin.Wrapper.GitHubRepo != "" {
 		fmt.Fprintf(
 			w,

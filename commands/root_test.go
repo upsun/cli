@@ -66,13 +66,29 @@ detection: {git_remote_name: example, site_domains: [example.site]}
 ssh: {domain_wildcards: ["*.example.site"]}
 `))
 	require.NoError(t, err)
-	t.Setenv("EXAMPLE_CLI_INSTALL_METHOD", "homebrew")
+	bin := cnf.Embedded()
+	rel := &internal.ReleaseInfo{Version: "9.9.9", URL: "https://example.com/release"}
 
 	buf := &bytes.Buffer{}
-	printUpdateMessage(buf, &internal.ReleaseInfo{Version: "9.9.9", URL: "https://example.com/release"}, cnf)
-	bin := cnf.Embedded()
+	printUpdateMessage(buf, rel, cnf, internal.InstallScoop)
 	assert.Contains(t, buf.String(), "A new release of the "+bin.Application.Name+" is available")
-	if bin.Wrapper.HomebrewTap != "" {
-		assert.Contains(t, buf.String(), "brew update && brew upgrade "+bin.Wrapper.HomebrewTap)
-	}
+	assert.Contains(t, buf.String(), "scoop update "+bin.Application.Executable)
+
+	// Without an upgrade command, an alt CLI (e.g. with a private copy of the binary) shows nothing.
+	buf.Reset()
+	printUpdateMessage(buf, rel, cnf, internal.InstallUnknown)
+	assert.Empty(t, buf.String())
+}
+
+func TestPrintUpdateMessageUnknownMethod(t *testing.T) {
+	t.Setenv("CLI_CONFIG_FILE", "")
+	b, err := config.LoadYAML()
+	require.NoError(t, err)
+	cnf, err := config.FromYAML(b)
+	require.NoError(t, err)
+
+	buf := &bytes.Buffer{}
+	printUpdateMessage(buf, &internal.ReleaseInfo{Version: "9.9.9", URL: "https://example.com/release"}, cnf,
+		internal.InstallUnknown)
+	assert.Contains(t, buf.String(), "https://github.com/"+cnf.Wrapper.GitHubRepo+"#upgrade")
 }
