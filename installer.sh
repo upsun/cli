@@ -357,62 +357,6 @@ check_architecture() {
     output "  [*] Your architecture (${machine}) is supported" "success"
 }
 
-# Whether Node.js is managed by a version manager (nvm, fnm, Volta, asdf, mise),
-# whose global packages disappear when the active Node.js version changes.
-# Argument: the npm global prefix
-node_version_managed() {
-    if [ -n "${NVM_DIR:-}" ] || [ -n "${FNM_DIR:-}" ] || [ -n "${FNM_MULTISHELL_PATH:-}" ] \
-        || [ -n "${VOLTA_HOME:-}" ] || [ -n "${ASDF_DIR:-}" ] || [ -n "${ASDF_DATA_DIR:-}" ] \
-        || env | grep '^MISE_' > /dev/null; then
-        return 0
-    fi
-    case "$1" in
-        */.nvm/*|*/fnm/*|*/.fnm/*|*/fnm_multishells/*|*/.volta/*|*/.asdf/*|*/mise/*)
-            return 0
-            ;;
-    esac
-    return 1
-}
-
-# Whether a path, or its closest existing parent, is writable.
-is_writable() {
-    d="$1"
-    while [ ! -e "$d" ]; do
-        d=$(dirname "$d")
-    done
-    [ -w "$d" ]
-}
-
-# Whether npm can install the CLI globally, without sudo or a Node.js version manager.
-npm_usable() {
-    if [ "linux" = "$kernel" ] && [ "386" = "$machine" ]; then
-        return 1
-    fi
-    if ! command -v npm > /dev/null 2>&1; then
-        return 1
-    fi
-    # The npm package needs Node.js 18 or later.
-    node_major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null) || return 1
-    case "$node_major" in
-        ''|*[!0-9]*) return 1 ;;
-    esac
-    if [ "$node_major" -lt 18 ]; then
-        return 1
-    fi
-    prefix=$(npm prefix -g 2>/dev/null) || return 1
-    if [ -z "$prefix" ] || node_version_managed "$prefix"; then
-        return 1
-    fi
-    # Keep updating an existing installation that npm did not make.
-    for existing in "$(command -v "$binary" 2>/dev/null || true)" "$prefix/bin/$binary"; do
-        # shellcheck disable=SC2010 # ls -l shows the symlink target portably.
-        if [ -e "$existing" ] && ! ls -l "$existing" | grep node_modules > /dev/null; then
-            return 1
-        fi
-    done
-    is_writable "$prefix/lib/node_modules" && is_writable "$prefix/bin"
-}
-
 check_install_method() {
     if [ "brew" = "${INSTALL_METHOD}" ]; then
         INSTALL_METHOD="homebrew"
@@ -430,8 +374,6 @@ check_install_method() {
                 INSTALL_METHOD="yum"
             elif command -v apk > /dev/null 2>&1; then
                 INSTALL_METHOD="apk"
-            elif [ -z "${INSTALL_DIR}" ] && npm_usable; then
-                INSTALL_METHOD="npm"
             else
                 INSTALL_METHOD="raw"
             fi
@@ -441,8 +383,6 @@ check_install_method() {
             if command -v brew > /dev/null 2>&1
             then
                 INSTALL_METHOD="homebrew"
-            elif [ -z "${INSTALL_DIR}" ] && [ -z "${VERSION}" ] && npm_usable; then
-                INSTALL_METHOD="npm"
             else
                 INSTALL_METHOD="raw"
             fi
