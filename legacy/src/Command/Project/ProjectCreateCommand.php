@@ -299,7 +299,7 @@ class ProjectCreateCommand extends CommandBase
 
         $this->stdErr->writeln("  Git URL: <info>{$project->getGitUrl()}</info>");
 
-        if ($setRemote && $gitRoot !== false) {
+        if ($setRemote) {
             $this->stdErr->writeln('');
             $this->stdErr->writeln(sprintf(
                 'Setting the remote project for this repository to: %s',
