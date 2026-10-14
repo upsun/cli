@@ -73,9 +73,13 @@ ssh:
 
 detection:
   git_remote_name: "upsun"
+  git_remote_fallbacks: ["platform"] # detect Platform.sh CLI checkouts (read, but not saved)
   git_domain: "platform.sh" # matches git.eu-5.platform.sh, etc.
   site_domains: ["platformsh.site", "tst.site", "upsunapp.com", "upsun.app"]
   cluster_header: "X-Platform-Cluster"
+
+local:
+  project_config_fallbacks: [".platform/local/project.yaml"] # read, but not written
 
 browser_login:
   body: |

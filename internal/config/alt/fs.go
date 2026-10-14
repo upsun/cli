@@ -165,7 +165,7 @@ func isExistingDirectory(path string) (bool, error) {
 	return stat.IsDir(), nil
 }
 
-// writeFile creates or overwrites a file.
+// writeFile creates or overwrites a file, with fileMode regardless of the umask.
 // If dirMode is not 0, the containing directory will be created, if it does not already exist.
 func writeFile(path string, content []byte, dirMode, fileMode fs.FileMode) error {
 	if dirMode != 0 {
@@ -176,6 +176,9 @@ func writeFile(path string, content []byte, dirMode, fileMode fs.FileMode) error
 
 	tmpFile := path + ".tmp"
 	if err := os.WriteFile(tmpFile, content, fileMode); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmpFile, fileMode); err != nil {
 		return err
 	}
 

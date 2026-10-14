@@ -67,26 +67,67 @@ class LocalProject
     }
 
     /**
-     * Finds the git remote URL for a repository.
+     * Finds the project from the first Git remote with a recognized URL.
      *
-     * @param string $dir
-     *
-     * @throws \RuntimeException
-     *   If no remote can be found.
-     *
-     * @return string|false
-     *   The Git remote URL.
+     * @return array{array{id: string, host: string}, string}|null
+     *   The project ID and hostname, and the remote name, or null if no remote matches.
      */
-    protected function getGitRemoteUrl(string $dir): string|false
+    protected function findProjectFromGitRemotes(string $dir): ?array
     {
         $this->git->ensureInstalled();
-        foreach ([$this->config->getStr('detection.git_remote_name'), 'origin'] as $remote) {
-            if ($url = $this->git->getConfig("remote.$remote.url", $dir)) {
-                return $url;
+        foreach ($this->getGitRemoteNames() as $remote) {
+            $url = $this->git->getConfig("remote.$remote.url", $dir);
+            if ($url && ($projectConfig = $this->parseGitUrl($url))) {
+                return [$projectConfig, $remote];
             }
         }
 
-        return false;
+        return null;
+    }
+
+    /**
+     * Returns the names of Git remotes that may point to the project, in order of preference.
+     *
+     * @return string[]
+     */
+    public function getGitRemoteNames(): array
+    {
+        return array_values(array_unique(array_merge(
+            [$this->config->getStr('detection.git_remote_name')],
+            $this->getStrList('detection.git_remote_fallbacks'),
+            ['origin'],
+        )));
+    }
+
+    /**
+     * Returns the existing project config files in a project root, in order of preference.
+     *
+     * The first is 'local.project_config', followed by any 'local.project_config_fallbacks'
+     * (e.g. another vendor's config, for backwards compatibility).
+     *
+     * @return string[]
+     */
+    public function findProjectConfigFiles(string $projectRoot): array
+    {
+        $filenames = array_merge([$this->config->getStr('local.project_config')], $this->getStrList('local.project_config_fallbacks'));
+        $files = [];
+        foreach ($filenames as $filename) {
+            if (file_exists($projectRoot . '/' . $filename)) {
+                $files[] = $projectRoot . '/' . $filename;
+            }
+        }
+
+        return $files;
+    }
+
+    /**
+     * @return string[]
+     */
+    private function getStrList(string $key): array
+    {
+        $value = $this->config->getWithDefault($key, []);
+
+        return is_array($value) ? array_values(array_filter($value, 'is_string')) : [];
     }
 
     /**
@@ -265,17 +306,23 @@ class LocalProject
             return self::$projectConfigs[$projectRoot];
         }
         $projectConfig = null;
-        $configFilename = $this->config->getStr('local.project_config');
-        if ($projectRoot && file_exists($projectRoot . '/' . $configFilename)) {
+        $configFiles = $projectRoot ? $this->findProjectConfigFiles($projectRoot) : [];
+        if ($projectRoot && $configFiles) {
             $yaml = new Parser();
-            $projectConfig = $yaml->parse((string) file_get_contents($projectRoot . '/' . $configFilename));
+            $projectConfig = $yaml->parse((string) file_get_contents($configFiles[0]));
             self::$projectConfigs[$projectRoot] = $projectConfig;
         } elseif ($projectRoot && file_exists($projectRoot . '/.git')) {
             // Use file_exists rather than is_dir: in a Git worktree (or
             // submodule) .git is a file (a gitlink), not a directory.
-            $gitUrl = $this->getGitRemoteUrl($projectRoot);
-            if ($gitUrl && ($projectConfig = $this->parseGitUrl($gitUrl))) {
-                $this->writeCurrentProjectConfig($projectConfig, $projectRoot);
+            $found = $this->findProjectFromGitRemotes($projectRoot);
+            if ($found) {
+                [$projectConfig, $remote] = $found;
+                if ($remote !== $this->config->getStr('detection.git_remote_name') && in_array($remote, $this->getStrList('detection.git_remote_fallbacks'), true)) {
+                    // Like fallback config files, fallback remotes are read but not written.
+                    self::$projectConfigs[$projectRoot] = $projectConfig;
+                } else {
+                    $this->writeCurrentProjectConfig($projectConfig, $projectRoot);
+                }
             }
         }
 
@@ -286,7 +333,7 @@ class LocalProject
      * Writes configuration for a project.
      *
      * Configuration is stored as YAML, in the location configured by
-     * 'local.project_config'.
+     * 'local.project_config' (never in a fallback location).
      *
      * @param array<string, mixed> $config
      *   The configuration.

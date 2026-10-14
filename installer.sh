@@ -517,13 +517,13 @@ call_try_user() {
     fi
 }
 
-# Run a command, streaming its output, and return its exit status.
 call_user() {
-    status_file=$(mktemp)
-    { sh -c "$1" 2>&1; echo $? > "$status_file"; } | indent
-    exit_code=$(cat "$status_file")
-    rm -f "$status_file"
-    return "${exit_code:-1}"
+    # The status is written to a file, as a pipeline returns the status of its last command.
+    call_user_status=$(mktemp)
+    { sh -c "$1" 2>&1; echo $? > "$call_user_status"; } | indent
+    call_user_code=$(cat "$call_user_status")
+    rm -f "$call_user_status"
+    return "$call_user_code"
 }
 
 check_shasum() {
@@ -548,6 +548,19 @@ check_directories() {
     elif echo $PATH | grep "$HOME/.local/bin" > /dev/null; then
         dir_bin="$HOME/.local/bin"
     fi
+
+    # Without sudo, install in a user directory if the system one is not writable.
+    case "${dir_bin}" in
+        "${HOME:-}"/*) ;;
+        *)
+            if [ -z "${INSTALL_DIR}" ] && [ ! -w "${dir_bin}" ] && [ -n "${HOME:-}" ]; then
+                init_sudo
+                if ! ${has_sudo}; then
+                    dir_bin="$HOME/.local/bin"
+                fi
+            fi
+            ;;
+    esac
 
     check_path
 
@@ -836,17 +849,62 @@ install_config() {
     cmd="$binary"
     if [ "raw" = "${INSTALL_METHOD}" ] || [ "npm" = "${INSTALL_METHOD}" ]; then
         cmd="${dir_bin}/${binary}"
+    else
+        cmd=$(command -v "$binary" || echo "$binary")
+    fi
+
+    # The installer is explicitly installing this config, so it replaces executables with the same name.
+    set -- -y --force
+    # Put the new executable next to the CLI, which is on the PATH (or a warning says so).
+    # Homebrew's directory is left to Homebrew.
+    # Symlinks are resolved, as --bin-dir only accepts a directory.
+    cmd_dir=$(cd "$(dirname "$cmd")" && pwd -P)
+    if [ "homebrew" != "${INSTALL_METHOD}" ] && [ -w "$cmd_dir" ]; then
+        set -- "$@" --bin-dir "$cmd_dir"
+        # Share a root install with other users, as root's home is usually private.
+        case "$cmd_dir" in
+            "${HOME:-/root}"/*) ;;
+            *)
+                if [ "$(id -u)" = "0" ] && mkdir -p /etc/upsun/platform-alt \
+                    && chmod 755 /etc/upsun /etc/upsun/platform-alt; then
+                    set -- "$@" --config-dir /etc/upsun/platform-alt
+                    umask 022
+                fi
+                ;;
+        esac
     fi
 
     output_file=$(mktemp)
-    if "$cmd" config:install -y "${CONFIG_URL}" </dev/null >"$output_file" 2>&1; then
+    if "$cmd" config:install "$@" "${CONFIG_URL}" </dev/null >"$output_file" 2>&1; then
         indent < "$output_file"
-        rm -f "$output_file"
     else
         indent < "$output_file"
         rm -f "$output_file"
         output "  could not install the configuration from ${CONFIG_URL}" "error"
         exit_with_error
+    fi
+
+    # Read the new executable's path from the output, expanding "~".
+    exe_path=$(sed -n 's/^  Executable: //p' "$output_file" | head -n 1)
+    rm -f "$output_file"
+    case "$exe_path" in
+        "~"/*) exe_path="${HOME}${exe_path#"~"}" ;;
+    esac
+    if [ -z "$exe_path" ]; then
+        return
+    fi
+
+    exe_name=$(basename "$exe_path")
+    exe_found=$(command -v "$exe_name" || true)
+    if [ -n "$exe_found" ] && [ "$exe_found" -ef "$exe_path" ]; then
+        run_cmd="$exe_name"
+        return
+    fi
+    run_cmd="$exe_path"
+    if [ -n "$exe_found" ]; then
+        add_footer_note "  ⚠ Another \"${exe_name}\" command comes first in \$PATH: ${exe_found}"
+    elif [ ! "$(dirname "$exe_path")" -ef "${dir_bin}" ]; then
+        add_footer_note "  ⚠ The directory \"$(dirname "$exe_path")\" is not in \$PATH"
     fi
 }
 

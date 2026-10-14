@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -59,6 +60,12 @@ func Update(ctx context.Context, cnf *config.Config, debugLog func(fmt string, i
 		}
 	}()
 
+	// A shared config, e.g. installed by root, is left to its owner.
+	if dir := filepath.Dir(cnf.SourceFile); !isWritableDir(dir) {
+		debugLog("Config directory is not writable, skipping update: %s", dir)
+		return nil
+	}
+
 	debugLog("Checking for config updates from URL: %s", cnf.Metadata.URL)
 	newCnfNode, newCnfStruct, err := FetchConfig(ctx, cnf.Metadata.URL)
 	if err != nil {
@@ -91,7 +98,7 @@ func Update(ctx context.Context, cnf *config.Config, debugLog func(fmt string, i
 		return err
 	}
 
-	if err := writeFile(cnf.SourceFile, b, 0, 0o644); err != nil {
+	if err := writeFile(cnf.SourceFile, b, 0, stat.Mode().Perm()); err != nil {
 		return err
 	}
 	debugLog("Automatically updated config file: %s", cnf.SourceFile)
