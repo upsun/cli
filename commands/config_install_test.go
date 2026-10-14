@@ -21,8 +21,13 @@ func TestConfigInstallCmd(t *testing.T) {
 	tempDir := t.TempDir()
 	tempBinDir := filepath.Join(tempDir, "bin")
 	require.NoError(t, os.Mkdir(tempBinDir, 0o755))
-	_ = os.Setenv("HOME", tempDir)
-	_ = os.Setenv("XDG_CONFIG_HOME", "")
+	hostBinDir := filepath.Join(tempDir, "host-bin")
+	require.NoError(t, os.Mkdir(hostBinDir, 0o755))
+	hostPath := filepath.Join(hostBinDir, "test-cli-executable-host")
+	require.NoError(t, os.WriteFile(hostPath, []byte("#!/bin/sh\n"), 0o755))
+	t.Setenv("HOME", tempDir)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("PATH", hostBinDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	remoteConfig := testConfig()
 
@@ -63,10 +68,12 @@ func TestConfigInstallCmd(t *testing.T) {
 
 	b, err := os.ReadFile(filepath.Join(tempBinDir, "test-cli-executable"))
 	require.NoError(t, err)
-	assert.Contains(t, string(b), `"${HOME}/test-cli-executable.yaml"`)
-	assert.Contains(t, string(b), `test-cli-executable-host "$@"`)
+	assert.Contains(t, string(b), "export CLI_CONFIG_FILE="+filepath.Join(tempDir, "test-cli-executable.yaml")+"\n")
+	assert.Contains(t, string(b), "[ -x "+hostPath+" ] && exec "+hostPath+` "$@"`+"\n")
+	assert.Contains(t, string(b), `exec test-cli-executable-host "$@"`+"\n")
+	assert.Contains(t, stdErrBuf.String(), "The executable runs ~/host-bin/test-cli-executable-host")
 
-	_ = os.Setenv("PATH", tempBinDir+":"+os.Getenv("PATH"))
+	t.Setenv("PATH", tempBinDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	remoteConfig.Application.Executable = "test-cli-executable2"
 	err = cmd.RunE(cmd, args)
 	assert.NoError(t, err)

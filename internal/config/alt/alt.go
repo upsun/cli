@@ -2,8 +2,7 @@
 package alt
 
 import (
-	"fmt"
-	"os"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -13,17 +12,20 @@ import (
 type Alt struct {
 	executablePath string
 	comment        string
-	target         string
+	targetName     string
+	targetPath     string
 
 	configPath string
 	configNode *yaml.Node
 }
 
-func New(execPath, comment, target, configPath string, configNode *yaml.Node) *Alt {
+// New prepares an alt CLI instance. Its executable runs targetPath if that exists, or targetName from the PATH.
+func New(execPath, comment, targetName, targetPath, configPath string, configNode *yaml.Node) *Alt {
 	return &Alt{
 		executablePath: execPath,
 		comment:        comment,
-		target:         target,
+		targetName:     targetName,
+		targetPath:     targetPath,
 		configPath:     configPath,
 		configNode:     configNode,
 	}
@@ -38,41 +40,51 @@ func (a *Alt) GenerateAndSave() error {
 	if err := writeFile(a.configPath, configContent, 0o755, 0o644); err != nil {
 		return err
 	}
-	executableContent := a.generateExecutable()
+	executableContent := a.generateExecutable(runtime.GOOS)
 	return writeFile(a.executablePath, []byte(executableContent), 0o755, 0o755)
 }
 
-func (a *Alt) generateExecutable() string {
-	if runtime.GOOS == "windows" {
-		return ":: " + a.comment + "\r\n" +
+// generateExecutable returns a script that runs the target with the config file.
+// Paths are absolute, so the script works where HOME or XDG_CONFIG_HOME differ (e.g. cron or CI).
+func (a *Alt) generateExecutable(goos string) string {
+	if goos == "windows" {
+		s := ":: " + a.comment + "\r\n" +
 			"@echo off\r\n" +
 			"setlocal\r\n" +
-			`set CLI_CONFIG_FILE=` + formatConfigPathForShell(a.configPath) + "\r\n" +
-			a.target + " %*\r\n" +
-			"endlocal\r\n"
+			`set "CLI_CONFIG_FILE=` + batchEscape(a.configPath) + `"` + "\r\n"
+		if a.targetPath != "" {
+			target := `"` + batchEscape(a.targetPath) + `"`
+			s += "if not exist " + target + " goto fallback\r\n" +
+				target + " %*\r\n" +
+				"exit /b %ERRORLEVEL%\r\n" +
+				":fallback\r\n"
+		}
+		return s + a.targetName + " %*\r\n"
 	}
 
-	return "#!/bin/sh\n" +
+	s := "#!/bin/sh\n" +
 		"# " + a.comment + "\n" +
-		"export CLI_CONFIG_FILE=" + formatConfigPathForShell(a.configPath) + "\n" +
-		a.target + ` "$@"` + "\n"
+		"export CLI_CONFIG_FILE=" + shellQuote(a.configPath) + "\n"
+	if a.targetPath != "" {
+		target := shellQuote(a.targetPath)
+		s += "[ -x " + target + " ] && exec " + target + ` "$@"` + "\n"
+	}
+	return s + "exec " + shellQuote(a.targetName) + ` "$@"` + "\n"
 }
 
-func formatConfigPathForShell(configPath string) string {
-	if runtime.GOOS == "windows" {
-		if strings.HasPrefix(configPath, os.Getenv("AppData")) {
-			return "%AppData%" + strings.TrimPrefix(configPath, os.Getenv("AppData"))
-		}
-		return configPath
+var shellSafe = regexp.MustCompile(`^[A-Za-z0-9_./-]+$`)
+
+// shellQuote quotes s for a POSIX shell, if needed.
+func shellQuote(s string) string {
+	if shellSafe.MatchString(s) {
+		return s
 	}
-	vars := []string{"XDG_CONFIG_HOME", "HOME"}
-	for _, v := range vars {
-		val := os.Getenv(v)
-		if val != "" && strings.HasPrefix(configPath, val) {
-			return fmt.Sprintf(`"${%s}%s"`, v, strings.TrimPrefix(configPath, val))
-		}
-	}
-	return `"` + configPath + `"`
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// batchEscape escapes s for use inside double quotes in a batch file.
+func batchEscape(s string) string {
+	return strings.ReplaceAll(s, "%", "%%")
 }
 
 func GetExecutableFileExtension() string {
