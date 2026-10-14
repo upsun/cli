@@ -558,7 +558,7 @@ check_directories() {
 # Check that dir_bin is in $PATH, or note how to add it.
 check_path() {
     case ":${PATH}:" in
-        *":${dir_bin}:"*) in_path=true ;;
+        *":${dir_bin}:"*|*":${dir_bin}/:"*) in_path=true ;;
         *) in_path=false ;;
     esac
     if ! $in_path; then
