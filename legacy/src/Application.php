@@ -10,6 +10,7 @@ use Platformsh\Cli\Command\ListCommand;
 use Platformsh\Cli\Command\WelcomeCommand;
 use Platformsh\Cli\Command\MultiAwareInterface;
 use Platformsh\Cli\Console\EventSubscriber;
+use Platformsh\Cli\Console\EnabledCommandLoader;
 use Platformsh\Cli\Console\HiddenAliasesCommandLoader;
 use Platformsh\Cli\Console\HiddenAliasesPass;
 use Platformsh\Cli\Console\HiddenInputOption;
@@ -86,7 +87,7 @@ class Application extends ParentApplication
             ? $this->container()->getParameter(HiddenAliasesPass::PARAMETER)
             : [];
         $this->hiddenAliases = $hiddenAliases;
-        $this->commandLoader = new HiddenAliasesCommandLoader($loader, $hiddenAliases);
+        $this->commandLoader = new HiddenAliasesCommandLoader(new EnabledCommandLoader($loader, $this->config), $hiddenAliases);
         $this->setCommandLoader($this->commandLoader);
 
         // Set "welcome" as the default command.
