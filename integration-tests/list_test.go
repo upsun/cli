@@ -38,6 +38,16 @@ func TestListXdebugInProject(t *testing.T) {
 	}{
 		{name: "php", config: "applications:\n  app:\n    type: 'php:8.4'\n", listed: true},
 		{name: "nodejs", config: "applications:\n  app:\n    type: 'nodejs:22'\n", listed: false},
+		{
+			name:   "composable with php",
+			config: "applications:\n  app:\n    type: 'composable:25.11'\n    stack:\n      runtimes: ['php@8.4']\n",
+			listed: true,
+		},
+		{
+			name:   "composable without php",
+			config: "applications:\n  app:\n    type: 'composable:25.11'\n    stack:\n      runtimes: ['nodejs@22']\n",
+			listed: false,
+		},
 	}
 
 	for _, c := range cases {
