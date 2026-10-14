@@ -54,4 +54,78 @@ class LocalProjectTest extends TestCase
 
         $this->assertFileDoesNotExist($dir . '/.git');
     }
+
+    public function testProjectConfigFallbackFile(): void
+    {
+        $dir = $this->initRepo();
+        $this->writeFile($dir . '/.legacy/local/project.yaml', "id: legacyproject\n");
+        $localProject = $this->localProjectWithFallbacks();
+
+        $this->assertSame(realpath($dir), $localProject->getProjectRoot($dir));
+        $this->assertSame(['id' => 'legacyproject'], $localProject->getProjectConfig($dir));
+        $this->assertFileDoesNotExist($dir . '/.mock/local');
+    }
+
+    public function testProjectConfigPrimaryFileTakesPrecedence(): void
+    {
+        $dir = $this->initRepo();
+        $this->writeFile($dir . '/.legacy/local/project.yaml', "id: legacyproject\n");
+        $this->writeFile($dir . '/.mock/local/project.yaml', "id: mockproject\n");
+
+        $this->assertSame(['id' => 'mockproject'], $this->localProjectWithFallbacks()->getProjectConfig($dir));
+    }
+
+    public function testProjectConfigFallbackGitRemote(): void
+    {
+        $dir = $this->initRepo();
+        exec('git -C ' . escapeshellarg($dir) . ' remote add legacy abcdefghijkl@git.eu-1.example.com:abcdefghijkl.git', result_code: $code);
+        $this->assertSame(0, $code);
+
+        $this->assertSame(
+            ['id' => 'abcdefghijkl', 'host' => 'eu-1.example.com'],
+            $this->localProjectWithFallbacks()->getProjectConfig($dir),
+        );
+    }
+
+    public function testProjectConfigFallbacksNotConfigured(): void
+    {
+        $dir = $this->initRepo();
+        $this->writeFile($dir . '/.legacy/local/project.yaml', "id: legacyproject\n");
+        exec('git -C ' . escapeshellarg($dir) . ' remote add legacy abcdefghijkl@git.eu-1.example.com:abcdefghijkl.git');
+        $config = (new Config([], __DIR__ . '/../data/mock-cli-config.yaml'))->withOverrides([
+            'detection.git_remote_name' => 'mock',
+            'detection.git_domain' => 'example.com',
+        ]);
+
+        $this->assertNull((new LocalProject($config))->getProjectConfig($dir));
+    }
+
+    private function localProjectWithFallbacks(): LocalProject
+    {
+        $config = (new Config([], __DIR__ . '/../data/mock-cli-config.yaml'))->withOverrides([
+            'detection.git_remote_name' => 'mock',
+            'detection.git_remote_fallbacks' => ['legacy'],
+            'detection.git_domain' => 'example.com',
+            'local.project_config_fallbacks' => ['.legacy/local/project.yaml'],
+        ]);
+
+        return new LocalProject($config);
+    }
+
+    private function initRepo(): string
+    {
+        $dir = $this->createTempSubDir('repo');
+        exec('git init --quiet ' . escapeshellarg($dir), result_code: $code);
+        $this->assertSame(0, $code);
+
+        return $dir;
+    }
+
+    private function writeFile(string $filename, string $contents): void
+    {
+        if (!is_dir(dirname($filename))) {
+            mkdir(dirname($filename), 0o755, true);
+        }
+        file_put_contents($filename, $contents);
+    }
 }

@@ -165,6 +165,8 @@ The CLI uses Viper for configuration. Environment variables use the prefix defin
 
 When the root command receives arguments it doesn't recognize, it passes them to the legacy PHP CLI via CLIWrapper.Exec(). The PHP binary and phar are extracted to a cache directory on first use.
 
+The legacy CLI finds the local project (`LocalProject`) from `local.project_config` or a Git remote (`detection.git_remote_name`, then `origin`). The Upsun config adds fallbacks for Platform.sh CLI checkouts: `local.project_config_fallbacks` (`.platform/local/project.yaml`, read but not written) and `detection.git_remote_fallbacks` (`platform`).
+
 ### Vendorization
 
 To build a vendor-specific CLI:

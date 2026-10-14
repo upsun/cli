@@ -92,6 +92,10 @@ local:
   archive_dir: null       # dynamically defaults to {local.local_dir}/build-archives
   dependencies_dir: null  # dynamically defaults to {local.local_dir}/deps
   project_config: null    # dynamically defaults to {local.local_dir}/project.yaml
+
+  # Other project config files to read (not write) if {local.project_config} is
+  # missing, e.g. from another vendor's CLI.
+  project_config_fallbacks: []
   web_root: '_www'
 
   # This can be overridden by the {application.env_prefix}COPY_ON_WINDOWS env
@@ -351,6 +355,10 @@ detection:
   # git_remote_name: 'platform'
   # git_domain: 'example.com'
   # site_domains: ['example.com', 'example.site']
+
+  ## Other Git remotes to check for the project after {git_remote_name}, and
+  ## before "origin".
+  # git_remote_fallbacks: []
 
   ## Site header which reports the cluster.
   # cluster_header: 'X-Platform-Cluster'
