@@ -1,4 +1,4 @@
-PHP_VERSION = 8.4.26
+PHP_VERSION = 8.5.11
 
 .DEFAULT_GOAL := help
 

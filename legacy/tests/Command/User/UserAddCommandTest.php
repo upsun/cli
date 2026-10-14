@@ -61,7 +61,6 @@ class UserAddCommandTest extends TestCase
         // Set up a mock command to make the private method accessible.
         $command = $this->getCommandInstance();
         $m = new \ReflectionMethod($command, 'getSpecifiedEnvironmentRoles');
-        $m->setAccessible(true);
 
         // Test cases: triples of environment role arguments, the output, and the error message if any.
         // TODO convert to anonymous class in PHP 7
@@ -105,7 +104,6 @@ class UserAddCommandTest extends TestCase
     {
         $command = $this->getCommandInstance();
         $m = new \ReflectionMethod($command, 'getSpecifiedTypeRoles');
-        $m->setAccessible(true);
 
         // Test cases: quintuples of role arguments, the output, whether to ignore errors, the error message if any, the remaining roles if any.
         // TODO convert to anonymous class in PHP 7
@@ -139,7 +137,6 @@ class UserAddCommandTest extends TestCase
         // Set up a mock command to make the private method accessible.
         $command = $this->getCommandInstance();
         $m = new \ReflectionMethod($command, 'convertEnvironmentRolesToTypeRoles');
-        $m->setAccessible(true);
 
         // Test cases: triples of environment roles, type roles, and output (converted type roles, or false on error).
         $cases = [

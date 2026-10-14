@@ -23,7 +23,6 @@ class IntegrationCommandBaseTest extends TestCase
             $this->createMock(\Platformsh\Cli\Selector\Selector::class),
         );
         $ref = new \ReflectionMethod($command, 'getFields');
-        $ref->setAccessible(true);
         $this->fields = $ref->invoke($command);
     }
 
