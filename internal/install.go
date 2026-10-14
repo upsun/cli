@@ -2,10 +2,12 @@ package internal
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -238,6 +240,44 @@ func ownedBySystemPackage(exe string) bool {
 		}
 	}
 	return false
+}
+
+// oldScoopRepo is the repository of a Scoop bucket that stopped receiving releases after 5.9.0.
+const oldScoopRepo = "platformsh/homebrew-tap"
+
+var scoopBucketName = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+
+// OldScoopBucket returns the name of the Scoop bucket that the executable was
+// installed from, if the bucket is a clone of oldScoopRepo. Scoop installs apps
+// in <root>/apps/<app>/<version>/, and buckets in <root>/buckets/<name>/.
+func OldScoopBucket(exe string) string {
+	if exe == "" {
+		return ""
+	}
+	dir := filepath.Dir(exe)
+	appsDir := filepath.Dir(filepath.Dir(dir))
+	if !strings.EqualFold(filepath.Base(appsDir), "apps") {
+		return ""
+	}
+	// Scoop reads scoop-install.json, falling back to install.json.
+	var install struct {
+		Bucket string `json:"bucket"`
+	}
+	for _, name := range []string{"scoop-install.json", "install.json"} {
+		if b, err := os.ReadFile(filepath.Join(dir, name)); err == nil {
+			_ = json.Unmarshal(b, &install)
+			break
+		}
+	}
+	if !scoopBucketName.MatchString(install.Bucket) || strings.Trim(install.Bucket, ".") == "" {
+		return ""
+	}
+	// Bucket names are chosen by the user, so the bucket is identified by its Git remote.
+	gitConfig, err := os.ReadFile(filepath.Join(filepath.Dir(appsDir), "buckets", install.Bucket, ".git", "config"))
+	if err != nil || !strings.Contains(strings.ToLower(string(gitConfig)), oldScoopRepo) {
+		return ""
+	}
+	return install.Bucket
 }
 
 func brewPrefix() (string, bool) {

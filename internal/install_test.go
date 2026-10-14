@@ -1,7 +1,10 @@
 package internal
 
 import (
+	"os"
 	"path"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -208,3 +211,75 @@ api: {base_url: "https://api.example.com", auth_url: "https://auth.example.com"}
 detection: {git_remote_name: example, site_domains: [example.site]}
 ssh: {domain_wildcards: ["*.example.site"]}
 `
+
+func TestOldScoopBucket(t *testing.T) {
+	oldRemote := "[remote \"origin\"]\n\turl = https://github.com/platformsh/homebrew-tap.git\n"
+	newRemote := "[remote \"origin\"]\n\turl = https://github.com/upsun/homebrew-tap.git\n"
+
+	cases := []struct {
+		name  string
+		files map[string]string
+		want  string
+	}{
+		{
+			name: "old bucket",
+			files: map[string]string{
+				"apps/platform/5.9.0/scoop-install.json": `{"bucket": "platformsh", "architecture": "64bit"}`,
+				"buckets/platformsh/.git/config":         oldRemote,
+			},
+			want: "platformsh",
+		},
+		{
+			name: "old bucket with a custom name and legacy install.json",
+			files: map[string]string{
+				"apps/platform/5.9.0/install.json": `{"bucket": "my-tap"}`,
+				"buckets/my-tap/.git/config":       strings.ToUpper(oldRemote),
+			},
+			want: "my-tap",
+		},
+		{
+			name: "new bucket",
+			files: map[string]string{
+				"apps/platform/5.9.0/scoop-install.json": `{"bucket": "platformsh"}`,
+				"buckets/platformsh/.git/config":         newRemote,
+			},
+		},
+		{
+			name: "bucket not found",
+			files: map[string]string{
+				"apps/platform/5.9.0/scoop-install.json": `{"bucket": "platformsh"}`,
+			},
+		},
+		{
+			name: "unsafe bucket name",
+			files: map[string]string{
+				"apps/platform/5.9.0/scoop-install.json": `{"bucket": "../buckets/platformsh"}`,
+				"buckets/platformsh/.git/config":         oldRemote,
+			},
+		},
+		{
+			name: "installed from a URL",
+			files: map[string]string{
+				"apps/platform/5.9.0/scoop-install.json": `{"url": "https://example.com/platform.json"}`,
+			},
+		},
+		{
+			name: "no install file",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			root := t.TempDir()
+			for name, content := range c.files {
+				p := filepath.Join(root, filepath.FromSlash(name))
+				require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+				require.NoError(t, os.WriteFile(p, []byte(content), 0o600))
+			}
+			exe := filepath.Join(root, "apps", "platform", "5.9.0", "platform.exe")
+			assert.Equal(t, c.want, OldScoopBucket(exe))
+		})
+	}
+
+	assert.Empty(t, OldScoopBucket("/usr/local/bin/platform"))
+	assert.Empty(t, OldScoopBucket(""))
+}

@@ -142,6 +142,16 @@ brew update && brew upgrade upsun/tap/upsun-cli
 scoop update upsun
 ```
 
+If you added the bucket from `https://github.com/platformsh/homebrew-tap.git`, it has no releases after 5.9.0. Replace it
+(`platformsh` is the bucket name, and `platform` the app, as listed by `scoop list`):
+
+```console
+scoop bucket rm platformsh
+scoop bucket add upsun https://github.com/upsun/homebrew-tap.git
+scoop uninstall platform
+scoop install upsun/platform
+```
+
 ### Bash installer
 
 ```console

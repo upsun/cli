@@ -2,6 +2,8 @@ package commands
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -20,14 +22,16 @@ func TestUpgradeCommandFor(t *testing.T) {
 
 	cases := []struct {
 		method internal.InstallMethod
-		want   string
+		want   []string
 	}{
-		{internal.InstallHomebrew, "brew update && brew upgrade upsun/tap/upsun-cli"},
-		{internal.InstallScoop, "scoop update upsun"},
-		{internal.InstallNpm, "npm install -g upsun@latest"},
-		{internal.InstallScript, "curl -fsSL https://x.test/i.sh | INSTALL_METHOD=raw INSTALL_DIR=/usr/local/bin sh"},
-		{internal.InstallPackage, ""}, // suppressed; no tailored command
-		{internal.InstallUnknown, ""}, // falls back to the generic link
+		{internal.InstallHomebrew, []string{"brew update && brew upgrade upsun/tap/upsun-cli"}},
+		{internal.InstallScoop, []string{"scoop update upsun"}},
+		{internal.InstallNpm, []string{"npm install -g upsun@latest"}},
+		{internal.InstallScript, []string{
+			"curl -fsSL https://x.test/i.sh | INSTALL_METHOD=raw INSTALL_DIR=/usr/local/bin sh",
+		}},
+		{internal.InstallPackage, nil}, // suppressed; no tailored command
+		{internal.InstallUnknown, nil}, // falls back to the generic link
 	}
 	for _, c := range cases {
 		t.Run(string(c.method), func(t *testing.T) {
@@ -42,6 +46,43 @@ func TestUpgradeCommandForMissingConfigFallsBack(t *testing.T) {
 	assert.Empty(t, upgradeCommandFor(cnf, internal.InstallHomebrew, "/usr/local/bin/upsun"))
 	assert.Empty(t, upgradeCommandFor(cnf, internal.InstallNpm, "/usr/local/bin/upsun"))
 	assert.Empty(t, upgradeCommandFor(cnf, internal.InstallScript, "/usr/local/bin/upsun"))
+}
+
+func TestUpgradeCommandForOldScoopBucket(t *testing.T) {
+	root := t.TempDir()
+	files := map[string]string{
+		"apps/platform/5.9.0/scoop-install.json": `{"bucket": "platformsh"}`,
+		"buckets/platformsh/.git/config":         "url = https://github.com/platformsh/homebrew-tap.git",
+	}
+	for name, content := range files {
+		p := filepath.Join(root, filepath.FromSlash(name))
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte(content), 0o600))
+	}
+	exe := filepath.Join(root, "apps", "platform", "5.9.0", "platform.exe")
+
+	cnf := testConfig()
+	cnf.Application.Executable = "platform"
+	cnf.Wrapper.HomebrewTap = "upsun/tap/platformsh-cli"
+	assert.Equal(t, []string{
+		"scoop bucket rm platformsh",
+		"scoop bucket add upsun https://github.com/upsun/homebrew-tap.git",
+		"scoop uninstall platform",
+		"scoop install upsun/platform",
+	}, upgradeCommandFor(cnf, internal.InstallScoop, exe))
+
+	// Without a tap to migrate to, it falls back to scoop update.
+	cnf.Wrapper.HomebrewTap = ""
+	assert.Equal(t, []string{"scoop update platform"}, upgradeCommandFor(cnf, internal.InstallScoop, exe))
+
+	buf := &bytes.Buffer{}
+	cnf.Wrapper.HomebrewTap = "upsun/tap/platformsh-cli"
+	printUpgradeCommands(buf, upgradeCommandFor(cnf, internal.InstallScoop, exe))
+	assert.Equal(t, "To upgrade, run:\n"+
+		"  scoop bucket rm platformsh\n"+
+		"  scoop bucket add upsun https://github.com/upsun/homebrew-tap.git\n"+
+		"  scoop uninstall platform\n"+
+		"  scoop install upsun/platform\n", buf.String())
 }
 
 func TestShellQuote(t *testing.T) {

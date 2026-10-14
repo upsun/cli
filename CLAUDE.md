@@ -192,6 +192,7 @@ The CLI checks for updates from GitHub releases (when Wrapper.GitHubRepo is set 
 Install-method detection (`internal/install.go`) tailors or suppresses the notice:
 - System package managers (apt, yum/dnf, apk) are detected via a marker file installed by the nfpm packages (`packaging/install-source` → `/usr/share/<slug>/install-source`). Before printing a notice, older package installs without the marker are also detected by querying dpkg/rpm/apk. The notice is suppressed because the OS handles updates.
 - Homebrew, Scoop, npm, and the bash installer get a tailored upgrade command, built from config fields (`Wrapper.HomebrewTap`, `Wrapper.NpmPackage`, `Wrapper.InstallerURL`, `Application.Executable`).
+- Scoop installs from the old `platformsh/homebrew-tap` bucket (found via the app's `scoop-install.json` and the bucket's Git remote) get commands to move to the bucket in the Homebrew tap's repository instead of `scoop update`.
 - The notice is throttled to once a week (`LastNotified` in state) and only shown in an interactive terminal.
 - `<PREFIX>INSTALL_METHOD` forces the method; `<PREFIX>UPDATES_CHECK=0` disables checks entirely.
 - With `CLI_CONFIG_FILE` (e.g. a `config:install` shim), the `wrapper.*` keys and the application name, executable and slug come from the embedded config (`Config.Embedded()`), as the binary is the same. The notice is only shown if there is an upgrade command for the install method, as the binary may be a private copy.

@@ -205,13 +205,22 @@ hint.
 |---|---|---|---|
 | `package` | No (suppressed) | — | — (OS handles it) |
 | `homebrew` | Yes | `brew update && brew upgrade <wrapper.homebrew_tap>` | Yes |
-| `scoop` | Yes | `scoop update <application.executable>` | Yes |
+| `scoop` | Yes | `scoop update <application.executable>`, or bucket migration commands² | Yes |
 | `npm` | Yes | `npm install -g <wrapper.npm_package>@latest` | Yes |
 | `script` | Yes | `curl -fsSL <wrapper.installer_url> \| INSTALL_METHOD=raw INSTALL_DIR=<exe dir> sh` | No (remote + maybe sudo)¹ |
 | `unknown` | Yes | `follow the instructions at https://github.com/<repo>#upgrade` (today's text) | No |
 
 ¹ Becomes auto-updatable in Phase 3 if raw installs move to a user-local,
 sudo-free path.
+
+² The bucket at `platformsh/homebrew-tap` has no releases after 5.9.0. If the
+app was installed from it (the `bucket` in `scoop-install.json` or
+`install.json` next to the executable, whose `<scoop root>/buckets/<name>/.git/config`
+has that remote), the notice lists commands to remove that bucket, add the one
+in the Homebrew tap's repository (`https://github.com/<owner>/homebrew-<tap>.git`,
+from `wrapper.homebrew_tap`), and reinstall the app from it. Scoop keeps an
+installed app's manifest, so `scoop update` does not switch buckets, and
+`scoop install` skips an installed app: it must be uninstalled first.
 
 With an alternative config (`CLI_CONFIG_FILE`, e.g. a shim from
 `config:install`), the binary is unchanged, so the `wrapper.*` keys and the

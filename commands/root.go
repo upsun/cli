@@ -266,8 +266,8 @@ func printUpdateMessage(w io.Writer, rel *internal.ReleaseInfo, cnf *config.Conf
 	}
 	bin := cnf.Embedded()
 	exe, _ := os.Executable()
-	upgradeCmd := upgradeCommandFor(bin, method, exe)
-	if upgradeCmd == "" && !cnf.IsEmbedded() {
+	upgradeCmds := upgradeCommandFor(bin, method, exe)
+	if len(upgradeCmds) == 0 && !cnf.IsEmbedded() {
 		return
 	}
 
@@ -277,8 +277,8 @@ func printUpdateMessage(w io.Writer, rel *internal.ReleaseInfo, cnf *config.Conf
 		color.CyanString(rel.Version),
 	)
 
-	if upgradeCmd != "" {
-		fmt.Fprintf(w, "To upgrade, run: %s\n", color.YellowString(upgradeCmd))
+	if len(upgradeCmds) > 0 {
+		printUpgradeCommands(w, upgradeCmds)
 	} else if bin.Wrapper.GitHubRepo != "" {
 		fmt.Fprintf(
 			w,
@@ -290,30 +290,66 @@ func printUpdateMessage(w io.Writer, rel *internal.ReleaseInfo, cnf *config.Conf
 	fmt.Fprintf(w, "%s\n\n", color.YellowString(rel.URL))
 }
 
-// upgradeCommandFor returns the upgrade command for the install method, or an
-// empty string when there is no tailored command (the caller then falls back to
-// a generic link).
-func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod, exe string) string {
+func printUpgradeCommands(w io.Writer, cmds []string) {
+	if len(cmds) == 1 {
+		fmt.Fprintf(w, "To upgrade, run: %s\n", color.YellowString(cmds[0]))
+		return
+	}
+	fmt.Fprintln(w, "To upgrade, run:")
+	for _, c := range cmds {
+		fmt.Fprintf(w, "  %s\n", color.YellowString(c))
+	}
+}
+
+// upgradeCommandFor returns the upgrade commands for the install method, or nil
+// when there is no tailored command (the caller then falls back to a generic link).
+func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod, exe string) []string {
 	switch method {
 	case internal.InstallHomebrew:
 		if cnf.Wrapper.HomebrewTap != "" {
-			return "brew update && brew upgrade " + cnf.Wrapper.HomebrewTap
+			return []string{"brew update && brew upgrade " + cnf.Wrapper.HomebrewTap}
 		}
 	case internal.InstallScoop:
-		return "scoop update " + cnf.Application.Executable
+		if cmds := scoopMigrationCommands(cnf, exe); cmds != nil {
+			return cmds
+		}
+		return []string{"scoop update " + cnf.Application.Executable}
 	case internal.InstallNpm:
 		if cnf.Wrapper.NpmPackage != "" {
-			return "npm install -g " + cnf.Wrapper.NpmPackage + "@latest"
+			return []string{"npm install -g " + cnf.Wrapper.NpmPackage + "@latest"}
 		}
 	case internal.InstallScript:
 		// The raw method replaces the binary in INSTALL_DIR; without it, the
 		// installer may choose a package manager instead (e.g. apt on Debian).
 		if cnf.Wrapper.InstallerURL != "" && exe != "" {
-			return "curl -fsSL " + cnf.Wrapper.InstallerURL +
-				" | INSTALL_METHOD=raw INSTALL_DIR=" + shellQuote(filepath.Dir(exe)) + " sh"
+			return []string{"curl -fsSL " + cnf.Wrapper.InstallerURL +
+				" | INSTALL_METHOD=raw INSTALL_DIR=" + shellQuote(filepath.Dir(exe)) + " sh"}
 		}
 	}
-	return ""
+	return nil
+}
+
+// scoopMigrationCommands moves an app installed from the old Scoop bucket to the
+// current one, which is in the Homebrew tap's repository (<owner>/homebrew-<tap>).
+// Scoop keeps an installed app's manifest, so "scoop update" does not switch
+// buckets, and "scoop install" needs the app to be uninstalled first.
+func scoopMigrationCommands(cnf *config.Config, exe string) []string {
+	owner, tap, ok := strings.Cut(cnf.Wrapper.HomebrewTap, "/")
+	tap, _, _ = strings.Cut(tap, "/")
+	if !ok || owner == "" || tap == "" {
+		return nil
+	}
+	oldBucket := internal.OldScoopBucket(exe)
+	if oldBucket == "" {
+		return nil
+	}
+	app := cnf.Application.Executable
+	return []string{
+		"scoop bucket rm " + oldBucket,
+		"scoop bucket add " + owner + " https://github.com/" + owner + "/homebrew-" + tap + ".git",
+		"scoop uninstall " + app,
+		"scoop install " + owner + "/" + app,
+	}
 }
 
 var shellSafe = regexp.MustCompile(`^[A-Za-z0-9_./-]+$`)
