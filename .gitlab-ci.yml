@@ -45,7 +45,7 @@ golangci-lint:
 
 legacy-php:
   stage: test
-  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/php:8.4-cli
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/php:8.5-cli
   interruptible: true
   cache:
     key:

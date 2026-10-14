@@ -57,7 +57,6 @@ class TimezoneUtilTest extends TestCase
     {
         $util = new TimezoneUtil();
         $method = new \ReflectionMethod($util, 'convertTz');
-        $method->setAccessible(true);
         $dataDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'data';
         $cases = [
             'UTC' => 'UTC',
