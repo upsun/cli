@@ -31,7 +31,7 @@ services: {}
 			wantErr: true,
 			wantErrMsg: `linter errors:
   - applications.Foo_.relationships.missing_service: relationship 'missing_service' in application 'Foo_' does not match any service (or app) (did you forget to define services?)
-  - applications.Foo_.type: type not found: 'invalid'; it must be one of: composable, dotnet, elixir, golang, java, nodejs, php, python, ruby, rust (check the Registry for supported types, or make an application using a composable image)
+  - applications.Foo_.type: type not found: 'invalid'; it must be one of: composable, dotnet, elixir, frankenphp, golang, java, nodejs, php, python, ruby, rust (check the Registry for supported types, or make an application using a composable image)
   - applications.Foo_: "Foo_" is not a valid application name, it can only contain lowercase alphanumeric characters, dashes, or underscores.`, //nolint:lll
 		},
 		{
