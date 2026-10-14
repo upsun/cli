@@ -393,7 +393,10 @@ npm_usable() {
     fi
     # The npm package needs Node.js 18 or later.
     node_major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null) || return 1
-    if [ "${node_major:-0}" -lt 18 ] 2>/dev/null; then
+    case "$node_major" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    if [ "$node_major" -lt 18 ]; then
         return 1
     fi
     prefix=$(npm prefix -g 2>/dev/null) || return 1
@@ -514,18 +517,13 @@ call_try_user() {
     fi
 }
 
+# Run a command, streaming its output, and return its exit status.
 call_user() {
-    output_file=$(mktemp)
-    if sh -c "$1" >"$output_file" 2>&1; then
-        indent < "$output_file"
-        rm -f "$output_file"
-        return 0
-    else
-        exit_code=$?
-        indent < "$output_file"
-        rm -f "$output_file"
-        return $exit_code
-    fi
+    status_file=$(mktemp)
+    { sh -c "$1" 2>&1; echo $? > "$status_file"; } | indent
+    exit_code=$(cat "$status_file")
+    rm -f "$status_file"
+    return "${exit_code:-1}"
 }
 
 check_shasum() {
@@ -559,7 +557,11 @@ check_directories() {
 
 # Check that dir_bin is in $PATH, or note how to add it.
 check_path() {
-    if ! echo $PATH | grep ${dir_bin} > /dev/null; then
+    case ":${PATH}:" in
+        *":${dir_bin}:"*) in_path=true ;;
+        *) in_path=false ;;
+    esac
+    if ! $in_path; then
         run_cmd="${dir_bin}/$binary"
 
         output "  [ ] ${dir_bin} is not in \$PATH.\n" "warning"
@@ -631,7 +633,13 @@ install_npm() {
     output "\nInstalling the $vendor_name CLI with npm" "heading"
 
     if ! call_user "npm install -g --include=optional '${pkg}'"; then
-        output "  could not install the CLI" "error"
+        output "  could not install the CLI (is the npm global prefix writable?)" "error"
+        exit_with_error
+    fi
+
+    # The platform binary is an optional dependency, which npm skips on unsupported platforms.
+    if ! "${dir_bin}/${binary}" --version > /dev/null 2>&1; then
+        output "  the installed CLI does not run: there may be no npm package for this platform" "error"
         exit_with_error
     fi
 }
