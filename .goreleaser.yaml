@@ -129,6 +129,12 @@ release:
     curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | bash
     ```
 
+    ### npm
+
+    ```console
+    npm update -g upsun
+    ```
+
 archives:
   - id: platform
     name_template: "platform_{{ .Version }}_{{ .Os }}_{{ .Arch }}"

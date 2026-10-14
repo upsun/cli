@@ -59,6 +59,28 @@ jobs:
       - name: Verify installation
         run: upsun --version
 
+  # npm fallback on Linux: Arch has Node.js but no apt, yum or apk.
+  linux-npm:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - name: Install prerequisites
+        run: pacman -Sy --noconfirm nodejs npm
+
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Run installer
+        env:
+          CI: ""
+        run: sh installer.sh
+
+      - name: Verify installation
+        run: npm ls -g upsun && upsun --version
+
   # Raw install on Linux: setting VERSION triggers the raw method.
   # Without a VERSION input the installer queries the GitHub API for the
   # latest release.
@@ -96,6 +118,27 @@ jobs:
 
       - name: Verify installation
         run: upsun --version
+
+  # npm fallback on macOS: Homebrew is hidden from PATH.
+  macos-npm:
+    runs-on: macos-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+
+      - name: Run installer
+        run: |
+          PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '^/opt/homebrew' | paste -sd: -)
+          export PATH
+          if command -v brew; then exit 1; fi
+          sh installer.sh
+          npm ls -g upsun
+          upsun --version
 
   # Raw install on macOS (INSTALL_METHOD is required because VERSION
   # does not affect macOS method selection).

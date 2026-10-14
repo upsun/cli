@@ -37,10 +37,12 @@ curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | bash
 The installer is configurable using the following environment variables:
 
 * `INSTALL_LOG` - the install log file
-* `INSTALL_METHOD` - force a specific installation method, possible values are `brew` and `raw`
+* `INSTALL_METHOD` - force a specific installation method: `apt`, `yum`, `apk`, `homebrew` (or `brew`), `npm`, or `raw` (a binary download)
 * `INSTALL_DIR` - the installation directory for the `raw` installation method, for example you can use `INSTALL_DIR=$HOME/.local/bin` for a single user installation
 * `VERSION` - the version of the CLI to install, if you need a version other than the latest one
 * `CONFIG_URL` - the URL of an alternative CLI configuration, installed after the CLI with `upsun config:install`
+
+By default, the installer uses Homebrew on macOS, and apt, yum or apk on Linux. In CI or with a `VERSION` on Linux, it uses `raw`. Otherwise it uses `npm` if npm can install global packages without `sudo` and Node.js is not managed by a version manager (nvm, fnm, Volta, asdf or mise), and `raw` if not.
 
 Outside CI, the `raw` method also installs shell completion for the current user, without editing shell configuration files: bash completion in `~/.local/share/bash-completion/completions` (loaded by bash-completion 2), and fish completion in `~/.config/fish/completions` when available. For zsh users (by `$SHELL`), it installs `~/.local/share/upsun/completion.zsh` and prints the line to add to `~/.zshrc`.
 
@@ -114,6 +116,16 @@ EOF
 sudo dnf install -y upsun-cli
 ```
 
+### npm
+
+If you have Node.js, you can install the CLI with npm:
+
+```console
+npm install -g upsun
+```
+
+There is no npm build for 32-bit Linux or Windows on ARM. npm installs don't set up shell completion.
+
 ### Manual installation
 
 For manual installation, you can also [download the latest binaries](https://github.com/upsun/cli/releases/latest).
@@ -164,6 +176,12 @@ sudo apt-get update && sudo apt-get upgrade upsun-cli
 
 ```console
 sudo dnf upgrade -y upsun-cli
+```
+
+### npm
+
+```console
+npm update -g upsun
 ```
 
 ### Update notifications

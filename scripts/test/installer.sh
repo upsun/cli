@@ -1,7 +1,7 @@
 #!/bin/sh
 # Test installer.sh across Linux distros using Docker.
 # Requires Docker to be installed and running.
-# macOS methods (homebrew, raw) are only tested in CI (GitHub Actions).
+# macOS methods (homebrew, npm, raw) are only tested in CI (GitHub Actions).
 
 set -eu
 
@@ -54,6 +54,10 @@ run_test "fedora:41 (default)" "fedora:41" \
 
 run_test "alpine:3.21 (default)" "alpine:3.21" \
     "apk add -q --no-cache curl ca-certificates && "
+
+# npm fallback test: Arch has Node.js but no apt, yum or apk.
+run_test "archlinux (npm)" "archlinux:latest" \
+    "pacman -Sy --noconfirm -q nodejs npm && "
 
 # Raw install test: setting VERSION triggers the raw method on Linux.
 if [ -n "$VERSION" ]; then
