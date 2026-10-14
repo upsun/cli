@@ -132,7 +132,7 @@ release:
     ### npm
 
     ```console
-    npm update -g upsun
+    npm install -g upsun@latest
     ```
 
 archives:

@@ -46,7 +46,7 @@ By default, the installer uses Homebrew on macOS, and apt, yum or apk on Linux. 
 
 * Node.js is version 18 or later, and is not managed by a version manager (nvm, fnm, Volta, asdf or mise)
 * npm can install global packages without `sudo`
-* `INSTALL_DIR` is not set
+* `INSTALL_DIR` and `VERSION` are not set
 * the CLI is not already installed by another method
 
 The `raw` method installs in `/usr/bin` (`/usr/local/bin` on macOS), or in `~/.global/bin` or `~/.local/bin` if either is in the `PATH`. It uses `sudo` if needed, or `~/.local/bin` if `sudo` is not available.
@@ -188,7 +188,7 @@ sudo dnf upgrade -y upsun-cli
 ### npm
 
 ```console
-npm update -g upsun
+npm install -g upsun@latest
 ```
 
 ### Update notifications

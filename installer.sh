@@ -441,7 +441,7 @@ check_install_method() {
             if command -v brew > /dev/null 2>&1
             then
                 INSTALL_METHOD="homebrew"
-            elif [ -z "${INSTALL_DIR}" ] && npm_usable; then
+            elif [ -z "${INSTALL_DIR}" ] && [ -z "${VERSION}" ] && npm_usable; then
                 INSTALL_METHOD="npm"
             else
                 INSTALL_METHOD="raw"
