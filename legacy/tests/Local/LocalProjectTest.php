@@ -85,6 +85,7 @@ class LocalProjectTest extends TestCase
             ['id' => 'abcdefghijkl', 'host' => 'eu-1.example.com'],
             $this->localProjectWithFallbacks()->getProjectConfig($dir),
         );
+        $this->assertFileDoesNotExist($dir . '/.mock/local');
     }
 
     public function testProjectConfigSkipsUnrecognizedGitRemote(): void

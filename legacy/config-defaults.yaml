@@ -357,7 +357,8 @@ detection:
   # site_domains: ['example.com', 'example.site']
 
   ## Other Git remotes to check for the project after {git_remote_name}, and
-  ## before "origin".
+  ## before "origin". A project found from these is not saved to
+  ## {local.project_config}.
   # git_remote_fallbacks: []
 
   ## Site header which reports the cluster.

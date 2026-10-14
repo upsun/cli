@@ -69,8 +69,8 @@ class LocalProject
     /**
      * Finds the project from the first Git remote with a recognized URL.
      *
-     * @return array{id: string, host: string}|null
-     *   The project ID and hostname, or null if no remote matches.
+     * @return array{array{id: string, host: string}, string}|null
+     *   The project ID and hostname, and the remote name, or null if no remote matches.
      */
     protected function findProjectFromGitRemotes(string $dir): ?array
     {
@@ -78,7 +78,7 @@ class LocalProject
         foreach ($this->getGitRemoteNames() as $remote) {
             $url = $this->git->getConfig("remote.$remote.url", $dir);
             if ($url && ($projectConfig = $this->parseGitUrl($url))) {
-                return $projectConfig;
+                return [$projectConfig, $remote];
             }
         }
 
@@ -314,9 +314,15 @@ class LocalProject
         } elseif ($projectRoot && file_exists($projectRoot . '/.git')) {
             // Use file_exists rather than is_dir: in a Git worktree (or
             // submodule) .git is a file (a gitlink), not a directory.
-            $projectConfig = $this->findProjectFromGitRemotes($projectRoot);
-            if ($projectConfig) {
-                $this->writeCurrentProjectConfig($projectConfig, $projectRoot);
+            $found = $this->findProjectFromGitRemotes($projectRoot);
+            if ($found) {
+                [$projectConfig, $remote] = $found;
+                if ($remote !== $this->config->getStr('detection.git_remote_name') && in_array($remote, $this->getStrList('detection.git_remote_fallbacks'), true)) {
+                    // Like fallback config files, fallback remotes are read but not written.
+                    self::$projectConfigs[$projectRoot] = $projectConfig;
+                } else {
+                    $this->writeCurrentProjectConfig($projectConfig, $projectRoot);
+                }
             }
         }
 

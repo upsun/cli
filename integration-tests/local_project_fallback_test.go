@@ -91,6 +91,9 @@ func TestLocalProjectFallbacks(t *testing.T) {
 		stdOut, stdErr, err := f.RunCombinedOutput("env:info", "name")
 		require.NoError(t, err, "stderr: %s", stdErr)
 		assertTrimmed(t, "main", stdOut)
+
+		_, statErr := os.Stat(filepath.Join(repo, ".platform"))
+		assert.True(t, os.IsNotExist(statErr), "reading the fallback remote must not write the primary config")
 	})
 
 	t.Run("set-remote unset removes the fallbacks", func(t *testing.T) {
