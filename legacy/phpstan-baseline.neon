@@ -1627,18 +1627,6 @@ parameters:
 			path: src/Command/Environment/EnvironmentUrlCommand.php
 
 		-
-			message: '#^Cannot access offset ''idekey'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Environment/EnvironmentXdebugCommand.php
-
-		-
-			message: '#^Cannot access offset ''xdebug'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Environment/EnvironmentXdebugCommand.php
-
-		-
 			message: '#^Method Platformsh\\Cli\\Command\\Environment\\EnvironmentXdebugCommand\:\:execute\(\) should return int but returns int\|null\.$#'
 			identifier: return.type
 			count: 1
@@ -1648,12 +1636,6 @@ parameters:
 			message: '#^Method Platformsh\\Cli\\Command\\Environment\\EnvironmentXdebugCommand\:\:isPhp\(\) should return bool but returns mixed\.$#'
 			identifier: return.type
 			count: 1
-			path: src/Command/Environment/EnvironmentXdebugCommand.php
-
-		-
-			message: '#^Part \$ideKey \(mixed\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 2
 			path: src/Command/Environment/EnvironmentXdebugCommand.php
 
 		-

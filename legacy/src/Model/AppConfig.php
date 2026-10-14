@@ -74,6 +74,63 @@ final class AppConfig
     }
 
     /**
+     * Returns the PHP runtime configuration, or null if the app does not use PHP.
+     *
+     * This is the `runtime` section for a PHP type, or the PHP entry in
+     * `stack.runtimes` for a composable image.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function getPhpRuntime(): ?array
+    {
+        $config = $this->getNormalized();
+        $type = is_string($config['type'] ?? null) ? $config['type'] : '';
+        if ($type === 'php' || str_starts_with($type, 'php:')) {
+            return $this->toConfigArray($config['runtime'] ?? null);
+        }
+        if (!str_starts_with($type, 'composable:') || !is_array($config['stack'] ?? null)) {
+            return null;
+        }
+
+        // Runtimes are a name, a mapping of a name to its config, or a list of either.
+        $runtimes = $config['stack']['runtimes'] ?? [];
+        if (!is_array($runtimes) || !array_is_list($runtimes)) {
+            $runtimes = [$runtimes];
+        }
+        foreach ($runtimes as $runtime) {
+            if (is_string($runtime)) {
+                $runtime = [$runtime => null];
+            }
+            if (!is_array($runtime)) {
+                continue;
+            }
+            foreach ($runtime as $name => $runtimeConfig) {
+                if ($name === 'php' || str_starts_with((string) $name, 'php@')) {
+                    return $this->toConfigArray($runtimeConfig);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function toConfigArray(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+        $result = [];
+        foreach ($value as $k => $v) {
+            $result[(string) $k] = $v;
+        }
+
+        return $result;
+    }
+
+    /**
      * Normalize the application config.
      *
      * @param array<string, mixed> $config
