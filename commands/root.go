@@ -260,8 +260,8 @@ func checkShellConfigLeftovers(w io.Writer, cnf *config.Config) {
 // binary and its upgrade command are the same with or without CLI_CONFIG_FILE.
 // With CLI_CONFIG_FILE, it prints nothing if there is no upgrade command: the
 // binary may be a private copy, which the generic instructions do not update.
-func printUpdateMessage(w io.Writer, newRelease *internal.ReleaseInfo, cnf *config.Config, method internal.InstallMethod) {
-	if newRelease == nil {
+func printUpdateMessage(w io.Writer, rel *internal.ReleaseInfo, cnf *config.Config, method internal.InstallMethod) {
+	if rel == nil {
 		return
 	}
 	bin := cnf.Embedded()
@@ -274,7 +274,7 @@ func printUpdateMessage(w io.Writer, newRelease *internal.ReleaseInfo, cnf *conf
 	fmt.Fprintf(w, "%s %s → %s\n",
 		color.YellowString(fmt.Sprintf("A new release of the %s is available:", bin.Application.Name)),
 		color.CyanString(config.Version),
-		color.CyanString(newRelease.Version),
+		color.CyanString(rel.Version),
 	)
 
 	if upgradeCmd != "" {
@@ -287,7 +287,7 @@ func printUpdateMessage(w io.Writer, newRelease *internal.ReleaseInfo, cnf *conf
 		)
 	}
 
-	fmt.Fprintf(w, "%s\n\n", color.YellowString(newRelease.URL))
+	fmt.Fprintf(w, "%s\n\n", color.YellowString(rel.URL))
 }
 
 // upgradeCommandFor returns the upgrade command for the install method, or an
