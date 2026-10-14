@@ -400,6 +400,13 @@ npm_usable() {
     if [ -z "$prefix" ] || node_version_managed "$prefix"; then
         return 1
     fi
+    # Keep updating an existing installation that npm did not make.
+    for existing in "$(command -v "$binary" 2>/dev/null || true)" "$prefix/bin/$binary"; do
+        # shellcheck disable=SC2010 # ls -l shows the symlink target portably.
+        if [ -e "$existing" ] && ! ls -l "$existing" | grep node_modules > /dev/null; then
+            return 1
+        fi
+    done
     is_writable "$prefix/lib/node_modules" && is_writable "$prefix/bin"
 }
 
@@ -623,7 +630,7 @@ install_npm() {
 
     output "\nInstalling the $vendor_name CLI with npm" "heading"
 
-    if ! call_user "npm install -g '${pkg}'"; then
+    if ! call_user "npm install -g --include=optional '${pkg}'"; then
         output "  could not install the CLI" "error"
         exit_with_error
     fi
