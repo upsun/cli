@@ -44,4 +44,23 @@ class ApplicationFinderTest extends TestCase
         $apps = $this->finder->findApplications($fakeRepositoryRoot);
         $this->assertCount(6, $apps);
     }
+
+    public function testFindAppsUnderFlexConfig(): void
+    {
+        $finder = new ApplicationFinder((new Config())->withOverrides([
+            'service.app_config_file' => null,
+            'service.project_config_dir' => '_upsun',
+        ]));
+        $fakeRepositoryRoot = 'tests/data/repositories/flex';
+
+        $types = [];
+        foreach ($finder->findApplications($fakeRepositoryRoot) as $app) {
+            $types[$app->getName()] = [$app->getType(), $app->getRoot()];
+        }
+        $this->assertEquals([
+            'app' => ['php:8.4', $fakeRepositoryRoot],
+            'frontend' => ['nodejs:22', $fakeRepositoryRoot . '/frontend'],
+            'worker' => ['composable:25.05', $fakeRepositoryRoot],
+        ], $types);
+    }
 }
