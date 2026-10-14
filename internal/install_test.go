@@ -4,6 +4,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/upsun/cli/internal/config"
 )
 
 func TestDetectInstallMethod(t *testing.T) {
@@ -183,3 +186,21 @@ func TestParseMethod(t *testing.T) {
 		})
 	}
 }
+
+func TestNewInstallProbeWithAltConfig(t *testing.T) {
+	cnf, err := config.FromYAML([]byte(testAltConfig))
+	require.NoError(t, err)
+	p := newInstallProbe(cnf)
+	assert.Equal(t, "EXAMPLE_CLI_", p.envPrefix)
+	assert.Equal(t, "upsun", p.slug)
+	assert.Equal(t, "upsun-cli", p.brewFormula)
+}
+
+// testAltConfig is a minimal config, as loaded via CLI_CONFIG_FILE.
+const testAltConfig = `
+application: {name: Example CLI, slug: example-cli, executable: example, env_prefix: EXAMPLE_CLI_, user_config_dir: .example-cli}
+service: {name: Example, env_prefix: EXAMPLE_, project_config_dir: .example}
+api: {base_url: "https://api.example.com", auth_url: "https://auth.example.com"}
+detection: {git_remote_name: example, site_domains: [example.site]}
+ssh: {domain_wildcards: ["*.example.site"]}
+`

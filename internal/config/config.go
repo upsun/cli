@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
@@ -25,6 +26,27 @@ func LoadYAML() ([]byte, error) {
 // IsEmbedded tests if the config was loaded from the embedded YAML, rather than from CLI_CONFIG_FILE.
 func (c *Config) IsEmbedded() bool {
 	return bytes.Equal(c.raw, embedded)
+}
+
+var embeddedConfig = sync.OnceValues(func() (*Config, error) {
+	c, err := FromYAML(embedded)
+	if err != nil {
+		return nil, err
+	}
+	c.SourceFile = ""
+	return c, nil
+})
+
+// Embedded returns the config embedded in the binary, which describes the binary
+// itself (e.g. how it is installed and updated) even when CLI_CONFIG_FILE is set.
+func (c *Config) Embedded() *Config {
+	if c.IsEmbedded() {
+		return c
+	}
+	if e, err := embeddedConfig(); err == nil {
+		return e
+	}
+	return c
 }
 
 // FromYAML parses YAML configuration.

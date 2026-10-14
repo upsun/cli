@@ -111,7 +111,7 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 				waitForUpdateCheck()
 				os.Exit(0)
 			}
-			if cnf.Wrapper.GitHubRepo != "" {
+			if cnf.Embedded().Wrapper.GitHubRepo != "" {
 				// Show any update found by a previous run, before the command's
 				// output. In quiet mode the notice would be discarded, so it is
 				// left for a later run.
@@ -256,38 +256,37 @@ func checkShellConfigLeftovers(w io.Writer, cnf *config.Config) {
 	}
 }
 
+// printUpdateMessage describes the binary from its embedded config, as the
+// binary and its upgrade command are the same with or without CLI_CONFIG_FILE.
 func printUpdateMessage(w io.Writer, newRelease *internal.ReleaseInfo, cnf *config.Config) {
 	if newRelease == nil {
 		return
 	}
+	bin := cnf.Embedded()
 
 	fmt.Fprintf(w, "%s %s → %s\n",
-		color.YellowString(fmt.Sprintf("A new release of the %s is available:", cnf.Application.Name)),
+		color.YellowString(fmt.Sprintf("A new release of the %s is available:", bin.Application.Name)),
 		color.CyanString(config.Version),
 		color.CyanString(newRelease.Version),
 	)
 
-	if cmd := upgradeCommand(cnf); cmd != "" {
+	exe, _ := os.Executable()
+	if cmd := upgradeCommandFor(bin, internal.DetectInstallMethod(cnf), exe); cmd != "" {
 		fmt.Fprintf(w, "To upgrade, run: %s\n", color.YellowString(cmd))
-	} else if cnf.Wrapper.GitHubRepo != "" {
+	} else if bin.Wrapper.GitHubRepo != "" {
 		fmt.Fprintf(
 			w,
 			"To upgrade, follow the instructions at: https://github.com/%s#upgrade\n",
-			cnf.Wrapper.GitHubRepo,
+			bin.Wrapper.GitHubRepo,
 		)
 	}
 
 	fmt.Fprintf(w, "%s\n\n", color.YellowString(newRelease.URL))
 }
 
-// upgradeCommand returns the upgrade command for the detected install method, or
-// an empty string when there is no tailored command (the caller then falls back
-// to a generic link).
-func upgradeCommand(cnf *config.Config) string {
-	exe, _ := os.Executable()
-	return upgradeCommandFor(cnf, internal.DetectInstallMethod(cnf), exe)
-}
-
+// upgradeCommandFor returns the upgrade command for the install method, or an
+// empty string when there is no tailored command (the caller then falls back to
+// a generic link).
 func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod, exe string) string {
 	switch method {
 	case internal.InstallHomebrew:

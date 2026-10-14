@@ -1,11 +1,14 @@
 package commands
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/upsun/cli/internal"
+	"github.com/upsun/cli/internal/config"
 )
 
 func TestUpgradeCommandFor(t *testing.T) {
@@ -51,4 +54,21 @@ func TestShellQuote(t *testing.T) {
 	for _, c := range cases {
 		assert.Equal(t, c.want, shellQuote(c.in))
 	}
+}
+
+func TestPrintUpdateMessageWithAltConfig(t *testing.T) {
+	cnf, err := config.FromYAML([]byte(`
+application: {name: Example CLI, slug: example-cli, executable: example, env_prefix: EXAMPLE_CLI_, user_config_dir: .example-cli}
+service: {name: Example, env_prefix: EXAMPLE_, project_config_dir: .example}
+api: {base_url: "https://api.example.com", auth_url: "https://auth.example.com"}
+detection: {git_remote_name: example, site_domains: [example.site]}
+ssh: {domain_wildcards: ["*.example.site"]}
+`))
+	require.NoError(t, err)
+	t.Setenv("EXAMPLE_CLI_INSTALL_METHOD", "homebrew")
+
+	buf := &bytes.Buffer{}
+	printUpdateMessage(buf, &internal.ReleaseInfo{Version: "9.9.9", URL: "https://example.com/release"}, cnf)
+	assert.Contains(t, buf.String(), "A new release of the Upsun CLI is available")
+	assert.Contains(t, buf.String(), "brew update && brew upgrade upsun/tap/upsun-cli")
 }

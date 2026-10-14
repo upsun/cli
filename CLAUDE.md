@@ -194,5 +194,6 @@ Install-method detection (`internal/install.go`) tailors or suppresses the notic
 - Homebrew, Scoop, npm, and the bash installer get a tailored upgrade command, built from config fields (`Wrapper.HomebrewTap`, `Wrapper.NpmPackage`, `Wrapper.InstallerURL`, `Application.Executable`).
 - The notice is throttled to once a week (`LastNotified` in state) and only shown in an interactive terminal.
 - `<PREFIX>INSTALL_METHOD` forces the method; `<PREFIX>UPDATES_CHECK=0` disables checks entirely.
+- With `CLI_CONFIG_FILE` (e.g. a `config:install` shim), the `wrapper.*` keys and the application name, executable and slug come from the embedded config (`Config.Embedded()`), as the binary is the same.
 
 See `docs/design/update-message-install-detection.md` for the full design, including the planned Phase 2 (opt-in self-update).
