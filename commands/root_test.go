@@ -58,7 +58,8 @@ func TestShellQuote(t *testing.T) {
 
 func TestPrintUpdateMessageWithAltConfig(t *testing.T) {
 	cnf, err := config.FromYAML([]byte(`
-application: {name: Example CLI, slug: example-cli, executable: example, env_prefix: EXAMPLE_CLI_, user_config_dir: .example-cli}
+application:
+  {name: Example CLI, slug: example-cli, executable: example, env_prefix: EXAMPLE_CLI_, user_config_dir: .example-cli}
 service: {name: Example, env_prefix: EXAMPLE_, project_config_dir: .example}
 api: {base_url: "https://api.example.com", auth_url: "https://auth.example.com"}
 detection: {git_remote_name: example, site_domains: [example.site]}

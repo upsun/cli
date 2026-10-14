@@ -24,7 +24,7 @@ func TestConfigInstallCmd(t *testing.T) {
 	hostBinDir := filepath.Join(tempDir, "host-bin")
 	require.NoError(t, os.Mkdir(hostBinDir, 0o755))
 	hostPath := filepath.Join(hostBinDir, "test-cli-executable-host")
-	require.NoError(t, os.WriteFile(hostPath, []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(hostPath, []byte("#!/bin/sh\n"), 0o755)) //nolint:gosec // must be executable
 	t.Setenv("HOME", tempDir)
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("PATH", hostBinDir+string(os.PathListSeparator)+os.Getenv("PATH"))
