@@ -736,6 +736,15 @@ install_config() {
     cmd_dir=$(dirname "$cmd")
     if [ "homebrew" != "${INSTALL_METHOD}" ] && [ -w "$cmd_dir" ]; then
         set -- "$@" --bin-dir "$cmd_dir"
+        # Share a root install with other users, as root's home is usually private.
+        case "$cmd_dir" in
+            "${HOME:-/root}"/*) ;;
+            *)
+                if [ "$(id -u)" = "0" ] && mkdir -p /etc/platform-alt; then
+                    set -- "$@" --config-dir /etc/platform-alt
+                fi
+                ;;
+        esac
     fi
 
     output_file=$(mktemp)

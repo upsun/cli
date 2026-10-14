@@ -65,25 +65,34 @@ check_output='
 check() {
     grep -F "To use the CLI, run: $1" /tmp/out
     "$1" --version
+}
+# Checks that a root install is shared with other users.
+check_shared() {
+    test -f "/etc/platform-alt/$1.yaml"
+    adduser -D other 2>/dev/null || useradd -m other
+    su other -c "$1 --version"
 }'
 
 run_test "debian (apt, root)" debian:bookworm "$debian_prereqs
 $check_output
 env -u URL -u VERSION CI= sh /installer.sh | tee /tmp/out
 test \"\$(command -v \$EXE)\" = /usr/bin/\$EXE
-check \$EXE"
+check \$EXE
+check_shared \$EXE"
 
 run_test "alpine (apk, root)" alpine:3.21 "$alpine_prereqs
 $check_output
 env -u URL -u VERSION CI= sh /installer.sh | tee /tmp/out
 test \"\$(command -v \$EXE)\" = /usr/bin/\$EXE
-check \$EXE"
+check \$EXE
+check_shared \$EXE"
 
 run_test "debian (raw, CI, root)" debian:bookworm "$debian_prereqs
 $check_output
 CI=1 sh /installer.sh | tee /tmp/out
 test \"\$(command -v \$EXE)\" = /usr/bin/\$EXE
-check \$EXE"
+check \$EXE
+check_shared \$EXE"
 
 run_test "debian (raw, root, existing shim on PATH)" debian:bookworm "$debian_prereqs
 $check_output

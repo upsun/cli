@@ -40,7 +40,7 @@ The installer is configurable using the following environment variables:
 * `INSTALL_METHOD` - force a specific installation method, possible values are `brew` and `raw`
 * `INSTALL_DIR` - the installation directory for the `raw` installation method, for example you can use `INSTALL_DIR=$HOME/.local/bin` for a single user installation
 * `VERSION` - the version of the CLI to install, if you need a version other than the latest one
-* `CONFIG_URL` - the URL of an alternative CLI configuration, installed after the CLI with `upsun config:install --force`. Its executable is put next to `upsun` if that directory is writable
+* `CONFIG_URL` - the URL of an alternative CLI configuration, installed after the CLI with `upsun config:install --force`. Its executable is put next to `upsun` if that directory is writable. As root, outside the home directory, the configuration is put in `/etc/platform-alt` so that other users can run it; only root updates it
 
 The `raw` method installs in `/usr/bin` (`/usr/local/bin` on macOS), or in `~/.global/bin` or `~/.local/bin` if either is in the `PATH`. It uses `sudo` if needed, or `~/.local/bin` if `sudo` is not available.
 
