@@ -216,9 +216,10 @@ sudo-free path.
 ² The bucket at `platformsh/homebrew-tap` has no releases after 5.9.0. If the
 app was installed from it (the `bucket` in `scoop-install.json` or
 `install.json` next to the executable, whose `<scoop root>/buckets/<name>/.git/config`
-has that remote), the notice lists commands to remove that bucket, add the one
-in the Homebrew tap's repository (`https://github.com/<owner>/homebrew-<tap>.git`,
-from `wrapper.homebrew_tap`), and reinstall the app from it. Scoop keeps an
+has that remote), or from a bucket that has since been removed, the notice lists
+commands to remove the old bucket, add the one in the Homebrew tap's repository
+(`https://github.com/<owner>/homebrew-<tap>.git`, from `wrapper.homebrew_tap`)
+unless a bucket for it exists, and reinstall the app from it. Scoop keeps an
 installed app's manifest, so `scoop update` does not switch buckets, and
 `scoop install` skips an installed app: it must be uninstalled first.
 

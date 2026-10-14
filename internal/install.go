@@ -247,17 +247,24 @@ const oldScoopRepo = "platformsh/homebrew-tap"
 
 var scoopBucketName = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 
-// OldScoopBucket returns the name of the Scoop bucket that the executable was
-// installed from, if the bucket is a clone of oldScoopRepo. Scoop installs apps
-// in <root>/apps/<app>/<version>/, and buckets in <root>/buckets/<name>/.
-func OldScoopBucket(exe string) string {
+// ScoopMigration describes how to reinstall a Scoop app from a bucket for the current repository.
+type ScoopMigration struct {
+	OldBucket string // the old bucket to remove, if it still exists
+	NewBucket string // an existing bucket for the current repository, if any
+}
+
+// FindScoopMigration checks whether the executable was installed from a Scoop
+// bucket that is a clone of oldScoopRepo, or that no longer exists. Either way,
+// "scoop update" cannot update it. Scoop installs apps in
+// <root>/apps/<app>/<version>/, and buckets in <root>/buckets/<name>/.
+func FindScoopMigration(exe, repo string) *ScoopMigration {
 	if exe == "" {
-		return ""
+		return nil
 	}
 	dir := filepath.Dir(exe)
 	appsDir := filepath.Dir(filepath.Dir(dir))
 	if !strings.EqualFold(filepath.Base(appsDir), "apps") {
-		return ""
+		return nil
 	}
 	// Scoop reads scoop-install.json, falling back to install.json.
 	var install struct {
@@ -270,14 +277,39 @@ func OldScoopBucket(exe string) string {
 		}
 	}
 	if !scoopBucketName.MatchString(install.Bucket) || strings.Trim(install.Bucket, ".") == "" {
-		return ""
+		return nil
 	}
-	// Bucket names are chosen by the user, so the bucket is identified by its Git remote.
-	gitConfig, err := os.ReadFile(filepath.Join(filepath.Dir(appsDir), "buckets", install.Bucket, ".git", "config"))
-	if err != nil || !strings.Contains(strings.ToLower(string(gitConfig)), oldScoopRepo) {
-		return ""
+	bucketsDir := filepath.Join(filepath.Dir(appsDir), "buckets")
+	entries, err := os.ReadDir(bucketsDir)
+	if err != nil {
+		return nil
 	}
-	return install.Bucket
+	// Bucket names are chosen by the user, so buckets are identified by their Git remote.
+	var m ScoopMigration
+	if gitConfig, err := os.ReadFile(filepath.Join(bucketsDir, install.Bucket, ".git", "config")); err == nil {
+		if !strings.Contains(strings.ToLower(string(gitConfig)), oldScoopRepo) {
+			return nil
+		}
+		m.OldBucket = install.Bucket
+	} else if dirExists(filepath.Join(bucketsDir, install.Bucket)) {
+		return nil
+	}
+	for _, e := range entries {
+		if e.Name() == install.Bucket || !scoopBucketName.MatchString(e.Name()) {
+			continue
+		}
+		gitConfig, err := os.ReadFile(filepath.Join(bucketsDir, e.Name(), ".git", "config"))
+		if err == nil && strings.Contains(strings.ToLower(string(gitConfig)), strings.ToLower(repo)) {
+			m.NewBucket = e.Name()
+			break
+		}
+	}
+	return &m
+}
+
+func dirExists(p string) bool {
+	fi, err := os.Stat(p)
+	return err == nil && fi.IsDir()
 }
 
 func brewPrefix() (string, bool) {

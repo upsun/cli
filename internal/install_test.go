@@ -212,22 +212,24 @@ detection: {git_remote_name: example, site_domains: [example.site]}
 ssh: {domain_wildcards: ["*.example.site"]}
 `
 
-func TestOldScoopBucket(t *testing.T) {
+func TestFindScoopMigration(t *testing.T) {
 	oldRemote := "[remote \"origin\"]\n\turl = https://github.com/platformsh/homebrew-tap.git\n"
 	newRemote := "[remote \"origin\"]\n\turl = https://github.com/upsun/homebrew-tap.git\n"
+	otherRemote := "[remote \"origin\"]\n\turl = https://github.com/ScoopInstaller/Main\n"
 
 	cases := []struct {
 		name  string
 		files map[string]string
-		want  string
+		want  *ScoopMigration
 	}{
 		{
 			name: "old bucket",
 			files: map[string]string{
 				"apps/platform/5.9.0/scoop-install.json": `{"bucket": "platformsh", "architecture": "64bit"}`,
 				"buckets/platformsh/.git/config":         oldRemote,
+				"buckets/main/.git/config":               otherRemote,
 			},
-			want: "platformsh",
+			want: &ScoopMigration{OldBucket: "platformsh"},
 		},
 		{
 			name: "old bucket with a custom name and legacy install.json",
@@ -235,7 +237,32 @@ func TestOldScoopBucket(t *testing.T) {
 				"apps/platform/5.9.0/install.json": `{"bucket": "my-tap"}`,
 				"buckets/my-tap/.git/config":       strings.ToUpper(oldRemote),
 			},
-			want: "my-tap",
+			want: &ScoopMigration{OldBucket: "my-tap"},
+		},
+		{
+			name: "old bucket and an existing new bucket",
+			files: map[string]string{
+				"apps/platform/5.9.0/scoop-install.json": `{"bucket": "platformsh"}`,
+				"buckets/platformsh/.git/config":         oldRemote,
+				"buckets/upsun-cli/.git/config":          newRemote,
+			},
+			want: &ScoopMigration{OldBucket: "platformsh", NewBucket: "upsun-cli"},
+		},
+		{
+			name: "removed bucket",
+			files: map[string]string{
+				"apps/platform/5.9.0/scoop-install.json": `{"bucket": "platformsh"}`,
+				"buckets/main/.git/config":               otherRemote,
+			},
+			want: &ScoopMigration{},
+		},
+		{
+			name: "removed bucket and an existing new bucket",
+			files: map[string]string{
+				"apps/platform/5.9.0/scoop-install.json": `{"bucket": "platformsh"}`,
+				"buckets/upsun/.git/config":              newRemote,
+			},
+			want: &ScoopMigration{NewBucket: "upsun"},
 		},
 		{
 			name: "new bucket",
@@ -245,7 +272,7 @@ func TestOldScoopBucket(t *testing.T) {
 			},
 		},
 		{
-			name: "bucket not found",
+			name: "no buckets directory",
 			files: map[string]string{
 				"apps/platform/5.9.0/scoop-install.json": `{"bucket": "platformsh"}`,
 			},
@@ -261,6 +288,7 @@ func TestOldScoopBucket(t *testing.T) {
 			name: "installed from a URL",
 			files: map[string]string{
 				"apps/platform/5.9.0/scoop-install.json": `{"url": "https://example.com/platform.json"}`,
+				"buckets/main/.git/config":               otherRemote,
 			},
 		},
 		{
@@ -276,10 +304,10 @@ func TestOldScoopBucket(t *testing.T) {
 				require.NoError(t, os.WriteFile(p, []byte(content), 0o600))
 			}
 			exe := filepath.Join(root, "apps", "platform", "5.9.0", "platform.exe")
-			assert.Equal(t, c.want, OldScoopBucket(exe))
+			assert.Equal(t, c.want, FindScoopMigration(exe, "upsun/homebrew-tap"))
 		})
 	}
 
-	assert.Empty(t, OldScoopBucket("/usr/local/bin/platform"))
-	assert.Empty(t, OldScoopBucket(""))
+	assert.Nil(t, FindScoopMigration("/usr/local/bin/platform", "upsun/homebrew-tap"))
+	assert.Nil(t, FindScoopMigration("", "upsun/homebrew-tap"))
 }

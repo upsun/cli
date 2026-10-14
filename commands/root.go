@@ -329,27 +329,33 @@ func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod, exe st
 	return nil
 }
 
-// scoopMigrationCommands moves an app installed from the old Scoop bucket to the
-// current one, which is in the Homebrew tap's repository (<owner>/homebrew-<tap>).
-// Scoop keeps an installed app's manifest, so "scoop update" does not switch
-// buckets, and "scoop install" needs the app to be uninstalled first.
+// scoopMigrationCommands reinstalls an app from the current Scoop bucket, which
+// is in the Homebrew tap's repository (<owner>/homebrew-<tap>), if it was
+// installed from the old bucket. Scoop keeps an installed app's manifest, so
+// "scoop update" does not switch buckets, and "scoop install" needs the app to
+// be uninstalled first.
 func scoopMigrationCommands(cnf *config.Config, exe string) []string {
 	owner, tap, ok := strings.Cut(cnf.Wrapper.HomebrewTap, "/")
 	tap, _, _ = strings.Cut(tap, "/")
 	if !ok || owner == "" || tap == "" {
 		return nil
 	}
-	oldBucket := internal.OldScoopBucket(exe)
-	if oldBucket == "" {
+	repo := owner + "/homebrew-" + tap
+	m := internal.FindScoopMigration(exe, repo)
+	if m == nil {
 		return nil
 	}
-	app := cnf.Application.Executable
-	return []string{
-		"scoop bucket rm " + oldBucket,
-		"scoop bucket add " + owner + " https://github.com/" + owner + "/homebrew-" + tap + ".git",
-		"scoop uninstall " + app,
-		"scoop install " + owner + "/" + app,
+	var cmds []string
+	if m.OldBucket != "" {
+		cmds = append(cmds, "scoop bucket rm "+m.OldBucket)
 	}
+	newBucket := m.NewBucket
+	if newBucket == "" {
+		newBucket = owner
+		cmds = append(cmds, "scoop bucket add "+newBucket+" https://github.com/"+repo+".git")
+	}
+	app := cnf.Application.Executable
+	return append(cmds, "scoop uninstall "+app, "scoop install "+newBucket+"/"+app)
 }
 
 var shellSafe = regexp.MustCompile(`^[A-Za-z0-9_./-]+$`)

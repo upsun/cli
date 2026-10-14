@@ -49,40 +49,76 @@ func TestUpgradeCommandForMissingConfigFallsBack(t *testing.T) {
 }
 
 func TestUpgradeCommandForOldScoopBucket(t *testing.T) {
-	root := t.TempDir()
-	files := map[string]string{
-		"apps/platform/5.9.0/scoop-install.json": `{"bucket": "platformsh"}`,
-		"buckets/platformsh/.git/config":         "url = https://github.com/platformsh/homebrew-tap.git",
+	oldRemote := "url = https://github.com/platformsh/homebrew-tap.git"
+	newRemote := "url = https://github.com/upsun/homebrew-tap.git"
+	cases := []struct {
+		name  string
+		files map[string]string
+		want  []string
+	}{
+		{
+			name: "old bucket",
+			files: map[string]string{
+				"apps/platform/5.9.0/scoop-install.json": `{"bucket": "platformsh"}`,
+				"buckets/platformsh/.git/config":         oldRemote,
+			},
+			want: []string{
+				"scoop bucket rm platformsh",
+				"scoop bucket add upsun https://github.com/upsun/homebrew-tap.git",
+				"scoop uninstall platform",
+				"scoop install upsun/platform",
+			},
+		},
+		{
+			name: "removed bucket and an existing new bucket",
+			files: map[string]string{
+				"apps/platform/5.9.0/scoop-install.json": `{"bucket": "platformsh"}`,
+				"buckets/upsun-tap/.git/config":          newRemote,
+			},
+			want: []string{
+				"scoop uninstall platform",
+				"scoop install upsun-tap/platform",
+			},
+		},
+		{
+			name: "new bucket",
+			files: map[string]string{
+				"apps/platform/5.9.0/scoop-install.json": `{"bucket": "upsun"}`,
+				"buckets/upsun/.git/config":              newRemote,
+			},
+			want: []string{"scoop update platform"},
+		},
 	}
-	for name, content := range files {
-		p := filepath.Join(root, filepath.FromSlash(name))
-		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
-		require.NoError(t, os.WriteFile(p, []byte(content), 0o600))
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			root := t.TempDir()
+			for name, content := range c.files {
+				p := filepath.Join(root, filepath.FromSlash(name))
+				require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+				require.NoError(t, os.WriteFile(p, []byte(content), 0o600))
+			}
+			exe := filepath.Join(root, "apps", "platform", "5.9.0", "platform.exe")
+
+			cnf := testConfig()
+			cnf.Application.Executable = "platform"
+			cnf.Wrapper.HomebrewTap = "upsun/tap/platformsh-cli"
+			assert.Equal(t, c.want, upgradeCommandFor(cnf, internal.InstallScoop, exe))
+
+			// Without a tap to migrate to, it falls back to scoop update.
+			cnf.Wrapper.HomebrewTap = ""
+			assert.Equal(t, []string{"scoop update platform"}, upgradeCommandFor(cnf, internal.InstallScoop, exe))
+		})
 	}
-	exe := filepath.Join(root, "apps", "platform", "5.9.0", "platform.exe")
+}
 
-	cnf := testConfig()
-	cnf.Application.Executable = "platform"
-	cnf.Wrapper.HomebrewTap = "upsun/tap/platformsh-cli"
-	assert.Equal(t, []string{
-		"scoop bucket rm platformsh",
-		"scoop bucket add upsun https://github.com/upsun/homebrew-tap.git",
-		"scoop uninstall platform",
-		"scoop install upsun/platform",
-	}, upgradeCommandFor(cnf, internal.InstallScoop, exe))
-
-	// Without a tap to migrate to, it falls back to scoop update.
-	cnf.Wrapper.HomebrewTap = ""
-	assert.Equal(t, []string{"scoop update platform"}, upgradeCommandFor(cnf, internal.InstallScoop, exe))
-
+func TestPrintUpgradeCommands(t *testing.T) {
 	buf := &bytes.Buffer{}
-	cnf.Wrapper.HomebrewTap = "upsun/tap/platformsh-cli"
-	printUpgradeCommands(buf, upgradeCommandFor(cnf, internal.InstallScoop, exe))
-	assert.Equal(t, "To upgrade, run:\n"+
-		"  scoop bucket rm platformsh\n"+
-		"  scoop bucket add upsun https://github.com/upsun/homebrew-tap.git\n"+
-		"  scoop uninstall platform\n"+
-		"  scoop install upsun/platform\n", buf.String())
+	printUpgradeCommands(buf, []string{"scoop update platform"})
+	assert.Equal(t, "To upgrade, run: scoop update platform\n", buf.String())
+
+	buf.Reset()
+	printUpgradeCommands(buf, []string{"scoop uninstall platform", "scoop install upsun/platform"})
+	assert.Equal(t, "To upgrade, run:\n  scoop uninstall platform\n  scoop install upsun/platform\n", buf.String())
 }
 
 func TestShellQuote(t *testing.T) {

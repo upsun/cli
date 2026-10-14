@@ -143,7 +143,7 @@ scoop update upsun
 ```
 
 If you added the bucket from `https://github.com/platformsh/homebrew-tap.git`, it has no releases after 5.9.0. Replace it
-(`platformsh` is the bucket name, and `platform` the app, as listed by `scoop list`):
+(`platformsh` is the bucket name, and `platform` the app, as listed by `scoop list`), and reinstall the app:
 
 ```console
 scoop bucket rm platformsh
