@@ -37,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | bash
 The installer is configurable using the following environment variables:
 
 * `INSTALL_LOG` - the install log file
-* `INSTALL_METHOD` - force a specific installation method, possible values are `brew` and `raw`
+* `INSTALL_METHOD` - force a specific installation method: `apt`, `yum`, `apk`, `homebrew` (or `brew`), or `raw` (a binary download)
 * `INSTALL_DIR` - the installation directory for the `raw` installation method, for example you can use `INSTALL_DIR=$HOME/.local/bin` for a single user installation
 * `VERSION` - the version of the CLI to install, if you need a version other than the latest one
 * `CONFIG_URL` - the URL of an alternative CLI configuration, installed after the CLI with `upsun config:install --force`. Its executable is put next to `upsun` if that directory is writable (except with Homebrew). As root, outside the home directory, the configuration is put in `/etc/upsun/platform-alt` so that other users can run it; only root updates it
@@ -116,6 +116,16 @@ EOF
 sudo dnf install -y upsun-cli
 ```
 
+### npm
+
+If you have Node.js 18 or later, you can install the CLI with npm:
+
+```console
+npm install -g upsun
+```
+
+There is no npm build for 32-bit Linux or Windows on ARM. npm installs don't set up shell completion.
+
 ### Manual installation
 
 For manual installation, you can also [download the latest binaries](https://github.com/upsun/cli/releases/latest).
@@ -166,6 +176,12 @@ sudo apt-get update && sudo apt-get upgrade upsun-cli
 
 ```console
 sudo dnf upgrade -y upsun-cli
+```
+
+### npm
+
+```console
+npm install -g upsun@latest
 ```
 
 ### Update notifications

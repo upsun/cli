@@ -355,6 +355,10 @@ check_architecture() {
 }
 
 check_install_method() {
+    if [ "brew" = "${INSTALL_METHOD}" ]; then
+        INSTALL_METHOD="homebrew"
+    fi
+
     if [ "linux" = "$kernel" ]; then
         if [ -z "${INSTALL_METHOD}" ]; then
             if is_ci; then
@@ -386,6 +390,14 @@ check_install_method() {
     elif [ "freebsd" = $kernel ]; then
         INSTALL_METHOD="raw"
     fi
+
+    case "${INSTALL_METHOD}" in
+        apt|yum|apk|homebrew|raw) ;;
+        *)
+            output "  [ ] Unknown install method: ${INSTALL_METHOD} (use apt, yum, apk, homebrew or raw)" "error"
+            exit_with_error
+            ;;
+    esac
 
     output "  [*] Using ${INSTALL_METHOD} install method" "success"
 }
