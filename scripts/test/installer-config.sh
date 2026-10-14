@@ -94,6 +94,14 @@ test \"\$(command -v \$EXE)\" = /usr/bin/\$EXE
 check \$EXE
 check_shared \$EXE"
 
+run_test "debian (raw, root, umask 077, symlinked INSTALL_DIR)" debian:bookworm "$debian_prereqs
+$check_output
+mkdir -p /opt/real && ln -s /opt/real /opt/bin
+umask 077
+INSTALL_DIR=/opt/bin sh /installer.sh | tee /tmp/out
+test -x /opt/real/\$EXE
+PATH=/opt/bin:\$PATH check_shared \$EXE"
+
 run_test "debian (raw, root, existing shim on PATH)" debian:bookworm "$debian_prereqs
 $check_output
 printf '#!/bin/sh\necho old\n' > /usr/local/bin/\$EXE && chmod +x /usr/local/bin/\$EXE

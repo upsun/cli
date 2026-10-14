@@ -733,15 +733,17 @@ install_config() {
     set -- -y --force
     # Put the new executable next to the CLI, which is on the PATH (or a warning says so).
     # Homebrew's directory is left to Homebrew.
-    cmd_dir=$(dirname "$cmd")
+    # Symlinks are resolved, as --bin-dir only accepts a directory.
+    cmd_dir=$(cd "$(dirname "$cmd")" && pwd -P)
     if [ "homebrew" != "${INSTALL_METHOD}" ] && [ -w "$cmd_dir" ]; then
         set -- "$@" --bin-dir "$cmd_dir"
         # Share a root install with other users, as root's home is usually private.
         case "$cmd_dir" in
             "${HOME:-/root}"/*) ;;
             *)
-                if [ "$(id -u)" = "0" ] && mkdir -p /etc/platform-alt; then
+                if [ "$(id -u)" = "0" ] && mkdir -p /etc/platform-alt && chmod 755 /etc/platform-alt; then
                     set -- "$@" --config-dir /etc/platform-alt
+                    umask 022
                 fi
                 ;;
         esac
@@ -769,14 +771,14 @@ install_config() {
 
     exe_name=$(basename "$exe_path")
     exe_found=$(command -v "$exe_name" || true)
-    if [ "$exe_found" = "$exe_path" ]; then
+    if [ -n "$exe_found" ] && [ "$exe_found" -ef "$exe_path" ]; then
         run_cmd="$exe_name"
         return
     fi
     run_cmd="$exe_path"
     if [ -n "$exe_found" ]; then
         add_footer_note "  ⚠ Another \"${exe_name}\" command comes first in \$PATH: ${exe_found}"
-    elif [ "$(dirname "$exe_path")" != "${dir_bin}" ]; then
+    elif [ ! "$(dirname "$exe_path")" -ef "${dir_bin}" ]; then
         add_footer_note "  ⚠ The directory \"$(dirname "$exe_path")\" is not in \$PATH"
     fi
 }
