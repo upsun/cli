@@ -42,7 +42,7 @@ The installer is configurable using the following environment variables:
 * `VERSION` - the version of the CLI to install, if you need a version other than the latest one
 * `CONFIG_URL` - the URL of an alternative CLI configuration, installed after the CLI with `upsun config:install`
 
-By default, the installer uses Homebrew on macOS, and apt, yum or apk on Linux. In CI or with a `VERSION` on Linux, it uses `raw`. Otherwise it uses `npm` if npm can install global packages without `sudo` and Node.js is not managed by a version manager (nvm, fnm, Volta, asdf or mise), and `raw` if not.
+By default, the installer uses Homebrew on macOS, and apt, yum or apk on Linux. In CI or with a `VERSION` on Linux, it uses `raw`. Otherwise it uses `npm` if Node.js is version 18 or later, npm can install global packages without `sudo`, and Node.js is not managed by a version manager (nvm, fnm, Volta, asdf or mise), and `raw` if not.
 
 Outside CI, the `raw` method also installs shell completion for the current user, without editing shell configuration files: bash completion in `~/.local/share/bash-completion/completions` (loaded by bash-completion 2), and fish completion in `~/.config/fish/completions` when available. For zsh users (by `$SHELL`), it installs `~/.local/share/upsun/completion.zsh` and prints the line to add to `~/.zshrc`.
 
@@ -118,7 +118,7 @@ sudo dnf install -y upsun-cli
 
 ### npm
 
-If you have Node.js, you can install the CLI with npm:
+If you have Node.js 18 or later, you can install the CLI with npm:
 
 ```console
 npm install -g upsun

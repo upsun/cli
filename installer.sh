@@ -391,6 +391,11 @@ npm_usable() {
     if ! command -v npm > /dev/null 2>&1; then
         return 1
     fi
+    # The npm package needs Node.js 18 or later.
+    node_major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null) || return 1
+    if [ "${node_major:-0}" -lt 18 ] 2>/dev/null; then
+        return 1
+    fi
     prefix=$(npm prefix -g 2>/dev/null) || return 1
     if [ -z "$prefix" ] || node_version_managed "$prefix"; then
         return 1
