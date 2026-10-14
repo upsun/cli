@@ -23,6 +23,9 @@ vendor_name="Upsun"
 # Upsun CLI version to install
 : "${VERSION:=}"
 
+# npm specifics
+: "${NPM_PACKAGE:=upsun}"
+
 # macOS specifics
 : "${BREW_TAP:=upsun/tap}"
 : "${BREW_FORMULA:=upsun/tap/upsun-cli}"
@@ -354,7 +357,52 @@ check_architecture() {
     output "  [*] Your architecture (${machine}) is supported" "success"
 }
 
+# Whether Node.js is managed by a version manager (nvm, fnm, Volta, asdf, mise),
+# whose global packages disappear when the active Node.js version changes.
+# Argument: the npm global prefix
+node_version_managed() {
+    if [ -n "${NVM_DIR:-}" ] || [ -n "${FNM_DIR:-}" ] || [ -n "${FNM_MULTISHELL_PATH:-}" ] \
+        || [ -n "${VOLTA_HOME:-}" ] || [ -n "${ASDF_DIR:-}" ] || [ -n "${ASDF_DATA_DIR:-}" ] \
+        || env | grep '^MISE_' > /dev/null; then
+        return 0
+    fi
+    case "$1" in
+        */.nvm/*|*/fnm/*|*/.fnm/*|*/fnm_multishells/*|*/.volta/*|*/.asdf/*|*/mise/*)
+            return 0
+            ;;
+    esac
+    return 1
+}
+
+# Whether a path, or its closest existing parent, is writable.
+is_writable() {
+    d="$1"
+    while [ ! -e "$d" ]; do
+        d=$(dirname "$d")
+    done
+    [ -w "$d" ]
+}
+
+# Whether npm can install the CLI globally, without sudo or a Node.js version manager.
+npm_usable() {
+    if [ "linux" = "$kernel" ] && [ "386" = "$machine" ]; then
+        return 1
+    fi
+    if ! command -v npm > /dev/null 2>&1; then
+        return 1
+    fi
+    prefix=$(npm prefix -g 2>/dev/null) || return 1
+    if [ -z "$prefix" ] || node_version_managed "$prefix"; then
+        return 1
+    fi
+    is_writable "$prefix/lib/node_modules" && is_writable "$prefix/bin"
+}
+
 check_install_method() {
+    if [ "brew" = "${INSTALL_METHOD}" ]; then
+        INSTALL_METHOD="homebrew"
+    fi
+
     if [ "linux" = "$kernel" ]; then
         if [ -z "${INSTALL_METHOD}" ]; then
             if is_ci; then
@@ -367,6 +415,8 @@ check_install_method() {
                 INSTALL_METHOD="yum"
             elif command -v apk > /dev/null 2>&1; then
                 INSTALL_METHOD="apk"
+            elif [ -z "${INSTALL_DIR}" ] && npm_usable; then
+                INSTALL_METHOD="npm"
             else
                 INSTALL_METHOD="raw"
             fi
@@ -376,6 +426,8 @@ check_install_method() {
             if command -v brew > /dev/null 2>&1
             then
                 INSTALL_METHOD="homebrew"
+            elif [ -z "${INSTALL_DIR}" ] && npm_usable; then
+                INSTALL_METHOD="npm"
             else
                 INSTALL_METHOD="raw"
             fi
@@ -386,6 +438,14 @@ check_install_method() {
     elif [ "freebsd" = $kernel ]; then
         INSTALL_METHOD="raw"
     fi
+
+    case "${INSTALL_METHOD}" in
+        apt|yum|apk|homebrew|npm|raw) ;;
+        *)
+            output "  [ ] Unknown install method: ${INSTALL_METHOD} (use apt, yum, apk, homebrew, npm or raw)" "error"
+            exit_with_error
+            ;;
+    esac
 
     output "  [*] Using ${INSTALL_METHOD} install method" "success"
 }
@@ -443,7 +503,17 @@ call_try_user() {
 }
 
 call_user() {
-    sh -c "$1" 2>&1 | indent
+    output_file=$(mktemp)
+    if sh -c "$1" >"$output_file" 2>&1; then
+        indent < "$output_file"
+        rm -f "$output_file"
+        return 0
+    else
+        exit_code=$?
+        indent < "$output_file"
+        rm -f "$output_file"
+        return $exit_code
+    fi
 }
 
 check_shasum() {
@@ -469,6 +539,14 @@ check_directories() {
         dir_bin="$HOME/.local/bin"
     fi
 
+    check_path
+
+    output "\nTarget directories" "heading"
+    output "  Binary will be installed in ${dir_bin}"
+}
+
+# Check that dir_bin is in $PATH, or note how to add it.
+check_path() {
     if ! echo $PATH | grep ${dir_bin} > /dev/null; then
         run_cmd="${dir_bin}/$binary"
 
@@ -492,9 +570,21 @@ check_directories() {
     else
         output "  [*] ${dir_bin} is in \$PATH" "success"
     fi
+}
 
-    output "\nTarget directories" "heading"
-    output "  Binary will be installed in ${dir_bin}"
+# Check that npm is available, and find its global bin directory.
+check_npm() {
+    if ! command -v npm > /dev/null 2>&1; then
+        output "  [ ] ERROR: npm is required for the npm install method" "error"
+        exit_with_error
+    fi
+    if ! prefix=$(npm prefix -g) || [ -z "$prefix" ]; then
+        output "  [ ] ERROR: could not find the npm global prefix" "error"
+        exit_with_error
+    fi
+    output "  [*] npm is installed" "success"
+    dir_bin="$prefix/bin"
+    check_path
 }
 
 install_homebrew() {
@@ -516,6 +606,20 @@ install_homebrew() {
 
     if ! call_user "$arch brew install ${BREW_FORMULA}"; then
         output "  could not install Formula" "error"
+        exit_with_error
+    fi
+}
+
+install_npm() {
+    pkg="${NPM_PACKAGE}"
+    if [ -n "${VERSION}" ]; then
+        pkg="${NPM_PACKAGE}@${VERSION#v}"
+    fi
+
+    output "\nInstalling the $vendor_name CLI with npm" "heading"
+
+    if ! call_user "npm install -g '${pkg}'"; then
+        output "  could not install the CLI" "error"
         exit_with_error
     fi
 }
@@ -710,7 +814,7 @@ install_config() {
     output "\nInstalling the $vendor_name CLI configuration" "heading"
 
     cmd="$binary"
-    if [ "raw" = "${INSTALL_METHOD}" ]; then
+    if [ "raw" = "${INSTALL_METHOD}" ] || [ "npm" = "${INSTALL_METHOD}" ]; then
         cmd="${dir_bin}/${binary}"
     fi
 
@@ -735,6 +839,8 @@ install() {
        install_apt
     elif [ "apk" = "${INSTALL_METHOD}" ]; then
        install_apk
+    elif [ "npm" = "${INSTALL_METHOD}" ]; then
+       install_npm
     elif [ "raw" = "${INSTALL_METHOD}" ]; then
        install_raw
     fi
@@ -753,6 +859,8 @@ if [ "raw" = "${INSTALL_METHOD}" ]; then
     check_gzip
     check_shasum
     check_directories
+elif [ "npm" = "${INSTALL_METHOD}" ]; then
+    check_npm
 elif [ "apt" = "${INSTALL_METHOD}" ] || [ "yum" = "${INSTALL_METHOD}" ] || [ "apk" = "${INSTALL_METHOD}" ]; then
     check_curl
     if [ "apk" = "${INSTALL_METHOD}" ]; then
