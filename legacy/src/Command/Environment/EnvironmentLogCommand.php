@@ -286,6 +286,9 @@ class EnvironmentLogCommand extends CommandBase
             $oldestCursor = $rows[0]['cursor'] !== '' ? $rows[0]['cursor'] : null;
         }
         $polledTo = max($from, $to);
+        // The re-read window is reduced if the API says it is too much data, and restored gradually.
+        $lateWindow = self::LATE_WINDOW;
+        $warned = false;
         while (true) { // @phpstan-ignore while.alwaysTrue
             sleep(self::TAIL_INTERVAL);
             // Limit the window, e.g. to catch up gradually after the computer was suspended.
@@ -293,7 +296,7 @@ class EnvironmentLogCommand extends CommandBase
             if ($end <= $polledTo) {
                 continue;
             }
-            $start = max($from, $polledTo - self::LATE_WINDOW);
+            $start = max($from, $polledTo - $lateWindow);
             $cursor = null;
             while (true) {
                 try {
@@ -304,7 +307,12 @@ class EnvironmentLogCommand extends CommandBase
                         throw $e;
                     }
                     if ($start < $polledTo) {
-                        $start = $polledTo - intdiv($polledTo - $start, 2);
+                        $lateWindow = intdiv($polledTo - $start, 2);
+                        $start = $polledTo - $lateWindow;
+                        if (!$warned) {
+                            $this->stdErr->writeln('<comment>There are too many logs to re-read: logs that become available late may not be shown.</comment>');
+                            $warned = true;
+                        }
                     } else {
                         $end = $start + intdiv($end - $start, 2);
                     }
@@ -328,6 +336,7 @@ class EnvironmentLogCommand extends CommandBase
                 $cursor = $page['_cursor'];
             }
             $polledTo = $end;
+            $lateWindow = min(self::LATE_WINDOW, max(1, $lateWindow) * 2);
             // Forget lines that are older than the next poll's window.
             $printed = array_filter($printed, fn(int $t): bool => $t >= $polledTo - self::LATE_WINDOW - 1);
         }
