@@ -5311,12 +5311,6 @@ parameters:
 			path: src/Rector/NewServicesRector.php
 
 		-
-			message: '#^Property PhpParser\\Node\\Expr\\MethodCall\:\:\$args \(array\<PhpParser\\Node\\Arg\|PhpParser\\Node\\VariadicPlaceholder\>\) does not accept array\<PhpParser\\Node\\Arg\>\|string\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: src/Rector/NewServicesRector.php
-
-		-
 			message: '#^Property Platformsh\\Cli\\Rector\\NewServicesRector\:\:\$transforms type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -5339,12 +5333,6 @@ parameters:
 			identifier: phpstanApi.instanceofType
 			count: 1
 			path: src/Rector/UnnecessaryServiceVariablesRector.php
-
-		-
-			message: '#^Access to an undefined property PhpParser\\Node\\Arg\|PhpParser\\Node\\VariadicPlaceholder\:\:\$value\.$#'
-			identifier: property.notFound
-			count: 3
-			path: src/Rector/UseSelectorServiceRector.php
 
 		-
 			message: '#^Access to an undefined property PhpParser\\Node\\Expr\|PhpParser\\Node\\Identifier\:\:\$name\.$#'
@@ -6837,7 +6825,7 @@ parameters:
 		-
 			message: '#^Parameter \#2 \$array of function implode expects array, mixed given\.$#'
 			identifier: argument.type
-			count: 5
+			count: 4
 			path: src/Service/SshConfig.php
 
 		-

@@ -34,12 +34,13 @@ func TestEnvironmentActivate(t *testing.T) {
 	inactive := makeEnv(projectID, "staging", "staging", "inactive", "main")
 	inactive.Links["#activate"] = mockapi.HALLink{HREF: "/projects/" + projectID + "/environments/staging/activate"}
 	apiHandler.SetEnvironments([]*mockapi.Environment{main, inactive})
-	// Activation checks settings and capabilities.
-	for _, path := range []string{"settings", "capabilities"} {
-		apiHandler.Get("/projects/"+projectID+"/"+path, func(w http.ResponseWriter, _ *http.Request) {
-			_ = json.NewEncoder(w).Encode(map[string]any{})
-		})
-	}
+	// Activation checks whether the project supports guaranteed CPU.
+	apiHandler.Get("/projects/"+projectID+"/settings", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"enable_guaranteed_resources": true})
+	})
+	apiHandler.Get("/projects/"+projectID+"/capabilities", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"guaranteed_resources": map[string]any{"enabled": true}})
+	})
 
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
 	f.Run("cc")

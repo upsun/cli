@@ -96,7 +96,7 @@ class NewServicesRector extends AbstractRector
             $node->var = new PropertyFetch(new Variable('this'), $propertyName);
             $node->name = new Node\Identifier($methodName);
 
-            if ($args !== '_') {
+            if (is_array($args)) {
                 $node->args = $args;
             }
 

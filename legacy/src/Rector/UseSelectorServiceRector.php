@@ -86,11 +86,12 @@ class UseSelectorServiceRector extends AbstractRector
             if ($node->name->name === 'validateInput' && $this->getName($node->var) === 'this') {
                 $injectSelector = true;
                 $args = [new Node\Arg(new Variable('input'))];
-                if (count($node->args) > 1) {
+                $callArgs = $node->getArgs();
+                if (count($callArgs) > 1) {
                     // Add SelectorConfig.
                     $selectorConfigArgs = [];
-                    if (isset($node->args[1])) {
-                        $envNotRequired = $node->args[1]->value;
+                    if (isset($callArgs[1])) {
+                        $envNotRequired = $callArgs[1]->value;
 
                         // Translate the envNotRequired positional argument to an envRequired named argument.
                         $val = null;
@@ -111,11 +112,11 @@ class UseSelectorServiceRector extends AbstractRector
                             $selectorConfigArgs[] = new Arg($val, false, false, [], new Node\Identifier('envRequired'));
                         }
                     }
-                    if (isset($node->args[2])) {
-                        $selectorConfigArgs[] = new Arg($node->args[2]->value, false, false, [], new Node\Identifier('selectDefaultEnv'));
+                    if (isset($callArgs[2])) {
+                        $selectorConfigArgs[] = new Arg($callArgs[2]->value, false, false, [], new Node\Identifier('selectDefaultEnv'));
                     }
-                    if (isset($node->args[3])) {
-                        $selectorConfigArgs[] = new Arg($node->args[3]->value, false, false, [], new Node\Identifier('detectCurrentEnv'));
+                    if (isset($callArgs[3])) {
+                        $selectorConfigArgs[] = new Arg($callArgs[3]->value, false, false, [], new Node\Identifier('detectCurrentEnv'));
                     }
                     $args[] = new Arg(new Node\Expr\New_(new Node\Name('\\' . SelectorConfig::class), $selectorConfigArgs));
                 }
