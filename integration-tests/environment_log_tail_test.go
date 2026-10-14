@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"sync"
 	"syscall"
 	"testing"
@@ -68,6 +69,12 @@ func TestEnvironmentLogTailLateLines(t *testing.T) {
 		mu.Lock()
 		defer mu.Unlock()
 		if q.Get("order_by") == "ASC" {
+			// Polls wider than 30 seconds are rejected, like the API does for too much data.
+			from, _ := strconv.ParseInt(q.Get("from"), 10, 64)
+			to, _ := strconv.ParseInt(q.Get("to"), 10, 64)
+			if to-from > 30 {
+				return nil, 499
+			}
 			polls++
 		}
 		return lines, 0

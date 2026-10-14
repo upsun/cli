@@ -135,8 +135,8 @@ class EnvironmentLogCommand extends CommandBase
               Without a type, all logs are shown except for "platform" logs.
               For structured (JSON) log lines, the text format also shows some of the line's fields as key=value pairs.
               Use --fields to choose the fields, or --format json to see everything.
-              Logs take a few seconds to become available, so --tail shows them with a delay of about 15-20 seconds
-              (or up to a minute, for logs that become available late).
+              Logs take a few seconds to become available, so --tail shows them with a delay of about 15-20 seconds.
+              Logs that become available later are shown when they arrive, unless they are over a minute late.
               SSH is still used if the --worker, --instance or --task option is used,
               or if the type is not listed above or ends in .log (e.g. "error.log").
             EOF);
@@ -295,18 +295,38 @@ class EnvironmentLogCommand extends CommandBase
             }
             $start = max($from, $polledTo - self::LATE_WINDOW);
             $cursor = null;
-            do {
-                $page = $this->queryPage($url, $filters, $start, $end, 'ASC', $cursor);
+            while (true) {
+                try {
+                    $page = $this->queryPage($url, $filters, $start, $end, 'ASC', $cursor);
+                } catch (RequestException $e) {
+                    // The API responds with 499 if a query would read too much data: retry re-reading less, then reading less.
+                    if ($e->getResponse()?->getStatusCode() !== 499 || $cursor !== null || $end - $start <= 1) {
+                        throw $e;
+                    }
+                    if ($start < $polledTo) {
+                        $start = $polledTo - intdiv($polledTo - $start, 2);
+                    } else {
+                        $end = $start + intdiv($end - $start, 2);
+                    }
+                    $this->io->debug(sprintf('Too much data: retrying with a window of %d seconds', $end - $start));
+                    continue;
+                }
                 foreach ($page['data'] as $row) {
                     $key = $this->rowKey($row);
                     if (isset($printed[$key]) || ($oldestCursor !== null && $row['cursor'] !== '' && strcmp($row['cursor'], $oldestCursor) < 0)) {
                         continue;
                     }
-                    $printed[$key] = $row['timestamp'];
+                    // Only lines that the next poll can re-read need to be remembered.
+                    if ($row['timestamp'] >= $end - self::LATE_WINDOW - 1) {
+                        $printed[$key] = $row['timestamp'];
+                    }
                     $this->printRow($output, $row, $format, $fields);
                 }
+                if (!$page['_has_more_results']) {
+                    break;
+                }
                 $cursor = $page['_cursor'];
-            } while ($page['_has_more_results']);
+            }
             $polledTo = $end;
             // Forget lines that are older than the next poll's window.
             $printed = array_filter($printed, fn(int $t): bool => $t >= $polledTo - self::LATE_WINDOW - 1);
