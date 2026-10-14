@@ -2329,7 +2329,7 @@ class Api
             $capabilities = $info['capabilities'];
         } else {
             $settings = $this->getProjectSettings($project);
-            $capabilities = $this->getProjectCapabilities($project);
+            $capabilities = $this->getProjectCapabilities($project)->getProperties();
         }
 
         return !empty($settings['enable_guaranteed_resources']) && !empty($capabilities['guaranteed_resources']['enabled']);
