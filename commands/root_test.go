@@ -1,11 +1,14 @@
 package commands
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/upsun/cli/internal"
+	"github.com/upsun/cli/internal/config"
 )
 
 func TestUpgradeCommandFor(t *testing.T) {
@@ -51,4 +54,41 @@ func TestShellQuote(t *testing.T) {
 	for _, c := range cases {
 		assert.Equal(t, c.want, shellQuote(c.in))
 	}
+}
+
+func TestPrintUpdateMessageWithAltConfig(t *testing.T) {
+	cnf, err := config.FromYAML([]byte(`
+application:
+  {name: Example CLI, slug: example-cli, executable: example, env_prefix: EXAMPLE_CLI_, user_config_dir: .example-cli}
+service: {name: Example, env_prefix: EXAMPLE_, project_config_dir: .example}
+api: {base_url: "https://api.example.com", auth_url: "https://auth.example.com"}
+detection: {git_remote_name: example, site_domains: [example.site]}
+ssh: {domain_wildcards: ["*.example.site"]}
+`))
+	require.NoError(t, err)
+	bin := cnf.Embedded()
+	rel := &internal.ReleaseInfo{Version: "9.9.9", URL: "https://example.com/release"}
+
+	buf := &bytes.Buffer{}
+	printUpdateMessage(buf, rel, cnf, internal.InstallScoop)
+	assert.Contains(t, buf.String(), "A new release of the "+bin.Application.Name+" is available")
+	assert.Contains(t, buf.String(), "scoop update "+bin.Application.Executable)
+
+	// Without an upgrade command, an alt CLI (e.g. with a private copy of the binary) shows nothing.
+	buf.Reset()
+	printUpdateMessage(buf, rel, cnf, internal.InstallUnknown)
+	assert.Empty(t, buf.String())
+}
+
+func TestPrintUpdateMessageUnknownMethod(t *testing.T) {
+	t.Setenv("CLI_CONFIG_FILE", "")
+	b, err := config.LoadYAML()
+	require.NoError(t, err)
+	cnf, err := config.FromYAML(b)
+	require.NoError(t, err)
+
+	buf := &bytes.Buffer{}
+	printUpdateMessage(buf, &internal.ReleaseInfo{Version: "9.9.9", URL: "https://example.com/release"}, cnf,
+		internal.InstallUnknown)
+	assert.Contains(t, buf.String(), "https://github.com/"+cnf.Wrapper.GitHubRepo+"#upgrade")
 }

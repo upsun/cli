@@ -3,6 +3,12 @@
 
 set -eu
 
+# Vendor defaults: a vendor's installer build may replace these lines.
+# The URL of an alternative CLI configuration, installed with "config:install" after the CLI.
+: "${CONFIG_URL:=}"
+# The name shown in messages.
+vendor_name="Upsun"
+
 # Location of install log
 : "${INSTALL_LOG:=/tmp/upsun-install-$(date '+%Y%m%d-%H%M%S').log}"
 
@@ -33,7 +39,6 @@ set -eu
 binary="upsun"
 # How to run the binary: the full path if its directory is not in $PATH.
 run_cmd="$binary"
-vendor_name="Upsun"
 cmd_shasum=""
 cmd_sudo=""
 dir_bin="/usr/bin"
@@ -696,6 +701,31 @@ install_completion() {
     fi
 }
 
+# Install the alternative CLI configuration from CONFIG_URL, if set.
+install_config() {
+    if [ -z "${CONFIG_URL}" ]; then
+        return
+    fi
+
+    output "\nInstalling the $vendor_name CLI configuration" "heading"
+
+    cmd="$binary"
+    if [ "raw" = "${INSTALL_METHOD}" ]; then
+        cmd="${dir_bin}/${binary}"
+    fi
+
+    output_file=$(mktemp)
+    if "$cmd" config:install -y "${CONFIG_URL}" </dev/null >"$output_file" 2>&1; then
+        indent < "$output_file"
+        rm -f "$output_file"
+    else
+        indent < "$output_file"
+        rm -f "$output_file"
+        output "  could not install the configuration from ${CONFIG_URL}" "error"
+        exit_with_error
+    fi
+}
+
 install() {
     if [ "homebrew" = "${INSTALL_METHOD}" ]; then
        install_homebrew
@@ -730,4 +760,5 @@ elif [ "apt" = "${INSTALL_METHOD}" ] || [ "yum" = "${INSTALL_METHOD}" ] || [ "ap
     fi
 fi
 install
+install_config
 outro

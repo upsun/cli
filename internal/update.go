@@ -52,7 +52,7 @@ func StartUpdateCheck(cnf *config.Config) *UpdateCheck {
 	c := &UpdateCheck{done: make(chan struct{})}
 	go func() {
 		defer close(c.done)
-		releaseInfo, err := getLatestReleaseInfo(cnf.Wrapper.GitHubRepo)
+		releaseInfo, err := getLatestReleaseInfo(cnf.Embedded().Wrapper.GitHubRepo)
 		if err != nil || releaseInfo.Version == "" {
 			return
 		}
@@ -91,7 +91,7 @@ func PendingNotification(cnf *config.Config, currentVersion string) *ReleaseInfo
 	if err != nil {
 		return nil
 	}
-	return notificationFromState(s, cnf.Wrapper.GitHubRepo, currentVersion, time.Now().Unix())
+	return notificationFromState(s, cnf.Embedded().Wrapper.GitHubRepo, currentVersion, time.Now().Unix())
 }
 
 // notificationFromState decides whether to notify about the cached latest
@@ -123,10 +123,11 @@ func MarkNotified(cnf *config.Config) {
 	})
 }
 
-// shouldCheckForUpdate checks updates are not disabled and the environment is a terminal
+// shouldCheckForUpdate checks updates are not disabled and the environment is a terminal.
+// The release repository comes from the embedded config, as the binary is the same with CLI_CONFIG_FILE.
 func shouldCheckForUpdate(cnf *config.Config) bool {
 	return config.Version != "0.0.0" &&
-		cnf.Wrapper.GitHubRepo != "" &&
+		cnf.Embedded().Wrapper.GitHubRepo != "" &&
 		cnf.Updates.Check &&
 		os.Getenv(cnf.Application.EnvPrefix+"UPDATES_CHECK") != "0" &&
 		!isCI() && !IsAutoUpdating(cnf) &&
