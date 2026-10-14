@@ -73,10 +73,13 @@ class EnvironmentLogCommand extends CommandBase
         'trace_id', 'traceid', 'span_id', 'spanid',
     ];
 
-    // How far behind the current time to read when tailing, so that late-arriving logs are not skipped.
+    // How far behind the current time to read when tailing, so that most logs are printed in order.
     private const TAIL_DELAY = 15;
 
     private const TAIL_INTERVAL = 5;
+
+    // How far back each poll re-reads when tailing, to print logs that become available late.
+    private const LATE_WINDOW = 60;
 
     // Limits for the time windows queried by fetchRecent().
     private const MIN_WINDOW = 60;
@@ -133,6 +136,7 @@ class EnvironmentLogCommand extends CommandBase
               For structured (JSON) log lines, the text format also shows some of the line's fields as key=value pairs.
               Use --fields to choose the fields, or --format json to see everything.
               Logs take a few seconds to become available, so --tail shows them with a delay of about 15-20 seconds.
+              Logs that become available later are shown when they arrive, unless they are over a minute late.
               SSH is still used if the --worker, --instance or --task option is used,
               or if the type is not listed above or ends in .log (e.g. "error.log").
             EOF);
@@ -269,26 +273,77 @@ class EnvironmentLogCommand extends CommandBase
             return 0;
         }
 
-        // Poll for newer logs (oldest first), after the newest printed line.
-        // Each poll starts a second before the previous one ended (the cursor prevents duplicates).
-        $last = end($rows);
-        $cursor = $last !== false ? $last['cursor'] : null;
-        $from = max($from, $to - 1);
+        // Poll for newer logs (oldest first). A log's timestamp is when it was written, and it can become
+        // available after newer logs, so each poll re-reads the last LATE_WINDOW seconds, skipping printed lines.
+        $printed = [];
+        foreach ($rows as $row) {
+            $printed[$this->rowKey($row)] = $row['timestamp'];
+        }
+        // Skip lines older than those printed, if --lines limited them.
+        $oldestCursor = null;
+        if (count($rows) >= $lines) {
+            $from = max($from, $rows[0]['timestamp']);
+            $oldestCursor = $rows[0]['cursor'] !== '' ? $rows[0]['cursor'] : null;
+        }
+        $polledTo = max($from, $to);
+        // The re-read window is reduced if the API says it is too much data, and grows again after a minute without that.
+        $lateWindow = self::LATE_WINDOW;
+        $warned = false;
+        $okPolls = 0;
         while (true) { // @phpstan-ignore while.alwaysTrue
             sleep(self::TAIL_INTERVAL);
             // Limit the window, e.g. to catch up gradually after the computer was suspended.
-            $to = min(time() - self::TAIL_DELAY, $from + self::MAX_WINDOW);
-            if ($to <= $from + 1) {
+            $end = min(time() - self::TAIL_DELAY, $polledTo + self::MAX_WINDOW);
+            if ($end <= $polledTo) {
                 continue;
             }
-            do {
-                $page = $this->queryPage($url, $filters, $from, $to, 'ASC', $cursor);
+            $start = max($from, $polledTo - $lateWindow);
+            $cursor = null;
+            while (true) {
+                try {
+                    $page = $this->queryPage($url, $filters, $start, $end, 'ASC', $cursor);
+                } catch (RequestException $e) {
+                    // The API responds with 499 if a query would read too much data: retry re-reading less, then reading less.
+                    if ($e->getResponse()?->getStatusCode() !== 499 || $cursor !== null || $end - $start <= 1) {
+                        throw $e;
+                    }
+                    $okPolls = -1;
+                    if ($start < $polledTo) {
+                        $lateWindow = intdiv($polledTo - $start, 2);
+                        $start = $polledTo - $lateWindow;
+                        if (!$warned) {
+                            $this->stdErr->writeln('<comment>There are too many logs to re-read: logs that become available late may not be shown.</comment>');
+                            $warned = true;
+                        }
+                    } else {
+                        $end = $start + intdiv($end - $start, 2);
+                    }
+                    $this->io->debug(sprintf('Too much data: retrying with a window of %d seconds', $end - $start));
+                    continue;
+                }
                 foreach ($page['data'] as $row) {
+                    $key = $this->rowKey($row);
+                    if (isset($printed[$key]) || ($oldestCursor !== null && $row['cursor'] !== '' && strcmp($row['cursor'], $oldestCursor) < 0)) {
+                        continue;
+                    }
+                    // Only lines that the next poll can re-read need to be remembered.
+                    if ($row['timestamp'] >= $end - self::LATE_WINDOW - 1) {
+                        $printed[$key] = $row['timestamp'];
+                    }
                     $this->printRow($output, $row, $format, $fields);
                 }
-                $cursor = $page['_cursor'] ?? $cursor;
-            } while ($page['_has_more_results']);
-            $from = $to - 1;
+                if (!$page['_has_more_results']) {
+                    break;
+                }
+                $cursor = $page['_cursor'];
+            }
+            $polledTo = $end;
+            if (++$okPolls >= intdiv(60, self::TAIL_INTERVAL)) {
+                $lateWindow = min(self::LATE_WINDOW, max(1, $lateWindow) * 2);
+                $okPolls = 0;
+            }
+            // Forget lines that are older than the next poll's window.
+            $printed = array_filter($printed, fn(int $t): bool => $t >= $polledTo - self::LATE_WINDOW - 1);
         }
     }
 
@@ -336,6 +391,16 @@ class EnvironmentLogCommand extends CommandBase
         }
 
         return array_slice(array_values($rows), 0, $lines);
+    }
+
+    /**
+     * Returns a key to identify a row, for de-duplication.
+     *
+     * @param LogRow $row
+     */
+    private function rowKey(array $row): string
+    {
+        return $row['cursor'] !== '' ? $row['cursor'] : md5((string) json_encode($row['raw']));
     }
 
     /**

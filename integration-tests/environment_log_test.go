@@ -39,15 +39,6 @@ func TestEnvironmentLogAPI(t *testing.T) {
 
 	// 150 log lines, one per second, ending 20 seconds ago.
 	end := time.Now().Add(-20 * time.Second).UTC().Truncate(time.Second)
-	type logLine struct {
-		Cursor   string `json:"cursor"`
-		Datetime string `json:"datetime"`
-		Severity string `json:"severity"`
-		Service  string `json:"service"`
-		LogKind  string `json:"log_kind"`
-		Content  string `json:"content"`
-		Context  string `json:"context,omitempty"`
-	}
 	lines := make([]logLine, 0, 150)
 	for i := range 150 {
 		ts := end.Add(time.Duration(i-149) * time.Second)
@@ -86,60 +77,17 @@ func TestEnvironmentLogAPI(t *testing.T) {
 			},
 		})
 	})
-	// Modeled on the API: pages of up to 100 lines, filtered by time, cursor and severity.
-	apiHandler.Get(queryPath, func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query()
+	apiHandler.Get(queryPath, mockLogsQuery(func(q url.Values) ([]logLine, int) {
 		mu.Lock()
+		defer mu.Unlock()
 		queries = append(queries, q)
-		mu.Unlock()
 		from, _ := strconv.ParseInt(q.Get("from"), 10, 64)
 		to, _ := strconv.ParseInt(q.Get("to"), 10, 64)
-		mu.Lock()
-		tooWide := maxWindow > 0 && to-from > maxWindow
-		mu.Unlock()
-		if tooWide {
-			w.WriteHeader(499)
-			_ = json.NewEncoder(w).Encode(map[string]any{"code": 499, "message": "Too much data fetched."})
-			return
+		if maxWindow > 0 && to-from > maxWindow {
+			return nil, 499
 		}
-		cursor := q.Get("cursor")
-		desc := q.Get("order_by") != "ASC"
-		severities := map[string]bool{}
-		for _, s := range q["severities[]"] {
-			severities[s] = true
-		}
-		var matched []logLine
-		for i := range lines {
-			l := lines[len(lines)-1-i]
-			if !desc {
-				l = lines[i]
-			}
-			ts, _ := time.Parse(time.RFC3339, l.Datetime)
-			if ts.Unix() < from || ts.Unix() >= to {
-				continue
-			}
-			if cursor != "" && ((desc && l.Cursor >= cursor) || (!desc && l.Cursor <= cursor)) {
-				continue
-			}
-			if len(severities) > 0 && !severities[l.Severity] {
-				continue
-			}
-			matched = append(matched, l)
-		}
-		hasMore := len(matched) > 100
-		if hasMore {
-			matched = matched[:100]
-		}
-		next := cursor
-		if len(matched) > 0 {
-			next = matched[len(matched)-1].Cursor
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"_cursor":           next,
-			"_has_more_results": hasMore,
-			"data":              matched,
-		})
-	})
+		return lines, 0
+	}))
 
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
 	f.extraEnv = []string{EnvPrefix + "LOG_PROTOCOL=auto"}
@@ -361,4 +309,67 @@ func TestEnvironmentLogSSHFallback(t *testing.T) {
 	setStatus(http.StatusOK)
 	_, stdErr, _ = f.RunCombinedOutput("log", "error.log", "-p", projectID, "-e", "main")
 	assert.Contains(t, stdErr, "Reading log file app--0@ssh.cli-tests.example.com:/var/log/error.log")
+}
+
+type logLine struct {
+	Cursor   string `json:"cursor"`
+	Datetime string `json:"datetime"`
+	Severity string `json:"severity"`
+	Service  string `json:"service"`
+	LogKind  string `json:"log_kind"`
+	Content  string `json:"content"`
+	Context  string `json:"context,omitempty"`
+}
+
+// mockLogsQuery serves logs like the API: pages of up to 100 lines, filtered by time, cursor and severity.
+// The get function returns the lines (oldest first), or a status code to respond with instead.
+func mockLogsQuery(get func(q url.Values) ([]logLine, int)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		lines, status := get(q)
+		if status != 0 {
+			w.WriteHeader(status)
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": status, "message": "Too much data fetched."})
+			return
+		}
+		from, _ := strconv.ParseInt(q.Get("from"), 10, 64)
+		to, _ := strconv.ParseInt(q.Get("to"), 10, 64)
+		cursor := q.Get("cursor")
+		desc := q.Get("order_by") != "ASC"
+		severities := map[string]bool{}
+		for _, s := range q["severities[]"] {
+			severities[s] = true
+		}
+		var matched []logLine
+		for i := range lines {
+			l := lines[len(lines)-1-i]
+			if !desc {
+				l = lines[i]
+			}
+			ts, _ := time.Parse(time.RFC3339, l.Datetime)
+			if ts.Unix() < from || ts.Unix() >= to {
+				continue
+			}
+			if cursor != "" && ((desc && l.Cursor >= cursor) || (!desc && l.Cursor <= cursor)) {
+				continue
+			}
+			if len(severities) > 0 && !severities[l.Severity] {
+				continue
+			}
+			matched = append(matched, l)
+		}
+		hasMore := len(matched) > 100
+		if hasMore {
+			matched = matched[:100]
+		}
+		next := cursor
+		if len(matched) > 0 {
+			next = matched[len(matched)-1].Cursor
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"_cursor":           next,
+			"_has_more_results": hasMore,
+			"data":              matched,
+		})
+	}
 }
