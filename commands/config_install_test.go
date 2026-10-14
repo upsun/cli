@@ -23,7 +23,9 @@ func TestConfigInstallCmd(t *testing.T) {
 	require.NoError(t, os.Mkdir(tempBinDir, 0o755))
 	hostBinDir := filepath.Join(tempDir, "host-bin")
 	require.NoError(t, os.Mkdir(hostBinDir, 0o755))
-	hostPath := filepath.Join(hostBinDir, "test-cli-executable-host")
+	// The shim targets the binary's own executable, not the loaded config's (e.g. an alt CLI's).
+	hostName := testConfig().Embedded().Application.Executable
+	hostPath := filepath.Join(hostBinDir, hostName)
 	self, err := os.Executable()
 	require.NoError(t, err)
 	require.NoError(t, os.Symlink(self, hostPath))
@@ -72,8 +74,16 @@ func TestConfigInstallCmd(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(b), "export CLI_CONFIG_FILE="+filepath.Join(tempDir, "test-cli-executable.yaml")+"\n")
 	assert.Contains(t, string(b), "[ -x "+hostPath+" ] && exec "+hostPath+` "$@"`+"\n")
-	assert.Contains(t, string(b), `exec test-cli-executable-host "$@"`+"\n")
-	assert.Contains(t, stdErrBuf.String(), "The executable runs ~/host-bin/test-cli-executable-host")
+	assert.Contains(t, string(b), "exec "+hostName+` "$@"`+"\n")
+	assert.Contains(t, stdErrBuf.String(), "The executable runs ~/host-bin/"+hostName)
+
+	// With --absolute, the shim targets the running executable.
+	_ = cmd.Flags().Set("absolute", "true")
+	require.NoError(t, cmd.RunE(cmd, args))
+	b, err = os.ReadFile(filepath.Join(tempBinDir, "test-cli-executable"))
+	require.NoError(t, err)
+	assert.Contains(t, string(b), "[ -x "+self+" ] && exec "+self+` "$@"`+"\n")
+	_ = cmd.Flags().Set("absolute", "false")
 
 	t.Setenv("PATH", tempBinDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	remoteConfig.Application.Executable = "test-cli-executable2"

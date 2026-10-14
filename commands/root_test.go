@@ -70,6 +70,9 @@ ssh: {domain_wildcards: ["*.example.site"]}
 
 	buf := &bytes.Buffer{}
 	printUpdateMessage(buf, &internal.ReleaseInfo{Version: "9.9.9", URL: "https://example.com/release"}, cnf)
-	assert.Contains(t, buf.String(), "A new release of the Upsun CLI is available")
-	assert.Contains(t, buf.String(), "brew update && brew upgrade upsun/tap/upsun-cli")
+	bin := cnf.Embedded()
+	assert.Contains(t, buf.String(), "A new release of the "+bin.Application.Name+" is available")
+	if bin.Wrapper.HomebrewTap != "" {
+		assert.Contains(t, buf.String(), "brew update && brew upgrade "+bin.Wrapper.HomebrewTap)
+	}
 }

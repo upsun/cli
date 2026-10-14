@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"path"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -192,8 +193,10 @@ func TestNewInstallProbeWithAltConfig(t *testing.T) {
 	require.NoError(t, err)
 	p := newInstallProbe(cnf)
 	assert.Equal(t, "EXAMPLE_CLI_", p.envPrefix)
-	assert.Equal(t, "upsun", p.slug)
-	assert.Equal(t, "upsun-cli", p.brewFormula)
+	bin := cnf.Embedded()
+	assert.Equal(t, bin.Application.Slug, p.slug)
+	assert.Equal(t, path.Base(bin.Wrapper.HomebrewTap), p.brewFormula)
+	assert.NotEqual(t, cnf.Application.Slug, p.slug)
 }
 
 // testAltConfig is a minimal config, as loaded via CLI_CONFIG_FILE.
