@@ -44,6 +44,11 @@ func TestListXdebugInProject(t *testing.T) {
 			listed: true,
 		},
 		{
+			name:   "composable with php in a stack list",
+			config: "applications:\n  app:\n    type: 'composable:25.11'\n    stack: ['php@8.4', 'yarn']\n",
+			listed: true,
+		},
+		{
 			name:   "composable without php",
 			config: "applications:\n  app:\n    type: 'composable:25.11'\n    stack:\n      runtimes: ['nodejs@22']\n",
 			listed: false,

@@ -92,8 +92,10 @@ final class AppConfig
             return null;
         }
 
+        // The stack is a list of runtimes and packages, or a mapping of "runtimes" and "packages".
         // Runtimes are a name, a mapping of a name to its config, or a list of either.
-        $runtimes = $config['stack']['runtimes'] ?? [];
+        $stack = $config['stack'];
+        $runtimes = array_is_list($stack) ? $stack : ($stack['runtimes'] ?? []);
         if (!is_array($runtimes) || !array_is_list($runtimes)) {
             $runtimes = [$runtimes];
         }

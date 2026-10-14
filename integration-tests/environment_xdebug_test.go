@@ -61,6 +61,7 @@ func TestEnvironmentXdebug(t *testing.T) {
 		}},
 		"mapping": {Type: "composable:25.11", Stack: map[string]any{"runtimes": map[string]any{"php@8.4": xdebug}}},
 		"string":  {Type: "composable:25.11", Stack: map[string]any{"runtimes": "php@8.4"}},
+		"stack":   {Type: "composable:25.11", Stack: []any{"nodejs@22", map[string]any{"php@8.4": xdebug}}},
 	}
 	envs := make([]*mockapi.Environment, 0, len(apps))
 	for name, app := range apps {
@@ -104,6 +105,7 @@ func TestEnvironmentXdebug(t *testing.T) {
 		{env: "list", args: []string{"--worker", "queue"}, wantUser: "list--queue"},
 		{env: "mapping", wantUser: "mapping--app"},
 		{env: "string"},
+		{env: "stack", wantUser: "stack--app"},
 	}
 	for _, c := range cases {
 		args := append([]string{"xdebug", "-p", projectID, "-e", c.env}, c.args...)
