@@ -31,7 +31,6 @@ class SshTest extends TestCase
     public function testGetHost(): void
     {
         $method = new \ReflectionMethod($this->ssh, 'getHost');
-        $method->setAccessible(true);
         $this->assertEquals('xyz.ssh.example.com', $method->invoke($this->ssh, 'user@xyz.ssh.example.com'));
         $this->assertEquals('bar.ssh.example.com', $method->invoke($this->ssh, 'user@bar.ssh.example.com:/var/log/example'));
         $this->assertEquals('foo.ssh.example.com', $method->invoke($this->ssh, 'ssh://foo.ssh.example.com'));
@@ -45,7 +44,6 @@ class SshTest extends TestCase
     public function testHostIsInternal(): void
     {
         $method = new \ReflectionMethod($this->ssh, 'hostIsInternal');
-        $method->setAccessible(true);
         $this->assertTrue($method->invoke($this->ssh, 'user@xyz.ssh.example.com'));
         $this->assertTrue($method->invoke($this->ssh, 'user@bar.ssh.example.com:/var/log/example'));
         $this->assertTrue($method->invoke($this->ssh, 'ssh://foo.ssh.example.com'));

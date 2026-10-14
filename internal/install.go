@@ -57,29 +57,37 @@ var (
 // never on the hot path of every command.
 func DetectInstallMethod(cnf *config.Config) InstallMethod {
 	detectOnce.Do(func() {
-		detectedMethod = detectInstallMethod(&installProbe{
-			goos:         runtime.GOOS,
-			exe:          resolvedExecutable(),
-			envPrefix:    cnf.Application.EnvPrefix,
-			slug:         cnf.Application.Slug,
-			configMethod: cnf.Wrapper.InstallMethod,
-			brewFormula:  path.Base(cnf.Wrapper.HomebrewTap),
-			getenv:       getenvFunc,
-			fileExists:   fileExists,
-			brewPrefix:   brewPrefix,
-			pkgOwned:     ownedBySystemPackage,
-		})
+		detectedMethod = detectInstallMethod(newInstallProbe(cnf))
 	})
 	return detectedMethod
+}
+
+// newInstallProbe describes the binary from its embedded config, even if
+// CLI_CONFIG_FILE is set, apart from the environment variable prefix.
+func newInstallProbe(cnf *config.Config) *installProbe {
+	bin := cnf.Embedded()
+	return &installProbe{
+		goos:         runtime.GOOS,
+		exe:          resolvedExecutable(),
+		envPrefix:    cnf.Application.EnvPrefix,
+		slug:         bin.Application.Slug,
+		configMethod: bin.Wrapper.InstallMethod,
+		brewFormula:  path.Base(bin.Wrapper.HomebrewTap),
+		getenv:       getenvFunc,
+		fileExists:   fileExists,
+		brewPrefix:   brewPrefix,
+		pkgOwned:     ownedBySystemPackage,
+	}
 }
 
 // IsAutoUpdating is a cheap check (no subprocess) suitable for the hot path. It
 // only considers an explicit override and the package marker file.
 func IsAutoUpdating(cnf *config.Config) bool {
-	if m, ok := overrideMethod(cnf.Application.EnvPrefix, cnf.Wrapper.InstallMethod, getenvFunc); ok {
+	bin := cnf.Embedded()
+	if m, ok := overrideMethod(cnf.Application.EnvPrefix, bin.Wrapper.InstallMethod, getenvFunc); ok {
 		return m.AutoUpdating()
 	}
-	return packageMarkerExists(resolvedExecutable(), cnf.Application.Slug, fileExists)
+	return packageMarkerExists(resolvedExecutable(), bin.Application.Slug, fileExists)
 }
 
 func detectInstallMethod(p *installProbe) InstallMethod {

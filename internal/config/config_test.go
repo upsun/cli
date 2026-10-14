@@ -68,3 +68,20 @@ func TestIsEmbedded(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, cnf.IsEmbedded())
 }
+
+func TestEmbedded(t *testing.T) {
+	t.Setenv("CLI_CONFIG_FILE", "")
+	b, err := config.LoadYAML()
+	require.NoError(t, err)
+	cnf, err := config.FromYAML(b)
+	require.NoError(t, err)
+	assert.Same(t, cnf, cnf.Embedded())
+
+	altCnf, err := config.FromYAML([]byte(validConfig))
+	require.NoError(t, err)
+	embedded := altCnf.Embedded()
+	assert.True(t, embedded.IsEmbedded())
+	assert.Equal(t, cnf.Wrapper, embedded.Wrapper)
+	assert.Equal(t, cnf.Application.Executable, embedded.Application.Executable)
+	assert.Empty(t, altCnf.Wrapper.GitHubRepo)
+}

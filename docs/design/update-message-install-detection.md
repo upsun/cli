@@ -213,6 +213,14 @@ hint.
 ¹ Becomes auto-updatable in Phase 3 if raw installs move to a user-local,
 sudo-free path.
 
+With an alternative config (`CLI_CONFIG_FILE`, e.g. a shim from
+`config:install`), the binary is unchanged, so the `wrapper.*` keys and the
+application name, executable and slug come from the embedded config. The
+environment variable prefix, the `updates` settings and the state file still
+come from the loaded config. The notice is only shown with an upgrade command (not for `unknown`),
+as the binary may be a private copy that the generic instructions do not
+update.
+
 All upgrade strings are built from config fields, not literals, so vendor builds
 get correct instructions.
 

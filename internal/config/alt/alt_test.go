@@ -29,6 +29,7 @@ func TestAlt(t *testing.T) {
 		binPath,
 		"Generated for test",
 		"example-target",
+		"/opt/bin/example-target",
 		configPath,
 		configNode,
 	)
@@ -41,32 +42,8 @@ func TestAlt(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, `#!/bin/sh
 # Generated for test
-export CLI_CONFIG_FILE="`+configPath+`"
-example-target "$@"
-`, string(binContent))
-
-	require.NoError(t, os.Setenv("XDG_CONFIG_HOME", tempDir+"/config"))
-	defer os.Unsetenv("XDG_CONFIG_HOME")
-
-	assert.NoError(t, a.GenerateAndSave())
-	binContent, err = os.ReadFile(binPath)
-	assert.NoError(t, err)
-	assert.Equal(t, `#!/bin/sh
-# Generated for test
-export CLI_CONFIG_FILE="${XDG_CONFIG_HOME}/config.yaml"
-example-target "$@"
-`, string(binContent))
-
-	_ = os.Unsetenv("XDG_CONFIG_HOME")
-	require.NoError(t, os.Setenv("HOME", tempDir))
-	defer os.Unsetenv("HOME")
-
-	assert.NoError(t, a.GenerateAndSave())
-	binContent, err = os.ReadFile(binPath)
-	assert.NoError(t, err)
-	assert.Equal(t, `#!/bin/sh
-# Generated for test
-export CLI_CONFIG_FILE="${HOME}/config/config.yaml"
-example-target "$@"
+export CLI_CONFIG_FILE=`+configPath+`
+[ -x /opt/bin/example-target ] && exec /opt/bin/example-target "$@"
+exec example-target "$@"
 `, string(binContent))
 }

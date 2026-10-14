@@ -17,7 +17,6 @@ class GitDataApiServiceTest extends TestCase
         $gitData = new GitDataApi();
         $reflection = new \ReflectionClass($gitData);
         $method = $reflection->getMethod('parseParents');
-        $method->setAccessible(true);
 
         $expected = [
             'foo1^' => [1],
