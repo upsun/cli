@@ -286,9 +286,10 @@ class EnvironmentLogCommand extends CommandBase
             $oldestCursor = $rows[0]['cursor'] !== '' ? $rows[0]['cursor'] : null;
         }
         $polledTo = max($from, $to);
-        // The re-read window is reduced if the API says it is too much data, and restored gradually.
+        // The re-read window is reduced if the API says it is too much data, and grows again after a minute without that.
         $lateWindow = self::LATE_WINDOW;
         $warned = false;
+        $okPolls = 0;
         while (true) { // @phpstan-ignore while.alwaysTrue
             sleep(self::TAIL_INTERVAL);
             // Limit the window, e.g. to catch up gradually after the computer was suspended.
@@ -306,6 +307,7 @@ class EnvironmentLogCommand extends CommandBase
                     if ($e->getResponse()?->getStatusCode() !== 499 || $cursor !== null || $end - $start <= 1) {
                         throw $e;
                     }
+                    $okPolls = -1;
                     if ($start < $polledTo) {
                         $lateWindow = intdiv($polledTo - $start, 2);
                         $start = $polledTo - $lateWindow;
@@ -336,7 +338,10 @@ class EnvironmentLogCommand extends CommandBase
                 $cursor = $page['_cursor'];
             }
             $polledTo = $end;
-            $lateWindow = min(self::LATE_WINDOW, max(1, $lateWindow) * 2);
+            if (++$okPolls >= intdiv(60, self::TAIL_INTERVAL)) {
+                $lateWindow = min(self::LATE_WINDOW, max(1, $lateWindow) * 2);
+                $okPolls = 0;
+            }
             // Forget lines that are older than the next poll's window.
             $printed = array_filter($printed, fn(int $t): bool => $t >= $polledTo - self::LATE_WINDOW - 1);
         }
