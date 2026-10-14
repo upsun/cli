@@ -40,7 +40,9 @@ The installer is configurable using the following environment variables:
 * `INSTALL_METHOD` - force a specific installation method, possible values are `brew` and `raw`
 * `INSTALL_DIR` - the installation directory for the `raw` installation method, for example you can use `INSTALL_DIR=$HOME/.local/bin` for a single user installation
 * `VERSION` - the version of the CLI to install, if you need a version other than the latest one
-* `CONFIG_URL` - the URL of an alternative CLI configuration, installed after the CLI with `upsun config:install`
+* `CONFIG_URL` - the URL of an alternative CLI configuration, installed after the CLI with `upsun config:install --force`. Its executable is put next to `upsun` if that directory is writable (except with Homebrew). As root, outside the home directory, the configuration is put in `/etc/upsun/platform-alt` so that other users can run it; only root updates it
+
+The `raw` method installs in `/usr/bin` (`/usr/local/bin` on macOS), or in `~/.global/bin` or `~/.local/bin` if either is in the `PATH`. It uses `sudo` if needed, or `~/.local/bin` if `sudo` is not available.
 
 Outside CI, the `raw` method also installs shell completion for the current user, without editing shell configuration files: bash completion in `~/.local/share/bash-completion/completions` (loaded by bash-completion 2), and fish completion in `~/.config/fish/completions` when available. For zsh users (by `$SHELL`), it installs `~/.local/share/upsun/completion.zsh` and prints the line to add to `~/.zshrc`.
 

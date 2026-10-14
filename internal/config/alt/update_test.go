@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"testing"
 	"time"
@@ -214,4 +215,41 @@ func TestUpdateWithUnusableNewVersion(t *testing.T) {
 	b, err := os.ReadFile(testConfigFilename)
 	require.NoError(t, err)
 	assert.Equal(t, string(localConfig), string(b), "the local config must not be modified")
+}
+
+// TestUpdateWithUnwritableDir checks that a shared config, e.g. installed by root, is not updated by other users.
+func TestUpdateWithUnwritableDir(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs Unix permissions and a non-root user")
+	}
+	tempDir := t.TempDir()
+	configDir := filepath.Join(tempDir, "etc")
+	require.NoError(t, os.Mkdir(configDir, 0o755))
+	testConfigFilename := filepath.Join(configDir, "config.yaml")
+	require.NoError(t, os.WriteFile(testConfigFilename, testConfig, 0o600))
+	hourAgo := time.Now().Add(-time.Hour)
+	require.NoError(t, os.Chtimes(testConfigFilename, hourAgo, hourAgo))
+	require.NoError(t, os.Chmod(configDir, 0o555))
+	t.Cleanup(func() { _ = os.Chmod(configDir, 0o755) })
+
+	cnf, err := config.FromYAML(testConfig)
+	require.NoError(t, err)
+	t.Setenv(cnf.Application.EnvPrefix+"HOME", tempDir)
+
+	requested := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requested = true
+		_, _ = w.Write(testConfigWithMetadata("{version: 1.0.1}"))
+	}))
+	defer server.Close()
+
+	cnf.SourceFile = testConfigFilename
+	cnf.Metadata.URL = server.URL + "/config.yaml"
+
+	var lastLogged string
+	err = alt.Update(config.ToContext(context.Background(), cnf), cnf,
+		func(msg string, args ...any) { lastLogged = fmt.Sprintf(msg, args...) })
+	assert.NoError(t, err)
+	assert.False(t, requested)
+	assert.Contains(t, lastLogged, "not writable")
 }
