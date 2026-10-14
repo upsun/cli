@@ -475,12 +475,17 @@ check_directories() {
     fi
 
     # Without sudo, install in a user directory if the system one is not writable.
-    if [ -z "${INSTALL_DIR}" ] && [ ! -w "${dir_bin}" ] && [ -n "${HOME:-}" ]; then
-        init_sudo
-        if ! ${has_sudo}; then
-            dir_bin="$HOME/.local/bin"
-        fi
-    fi
+    case "${dir_bin}" in
+        "${HOME:-}"/*) ;;
+        *)
+            if [ -z "${INSTALL_DIR}" ] && [ ! -w "${dir_bin}" ] && [ -n "${HOME:-}" ]; then
+                init_sudo
+                if ! ${has_sudo}; then
+                    dir_bin="$HOME/.local/bin"
+                fi
+            fi
+            ;;
+    esac
 
     if ! echo $PATH | grep ${dir_bin} > /dev/null; then
         run_cmd="${dir_bin}/$binary"

@@ -154,7 +154,7 @@ func pathFormatter() func(string) string {
 	}
 	hd, err := os.UserHomeDir()
 	return func(p string) string {
-		if err == nil && strings.HasPrefix(p, hd) {
+		if err == nil && (p == hd || strings.HasPrefix(p, hd+string(filepath.Separator))) {
 			return sub + strings.TrimPrefix(p, hd)
 		}
 		return p

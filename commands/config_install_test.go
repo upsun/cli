@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -128,4 +129,26 @@ func TestFindExecutableTarget(t *testing.T) {
 	assert.Equal(t, link, findExecutableTarget("test-cli-link"))
 	assert.Equal(t, other, findExecutableTarget("test-cli-other"))
 	assert.Equal(t, self, findExecutableTarget("test-cli-missing"))
+}
+
+func TestPathFormatter(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses Unix paths")
+	}
+	cases := []struct {
+		home string
+		path string
+		want string
+	}{
+		{"/home/u", "/home/u/.local/bin", "~/.local/bin"},
+		{"/home/u", "/home/u", "~"},
+		{"/home/u", "/home/user/bin", "/home/user/bin"},
+		{"/", "/usr/bin", "/usr/bin"},
+	}
+	for _, c := range cases {
+		t.Run(c.home+" "+c.path, func(t *testing.T) {
+			t.Setenv("HOME", c.home)
+			assert.Equal(t, c.want, pathFormatter()(c.path))
+		})
+	}
 }
