@@ -741,8 +741,9 @@ install_config() {
         case "$cmd_dir" in
             "${HOME:-/root}"/*) ;;
             *)
-                if [ "$(id -u)" = "0" ] && mkdir -p /etc/platform-alt && chmod 755 /etc/platform-alt; then
-                    set -- "$@" --config-dir /etc/platform-alt
+                if [ "$(id -u)" = "0" ] && mkdir -p /etc/upsun/platform-alt \
+                    && chmod 755 /etc/upsun /etc/upsun/platform-alt; then
+                    set -- "$@" --config-dir /etc/upsun/platform-alt
                     umask 022
                 fi
                 ;;

@@ -68,7 +68,7 @@ check() {
 }
 # Checks that a root install is shared with other users.
 check_shared() {
-    test -f "/etc/platform-alt/$1.yaml"
+    test -f "/etc/upsun/platform-alt/$1.yaml"
     adduser -D other 2>/dev/null || useradd -m other
     su other -c "$1 --version"
 }'
