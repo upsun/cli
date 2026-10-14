@@ -37,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | bash
 The installer is configurable using the following environment variables:
 
 * `INSTALL_LOG` - the install log file
-* `INSTALL_METHOD` - force a specific installation method: `apt`, `yum`, `apk`, `homebrew` (or `brew`), `npm`, or `raw` (a binary download)
+* `INSTALL_METHOD` - force a specific installation method: `apt`, `yum`, `apk`, `homebrew` (or `brew`), or `raw` (a binary download)
 * `INSTALL_DIR` - the installation directory for the `raw` installation method, for example you can use `INSTALL_DIR=$HOME/.local/bin` for a single user installation
 * `VERSION` - the version of the CLI to install, if you need a version other than the latest one
 * `CONFIG_URL` - the URL of an alternative CLI configuration, installed after the CLI with `upsun config:install --force`. Its executable is put next to `upsun` if that directory is writable (except with Homebrew). As root, outside the home directory, the configuration is put in `/etc/upsun/platform-alt` so that other users can run it; only root updates it

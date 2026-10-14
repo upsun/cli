@@ -55,9 +55,6 @@ run_test "fedora:41 (default)" "fedora:41" \
 run_test "alpine:3.21 (default)" "alpine:3.21" \
     "apk add -q --no-cache curl ca-certificates && "
 
-# npm install test: npm is only used when INSTALL_METHOD=npm.
-run_test "node:lts-slim (npm)" "node:lts-slim" "" -e INSTALL_METHOD=npm
-
 # Raw install test: setting VERSION triggers the raw method on Linux.
 if [ -n "$VERSION" ]; then
     run_test "debian:bookworm (raw, VERSION=$VERSION)" "debian:bookworm" \
