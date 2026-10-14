@@ -141,6 +141,10 @@ class SshConfigInspector
         $length = \strlen($value);
         for ($i = 0; $i < $length; $i++) {
             $char = $value[$i];
+            // An unquoted "#" at the start of an argument begins a comment (OpenSSH 8.7+).
+            if ($char === '#' && !$quoted && !$started) {
+                break;
+            }
             if ($char === '"') {
                 $quoted = !$quoted;
                 $started = true;

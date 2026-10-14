@@ -64,6 +64,22 @@ class SshConfigInspectorTest extends TestCase
                 "Host *.platform.sh *.upsun.com\r\n  Include $include\r\n",
                 true,
             ],
+            'trailing comments' => [
+                "Host *.platform.sh *.upsun.com # !old.upsun.com\n  Include $include # CLI\n",
+                true,
+            ],
+            'trailing comment on match all' => [
+                "Match all # global\n  Include $include\n",
+                true,
+            ],
+            'hash inside an argument' => [
+                "Host *.platform.sh *.upsun.com\n  Include \"$include\"#x\n",
+                false,
+            ],
+            'wildcards only in a trailing comment' => [
+                "Host github.com # *.platform.sh *.upsun.com\n  Include $include\n",
+                false,
+            ],
             'empty file' => [
                 '',
                 false,
