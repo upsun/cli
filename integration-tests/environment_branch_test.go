@@ -29,13 +29,13 @@ func TestEnvironmentBranch(t *testing.T) {
 	assert.Equal(t, "refs/heads/feature\n", gitConfig(t, repo, "branch.feature.merge"))
 	assert.Equal(t, gitRef(t, repo, "main"), gitRef(t, repo, "HEAD"))
 
-	actions := p.api.EnvironmentActions(layoutProjectID, "main")
+	actions := p.actions("main")
 	require.Len(t, actions, 1)
 	assert.Equal(t, mockapi.EnvironmentAction{
 		Type: "environment.branch",
 		Body: map[string]any{"name": "feature", "title": "feature", "clone_parent": true},
 	}, actions[0])
-	feature := p.api.Environment(layoutProjectID, "feature")
+	feature := p.env("feature")
 	require.NotNil(t, feature)
 	assert.Equal(t, "main", feature.Parent)
 	assert.Equal(t, "active", feature.Status)
@@ -51,7 +51,7 @@ func TestEnvironmentBranch(t *testing.T) {
 	assert.Contains(t, stdErr, "Settings will be copied from the parent environment: main")
 	assert.NotContains(t, stdErr, "local branch")
 	assert.Empty(t, gitRef(t, repo, "refs/heads/staging"))
-	actions = p.api.EnvironmentActions(layoutProjectID, "main")
+	actions = p.actions("main")
 	require.Len(t, actions, 2)
 	assert.Equal(t, map[string]any{
 		"name": "staging", "title": "Staging", "clone_parent": false, "type": "staging",

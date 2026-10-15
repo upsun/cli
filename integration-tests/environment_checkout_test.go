@@ -71,6 +71,7 @@ func TestEnvironmentCheckoutRemote(t *testing.T) {
 	runGit(t, repo, "commit", "--quiet", "--allow-empty", "-m", "Feature")
 	p.seed(t, repo, "main", "feature")
 	featureCommit := gitRef(t, repo, "feature")
+	// Leave the feature branch only on the remote.
 	runGit(t, repo, "checkout", "--quiet", "main")
 	runGit(t, repo, "branch", "--quiet", "-D", "feature")
 	p.f.dir = repo

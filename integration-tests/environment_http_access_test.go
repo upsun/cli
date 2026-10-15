@@ -11,14 +11,14 @@ func TestEnvironmentHTTPAccess(t *testing.T) {
 	t.Parallel()
 	main := makeEnv(layoutProjectID, "main", "production", "active", nil)
 	main.HTTPAccess = map[string]any{"is_enabled": true, "addresses": []any{}, "basic_auth": map[string]any{}}
-	apiHandler, f, _ := setUpProject(t, main)
+	p := setUpProject(t, main)
 
-	stdOut, stdErr, err := f.RunCombinedOutput("httpaccess", "-p", layoutProjectID, "-e", "main")
+	stdOut, stdErr, err := p.f.RunCombinedOutput("httpaccess", "-p", layoutProjectID, "-e", "main")
 	require.NoError(t, err)
 	assert.Contains(t, stdErr, "HTTP access settings for the environment main:")
 	assert.Contains(t, stdOut, "is_enabled: true")
 
-	stdOut, stdErr, err = f.RunCombinedOutput("httpaccess", "-p", layoutProjectID, "-e", "main",
+	stdOut, stdErr, err = p.f.RunCombinedOutput("httpaccess", "-p", layoutProjectID, "-e", "main",
 		"--auth", "user1:password1", "--access", "allow:192.0.2.1", "--access", "deny:any")
 	require.NoError(t, err)
 	assert.Contains(t, stdErr, "Updated HTTP access settings for the environment main:")
@@ -32,23 +32,23 @@ func TestEnvironmentHTTPAccess(t *testing.T) {
 			map[string]any{"permission": "allow", "address": "192.0.2.1/32"},
 			map[string]any{"permission": "deny", "address": "0.0.0.0/0"},
 		},
-	}, apiHandler.Environment(layoutProjectID, "main").HTTPAccess)
+	}, p.env("main").HTTPAccess)
 
 	// Disable access control, and remove the credentials.
-	stdOut, _, err = f.RunCombinedOutput("httpaccess", "-p", layoutProjectID, "-e", "main",
+	stdOut, _, err = p.f.RunCombinedOutput("httpaccess", "-p", layoutProjectID, "-e", "main",
 		"--enabled", "0", "--auth", "0")
 	require.NoError(t, err)
 	assert.Contains(t, stdOut, "is_enabled: false")
-	httpAccess := apiHandler.Environment(layoutProjectID, "main").HTTPAccess
+	httpAccess := p.env("main").HTTPAccess
 	assert.Equal(t, false, httpAccess["is_enabled"])
 	assert.Nil(t, httpAccess["basic_auth"])
 	assert.Len(t, httpAccess["addresses"], 2)
 
-	_, stdErr, err = f.RunCombinedOutput("httpaccess", "-p", layoutProjectID, "-e", "main", "--auth", "user1:short")
+	_, stdErr, err = p.f.RunCombinedOutput("httpaccess", "-p", layoutProjectID, "-e", "main", "--auth", "user1:short")
 	assert.Error(t, err)
 	assert.Contains(t, stdErr, "The minimum password length for --auth is 6 characters")
 
-	_, stdErr, err = f.RunCombinedOutput("httpaccess", "-p", layoutProjectID, "-e", "main",
+	_, stdErr, err = p.f.RunCombinedOutput("httpaccess", "-p", layoutProjectID, "-e", "main",
 		"--access", "allow:example.com")
 	assert.Error(t, err)
 	assert.Contains(t, stdErr, `The address "example.com" is not a valid IP address or CIDR`)

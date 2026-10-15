@@ -96,29 +96,43 @@ func TestEnvironmentDeployStrategy(t *testing.T) {
 		{name: "default", staged: true, wantStrategy: "stopstart"},
 		{name: "stopstart", staged: true, args: []string{"--strategy", "stopstart"}, wantStrategy: "stopstart"},
 		{
-			name: "rolling", rolling: true, staged: true, args: []string{"--strategy", "rolling"},
+			name:         "rolling",
+			rolling:      true,
+			staged:       true,
+			args:         []string{"--strategy", "rolling"},
 			wantStdErr:   "Please make sure the changes from above are not affecting the state of the services.",
 			wantStrategy: "rolling",
 		},
 		{
-			name: "rolling unavailable", staged: true, args: []string{"--strategy", "rolling"},
-			wantErr: true, wantStdErr: "The chosen strategy is not available for this environment.",
+			name:       "rolling unavailable",
+			staged:     true,
+			args:       []string{"--strategy", "rolling"},
+			wantErr:    true,
+			wantStdErr: "The chosen strategy is not available for this environment.",
 		},
 		{
-			name: "invalid", rolling: true, staged: true, args: []string{"--strategy", "fast"},
-			wantErr: true, wantStdErr: "The chosen strategy is not available for this environment.",
+			name:       "invalid",
+			rolling:    true,
+			staged:     true,
+			args:       []string{"--strategy", "fast"},
+			wantErr:    true,
+			wantStdErr: "The chosen strategy is not available for this environment.",
 		},
-		{name: "no staged changes", wantStdErr: "The environment main (type: production) has no staged changes to deploy."},
+		{
+			name:       "no staged changes",
+			wantStdErr: "The environment main (type: production) has no staged changes to deploy.",
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			main := makeEnv(layoutProjectID, "main", "production", "active", nil)
+			// The command lists staged activities through the "#activities" link.
 			main.AddOperations("deploy", "activities")
 			main.CanRollingDeploy = c.rolling
-			apiHandler, f, _ := setUpProject(t, main)
+			p := setUpProject(t, main)
 			if c.staged {
-				apiHandler.SetProjectActivities(layoutProjectID, []*mockapi.Activity{{
+				p.api.SetProjectActivities(layoutProjectID, []*mockapi.Activity{{
 					ID:           "staged1",
 					Type:         "environment.variable.create",
 					State:        "staged",
@@ -130,14 +144,14 @@ func TestEnvironmentDeployStrategy(t *testing.T) {
 			}
 
 			args := append([]string{"environment:deploy", "-p", layoutProjectID, "-e", "main"}, c.args...)
-			_, stdErr, err := f.RunCombinedOutput(args...)
+			_, stdErr, err := p.f.RunCombinedOutput(args...)
 			if c.wantErr {
 				assertExitCode(t, 1, err)
 			} else {
 				require.NoError(t, err)
 			}
 			assert.Contains(t, stdErr, c.wantStdErr)
-			actions := apiHandler.EnvironmentActions(layoutProjectID, "main")
+			actions := p.actions("main")
 			if c.wantStrategy == "" {
 				assert.Empty(t, actions)
 				return

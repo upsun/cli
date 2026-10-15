@@ -215,10 +215,10 @@ func TestEnvironmentSetRemoteDetachedHead(t *testing.T) {
 
 func TestEnvironmentSetRemote(t *testing.T) {
 	t.Parallel()
-	_, f, _ := setUpProject(t,
+	f := setUpProject(t,
 		makeEnv(layoutProjectID, "main", "production", "active", nil),
 		makeEnv(layoutProjectID, "feature", "development", "active", "main"),
-	)
+	).f
 	repo := repoLayout{git: true, branch: "main", remoteName: "platform-test", projectYAML: true}.build(t)
 	f.dir = repo
 	projectConfig := func() string {

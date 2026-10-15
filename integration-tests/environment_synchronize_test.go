@@ -5,20 +5,15 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/upsun/cli/pkg/mockapi"
 )
 
 func TestEnvironmentSynchronize(t *testing.T) {
 	t.Parallel()
 	feature := makeEnv(layoutProjectID, "feature", "development", "active", "main")
 	feature.AddOperations("synchronize")
-	apiHandler, f, _ := setUpProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil), feature)
-
-	lastBody := func(t *testing.T, count int) map[string]any {
-		actions := apiHandler.EnvironmentActions(layoutProjectID, "feature")
-		require.Len(t, actions, count)
-		assert.Equal(t, "environment.synchronize", actions[count-1].Type)
-		return actions[count-1].Body
-	}
+	p := setUpProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil), feature)
 
 	cases := []struct {
 		name       string
@@ -72,27 +67,29 @@ func TestEnvironmentSynchronize(t *testing.T) {
 			wantStdErr: "Invalid value: files (it must be one of: code, data or both).",
 		},
 	}
-	count := 0
+	// The cases run in sequence, each adding at most one request.
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			before := len(p.actions("feature"))
 			args := append([]string{"sync", "-p", layoutProjectID, "-e", "feature"}, c.args...)
-			_, stdErr, err := f.RunInteractive(c.stdin, args...)
+			_, stdErr, err := p.f.RunInteractive(c.stdin, args...)
 			if c.wantErr {
 				assertExitCode(t, 1, err)
 			} else {
 				require.NoError(t, err)
 			}
 			assert.Contains(t, stdErr, c.wantStdErr)
-			if c.wantBody != nil {
-				count++
-				assert.Equal(t, c.wantBody, lastBody(t, count))
-			} else {
-				assert.Len(t, apiHandler.EnvironmentActions(layoutProjectID, "feature"), count)
+			actions := p.actions("feature")
+			if c.wantBody == nil {
+				assert.Len(t, actions, before)
+				return
 			}
+			require.Len(t, actions, before+1)
+			assert.Equal(t, mockapi.EnvironmentAction{Type: "environment.synchronize", Body: c.wantBody}, actions[before])
 		})
 	}
 
-	_, stdErr, err := f.RunCombinedOutput("sync", "-p", layoutProjectID, "-e", "main", "data")
+	_, stdErr, err := p.f.RunCombinedOutput("sync", "-p", layoutProjectID, "-e", "main", "data")
 	assertExitCode(t, 1, err)
 	assert.Contains(t, stdErr, "Operation not available: The environment main can't be synchronized.")
 	assert.Contains(t, stdErr, "The environment does not have a parent.")

@@ -18,17 +18,21 @@ import (
 	"github.com/upsun/cli/pkg/mockssh"
 )
 
-// gitProject is a project with a Git repository served over SSH by a mock server.
+// testProject is the layout project, whose Git URL the CLI detects, served by a mock API.
+type testProject struct {
+	api     *mockapi.Handler
+	f       *cmdFactory
+	authURL string
+}
+
+// gitProject is a test project with a Git repository served over SSH by a mock server.
 type gitProject struct {
-	api  *mockapi.Handler
-	f    *cmdFactory
+	*testProject
 	repo string // The bare repository served at layoutGitURL.
 }
 
-// setUpProject configures the layout project, whose Git URL the CLI
-// detects, with environments. It returns the API handler, a command factory
-// and the auth server URL.
-func setUpProject(t *testing.T, envs ...*mockapi.Environment) (*mockapi.Handler, *cmdFactory, string) {
+// setUpProject configures the layout project with environments.
+func setUpProject(t *testing.T, envs ...*mockapi.Environment) *testProject {
 	t.Helper()
 	authServer := mockapi.NewAuthServer(t)
 	t.Cleanup(authServer.Close)
@@ -36,7 +40,7 @@ func setUpProject(t *testing.T, envs ...*mockapi.Environment) (*mockapi.Handler,
 	apiHandler := mockapi.NewHandler(t)
 	apiHandler.SetProjects([]*mockapi.Project{{
 		ID:            layoutProjectID,
-		Title:         "Git Test",
+		Title:         "Test Project",
 		DefaultBranch: "main",
 		Repository:    mockapi.ProjectRepository{URL: layoutGitURL},
 		Links: mockapi.MakeHALLinks(
@@ -53,36 +57,46 @@ func setUpProject(t *testing.T, envs ...*mockapi.Environment) (*mockapi.Handler,
 	apiServer := httptest.NewServer(apiHandler)
 	t.Cleanup(apiServer.Close)
 
-	return apiHandler, newCommandFactory(t, apiServer.URL, authServer.URL), authServer.URL
+	return &testProject{api: apiHandler, f: newCommandFactory(t, apiServer.URL, authServer.URL), authURL: authServer.URL}
 }
 
-// setUpGitProject configures the layout project with environments, as
-// setUpProject, and serves its repository over SSH from a bare repository.
+// actions returns the operation requests made to an environment.
+func (p *testProject) actions(environmentID string) []mockapi.EnvironmentAction {
+	return p.api.EnvironmentActions(layoutProjectID, environmentID)
+}
+
+// env returns a copy of an environment from the mock API, or nil if it does not exist.
+func (p *testProject) env(environmentID string) *mockapi.Environment {
+	return p.api.Environment(layoutProjectID, environmentID)
+}
+
+// setUpGitProject configures the layout project with environments, and
+// serves its repository over SSH from a bare repository.
 func setUpGitProject(t *testing.T, envs ...*mockapi.Environment) *gitProject {
 	t.Helper()
 	if runtime.GOOS == "windows" {
 		t.Skip("the mock SSH server runs commands with bash")
 	}
-	apiHandler, f, authURL := setUpProject(t, envs...)
+	p := &gitProject{testProject: setUpProject(t, envs...)}
 
 	// Git runs e.g. "git-receive-pack 'abcdefghijkl.git'", relative to the server's working directory.
 	reposDir := t.TempDir()
-	repo := filepath.Join(reposDir, layoutProjectID+".git")
-	runGit(t, reposDir, "init", "--quiet", "--bare", "--initial-branch=main", repo)
-	runGit(t, repo, "config", "receive.advertisePushOptions", "true")
+	p.repo = filepath.Join(reposDir, layoutProjectID+".git")
+	runGit(t, reposDir, "init", "--quiet", "--bare", "--initial-branch=main", p.repo)
+	runGit(t, p.repo, "config", "receive.advertisePushOptions", "true")
 	// Override any global hooks path.
-	runGit(t, repo, "config", "core.hooksPath", filepath.Join(repo, "hooks"))
+	runGit(t, p.repo, "config", "core.hooksPath", filepath.Join(p.repo, "hooks"))
 
-	sshServer, err := mockssh.NewServer(t, authURL+"/ssh/authority")
+	sshServer, err := mockssh.NewServer(t, p.authURL+"/ssh/authority")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sshServer.Stop() })
 	sshServer.CommandHandler = mockssh.ExecHandler(reposDir, nil)
-	f.extraEnv = append(f.extraEnv,
+	p.f.extraEnv = append(p.f.extraEnv,
 		EnvPrefix+"SSH_OPTIONS=HostName 127.0.0.1\nPort "+strconv.Itoa(sshServer.Port()),
 		EnvPrefix+"SSH_HOST_KEYS="+sshServer.HostKeyConfig(),
 	)
 
-	return &gitProject{api: apiHandler, f: f, repo: repo}
+	return p
 }
 
 // setHook writes a hook script in the served repository.

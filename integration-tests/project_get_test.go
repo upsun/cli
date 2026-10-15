@@ -23,7 +23,7 @@ func TestProjectGet(t *testing.T) {
 
 	_, stdErr, err := p.f.RunCombinedOutput("project:get", layoutProjectID, "clone")
 	require.NoError(t, err)
-	assert.Contains(t, stdErr, "The project Git Test ("+layoutProjectID+") was successfully downloaded to: clone")
+	assert.Contains(t, stdErr, "The project Test Project ("+layoutProjectID+") was successfully downloaded to: clone")
 	clone := filepath.Join(p.f.dir, "clone")
 	assert.Equal(t, gitRef(t, source, "main"), gitRef(t, clone, "HEAD"))
 	assert.Equal(t, layoutGitURL+"\n", gitConfig(t, clone, "remote.platform-test.url"))

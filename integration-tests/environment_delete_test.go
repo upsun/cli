@@ -176,26 +176,10 @@ func TestEnvironmentDeleteConfirmed(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			env := func(name, status string, parent any) *mockapi.Environment {
-				e := makeEnv(layoutProjectID, name, "development", status, parent)
-				e.AddOperations("deactivate")
-				return e
-			}
-			merged := env("merged", "active", "main")
-			merged.MergeInfo = map[string]any{"commits_ahead": 0, "commits_behind": 1, "parent_ref": "abc123"}
-			apiHandler, f, _ := setUpProject(t,
-				makeEnv(layoutProjectID, "main", "production", "active", nil),
-				env("test-1", "active", "main"),
-				env("test-2", "inactive", "main"),
-				merged,
-				env("dev", "active", "main"),
-				env("dev-child", "active", "dev"),
-				env("deleting", "deleting", "main"),
-				env("busy", "dirty", "main"),
-			)
+			p := setUpDeleteProject(t)
 
 			args := append([]string{"environment:delete", "-p", layoutProjectID}, c.args...)
-			_, stdErr, err := f.RunInteractive(c.stdin, args...)
+			_, stdErr, err := p.f.RunInteractive(c.stdin, args...)
 			if c.wantErr {
 				assertExitCode(t, 1, err)
 			} else {
@@ -205,14 +189,35 @@ func TestEnvironmentDeleteConfirmed(t *testing.T) {
 				assert.Contains(t, stdErr, s)
 			}
 			for _, id := range c.wantGone {
-				assert.Nil(t, apiHandler.Environment(layoutProjectID, id), "environment %s should be deleted", id)
+				assert.Nil(t, p.env(id), "environment %s should be deleted", id)
 			}
 			for id, status := range c.wantStatus {
-				if e := apiHandler.Environment(layoutProjectID, id); assert.NotNil(t, e, "environment %s", id) {
+				if e := p.env(id); assert.NotNil(t, e, "environment %s", id) {
 					assert.Equal(t, status, e.Status, "status of %s", id)
 				}
 			}
-			assert.NotNil(t, apiHandler.Environment(layoutProjectID, "main"))
+			assert.NotNil(t, p.env("main"))
 		})
 	}
+}
+
+// setUpDeleteProject configures environments in a range of states, which can be deactivated.
+func setUpDeleteProject(t *testing.T) *testProject {
+	env := func(name, status string, parent any) *mockapi.Environment {
+		e := makeEnv(layoutProjectID, name, "development", status, parent)
+		e.AddOperations("deactivate")
+		return e
+	}
+	merged := env("merged", "active", "main")
+	merged.MergeInfo = map[string]any{"commits_ahead": 0, "parent_ref": "abc123"}
+	return setUpProject(t,
+		makeEnv(layoutProjectID, "main", "production", "active", nil),
+		env("test-1", "active", "main"),
+		env("test-2", "inactive", "main"),
+		merged,
+		env("dev", "active", "main"),
+		env("dev-child", "active", "dev"),
+		env("deleting", "deleting", "main"),
+		env("busy", "dirty", "main"),
+	)
 }

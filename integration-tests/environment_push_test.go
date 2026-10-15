@@ -55,11 +55,8 @@ func TestEnvironmentPush(t *testing.T) {
 	feature := makeEnv(layoutProjectID, "feature", "development", "inactive", "main")
 	feature.AddOperations("activate")
 	p := setUpGitProject(t, main, feature)
-	// Record push options, and the pushed refs.
-	p.setHook(t, "pre-receive", `for i in $(seq 0 $((GIT_PUSH_OPTION_COUNT - 1))); do
-  eval "echo \"push option: \$GIT_PUSH_OPTION_$i\"" >&2
-done
-`)
+	// Print push options to the push log.
+	p.setHook(t, "pre-receive", "env | grep ^GIT_PUSH_OPTION_ >&2\n")
 
 	repo := repoLayout{git: true, branch: "main", remoteName: "platform-test"}.build(t)
 	p.f.dir = repo
@@ -75,13 +72,16 @@ done
 	_, stdErr, err = p.f.RunCombinedOutput("push", "-y", "--activate")
 	require.NoError(t, err)
 	assert.Contains(t, stdErr, "The environment will be activated.")
-	assert.Contains(t, stdErr, "push option: environment.status=active")
+	assert.Contains(t, stdErr, "GIT_PUSH_OPTION_0=environment.status=active")
 	assert.Equal(t, gitRef(t, repo, "HEAD"), gitRef(t, p.repo, "refs/heads/feature"))
-	actions := p.api.EnvironmentActions(layoutProjectID, "feature")
+	actions := p.actions("feature")
 	if assert.Len(t, actions, 1) {
 		assert.Equal(t, "environment.activate", actions[0].Type)
 	}
 }
+
+// pushFailureExitCode is EnvironmentPushCommand::PUSH_FAILURE_EXIT_CODE.
+const pushFailureExitCode = 87
 
 // TestEnvironmentPushDeployError checks that deployment errors in the push log are detected.
 func TestEnvironmentPushDeployError(t *testing.T) {
@@ -110,7 +110,7 @@ func TestEnvironmentPushDeployError(t *testing.T) {
 			p.f.dir = repoLayout{git: true, branch: "main", remoteName: "platform-test"}.build(t)
 
 			_, stdErr, err := p.f.RunCombinedOutput("push", "-y")
-			assertExitCode(t, 87, err)
+			assertExitCode(t, pushFailureExitCode, err)
 			assert.Contains(t, stdErr, c.wantStdErr)
 		})
 	}
