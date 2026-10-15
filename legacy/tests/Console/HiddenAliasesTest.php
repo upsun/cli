@@ -123,6 +123,13 @@ class HiddenAliasesTest extends TestCase
             $this->assertFalse($app->has('backup:list'));
             $this->assertFalse($app->has('snapshots'));
             $this->assertTrue($app->has('backup:get'));
+            try {
+                $app->find('backupz');
+                $this->fail('Expected a CommandNotFoundException');
+            } catch (CommandNotFoundException $e) {
+                $this->assertStringStartsWith('Command "backupz" is not defined.', $e->getMessage());
+                $this->assertNotContains('backups', $e->getAlternatives());
+            }
         } finally {
             unlink($file);
         }
