@@ -1,0 +1,94 @@
+# Opens or updates a pull request when there is a new build of the embedded PHP
+# (from upsun/cli-php-builds) or a new CA bundle. See scripts/update-php.sh.
+name: Update PHP
+
+on:
+  schedule:
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-php
+
+env:
+  BRANCH: automated/update-php
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    # Holds the credentials of the GitHub App that opens the pull request.
+    environment: php-updates
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Check for updates
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          scripts/update-php.sh "$RUNNER_TEMP/title" "$RUNNER_TEMP/body"
+          if [[ -f "$RUNNER_TEMP/title" ]]; then
+            echo "title=$(cat "$RUNNER_TEMP/title")" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Skips pushing again (and re-running CI) if the branch already has this update.
+      - name: Check the existing branch
+        id: existing
+        if: steps.check.outputs.title
+        env:
+          TITLE: ${{ steps.check.outputs.title }}
+        run: |
+          if git fetch --depth=1 origin "$BRANCH" 2>/dev/null \
+            && [[ "$(git log -1 --format=%s FETCH_HEAD)" == "$TITLE" ]]; then
+            echo "up_to_date=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify the downloads
+        if: steps.check.outputs.title && !steps.existing.outputs.up_to_date
+        run: |
+          make download-php
+          expected=$(sed -n 's/^PHP_VERSION = //p' Makefile)
+          actual=$(internal/legacy/archives/php_linux_amd64 -r 'echo PHP_VERSION;')
+          if [[ "$actual" != "$expected" ]]; then
+            echo "::error::Expected PHP $expected, got $actual"
+            exit 1
+          fi
+
+      - name: Generate GitHub App token
+        id: app-token
+        if: steps.check.outputs.title && !steps.existing.outputs.up_to_date
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      # Pushes with the App token, so that CI runs on the pull request.
+      - name: Push and open or update the pull request
+        if: steps.check.outputs.title && !steps.existing.outputs.up_to_date
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          TITLE: ${{ steps.check.outputs.title }}
+        run: |
+          user_id=$(gh api "/users/${APP_SLUG}%5Bbot%5D" --jq .id)
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          printf '%s\n\n' "$TITLE" | cat - "$RUNNER_TEMP/body" | git commit -a -F -
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/$BRANCH"
+
+          pr=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number')
+          if [[ -n "$pr" ]]; then
+            gh pr edit "$pr" --title "$TITLE" --body-file "$RUNNER_TEMP/body"
+          else
+            gh pr create --base "$GITHUB_REF_NAME" --head "$BRANCH" --title "$TITLE" --body-file "$RUNNER_TEMP/body"
+          fi
