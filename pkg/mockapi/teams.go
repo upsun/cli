@@ -402,6 +402,7 @@ func (h *Handler) handleAddTeamProjects(w http.ResponseWriter, req *http.Request
 		writeProblem(w, http.StatusBadRequest, errors.New("at least one project is required"))
 		return
 	}
+	seen := make(map[string]bool, len(body))
 	for _, item := range body {
 		p, ok := h.projects[item.ProjectID]
 		switch {
@@ -411,10 +412,12 @@ func (h *Handler) handleAddTeamProjects(w http.ResponseWriter, req *http.Request
 		case p.Organization != t.OrganizationID:
 			writeProblem(w, http.StatusBadRequest, errors.New("validation failed: team_organization_id"))
 			return
-		case slices.ContainsFunc(h.teamProjects[teamID], func(a *TeamProjectAccess) bool { return a.ProjectID == p.ID }):
+		case seen[p.ID] ||
+			slices.ContainsFunc(h.teamProjects[teamID], func(a *TeamProjectAccess) bool { return a.ProjectID == p.ID }):
 			writeProblem(w, http.StatusConflict, errors.New("project access already exists"))
 			return
 		}
+		seen[p.ID] = true
 	}
 	now := time.Now()
 	for _, item := range body {
