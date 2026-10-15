@@ -9,6 +9,7 @@ use Platformsh\Cli\Console\ArrayArgument;
 use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\Selection;
 use Platformsh\Cli\Selector\SelectorConfig;
+use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Service\Observability;
@@ -19,6 +20,7 @@ use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Util\OsUtil;
 use Platformsh\Cli\Util\StringUtil;
+use Platformsh\Client\Exception\EnvironmentStateException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Formatter\OutputFormatter;
@@ -87,6 +89,7 @@ class EnvironmentLogCommand extends CommandBase
     private const WINDOW_GROWTH = 4;
 
     public function __construct(
+        private readonly Api $api,
         private readonly CacheProvider $cacheProvider,
         private readonly Config $config,
         private readonly Io $io,
@@ -137,7 +140,7 @@ class EnvironmentLogCommand extends CommandBase
               Use --fields to choose the fields, or --format json to see everything.
               Logs take a few seconds to become available, so --tail shows them with a delay of about 15-20 seconds.
               Logs that become available later are shown when they arrive, unless they are over a minute late.
-              SSH is still used if the --worker, --instance or --task option is used,
+              SSH is still used if the --instance or --task option is used,
               or if the type is not listed above or ends in .log (e.g. "error.log").
             EOF);
         $this->addExample('Display a choice of logs that can be read');
@@ -212,7 +215,7 @@ class EnvironmentLogCommand extends CommandBase
      */
     private function sshReason(InputInterface $input, ?string $logType): ?string
     {
-        foreach (['worker', 'instance', 'task'] as $option) {
+        foreach (['instance', 'task'] as $option) {
             if (Option::stringOrNull($input, $option) !== null) {
                 return sprintf('the --%s option is used', $option);
             }
@@ -434,19 +437,90 @@ class EnvironmentLogCommand extends CommandBase
             $params[] = ['severities_mode', '1'];
         }
 
-        $services = ArrayArgument::getOption($input, 'service');
-        // The app may also come from the project URL or an environment variable.
-        if (($app = $selection->getAppName()) !== null) {
-            $services[] = $app;
-        }
+        $services = $this->resolveServices($input, $selection);
         if ($services !== []) {
-            foreach (array_unique($services) as $service) {
+            foreach ($services as $service) {
                 $params[] = ['services[]', $service];
             }
             $params[] = ['services_mode', '1'];
         }
 
         return $params;
+    }
+
+    /**
+     * Returns the service names to filter logs by, from the --service, --app and --worker options.
+     *
+     * The names are validated against the environment's current deployment, if there is one.
+     *
+     * @return list<string>
+     */
+    private function resolveServices(InputInterface $input, Selection $selection): array
+    {
+        $services = ArrayArgument::getOption($input, 'service');
+        // The app may also come from the project URL or an environment variable.
+        $appName = $selection->getAppName();
+        $worker = $input->hasOption('worker') ? Option::stringOrNull($input, 'worker') : null;
+        if ($worker === '') {
+            $worker = null;
+        }
+
+        try {
+            $deployment = $this->api->getCurrentDeployment($selection->getEnvironment());
+        } catch (EnvironmentStateException $e) {
+            $this->io->debug('Not validating service names: ' . $e->getMessage());
+            $deployment = null;
+        }
+
+        if ($deployment === null) {
+            if ($worker !== null) {
+                if (str_contains($worker, '--')) {
+                    $services[] = $worker;
+                } elseif ($appName !== null) {
+                    $services[] = $appName . '--' . $worker;
+                } else {
+                    throw new InvalidArgumentException(sprintf('The worker name must include the app name, e.g.: --worker <app>--%s', $worker));
+                }
+            } elseif ($appName !== null) {
+                $services[] = $appName;
+            }
+
+            return array_values(array_unique($services));
+        }
+
+        $appNames = array_map('strval', array_keys($deployment->webapps));
+        $validNames = array_merge(
+            $appNames,
+            array_map('strval', array_keys($deployment->workers)),
+            array_map('strval', array_keys($deployment->services)),
+            ['router'],
+        );
+        $validNames = array_values(array_unique($validNames));
+        sort($validNames);
+        sort($appNames);
+
+        foreach ($services as $service) {
+            if (!in_array($service, $validNames, true)) {
+                $message = sprintf('Invalid --service: %s (expected one of: %s)', $service, implode(', ', $validNames));
+                if ($service === 'error' || isset(self::LOG_KINDS[$service])) {
+                    $message .= "\n" . sprintf('To filter by log type, use it as an argument, e.g.: %s %s', $this->config->getStr('application.executable') . ' log', $service);
+                }
+                throw new InvalidArgumentException($message);
+            }
+        }
+
+        if ($appName !== null && !in_array($appName, $appNames, true)) {
+            throw new InvalidArgumentException(sprintf('Invalid --app: %s (expected one of: %s)', $appName, implode(', ', $appNames)));
+        }
+
+        if ($worker !== null) {
+            // The app name is only used to qualify the worker name.
+            $services[] = $this->selector->selectWorkerName($deployment, $input, $worker, $appName);
+        } elseif ($appName !== null) {
+            $services[] = $appName;
+        }
+
+        return array_values(array_unique($services));
     }
 
     /**

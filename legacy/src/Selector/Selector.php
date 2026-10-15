@@ -31,6 +31,7 @@ use Platformsh\Client\Exception\EnvironmentStateException;
 use Platformsh\Client\Model\Activity;
 use Platformsh\Client\Model\ApiResourceBase;
 use Platformsh\Client\Model\BasicProjectInfo;
+use Platformsh\Client\Model\Deployment\EnvironmentDeployment;
 use Platformsh\Client\Model\Deployment\WebApp;
 use Platformsh\Client\Model\Environment;
 use Platformsh\Client\Model\Organization\Organization;
@@ -734,6 +735,86 @@ class Selector implements CompleterInterface
     }
 
     /**
+     * Finds the qualified name of the worker selected by the --worker option.
+     *
+     * The worker can be given by its qualified name (<app>--<worker>), or by
+     * its short name, which is qualified with the app name if given, or
+     * otherwise matched against the workers of all apps.
+     *
+     * @param EnvironmentDeployment $deployment
+     * @param InputInterface $input
+     * @param string $workerOption
+     *   The value of the --worker option.
+     * @param string|null $appName
+     *   The selected app name, if any.
+     *
+     * @return string
+     *   The qualified worker name.
+     */
+    public function selectWorkerName(EnvironmentDeployment $deployment, InputInterface $input, string $workerOption, ?string $appName): string
+    {
+        // Check for a conflict with the --app option.
+        if ($appName !== null
+            && str_contains($workerOption, '--')
+            && stripos($workerOption, $appName . '--') !== 0) {
+            throw new InvalidArgumentException(sprintf(
+                'App name "%s" conflicts with worker name "%s"',
+                $appName,
+                $workerOption,
+            ));
+        }
+
+        // If we have the app name, load the worker directly.
+        if (str_contains($workerOption, '--') || $appName !== null) {
+            $qualifiedWorkerName = str_contains($workerOption, '--')
+                ? $workerOption
+                : $appName . '--' . $workerOption;
+            try {
+                $worker = $deployment->getWorker($qualifiedWorkerName);
+            } catch (\InvalidArgumentException) {
+                throw new InvalidArgumentException('Worker not found: ' . $workerOption . ' (in app: ' . $appName . ')');
+            }
+            $this->stdErr->writeln(sprintf('Selected worker: <info>%s</info>', $worker->name), OutputInterface::VERBOSITY_VERBOSE);
+
+            return $worker->name;
+        }
+
+        // If we don't have the app name, find all the possible matching
+        // workers, and ask the user to choose.
+        $suffix = '--' . $workerOption;
+        $suffixLength = strlen($suffix);
+        $workerNames = [];
+        foreach ($deployment->workers as $worker) {
+            if (substr($worker->name, -$suffixLength) === $suffix) {
+                $workerNames[] = $worker->name;
+            }
+        }
+        if (count($workerNames) === 0) {
+            throw new InvalidArgumentException('Worker not found: ' . $workerOption);
+        }
+        if (count($workerNames) === 1) {
+            $workerName = reset($workerNames);
+            $this->stdErr->writeln(sprintf('Selected worker: <info>%s</info>', $workerName), OutputInterface::VERBOSITY_VERBOSE);
+
+            return $workerName;
+        }
+        if (!$input->isInteractive()) {
+            throw new InvalidArgumentException(sprintf(
+                'Ambiguous worker name: %s (matches: %s)',
+                $workerOption,
+                implode(', ', $workerNames),
+            ));
+        }
+        $workerName = $this->questionHelper->choose(
+            array_combine($workerNames, $workerNames),
+            'Enter a number to choose a worker:',
+        );
+        $this->stdErr->writeln(sprintf('Selected worker: <info>%s</info>', $workerName), OutputInterface::VERBOSITY_VERBOSE);
+
+        return $workerName;
+    }
+
+    /**
      * Find what app or worker container the user wants to select.
      *
      * Needs the --app and --worker options, as applicable.
@@ -782,63 +863,7 @@ class Selector implements CompleterInterface
         // Handle the --worker option first, as it's more specific.
         $workerOption = $includeWorkers ? Option::stringOrNull($input, 'worker') : null;
         if ($workerOption !== null) {
-            // Check for a conflict with the --app option.
-            if ($appName !== null
-                && str_contains($workerOption, '--')
-                && stripos($workerOption, $appName . '--') !== 0) {
-                throw new InvalidArgumentException(sprintf(
-                    'App name "%s" conflicts with worker name "%s"',
-                    $appName,
-                    $workerOption,
-                ));
-            }
-
-            // If we have the app name, load the worker directly.
-            if (str_contains($workerOption, '--') || $appName !== null) {
-                $qualifiedWorkerName = str_contains($workerOption, '--')
-                    ? $workerOption
-                    : $appName . '--' . $workerOption;
-                try {
-                    $worker = $deployment->getWorker($qualifiedWorkerName);
-                } catch (\InvalidArgumentException) {
-                    throw new InvalidArgumentException('Worker not found: ' . $workerOption . ' (in app: ' . $appName . ')');
-                }
-                $this->stdErr->writeln(sprintf('Selected worker: <info>%s</info>', $worker->name), OutputInterface::VERBOSITY_VERBOSE);
-
-                return new Worker($worker, $environment);
-            }
-
-            // If we don't have the app name, find all the possible matching
-            // workers, and ask the user to choose.
-            $suffix = '--' . $workerOption;
-            $suffixLength = strlen($suffix);
-            $workerNames = [];
-            foreach ($deployment->workers as $worker) {
-                if (substr($worker->name, -$suffixLength) === $suffix) {
-                    $workerNames[] = $worker->name;
-                }
-            }
-            if (count($workerNames) === 0) {
-                throw new InvalidArgumentException('Worker not found: ' . $workerOption);
-            }
-            if (count($workerNames) === 1) {
-                $workerName = reset($workerNames);
-                $this->stdErr->writeln(sprintf('Selected worker: <info>%s</info>', $workerName), OutputInterface::VERBOSITY_VERBOSE);
-
-                return new Worker($deployment->getWorker($workerName), $environment);
-            }
-            if (!$input->isInteractive()) {
-                throw new InvalidArgumentException(sprintf(
-                    'Ambiguous worker name: %s (matches: %s)',
-                    $workerOption,
-                    implode(', ', $workerNames),
-                ));
-            }
-            $workerName = $this->questionHelper->choose(
-                array_combine($workerNames, $workerNames),
-                'Enter a number to choose a worker:',
-            );
-            $this->stdErr->writeln(sprintf('Selected worker: <info>%s</info>', $workerName), OutputInterface::VERBOSITY_VERBOSE);
+            $workerName = $this->selectWorkerName($deployment, $input, $workerOption, $appName);
 
             return new Worker($deployment->getWorker($workerName), $environment);
         }
