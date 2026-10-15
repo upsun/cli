@@ -35,7 +35,8 @@ func TestEnvironmentHTTPAccess(t *testing.T) {
 	}, apiHandler.Environment(layoutProjectID, "main").HTTPAccess)
 
 	// Disable access control, and remove the credentials.
-	stdOut, _, err = f.RunCombinedOutput("httpaccess", "-p", layoutProjectID, "-e", "main", "--enabled", "0", "--auth", "0")
+	stdOut, _, err = f.RunCombinedOutput("httpaccess", "-p", layoutProjectID, "-e", "main",
+		"--enabled", "0", "--auth", "0")
 	require.NoError(t, err)
 	assert.Contains(t, stdOut, "is_enabled: false")
 	httpAccess := apiHandler.Environment(layoutProjectID, "main").HTTPAccess
@@ -47,7 +48,8 @@ func TestEnvironmentHTTPAccess(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, stdErr, "The minimum password length for --auth is 6 characters")
 
-	_, stdErr, err = f.RunCombinedOutput("httpaccess", "-p", layoutProjectID, "-e", "main", "--access", "allow:example.com")
+	_, stdErr, err = f.RunCombinedOutput("httpaccess", "-p", layoutProjectID, "-e", "main",
+		"--access", "allow:example.com")
 	assert.Error(t, err)
 	assert.Contains(t, stdErr, `The address "example.com" is not a valid IP address or CIDR`)
 }

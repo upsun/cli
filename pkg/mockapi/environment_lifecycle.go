@@ -148,12 +148,11 @@ func (h *Handler) handleDeleteEnvironment(w http.ResponseWriter, req *http.Reque
 	if env.Status != "inactive" {
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"status":  "error",
 			"code":    http.StatusBadRequest,
 			"message": "Only inactive environments can be deleted.",
 		})
 		return
 	}
 	delete(h.environments, env.ID)
-	_ = json.NewEncoder(w).Encode(map[string]any{"status": "OK", "code": http.StatusOK})
+	_ = json.NewEncoder(w).Encode(map[string]any{"code": http.StatusOK})
 }
