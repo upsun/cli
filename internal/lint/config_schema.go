@@ -2,6 +2,7 @@ package lint
 
 import (
 	"fmt"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -32,10 +33,6 @@ type Config struct {
 
 			Relationships map[string]any   `yaml:"relationships,omitempty"`
 			Mounts        map[string]Mount `yaml:"mounts,omitempty"`
-
-			Egress struct {
-				Build any `yaml:"build,omitempty"`
-			} `yaml:"egress,omitempty"`
 		} `yaml:"web,omitempty"`
 
 		Relationships map[string]any   `yaml:"relationships,omitempty"`
@@ -139,11 +136,39 @@ type Authorization struct {
 }
 
 func DecodeConfig(content string) (*Config, error) {
+	var doc yaml.Node
+	if err := yaml.Unmarshal([]byte(content), &doc); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+	}
 	var c Config
-	if err := yaml.Unmarshal([]byte(content), &c); err != nil {
+	if len(doc.Content) == 0 {
+		return &c, nil
+	}
+	root := resolveAlias(doc.Content[0])
+	for _, top := range mappingEntries(root) {
+		if top.key.Value != keyTasks {
+			dropDotKeys(resolveAlias(top.value))
+		}
+	}
+	if err := root.Decode(&c); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 	return &c, nil
+}
+
+// dropDotKeys removes the entries of a mapping node whose keys start with ".",
+// which the platform ignores (e.g. YAML anchors).
+func dropDotKeys(node *yaml.Node) {
+	if node == nil || node.Kind != yaml.MappingNode {
+		return
+	}
+	content := node.Content[:0]
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		if !strings.HasPrefix(node.Content[i].Value, ".") {
+			content = append(content, node.Content[i], node.Content[i+1])
+		}
+	}
+	node.Content = content
 }
 
 // isStackEmpty reports whether a stack declares no runtimes or packages. The

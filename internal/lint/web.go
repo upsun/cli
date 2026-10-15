@@ -38,11 +38,6 @@ func CheckWebConfig(cfg *Config) *Result {
 
 	for appName := range cfg.Applications {
 		app := cfg.Applications[appName]
-		// The platform accepts this override but builds with the application's egress.
-		if app.Web.Egress.Build != nil {
-			result.AddWarning("applications."+appName+".web.egress.build",
-				"build-phase egress has no effect on web: set it on the application")
-		}
 		for locName, loc := range app.Web.Locations {
 			// Validate location key format.
 			locKeyPath := "applications." + appName + ".web.locations"

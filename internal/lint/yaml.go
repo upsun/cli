@@ -29,7 +29,11 @@ func CheckSchemaAt(data any, schema *gojsonschema.Schema, pathPrefix string) *Re
 		result.AddError(pathPrefix, err.Error())
 		return result
 	}
-	for _, e := range schemaResult.Errors() {
+	errs := schemaResult.Errors()
+	for _, e := range errs {
+		if e.Type() == "number_any_of" && hasDetailedError(errs, e) {
+			continue
+		}
 		field := e.Field()
 		if field == "(root)" {
 			field = ""
@@ -47,6 +51,21 @@ func CheckSchemaAt(data any, schema *gojsonschema.Schema, pathPrefix string) *Re
 	}
 
 	return result
+}
+
+// hasDetailedError reports whether another error is at or below the field of an
+// anyOf error, which gojsonschema adds after the errors of the closest branch.
+func hasDetailedError(errs []gojsonschema.ResultError, anyOf gojsonschema.ResultError) bool {
+	field := anyOf.Field()
+	for _, e := range errs {
+		if e == anyOf {
+			continue
+		}
+		if f := e.Field(); f == field || field == "(root)" || strings.HasPrefix(f, field+".") {
+			return true
+		}
+	}
+	return false
 }
 
 func interpretYAMLError(err error) string {
