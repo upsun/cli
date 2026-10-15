@@ -101,6 +101,7 @@ type Task struct {
 	Authorizations []Authorization  `yaml:"authorizations,omitempty"`
 
 	// fields lists the keys set on the task, to check that "base" is used alone.
+	// As on the platform, this includes keys starting with ".".
 	fields []string
 }
 
