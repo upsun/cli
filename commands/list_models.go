@@ -124,7 +124,7 @@ func innerAppConfigValidateCommand(cnf *config.Config) Command {
 		Examples: []Example{
 			{
 				Commandline: "",
-				Description: "Validate the project configuration files in the current Git repository",
+				Description: "Validate the project configuration files in the current Git repository (or directory)",
 			},
 			{
 				Commandline: "path/to/project",
@@ -132,7 +132,7 @@ func innerAppConfigValidateCommand(cnf *config.Config) Command {
 			},
 			{
 				Commandline: "--format=json",
-				Description: "Validate the current Git repository and output the results as JSON",
+				Description: "Validate the current Git repository (or directory) and output the results as JSON",
 			},
 		},
 		Definition: Definition{
@@ -143,7 +143,7 @@ func innerAppConfigValidateCommand(cnf *config.Config) Command {
 						Name:        "path",
 						IsRequired:  false,
 						IsArray:     false,
-						Description: "The project directory to validate (default: the enclosing Git repository root)",
+						Description: "The project directory to validate (default: the Git repository root, or the current directory)",
 					},
 				},
 			)),

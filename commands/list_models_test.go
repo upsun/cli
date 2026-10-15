@@ -23,13 +23,13 @@ func TestHelpPageExamples(t *testing.T) {
 			name: "lint",
 			cmd:  innerAppConfigValidateCommand(cnf),
 			expected: `Examples:
- Validate the project configuration files in the current Git repository:
+ Validate the project configuration files in the current Git repository (or directory):
    upsun lint
 
  Validate the project configuration files in a specific directory:
    upsun lint path/to/project
 
- Validate the current Git repository and output the results as JSON:
+ Validate the current Git repository (or directory) and output the results as JSON:
    upsun lint --format=json
 `,
 		},
