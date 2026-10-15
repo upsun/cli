@@ -5,6 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/upsun/cli/pkg/mockapi"
 )
 
@@ -77,4 +80,73 @@ func TestEnvironmentDeploy(t *testing.T) {
 |      | 0                        |                                 |                             |         |
 +------+--------------------------+---------------------------------+-----------------------------+---------+
 `, f.Run("env:deploy", "-p", projectID, "-e", "main"))
+}
+
+func TestEnvironmentDeployStrategy(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name         string
+		rolling      bool
+		staged       bool
+		args         []string
+		wantErr      bool
+		wantStdErr   string
+		wantStrategy string
+	}{
+		{name: "default", staged: true, wantStrategy: "stopstart"},
+		{name: "stopstart", staged: true, args: []string{"--strategy", "stopstart"}, wantStrategy: "stopstart"},
+		{
+			name: "rolling", rolling: true, staged: true, args: []string{"--strategy", "rolling"},
+			wantStdErr:   "Please make sure the changes from above are not affecting the state of the services.",
+			wantStrategy: "rolling",
+		},
+		{
+			name: "rolling unavailable", staged: true, args: []string{"--strategy", "rolling"},
+			wantErr: true, wantStdErr: "The chosen strategy is not available for this environment.",
+		},
+		{
+			name: "invalid", rolling: true, staged: true, args: []string{"--strategy", "fast"},
+			wantErr: true, wantStdErr: "The chosen strategy is not available for this environment.",
+		},
+		{name: "no staged changes", wantStdErr: "The environment main (type: production) has no staged changes to deploy."},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			main := makeEnv(layoutProjectID, "main", "production", "active", nil)
+			main.AddOperations("deploy", "activities")
+			main.CanRollingDeploy = c.rolling
+			apiHandler, f, _ := setUpProject(t, main)
+			if c.staged {
+				apiHandler.SetProjectActivities(layoutProjectID, []*mockapi.Activity{{
+					ID:           "staged1",
+					Type:         "environment.variable.create",
+					State:        "staged",
+					Project:      layoutProjectID,
+					Environments: []string{"main"},
+					Description:  "Mock User created a variable",
+					CreatedAt:    time.Now().Add(-time.Hour),
+				}})
+			}
+
+			args := append([]string{"environment:deploy", "-p", layoutProjectID, "-e", "main"}, c.args...)
+			_, stdErr, err := f.RunCombinedOutput(args...)
+			if c.wantErr {
+				assertExitCode(t, 1, err)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Contains(t, stdErr, c.wantStdErr)
+			actions := apiHandler.EnvironmentActions(layoutProjectID, "main")
+			if c.wantStrategy == "" {
+				assert.Empty(t, actions)
+				return
+			}
+			require.Len(t, actions, 1)
+			assert.Equal(t, mockapi.EnvironmentAction{
+				Type: "environment.deploy",
+				Body: map[string]any{"strategy": c.wantStrategy},
+			}, actions[0])
+		})
+	}
 }
