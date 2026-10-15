@@ -92,27 +92,20 @@ func (h *Handler) handleProjectUserAccess(w http.ResponseWriter, req *http.Reque
 	projectID := chi.URLParam(req, "project_id")
 	require.NoError(h.t, req.ParseForm())
 	var (
-		projectGrants = make([]*ProjectUserGrant, 0, len(h.userGrants))
+		projectGrants = make([]*projectUserAccess, 0, len(h.userGrants))
 		userIDs       = make(uniqueMap)
 		orgIDs        = make(uniqueMap)
 	)
 	for _, g := range h.userGrants {
 		if g.ResourceType == "project" && g.ResourceID == projectID {
-			projectGrants = append(projectGrants, &ProjectUserGrant{
-				ProjectID:      g.ResourceID,
-				OrganizationID: g.OrganizationID,
-				UserID:         g.UserID,
-				Permissions:    g.Permissions,
-				GrantedAt:      g.GrantedAt,
-				UpdatedAt:      g.UpdatedAt,
-			})
+			projectGrants = append(projectGrants, newProjectUserAccess(g))
 			userIDs[g.UserID] = struct{}{}
 			orgIDs[g.OrganizationID] = struct{}{}
 		}
 	}
 	ret := struct {
-		Items []*ProjectUserGrant `json:"items"`
-		Links HalLinks            `json:"_links"`
+		Items []*projectUserAccess `json:"items"`
+		Links HalLinks             `json:"_links"`
 	}{Items: projectGrants, Links: MakeHALLinks(
 		"ref:users:0=/ref/users?in="+strings.Join(userIDs.keys(), ","),
 		"ref:organizations:0=/ref/organizations?in="+strings.Join(orgIDs.keys(), ","),
