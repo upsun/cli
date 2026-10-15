@@ -1,10 +1,14 @@
 package tests
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/upsun/cli/pkg/mockapi"
 )
@@ -14,6 +18,7 @@ type variableTestSetup struct {
 	authServer *mockapi.AuthServer
 	apiServer  *httptest.Server
 	apiHandler *mockapi.Handler
+	recorder   *requestRecorder
 	projectID  string
 	mainEnv    *mockapi.Environment
 	factory    *cmdFactory
@@ -25,7 +30,8 @@ func setupVariableTest(t *testing.T) *variableTestSetup {
 	t.Cleanup(authServer.Close)
 
 	apiHandler := mockapi.NewHandler(t)
-	apiServer := httptest.NewServer(apiHandler)
+	recorder := &requestRecorder{next: apiHandler}
+	apiServer := httptest.NewServer(recorder)
 	t.Cleanup(apiServer.Close)
 
 	projectID := mockapi.ProjectID()
@@ -47,6 +53,7 @@ func setupVariableTest(t *testing.T) *variableTestSetup {
 		authServer: authServer,
 		apiServer:  apiServer,
 		apiHandler: apiHandler,
+		recorder:   recorder,
 		projectID:  projectID,
 		mainEnv:    mainEnv,
 		factory:    newCommandFactory(t, apiServer.URL, authServer.URL),
@@ -250,4 +257,86 @@ func TestVariableCreateWithAppScopeNoDeployment(t *testing.T) {
 
 	out := f.Run("var:get", "-p", p, "-l", "p", "env:ANY_APP", "-P", "application_scope")
 	assert.Contains(t, out, "anyapp")
+}
+
+// TestVariableSensitive checks that sensitive values are sent to the API, but not displayed.
+func TestVariableSensitive(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		level string
+		path  string
+		args  []string
+	}{
+		{"project", "/projects/%s/variables", []string{"-l", "p"}},
+		{"environment", "/projects/%s/environments/main/variables", []string{"-l", "e", "-e", "main"}},
+	}
+	for _, c := range cases {
+		t.Run(c.level, func(t *testing.T) {
+			t.Parallel()
+			s := setupVariableTest(t)
+			s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
+			f, p := s.factory, s.projectID
+			path := fmt.Sprintf(c.path, p)
+			args := append([]string{"-p", p}, c.args...)
+
+			stdout, stderr, err := f.RunCombinedOutput(append([]string{"var:create", "env:SECRET",
+				"--value", "secret-value-1", "--sensitive", "true"}, args...)...)
+			require.NoError(t, err, "stderr: %s", stderr)
+			assert.NotContains(t, stdout+stderr, "secret-value-1")
+			reqs := slices.DeleteFunc(s.recorder.requestsTo(path), func(r recordedRequest) bool { return r.Method != "POST" })
+			require.Len(t, reqs, 1)
+			assert.JSONEq(t, `true`, jsonField(t, reqs[0].Body, "is_sensitive"))
+			assert.JSONEq(t, `"secret-value-1"`, jsonField(t, reqs[0].Body, "value"))
+
+			stdout, stderr, err = f.RunCombinedOutput(append([]string{"var:update", "env:SECRET",
+				"--value", "secret-value-2"}, args...)...)
+			require.NoError(t, err, "stderr: %s", stderr)
+			assert.NotContains(t, stdout+stderr, "secret-value")
+			reqs = slices.DeleteFunc(s.recorder.requestsTo(path+"/env:SECRET"),
+				func(r recordedRequest) bool { return r.Method != "PATCH" })
+			require.Len(t, reqs, 1)
+			assert.JSONEq(t, `"secret-value-2"`, jsonField(t, reqs[0].Body, "value"))
+
+			assertTrimmed(t, "true", f.Run(append([]string{"var:get", "env:SECRET", "-P", "is_sensitive"}, args...)...))
+
+			stdout, stderr, err = f.RunCombinedOutput(append([]string{"var:get", "env:SECRET"}, args...)...)
+			require.NoError(t, err, "stderr: %s", stderr)
+			assert.Contains(t, stdout, "env:SECRET")
+			assert.NotContains(t, stdout+stderr, "secret-value")
+
+			_, stderr, err = f.RunCombinedOutput(append([]string{"var:get", "env:SECRET", "-P", "value"}, args...)...)
+			assertExitCode(t, 1, err)
+			assert.Contains(t, stderr, "The variable is sensitive, so its value cannot be read.")
+
+			assertTrimmed(t, "env:SECRET,"+c.level+",",
+				f.Run("var:list", "-p", p, "-e", "main", "--format", "csv", "--columns", "name,level,value", "--no-header"))
+		})
+	}
+}
+
+// TestVariableUpdateToSensitive checks that an existing variable can be made sensitive.
+func TestVariableUpdateToSensitive(t *testing.T) {
+	t.Parallel()
+	s := setupVariableTest(t)
+	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
+	f, p := s.factory, s.projectID
+
+	f.Run("var:create", "-p", p, "-l", "p", "env:TOKEN", "--value", "token-value")
+	assertTrimmed(t, "token-value", f.Run("var:get", "-p", p, "-l", "p", "env:TOKEN", "-P", "value"))
+
+	f.Run("var:update", "-p", p, "-l", "p", "env:TOKEN", "--sensitive", "true")
+	assertTrimmed(t, "true", f.Run("var:get", "-p", p, "-l", "p", "env:TOKEN", "-P", "is_sensitive"))
+	_, stderr, err := f.RunCombinedOutput("var:get", "-p", p, "-l", "p", "env:TOKEN", "-P", "value")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "The variable is sensitive")
+	assert.NotContains(t, f.Run("var:list", "-p", p, "-e", "main", "--format", "tsv"), "token-value")
+}
+
+// jsonField returns the JSON encoding of a field of a JSON object.
+func jsonField(t *testing.T, data, field string) string {
+	t.Helper()
+	var m map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal([]byte(data), &m))
+	require.Contains(t, m, field)
+	return string(m[field])
 }

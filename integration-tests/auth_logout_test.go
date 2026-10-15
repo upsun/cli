@@ -2,6 +2,7 @@ package tests
 
 import (
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -26,6 +27,61 @@ func TestAuthLogout_Single(t *testing.T) {
 	_, stderr, err := f.RunCombinedOutput("auth:logout")
 	require.NoError(t, err)
 	assert.Contains(t, stderr, "logged out")
+	// The factory sets an API token via the environment, which cannot be removed.
+	assert.Contains(t, stderr, "Warning: an API token is set via config")
+}
+
+// TestAuthLogout_SingleRevokesSession checks that logging out of the current session revokes its tokens and deletes
+// its files.
+func TestAuthLogout_SingleRevokesSession(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+
+	f := newCommandFactory(t, "", authServer.URL)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
+	writeOAuthSession(t, f.home, "default", map[string]any{
+		"accessToken": "default-access", "refreshToken": "default-refresh", "tokenType": "bearer",
+		"expires": time.Now().Add(time.Hour).Unix(),
+	})
+	sessDir := filepath.Join(f.home, ".platform-test-cli", ".session")
+	certFile := filepath.Join(sessDir, "sess-cli-default", "ssh", "id_ed25519-cert.pub")
+	require.NoError(t, os.WriteFile(certFile, []byte("cert"), 0o600))
+
+	_, stderr, err := f.RunCombinedOutput("auth:logout")
+	require.NoError(t, err, "stderr: %s", stderr)
+	assert.Contains(t, stderr, "You are now logged out.")
+	assert.NotContains(t, stderr, "Warning: an API token is set via config")
+	assert.NotContains(t, stderr, "Other sessions exist")
+
+	assert.ElementsMatch(t, []string{"default-access", "default-refresh"}, authServer.RevokedTokens())
+	assert.NoFileExists(t, filepath.Join(sessDir, "sess-default", "sess-default.json"))
+	assert.NoFileExists(t, certFile)
+	assert.NoFileExists(t, filepath.Join(f.home, ".platform-test-cli", "auth", "default.json"))
+
+	_, _, err = f.RunCombinedOutput("auth:token", "--no-warn")
+	assertExitCode(t, 3, err)
+}
+
+// TestAuthLogout_OtherWithoutOtherSessions checks that --other keeps the current session.
+func TestAuthLogout_OtherWithoutOtherSessions(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+
+	f := newCommandFactory(t, "", authServer.URL)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
+	writeOAuthSession(t, f.home, "default", map[string]any{
+		"accessToken": "default-access", "refreshToken": "default-refresh", "tokenType": "bearer",
+		"expires": time.Now().Add(time.Hour).Unix(),
+	})
+
+	_, stderr, err := f.RunCombinedOutput("auth:logout", "--other")
+	require.NoError(t, err, "stderr: %s", stderr)
+	assert.Contains(t, stderr, "The current session ID is: default")
+	assert.Contains(t, stderr, "No other sessions exist.")
+	assert.Empty(t, authServer.RevokedTokens())
+	assert.Equal(t, "default-access", f.Run("auth:token", "--no-warn"))
 }
 
 // TestAuthLogout_OtherSessionsHint: when other sessions still exist after a single logout,
