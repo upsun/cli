@@ -32,6 +32,10 @@ type Config struct {
 
 			Relationships map[string]any   `yaml:"relationships,omitempty"`
 			Mounts        map[string]Mount `yaml:"mounts,omitempty"`
+
+			Egress struct {
+				Build any `yaml:"build,omitempty"`
+			} `yaml:"egress,omitempty"`
 		} `yaml:"web,omitempty"`
 
 		Relationships map[string]any   `yaml:"relationships,omitempty"`

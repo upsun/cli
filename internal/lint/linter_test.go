@@ -447,10 +447,7 @@ applications:
       authorizations: [{type: env, action: view}]
       container_profile: BALANCED
       egress:
-        build: {allowed_domains: [{host: repo.packagist.org}]}
         runtime: {allowed_domains: [{host: api.example.com}]}
-      firewall:
-        outbound: [{ips: ["192.0.2.0/24"]}]
       mounts:
         web: {source: storage, source_path: web}
       operations:
@@ -469,8 +466,6 @@ applications:
         container_profile: HIGH_MEMORY
         egress:
           runtime: {allowed_domains: [{host: queue.example.com}]}
-        firewall:
-          outbound: [{ips: ["192.0.2.0/24"]}]
         mounts:
           queue: {source: tmp}
         operations:
@@ -494,6 +489,8 @@ applications:
       additional_hosts: {api.example.com: 1}
       operations:
         warm: {role: admin}
+      firewall:
+        outbound: [{ips: ["192.0.2.0/24"]}]
     workers:
       queue:
         commands:
@@ -504,7 +501,21 @@ applications:
 			wantErrors: `linter errors:
   - applications.app.web.additional_hosts.api.example.com: Invalid type. Expected: string, given: integer
   - applications.app.web.operations.warm: commands is required
+  - applications.app.web: Additional property firewall is not allowed
   - applications.app.workers.queue.egress: Additional property build is not allowed`,
+		},
+		{
+			name: "web build egress",
+			content: `
+applications:
+  app:
+    type: php:8.4
+    web:
+      egress:
+        build: {allowed_domains: [{host: repo.packagist.org}]}
+`,
+			wantErrors: `linter warnings:
+  - applications.app.web.egress.build: build-phase egress has no effect on web: set it on the application`,
 		},
 	}
 

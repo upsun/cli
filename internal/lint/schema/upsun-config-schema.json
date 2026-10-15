@@ -337,10 +337,6 @@
                 "$ref": "#/definitions/additional_hosts",
                 "description": "Overrides the application's value for this container."
               },
-              "firewall": {
-                "$ref": "#/definitions/firewall",
-                "description": "Overrides the application's value for this container."
-              },
               "operations": {
                 "$ref": "#/definitions/operations",
                 "description": "Overrides the application's value for this container."
@@ -356,10 +352,6 @@
             "additionalProperties": {
               "type": "object",
               "properties": {
-                "firewall": {
-                  "$ref": "#/definitions/firewall",
-                  "description": "Overrides the application's value for this container."
-                },
                 "variables": {
                   "type": "object",
                   "additionalProperties": {
@@ -507,9 +499,6 @@
             "title": "Variables to control the environment",
             "description": "Variables provide environment-sensitive information to control how your application behaves. To set a Unix environment variable, specify a key of `env:`, and then each sub-item of that is a key/value pair that will be injected into the environment. \nMore information: \nhttps://docs.upsun.com/anchors/app/reference/variables/",
             "default": {}
-          },
-          "firewall": {
-            "$ref": "#/definitions/firewall"
           },
           "build": {
             "type": "object",
@@ -754,7 +743,6 @@
           "workers",
           "access",
           "variables",
-          "firewall",
           "build",
           "dependencies",
           "hooks",
@@ -882,9 +870,6 @@
           },
           "relationships": {
             "$ref": "#/definitions/relationships"
-          },
-          "firewall": {
-            "$ref": "#/definitions/firewall"
           },
           "resources": {
             "$ref": "#/definitions/deprecated/resources"
@@ -1401,60 +1386,6 @@
       },
       "title": "The relationships of the application/service to other services",
       "description": "Contains a dictionary of relationships: \nhttps://docs.upsun.com/anchors/app/reference/relationships/"
-    },
-    "firewall": {
-      "type": "object",
-      "properties": {
-        "outbound": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "protocol": {
-                "type": "string",
-                "title": "The IP protocol to apply the restriction on",
-                "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/workers/",
-                "default": "tcp"
-              },
-              "ips": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "title": "The IP range in CIDR notation to apply the restriction on",
-                "description": "See a CIDR format converter: \nhttps://www.ipaddressguide.com/cidr \nMore information: \nhttps://docs.upsun.com/anchors/app/reference/workers/",
-                "default": []
-              },
-              "domains": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "title": "Domains of the restriction",
-                "description": "Fully qualified domain names to specify specific destinations by hostname \nhttps://en.wikipedia.org/wiki/Fully_qualified_domain_name \nMore information: \nhttps://docs.upsun.com/anchors/app/reference/workers/",
-                "default": []
-              },
-              "ports": {
-                "type": "array",
-                "items": {
-                  "type": "integer"
-                },
-                "title": "The port to apply the restriction on",
-                "description": "Ports from 1 to 65535 that are allowed. If any ports are specified, all unspecified ports are blocked. If no ports are specified, all ports are allowed. Port 25, the SMTP port for sending email, is always blocked.",
-                "default": []
-              }
-            },
-            "additionalProperties": false
-          },
-          "title": "Outbound firewall restrictions",
-          "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/workers/",
-          "default": []
-        }
-      },
-      "additionalProperties": false,
-      "nullable": true,
-      "title": "Outbound firewall rules for the application",
-      "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/firewall/"
     },
     "mounts": {
       "type": "object",
