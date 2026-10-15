@@ -47,8 +47,35 @@ func TestOrgSubscriptions(t *testing.T) {
 	}
 	assert.Equal(t, map[string]string{"1001": "active", created.ID: "provisioning"}, statuses)
 
+	// Status filters.
+	require.Equal(t, http.StatusOK, do(http.MethodGet,
+		"/organizations/org1/subscriptions?filter[status][value][]=active&filter[status][operator]=IN", "", &list))
+	require.Len(t, list.Items, 1)
+	assert.Equal(t, "1001", list.Items[0].ID)
+
+	// Pages, with an opaque cursor.
+	assert.Equal(t, http.StatusBadRequest, do(http.MethodGet, "/organizations/org1/subscriptions?page[size]=101", "", nil))
+	var page struct {
+		Count int                `json:"count"`
+		Items []*Subscription    `json:"items"`
+		Links map[string]HALLink `json:"_links"`
+	}
+	require.Equal(t, http.StatusOK, do(http.MethodGet, "/organizations/org1/subscriptions?page[size]=1", "", &page))
+	assert.Equal(t, 2, page.Count)
+	require.Len(t, page.Items, 1)
+	assert.Equal(t, "/organizations/org1/subscriptions", page.Links["self"].HREF)
+	next := page.Links["next"].HREF
+	require.NotEmpty(t, next)
+	assert.NotContains(t, next, page.Items[0].ID)
+	first := page.Items[0].ID
+	page.Links = nil
+	require.Equal(t, http.StatusOK, do(http.MethodGet, next, "", &page))
+	require.Len(t, page.Items, 1)
+	assert.NotEqual(t, first, page.Items[0].ID)
+	assert.NotContains(t, page.Links, "next")
+
 	// An organization that owns projects cannot be deleted.
-	assert.Equal(t, http.StatusConflict, do(http.MethodDelete, "/organizations/org1", "", nil))
+	assert.Equal(t, http.StatusBadRequest, do(http.MethodDelete, "/organizations/org1", "", nil))
 	assert.Equal(t, http.StatusNoContent, do(http.MethodDelete, "/organizations/org2", "", nil))
 	assert.Equal(t, []string{"org1"}, h.OrgIDs())
 }

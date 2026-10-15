@@ -119,3 +119,16 @@ func (h *Handler) handleProjectUserAccess(w http.ResponseWriter, req *http.Reque
 	)}
 	_ = json.NewEncoder(w).Encode(ret)
 }
+
+// handleClearBuildCache clears a project's build cache, which creates an activity.
+func (h *Handler) handleClearBuildCache(w http.ResponseWriter, req *http.Request) {
+	projectID := chi.URLParam(req, "project_id")
+	h.RLock()
+	_, ok := h.projects[projectID]
+	h.RUnlock()
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	h.respondWithActivity(w, &Activity{Type: "project.clear_build_cache", Project: projectID})
+}

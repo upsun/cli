@@ -23,20 +23,17 @@ func TestProjectClearBuildCache(t *testing.T) {
 		ID: projectID,
 		Links: mockapi.MakeHALLinks(
 			"self=/projects/"+projectID,
-			"#clear-build-cache=/projects/"+projectID+"/clear-build-cache",
+			"#clear-build-cache=/projects/"+projectID+"/clear_build_cache",
 		),
 	}})
-	var cleared atomic.Bool
-	apiHandler.Post("/projects/"+projectID+"/clear-build-cache", func(w http.ResponseWriter, _ *http.Request) {
-		cleared.Store(true)
-		_ = json.NewEncoder(w).Encode(map[string]any{"status": "OK", "code": http.StatusOK})
-	})
 	f := serveAPI(t, apiHandler)
 
 	_, stderr, err := f.RunCombinedOutput("project:clear-build-cache", "-p", projectID)
 	require.NoError(t, err, stderr)
 	assert.Contains(t, stderr, "The build cache has been cleared on the project: "+projectID)
-	assert.True(t, cleared.Load())
+	activities := apiHandler.ProjectActivities(projectID)
+	require.Len(t, activities, 1)
+	assert.Equal(t, "project.clear_build_cache", activities[0].Type)
 }
 
 // setUpProjectDelete serves a project, owned by another user, and its subscription.
@@ -73,11 +70,17 @@ func setUpProjectDelete(t *testing.T, deleteStatus int) (f *cmdFactory, projectI
 			})
 		})
 		apiHandler.Delete(path, func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(deleteStatus)
-			if deleteStatus == http.StatusOK {
+			if deleteStatus == http.StatusNoContent {
 				subscriptionDeleted.Store(true)
+				w.WriteHeader(deleteStatus)
+				return
 			}
-			_ = json.NewEncoder(w).Encode(map[string]any{})
+			w.WriteHeader(deleteStatus)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": deleteStatus,
+				"title":  http.StatusText(deleteStatus),
+				"detail": "you do not have permission to access this subscription or it does not exist",
+			})
 		})
 	}
 
@@ -89,7 +92,7 @@ func TestProjectDelete(t *testing.T) {
 
 	t.Run("not confirmed", func(t *testing.T) {
 		t.Parallel()
-		f, projectID, deleted := setUpProjectDelete(t, http.StatusOK)
+		f, projectID, deleted := setUpProjectDelete(t, http.StatusNoContent)
 
 		// The confirmation defaults to "no".
 		_, stderr, err := f.RunCombinedOutput("project:delete", projectID)
@@ -109,7 +112,7 @@ func TestProjectDelete(t *testing.T) {
 
 	t.Run("interactive", func(t *testing.T) {
 		t.Parallel()
-		f, projectID, deleted := setUpProjectDelete(t, http.StatusOK)
+		f, projectID, deleted := setUpProjectDelete(t, http.StatusNoContent)
 
 		_, stderr, err := f.RunInteractive("y\nMy Project\n", "project:delete", projectID)
 		require.NoError(t, err, stderr)
@@ -119,7 +122,7 @@ func TestProjectDelete(t *testing.T) {
 
 	t.Run("yes", func(t *testing.T) {
 		t.Parallel()
-		f, projectID, deleted := setUpProjectDelete(t, http.StatusOK)
+		f, projectID, deleted := setUpProjectDelete(t, http.StatusNoContent)
 
 		_, stderr, err := f.RunCombinedOutput("project:delete", "-p", projectID, "--yes")
 		require.NoError(t, err, stderr)

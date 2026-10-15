@@ -2,7 +2,9 @@ package mockapi
 
 import (
 	"cmp"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"slices"
@@ -11,10 +13,37 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// Subscription list page sizes, as in the API.
+const (
+	defaultSubscriptionPageSize = 50
+	maxSubscriptionPageSize     = 100
+)
+
 // handleListOrgSubscriptions lists the subscriptions of an organization's
-// projects, paginated with the "page[size]" and "page[after]" query parameters.
-// Subscriptions created through the mock are listed as stored.
+// projects. Like the API, it filters by status (excluding deleted subscriptions
+// by default), and paginates with "page[size]" and an opaque "page[after]"
+// cursor. Subscriptions created through the mock are listed as stored.
 func (h *Handler) handleListOrgSubscriptions(w http.ResponseWriter, req *http.Request) {
+	query := req.URL.Query()
+	size := defaultSubscriptionPageSize
+	if s := query.Get("page[size]"); s != "" {
+		n, err := strconv.Atoi(s)
+		if err != nil || n < 1 || n > maxSubscriptionPageSize {
+			writeProblem(w, http.StatusBadRequest, errors.New("page size must not be larger than 100"))
+			return
+		}
+		size = n
+	}
+	var after string
+	if c := query.Get("page[after]"); c != "" {
+		var ok bool
+		if after, ok = decodeCursor(c); !ok {
+			writeProblem(w, http.StatusBadRequest, errors.New("invalid cursor"))
+			return
+		}
+	}
+	statuses := statusFilter(query)
+
 	h.RLock()
 	defer h.RUnlock()
 	orgID := chi.URLParam(req, "organization_id")
@@ -24,34 +53,69 @@ func (h *Handler) handleListOrgSubscriptions(w http.ResponseWriter, req *http.Re
 		if p.Organization != orgID || p.SubscriptionID == "" {
 			continue
 		}
-		if sub, ok := h.subscriptions[p.SubscriptionID]; ok {
-			c := *sub
-			subs = append(subs, &c)
-			continue
-		}
-		subs = append(subs, &Subscription{
+		sub := &Subscription{
 			ID:            p.SubscriptionID,
 			Links:         MakeHALLinks("self=" + collectionPath + "/" + url.PathEscape(p.SubscriptionID)),
 			ProjectID:     p.ID,
 			ProjectRegion: p.Region,
 			ProjectTitle:  p.Title,
 			Status:        "active",
-		})
+		}
+		if stored, ok := h.subscriptions[p.SubscriptionID]; ok {
+			c := *stored
+			sub = &c
+		}
+		if (statuses == nil && sub.Status != "deleted") || slices.Contains(statuses, sub.Status) {
+			subs = append(subs, sub)
+		}
 	}
+	count := len(subs)
 	slices.SortFunc(subs, func(a, b *Subscription) int { return cmp.Compare(a.ID, b.ID) })
-
-	query := req.URL.Query()
-	if after := query.Get("page[after]"); after != "" {
+	if after != "" {
 		subs = slices.DeleteFunc(subs, func(s *Subscription) bool { return s.ID <= after })
 	}
-	links := MakeHALLinks("self=" + req.URL.String())
-	if size, err := strconv.Atoi(query.Get("page[size]")); err == nil && size > 0 && len(subs) > size {
+
+	links := MakeHALLinks("self=" + collectionPath)
+	if len(subs) > size {
 		subs = subs[:size]
-		query.Set("page[after]", subs[size-1].ID)
+		query.Set("page[after]", encodeCursor(subs[size-1].ID))
 		links["next"] = HALLink{HREF: collectionPath + "?" + query.Encode()}
 	}
-	_ = json.NewEncoder(w).Encode(map[string]any{"items": subs, "_links": links})
+	_ = json.NewEncoder(w).Encode(map[string]any{"count": count, "items": subs, "_links": links})
 }
+
+// statusFilter returns the statuses in a "filter[status]" query parameter, in
+// any of the forms the API accepts, or nil if there is no filter.
+func statusFilter(query url.Values) []string {
+	var statuses []string
+	for _, suffix := range []string{"", "[]", "[value]", "[value][]"} {
+		statuses = append(statuses, query["filter[status]"+suffix]...)
+	}
+	return statuses
+}
+
+// encodeCursor encodes a cursor for an ID, as an opaque string like the API's.
+func encodeCursor(id string) string {
+	b, _ := json.Marshal([]string{id})
+	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+func decodeCursor(cursor string) (id string, ok bool) {
+	b, err := base64.RawURLEncoding.DecodeString(cursor)
+	if err != nil {
+		return "", false
+	}
+	var values []string
+	if json.Unmarshal(b, &values) != nil || len(values) != 1 {
+		return "", false
+	}
+	return values[0], true
+}
+
+// errOrgOwnsProjects is the API's error (from the accounts service) when deleting an organization that owns projects.
+var errOrgOwnsProjects = errors.New( //nolint:staticcheck // The API's message.
+	"The organization owns projects so it cannot be deleted. " +
+		"Delete the projects first, or transfer them to another organization.")
 
 func (h *Handler) handleDeleteOrg(w http.ResponseWriter, req *http.Request) {
 	h.Lock()
@@ -64,7 +128,7 @@ func (h *Handler) handleDeleteOrg(w http.ResponseWriter, req *http.Request) {
 	// Like the API, refuse to delete an organization that owns projects.
 	for _, p := range h.projects {
 		if p.Organization == orgID {
-			w.WriteHeader(http.StatusConflict)
+			writeProblem(w, http.StatusBadRequest, errOrgOwnsProjects)
 			return
 		}
 	}

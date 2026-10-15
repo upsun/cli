@@ -144,6 +144,7 @@ func NewHandler(t *testing.T) *Handler {
 
 	h.Get("/projects/{project_id}", h.handleGetProject)
 	h.Patch("/projects/{project_id}", h.handlePatchProject)
+	h.Post("/projects/{project_id}/clear_build_cache", h.handleClearBuildCache)
 	h.Get("/projects/{project_id}/settings", h.handleGetProjectSettings)
 	h.Get("/projects/{project_id}/environments", h.handleListEnvironments)
 	h.Get("/projects/{project_id}/environments/{environment_id}", h.handleGetEnvironment)

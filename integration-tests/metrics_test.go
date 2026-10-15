@@ -182,9 +182,12 @@ func TestMetricsMemory(t *testing.T) {
 		defer mu.Unlock()
 		now = time.Now().UTC().Truncate(time.Minute)
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"_grain": 60,
-			"_from":  ts(10).Unix(),
-			"_to":    now.Unix(),
+			"_project_id":          projectID,
+			"_environment_id":      "main",
+			"_branch_machine_name": "main-xyz",
+			"_grain":               60,
+			"_from":                ts(10).Unix(),
+			"_to":                  now.Unix(),
 			"data": []map[string]any{
 				{"timestamp": ts(6).Unix(), "services": map[string]any{"app": mem(256*1024*1024, 1024*1024*1024)}},
 				{"timestamp": ts(5).Unix(), "services": map[string]any{"app": mem(512*1024*1024, 1024*1024*1024)}},
