@@ -4,6 +4,8 @@ import (
 	"cmp"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
+	"io"
 	"maps"
 	"net/http"
 	"slices"
@@ -11,7 +13,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/oklog/ulid/v2"
-	"github.com/stretchr/testify/require"
 )
 
 func (h *Handler) handleListEnvironments(w http.ResponseWriter, req *http.Request) {
@@ -227,10 +228,14 @@ func withSelfLinks(data map[string]any, path string, edit bool) map[string]any {
 func (h *Handler) handleCreateBackup(w http.ResponseWriter, req *http.Request) {
 	projectID := chi.URLParam(req, "project_id")
 	environmentID := chi.URLParam(req, "environment_id")
+	// Like the API, the body is optional, and backups are safe by default.
 	var options = struct {
 		Safe bool `json:"safe"`
-	}{}
-	require.NoError(h.t, json.NewDecoder(req.Body).Decode(&options))
+	}{Safe: true}
+	if err := json.NewDecoder(req.Body).Decode(&options); err != nil && !errors.Is(err, io.EOF) {
+		writeError(w, http.StatusBadRequest, "Invalid JSON", nil)
+		return
+	}
 	backup := &Backup{
 		ID:            ulid.MustNew(ulid.Now(), rand.Reader).String(),
 		EnvironmentID: environmentID,

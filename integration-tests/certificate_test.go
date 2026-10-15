@@ -46,13 +46,12 @@ func TestCertificateList(t *testing.T) {
 	expires, _ := time.Parse(time.RFC3339, "2027-01-01T00:00:00Z")
 	apiHandler.SetProjectCertificates(projectID, []*mockapi.Certificate{
 		{
-			ID:            "cert1",
-			Domains:       []string{"example.com", "www.example.com"},
-			Issuer:        "Custom CA",
-			IsProvisioned: false,
-			ExpiresAt:     expires,
-			CreatedAt:     created,
-			UpdatedAt:     created,
+			ID:        "cert1",
+			Domains:   []string{"example.com", "www.example.com"},
+			Issuer:    []mockapi.NameAttr{{OID: "2.5.4.3", Alias: "commonName", Value: "Custom CA"}},
+			ExpiresAt: expires,
+			CreatedAt: created,
+			UpdatedAt: created,
 			Links: mockapi.MakeHALLinks(
 				"self=/projects/" + projectID + "/certificates/cert1",
 			),
@@ -67,8 +66,9 @@ func TestCertificateList(t *testing.T) {
 	assert.Contains(t, output, "cert1")
 	assert.Contains(t, output, "example.com")
 
-	// Get a specific certificate property.
-	assertTrimmed(t, "Custom CA", f.Run("certificate:get", "-p", projectID, "cert1", "-P", "issuer"))
+	// The issuer's common name is shown.
+	assertTrimmed(t, "cert1,Custom CA",
+		f.Run("certificates", "-p", projectID, "--format", "csv", "--no-header", "--columns", "id,issuer"))
 }
 
 func TestCertificateListEmpty(t *testing.T) {
@@ -167,13 +167,18 @@ func TestCertificateAddDelete(t *testing.T) {
 
 	_, stderr, err = f.RunCombinedOutput("certificate:add", "-p", projectID, "--cert", certPath, "--key", keyPath)
 	require.NoError(t, err, stderr)
-	assert.Contains(t, stderr, "The activity succeeded")
 
-	ids := apiHandler.ProjectCertificateIDs(projectID)
-	require.Len(t, ids, 2)
-	newID := ids[1]
+	// The ID is the certificate's SHA-256 fingerprint.
+	certs := apiHandler.ProjectCertificates(projectID)
+	require.Len(t, certs, 2)
+	newID := certs[1].ID
+	assert.Len(t, newID, 64)
 	assertTrimmed(t, "- example.com\n- www.example.com",
 		f.Run("certificate:get", "-p", projectID, newID, "-P", "domains"))
+
+	_, stderr, err = f.RunCombinedOutput("certificate:add", "-p", projectID, "--cert", certPath, "--key", keyPath)
+	assert.Error(t, err)
+	assert.Contains(t, stderr, "409")
 
 	_, stderr, err = f.RunCombinedOutput("certificate:delete", "-p", projectID, "provisioned1")
 	assertExitCode(t, 1, err)
@@ -183,5 +188,7 @@ func TestCertificateAddDelete(t *testing.T) {
 	_, stderr, err = f.RunCombinedOutput("certificate:delete", "-p", projectID, newID[:8])
 	require.NoError(t, err, stderr)
 	assert.Contains(t, stderr, "The certificate "+newID+" has been deleted.")
-	assert.Equal(t, []string{"provisioned1"}, apiHandler.ProjectCertificateIDs(projectID))
+	certs = apiHandler.ProjectCertificates(projectID)
+	require.Len(t, certs, 1)
+	assert.Equal(t, "provisioned1", certs[0].ID)
 }

@@ -118,7 +118,6 @@ func TestIntegrationWrite(t *testing.T) {
 	require.Len(t, integrations, 1)
 	id := integrations[0].ID
 	assert.Contains(t, stderr, "Created integration "+id+" (type: webhook)")
-	assert.Contains(t, stderr, "The activity succeeded")
 	assert.Equal(t, "https://hooks.example.com/a", integrations[0].URL)
 	assert.Equal(t, []string{"environment.push", "environment.branch"}, integrations[0].Events)
 
@@ -136,10 +135,10 @@ func TestIntegrationWrite(t *testing.T) {
 	assertExitCode(t, 1, err)
 	assert.Contains(t, stderr, "An integration ID is required.")
 
-	// Validate.
+	// Like the API, the mock does not support validating webhooks.
 	_, stderr, err = f.RunCombinedOutput("integration:validate", "-p", projectID, id)
-	require.NoError(t, err, stderr)
-	assert.Contains(t, stderr, "The integration is valid.")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "This integration does not support validation.")
 
 	// Delete, by a partial ID.
 	_, stderr, err = f.RunCombinedOutput("integration:delete", "-p", projectID, id[:5])
@@ -180,6 +179,11 @@ func TestIntegrationValidateErrors(t *testing.T) {
 			Links: mockapi.MakeHALLinks("self="+path+"invalid", "#validate="+path+"invalid/check"),
 		},
 		{
+			ID:    "valid",
+			Type:  "gitlab",
+			Links: mockapi.MakeHALLinks("self="+path+"valid", "#validate="+path+"valid/validate"),
+		},
+		{
 			ID:    "unsupported",
 			Type:  "health.email",
 			Links: mockapi.MakeHALLinks("self=" + path + "unsupported"),
@@ -191,6 +195,10 @@ func TestIntegrationValidateErrors(t *testing.T) {
 	})
 
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+
+	_, stderr, err := f.RunCombinedOutput("integration:validate", "-p", projectID, "valid")
+	require.NoError(t, err, stderr)
+	assert.Contains(t, stderr, "The integration is valid.")
 
 	stdout, stderr, err := f.RunCombinedOutput("integration:validate", "-p", projectID, "invalid")
 	assertExitCode(t, 4, err)

@@ -2,21 +2,29 @@ package mockapi
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"maps"
 	"net/http"
 	"net/url"
 	"slices"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
 
-// backupWithLinks returns a copy of a backup with links to view, restore and delete it, unless it has links.
+// backupWithLinks returns a copy of a backup with links to view, restore and
+// delete it, unless it has links. Like the API, only created backups can be restored or deleted.
 func backupWithLinks(projectID string, b *Backup) *Backup {
 	c := *b
 	if c.Links == nil {
 		path := "/projects/" + url.PathEscape(projectID) + "/environments/" + url.PathEscape(b.EnvironmentID) +
 			"/backups/" + url.PathEscape(b.ID)
-		c.Links = MakeHALLinks("self="+path, "#restore="+path+"/restore", "#delete="+path)
+		c.Links = MakeHALLinks("self=" + path)
+		if b.Status == "CREATED" {
+			c.Links["#restore"] = HALLink{HREF: path + "/restore"}
+			c.Links["#delete"] = HALLink{HREF: path}
+		}
 	} else {
 		c.Links = maps.Clone(b.Links)
 	}
@@ -37,32 +45,47 @@ func (h *Handler) handleGetBackup(w http.ResponseWriter, req *http.Request) {
 	defer h.RUnlock()
 	b := h.findBackup(req)
 	if b == nil {
-		w.WriteHeader(http.StatusNotFound)
+		writeError(w, http.StatusNotFound, "Not found", nil)
 		return
 	}
 	_ = json.NewEncoder(w).Encode(backupWithLinks(chi.URLParam(req, "project_id"), b))
 }
 
+// handleDeleteBackup schedules the deletion of a backup: like the API, it is
+// marked as being deleted, and remains until the activity runs (not modeled).
 func (h *Handler) handleDeleteBackup(w http.ResponseWriter, req *http.Request) {
 	projectID := chi.URLParam(req, "project_id")
 	h.Lock()
 	b := h.findBackup(req)
 	if b != nil {
-		delete(h.projectBackups[projectID], b.ID)
+		c := *b
+		c.Status = "DELETING"
+		c.UpdatedAt = time.Now()
+		h.projectBackups[projectID][b.ID] = &c
 	}
 	h.Unlock()
 	if b == nil {
-		w.WriteHeader(http.StatusNotFound)
+		writeError(w, http.StatusNotFound, "Not found", nil)
 		return
 	}
-	h.RespondWithActivity(w, projectID, b.EnvironmentID, "environment.backup.delete")
+	h.respond(w, "deleted", http.StatusOK, nil, &Activity{
+		Type: "environment.backup.delete", Project: projectID, Environments: []string{b.EnvironmentID},
+	})
 }
 
+// handleRestoreBackup records a request to restore a backup. The activity
+// belongs to the target environment, which is not created if it does not exist.
 func (h *Handler) handleRestoreBackup(w http.ResponseWriter, req *http.Request) {
 	projectID := chi.URLParam(req, "project_id")
-	var body map[string]any
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+	// An empty body uses the defaults.
+	body := map[string]any{}
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+		writeError(w, http.StatusBadRequest, "Invalid JSON", nil)
+		return
+	}
+	if branchFrom, ok := body["branch_from"].(string); ok && h.findEnvironment(projectID, branchFrom) == nil {
+		writeError(w, http.StatusBadRequest, "Invalid restore options",
+			map[string]any{"branch_from": "Environment not found: " + branchFrom})
 		return
 	}
 	h.Lock()
@@ -75,10 +98,14 @@ func (h *Handler) handleRestoreBackup(w http.ResponseWriter, req *http.Request) 
 	}
 	h.Unlock()
 	if b == nil {
-		w.WriteHeader(http.StatusNotFound)
+		writeError(w, http.StatusNotFound, "Not found", nil)
 		return
 	}
-	h.RespondWithActivity(w, projectID, b.EnvironmentID, "environment.restore")
+	target := b.EnvironmentID
+	if name, ok := body["environment_name"].(string); ok && name != "" {
+		target = name
+	}
+	h.RespondWithActivity(w, projectID, target, "environment.restore")
 }
 
 // BackupRestores returns the bodies of requests to restore a project's backups.
@@ -88,9 +115,14 @@ func (s *store) BackupRestores(projectID string) []map[string]any {
 	return slices.Clone(s.backupRestores[projectID])
 }
 
-// ProjectBackupIDs returns the IDs of a project's backups.
-func (s *store) ProjectBackupIDs(projectID string) []string {
+// ProjectBackups returns copies of a project's backups, sorted by ID.
+func (s *store) ProjectBackups(projectID string) []*Backup {
 	s.RLock()
 	defer s.RUnlock()
-	return slices.Sorted(maps.Keys(s.projectBackups[projectID]))
+	backups := make([]*Backup, 0, len(s.projectBackups[projectID]))
+	for _, id := range slices.Sorted(maps.Keys(s.projectBackups[projectID])) {
+		c := *s.projectBackups[projectID][id]
+		backups = append(backups, &c)
+	}
+	return backups
 }

@@ -190,14 +190,25 @@ func TestBackupDelete(t *testing.T) {
 	_, stderr, err = f.RunCombinedOutput("backup:delete", "-p", projectID, "-e", "main", "123")
 	require.NoError(t, err, stderr)
 	assert.Contains(t, stderr, "The backup 123 (2014-04-01T10:00:00+00:00) has been deleted.")
-	assert.Equal(t, []string{"456", "789"}, apiHandler.ProjectBackupIDs(projectID))
+	// The backup is deleted by the activity, which is not modeled.
+	wantStatuses := map[string]string{"123": "DELETING", "456": "CREATED", "789": "CREATED"}
+	assert.Equal(t, wantStatuses, backupStatuses(apiHandler, projectID))
 	assert.Equal(t, "environment.backup.delete", apiHandler.ProjectActivities(projectID)[0].Type)
 
 	// Choose a backup interactively, then decline the confirmation.
 	_, stderr, err = f.RunInteractive("0\nn\n", "backup:delete", "-p", projectID, "-e", "main")
 	assertExitCode(t, 1, err)
 	assert.Contains(t, stderr, "Are you sure you want to delete the backup 456")
-	assert.Equal(t, []string{"456", "789"}, apiHandler.ProjectBackupIDs(projectID))
+	assert.Equal(t, wantStatuses, backupStatuses(apiHandler, projectID))
+}
+
+// backupStatuses returns the statuses of a project's backups, keyed by ID.
+func backupStatuses(apiHandler *mockapi.Handler, projectID string) map[string]string {
+	statuses := make(map[string]string)
+	for _, b := range apiHandler.ProjectBackups(projectID) {
+		statuses[b.ID] = b.Status
+	}
+	return statuses
 }
 
 func TestBackupRestore(t *testing.T) {

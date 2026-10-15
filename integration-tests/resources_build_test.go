@@ -30,7 +30,7 @@ func setUpBuildResources(t *testing.T) (apiHandler *mockapi.Handler, f *cmdFacto
 	apiHandler.SetEnvironments([]*mockapi.Environment{makeEnv(projectID, "main", "production", "active", nil)})
 	apiHandler.Get("/projects/"+projectID+"/capabilities", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"build_resources": map[string]any{"max_cpu": 4, "max_memory": 8192},
+			"build_resources": map[string]any{"enabled": true, "max_cpu": 4, "max_memory": 8192},
 		})
 	})
 	return apiHandler, serveAPI(t, apiHandler), projectID

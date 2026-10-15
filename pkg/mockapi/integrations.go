@@ -40,7 +40,7 @@ func (h *Handler) handleCreateProjectIntegration(w http.ResponseWriter, req *htt
 	projectID := chi.URLParam(req, "project_id")
 	var i Integration
 	if err := json.NewDecoder(req.Body).Decode(&i); err != nil || i.Type == "" {
-		w.WriteHeader(http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "Invalid integration", map[string]any{"type": "Required"})
 		return
 	}
 	now := time.Now()
@@ -48,7 +48,10 @@ func (h *Handler) handleCreateProjectIntegration(w http.ResponseWriter, req *htt
 	i.CreatedAt = now
 	i.UpdatedAt = now
 	path := "/projects/" + url.PathEscape(projectID) + "/integrations/" + i.ID
-	i.Links = MakeHALLinks("self="+path, "#edit="+path, "#delete="+path, "#validate="+path+"/validate")
+	i.Links = MakeHALLinks("self="+path, "#edit="+path, "#delete="+path)
+	if slices.Contains(validatableIntegrationTypes, i.Type) {
+		i.Links["#validate"] = HALLink{HREF: path + "/validate"}
+	}
 	h.Lock()
 	if h.projectIntegrations == nil {
 		h.projectIntegrations = make(map[string][]*Integration)
@@ -56,8 +59,8 @@ func (h *Handler) handleCreateProjectIntegration(w http.ResponseWriter, req *htt
 	h.projectIntegrations[projectID] = append(h.projectIntegrations[projectID], &i)
 	entity := copyIntegration(&i)
 	h.Unlock()
-	w.WriteHeader(http.StatusCreated)
-	h.respondWithEntity(w, entity, &Activity{Type: "integration.create", Project: projectID})
+	// Only code source integrations create activities (to fetch code), which are not modeled.
+	h.respond(w, "created", http.StatusCreated, entity, nil)
 }
 
 func (h *Handler) handlePatchProjectIntegration(w http.ResponseWriter, req *http.Request) {
@@ -67,29 +70,29 @@ func (h *Handler) handlePatchProjectIntegration(w http.ResponseWriter, req *http
 	idx := slices.IndexFunc(integrations, func(i *Integration) bool { return i.ID == chi.URLParam(req, "integration_id") })
 	if idx == -1 {
 		h.Unlock()
-		w.WriteHeader(http.StatusNotFound)
+		writeError(w, http.StatusNotFound, "Not found", nil)
 		return
 	}
 	patched := copyIntegration(integrations[idx])
 	if err := json.NewDecoder(req.Body).Decode(patched); err != nil {
 		h.Unlock()
-		w.WriteHeader(http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "Invalid JSON", nil)
 		return
 	}
 	patched.UpdatedAt = time.Now()
 	integrations[idx] = patched
 	entity := copyIntegration(patched)
 	h.Unlock()
-	h.respondWithEntity(w, entity, &Activity{Type: "integration.update", Project: projectID})
+	h.respond(w, "OK", http.StatusOK, entity, nil)
 }
 
 func (h *Handler) handleDeleteProjectIntegration(w http.ResponseWriter, req *http.Request) {
 	projectID := chi.URLParam(req, "project_id")
 	if !h.deleteProjectIntegration(projectID, chi.URLParam(req, "integration_id")) {
-		w.WriteHeader(http.StatusNotFound)
+		writeError(w, http.StatusNotFound, "Not found", nil)
 		return
 	}
-	h.respondWithActivity(w, &Activity{Type: "integration.delete", Project: projectID})
+	h.respond(w, "deleted", http.StatusOK, nil, nil)
 }
 
 // deleteProjectIntegration deletes an integration, and reports whether it existed.
@@ -105,18 +108,24 @@ func (h *Handler) deleteProjectIntegration(projectID, integrationID string) bool
 	return true
 }
 
+// validatableIntegrationTypes are the integration types with a "#validate" action in the API.
+var validatableIntegrationTypes = []string{
+	"bitbucket", "bitbucket_server", "cis", "fastly", "github", "gitlab", "health.slack",
+	"httplog", "newrelic", "otlp", "splunk", "sumologic", "syslog",
+}
+
 // handleValidateProjectIntegration reports that an integration is valid.
 func (h *Handler) handleValidateProjectIntegration(w http.ResponseWriter, req *http.Request) {
 	h.RLock()
-	defer h.RUnlock()
-	projectID := chi.URLParam(req, "project_id")
-	if !slices.ContainsFunc(h.projectIntegrations[projectID], func(i *Integration) bool {
-		return i.ID == chi.URLParam(req, "integration_id")
-	}) {
-		w.WriteHeader(http.StatusNotFound)
+	i := slices.IndexFunc(h.projectIntegrations[chi.URLParam(req, "project_id")], func(i *Integration) bool {
+		return i.ID == chi.URLParam(req, "integration_id") && slices.Contains(validatableIntegrationTypes, i.Type)
+	})
+	h.RUnlock()
+	if i == -1 {
+		writeError(w, http.StatusNotFound, "Not found", nil)
 		return
 	}
-	_ = json.NewEncoder(w).Encode(map[string]any{})
+	h.respond(w, "OK", http.StatusOK, nil, nil)
 }
 
 func copyIntegration(i *Integration) *Integration {

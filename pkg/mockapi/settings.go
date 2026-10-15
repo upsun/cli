@@ -9,13 +9,18 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// mergePatch returns a copy of data with a patch applied, merging nested objects.
+// mergePatch returns a copy of data with a JSON merge patch (RFC 7386) applied:
+// nested objects are merged, and null values delete keys.
 func mergePatch(data, patch map[string]any) map[string]any {
 	result := maps.Clone(data)
 	if result == nil {
 		result = make(map[string]any, len(patch))
 	}
 	for k, v := range patch {
+		if v == nil {
+			delete(result, k)
+			continue
+		}
 		current, isMap := result[k].(map[string]any)
 		update, updateIsMap := v.(map[string]any)
 		if isMap && updateIsMap {
@@ -36,10 +41,10 @@ func (h *Handler) handlePatchProjectSettings(w http.ResponseWriter, req *http.Re
 		return
 	}
 	h.Lock()
-	defer h.Unlock()
 	p, ok := h.projects[projectID]
 	if !ok || p.Settings == nil {
-		w.WriteHeader(http.StatusNotFound)
+		h.Unlock()
+		writeError(w, http.StatusNotFound, "Not found", nil)
 		return
 	}
 	settings := mergePatch(p.Settings, body)
@@ -50,7 +55,9 @@ func (h *Handler) handlePatchProjectSettings(w http.ResponseWriter, req *http.Re
 		h.projectSettingsPatches = make(map[string][]map[string]any)
 	}
 	h.projectSettingsPatches[projectID] = append(h.projectSettingsPatches[projectID], body)
-	_ = json.NewEncoder(w).Encode(embedded("entity", withSelfLinks(settings, req.URL.Path, true)))
+	entity := withSelfLinks(settings, req.URL.Path, true)
+	h.Unlock()
+	h.respond(w, "OK", http.StatusOK, entity, nil)
 }
 
 // ProjectSettingsPatches returns the bodies of PATCH requests to a project's settings.
@@ -79,8 +86,10 @@ func (h *Handler) handlePatchAutoscalingSettings(w http.ResponseWriter, req *htt
 	key := env.Project + "/" + env.ID
 	h.autoscalingPatches[key] = append(h.autoscalingPatches[key], body)
 	env.autoscalingSettings = mergePatch(env.autoscalingSettings, body)
+	settings := withSelfLinks(env.autoscalingSettings, req.URL.Path, false)
 	h.Unlock()
-	h.RespondWithActivity(w, env.Project, env.ID, "environment.autoscaling.update")
+	// Like the API, the response is the updated settings.
+	_ = json.NewEncoder(w).Encode(settings)
 }
 
 // AutoscalingPatches returns the bodies of PATCH requests to an environment's autoscaling settings.

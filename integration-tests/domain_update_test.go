@@ -158,20 +158,20 @@ func TestDomainUpdate(t *testing.T) {
 	assert.Contains(t, stderr, "Updating the domain example.com")
 	assert.Contains(t, stderr, "The activity succeeded")
 
+	// Like the API, the mock adds the certificate to the project.
 	cert, err := os.ReadFile(certPath)
 	require.NoError(t, err)
-	key, err := os.ReadFile(keyPath)
-	require.NoError(t, err)
-	domains := apiHandler.Domains(projectID, "")
-	require.Len(t, domains, 1)
-	assert.Equal(t, strings.TrimSpace(string(cert)), domains[0].SSL.Certificate)
-	assert.Equal(t, strings.TrimSpace(string(key)), domains[0].SSL.Key)
-	assert.Empty(t, domains[0].SSL.Chain)
-	assert.True(t, domains[0].SSL.HasCertificate)
+	certs := apiHandler.ProjectCertificates(projectID)
+	require.Len(t, certs, 1)
+	assert.Equal(t, strings.TrimSpace(string(cert)), certs[0].Certificate)
+	assert.Equal(t, []string{"example.com"}, certs[0].Domains)
+	assertTrimmed(t, "true", f.Run("domain:get", "-p", projectID, "example.com", "-P", "ssl.has_certificate"))
 
-	// The same certificate again.
+	// The same certificate again: the API does not return the private key, so
+	// the CLI cannot tell that nothing changed, and the API ignores the existing certificate.
 	_, stderr, err = f.RunCombinedOutput("domain:update", "-p", projectID, "example.com",
 		"--cert", certPath, "--key", keyPath)
 	require.NoError(t, err, stderr)
-	assert.Contains(t, stderr, "There is nothing to update.")
+	assert.Contains(t, stderr, "Updating the domain example.com")
+	assert.Len(t, apiHandler.ProjectCertificates(projectID), 1)
 }

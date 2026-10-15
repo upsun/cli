@@ -80,6 +80,7 @@ func TestDomainAddNonProduction(t *testing.T) {
 		domains := apiHandler.Domains(projectID, "staging")
 		require.Len(t, domains, 1)
 		assert.Equal(t, "staging.example.com", domains[0].Name)
+		assert.Equal(t, "replacement", domains[0].Type)
 		assert.Equal(t, "example.com", domains[0].ReplacementFor)
 	})
 

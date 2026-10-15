@@ -43,7 +43,6 @@ func TestDomainList(t *testing.T) {
 			Name:      "example.com",
 			Type:      "production",
 			IsDefault: true,
-			SSL:       &mockapi.DomainSSL{HasCertificate: true},
 			CreatedAt: created,
 			UpdatedAt: created,
 			Links: mockapi.MakeHALLinks(
@@ -56,7 +55,6 @@ func TestDomainList(t *testing.T) {
 			Name:      "www.example.com",
 			Type:      "production",
 			IsDefault: false,
-			SSL:       &mockapi.DomainSSL{HasCertificate: true},
 			CreatedAt: created,
 			UpdatedAt: created,
 			Links: mockapi.MakeHALLinks(
@@ -142,7 +140,7 @@ func setUpDomains(
 	})
 	domains := make([]*mockapi.Domain, 0, len(productionDomains))
 	for _, name := range productionDomains {
-		domains = append(domains, &mockapi.Domain{ID: name, Name: name, Type: "production", SSL: &mockapi.DomainSSL{}})
+		domains = append(domains, &mockapi.Domain{ID: name, Name: name, Type: "production"})
 	}
 	apiHandler.SetProjectDomains(projectID, domains)
 
@@ -168,9 +166,13 @@ func domainNames(apiHandler *mockapi.Handler, projectID, environmentID string) [
 func TestDomainDelete(t *testing.T) {
 	t.Parallel()
 	apiHandler, f, projectID := setUpDomains(t, "example.com", "www.example.com")
-	apiHandler.SetEnvironmentDomains(projectID, "staging", []*mockapi.Domain{{
-		ID: "staging.example.com", Name: "staging.example.com", Type: "staging", ReplacementFor: "example.com",
-	}})
+	apiHandler.SetEnvironmentDomains(projectID, "staging", []*mockapi.Domain{
+		{ID: "staging.example.com", Name: "staging.example.com", Type: "replacement", ReplacementFor: "example.com"},
+		{
+			ID: "www.staging.example.com", Name: "www.staging.example.com",
+			Type: "replacement", ReplacementFor: "www.example.com",
+		},
+	})
 
 	_, stderr, err := f.RunCombinedOutput("domain:delete", "-p", projectID, "missing.example.com")
 	assertExitCode(t, 1, err)
@@ -182,16 +184,18 @@ func TestDomainDelete(t *testing.T) {
 	assert.Contains(t, stderr, "If this domain has non-production domains attached to it, they will also be deleted.")
 	assert.Equal(t, []string{"example.com", "www.example.com"}, domainNames(apiHandler, projectID, ""))
 
-	_, stderr, err = f.RunCombinedOutput("domain:delete", "-p", projectID, "www.example.com")
-	require.NoError(t, err, stderr)
-	assert.Contains(t, stderr, "The domain www.example.com has been deleted.")
-	assert.Contains(t, stderr, "The activity succeeded")
-	assert.Equal(t, []string{"example.com"}, domainNames(apiHandler, projectID, ""))
-
 	_, stderr, err = f.RunCombinedOutput("domain:delete", "-p", projectID, "-e", "staging", "staging.example.com")
 	require.NoError(t, err, stderr)
 	assert.NotContains(t, stderr, "non-production domains attached")
 	assert.Contains(t, stderr, "The domain staging.example.com has been deleted.")
-	assert.Empty(t, domainNames(apiHandler, projectID, "staging"))
+	assert.Contains(t, stderr, "The activity succeeded")
+	assert.Equal(t, []string{"www.staging.example.com"}, domainNames(apiHandler, projectID, "staging"))
+	assert.Equal(t, []string{"example.com", "www.example.com"}, domainNames(apiHandler, projectID, ""))
+
+	// Deleting a production domain also deletes the domains attached to it.
+	_, stderr, err = f.RunCombinedOutput("domain:delete", "-p", projectID, "www.example.com")
+	require.NoError(t, err, stderr)
+	assert.Contains(t, stderr, "The domain www.example.com has been deleted.")
 	assert.Equal(t, []string{"example.com"}, domainNames(apiHandler, projectID, ""))
+	assert.Empty(t, domainNames(apiHandler, projectID, "staging"))
 }
