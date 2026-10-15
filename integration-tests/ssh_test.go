@@ -1,13 +1,16 @@
 package tests
 
 import (
+	"fmt"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/upsun/cli/pkg/mockapi"
 	"github.com/upsun/cli/pkg/mockssh"
@@ -81,4 +84,70 @@ func TestSSH(t *testing.T) {
 	var exitErr *exec.ExitError
 	assert.ErrorAs(t, err, &exitErr)
 	assert.Equal(t, 2, exitErr.ExitCode())
+}
+
+func TestSSHAppSelection(t *testing.T) {
+	t.Parallel()
+	p := setUpProject(t, sshEnv(&mockapi.Deployment{
+		WebApps: map[string]mockapi.App{
+			"app":   {Name: "app", Type: "golang:1.23", Size: "M", Mounts: map[string]mockapi.Mount{}},
+			"admin": {Name: "admin", Type: "php:8.4", Size: "M", Mounts: map[string]mockapi.Mount{}},
+		},
+		Workers: map[string]mockapi.Worker{
+			"app--queue": {App: mockapi.App{
+				Name: "app--queue", Type: "golang:1.23", Size: "S", Mounts: map[string]mockapi.Mount{},
+			}},
+		},
+	}))
+	// The server prints the SSH user, which identifies the container.
+	p.serveSSH(t, func(conn ssh.ConnMetadata, command string, io mockssh.CommandIO) int {
+		_, _ = fmt.Fprintf(io.StdOut, "%s: %s\n", conn.User(), command)
+		return 0
+	})
+	f := p.f
+	sshUser := layoutProjectID + "-main--"
+	sshURL := func(name string) string { return sshUser + name + "@ssh.cli-tests.example.com" }
+
+	assert.Equal(t, sshURL("admin"), f.Run("ssh", "-p", layoutProjectID, "-e", "main", "--app", "admin", "--pipe"))
+	assert.Equal(t, sshURL("app--queue"),
+		f.Run("ssh", "-p", layoutProjectID, "-e", "main", "--worker", "app--queue", "--pipe"))
+	assert.Equal(t, sshURL("app--queue"),
+		f.Run("ssh", "-p", layoutProjectID, "-e", "main", "--app", "app", "--worker", "queue", "--pipe"))
+
+	all := strings.Split(strings.TrimSpace(f.Run("ssh", "-p", layoutProjectID, "-e", "main", "--all")), "\n")
+	assert.ElementsMatch(t, []string{sshURL("app"), sshURL("admin"), sshURL("app--queue")}, all)
+
+	assert.Equal(t, sshUser+"admin: echo hi\n",
+		f.Run("ssh", "-p", layoutProjectID, "-e", "main", "-A", "admin", "echo hi"))
+	assert.Equal(t, sshUser+"app--queue: ls -a\n",
+		f.Run("ssh", "-p", layoutProjectID, "-e", "main", "--worker", "app--queue", "--", "ls", "-a"))
+
+	_, stdErr, err := f.RunCombinedOutput("ssh", "-p", layoutProjectID, "-e", "main", "--app", "missing", "--pipe")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, `App not found: missing`)
+
+	_, stdErr, err = f.RunCombinedOutput("ssh", "-p", layoutProjectID, "-e", "main", "--pipe")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, "Specifying the --app or --worker is required in non-interactive mode")
+}
+
+func TestSSHInactiveEnvironment(t *testing.T) {
+	t.Parallel()
+	// Paused and inactive environments have no current deployment.
+	statuses := []string{"paused", "inactive"}
+	envs := make([]*mockapi.Environment, 0, len(statuses))
+	for _, status := range statuses {
+		env := makeEnv(layoutProjectID, status, "development", status, "main")
+		env.Links["pf:ssh:app"] = mockapi.HALLink{HREF: "ssh://" + status + "--app@ssh.cli-tests.example.com"}
+		envs = append(envs, env)
+	}
+	f := setUpProject(t, envs...).f
+
+	for _, status := range statuses {
+		for _, opt := range []string{"--pipe", "--all"} {
+			_, stdErr, err := f.RunCombinedOutput("ssh", "-p", layoutProjectID, "-e", status, opt)
+			assertExitCode(t, 1, err)
+			assert.Contains(t, stdErr, "is "+status+", so an SSH connection is not possible", opt)
+		}
+	}
 }

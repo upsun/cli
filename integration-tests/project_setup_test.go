@@ -1,13 +1,16 @@
 package tests
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -87,16 +90,69 @@ func setUpGitProject(t *testing.T, envs ...*mockapi.Environment) *gitProject {
 	// Override any global hooks path.
 	runGit(t, p.repo, "config", "core.hooksPath", filepath.Join(p.repo, "hooks"))
 
+	p.serveSSH(t, mockssh.ExecHandler(reposDir, nil))
+
+	return p
+}
+
+// serveSSH starts a mock SSH server, to which the CLI connects for all SSH URLs.
+func (p *testProject) serveSSH(t *testing.T, handler mockssh.CommandHandler) *mockssh.Server {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("the mock SSH server runs commands with bash")
+	}
 	sshServer, err := mockssh.NewServer(t, p.authURL+"/ssh/authority")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sshServer.Stop() })
-	sshServer.CommandHandler = mockssh.ExecHandler(reposDir, nil)
+	sshServer.CommandHandler = handler
 	p.f.extraEnv = append(p.f.extraEnv,
 		EnvPrefix+"SSH_OPTIONS=HostName 127.0.0.1\nPort "+strconv.Itoa(sshServer.Port()),
 		EnvPrefix+"SSH_HOST_KEYS="+sshServer.HostKeyConfig(),
 	)
+	return sshServer
+}
 
-	return p
+// remoteEnv returns the environment for commands run by the mock SSH server, with
+// fake executables (shell scripts, by name) ahead of the system PATH, and relationships.
+func remoteEnv(t *testing.T, scripts map[string]string, relationships map[string]any) []string {
+	t.Helper()
+	binDir := t.TempDir()
+	for name, script := range scripts {
+		require.NoError(t, os.WriteFile(filepath.Join(binDir, name), []byte("#!/bin/bash\n"+script), 0o755))
+	}
+	env := append(os.Environ(), "PATH="+binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	if relationships != nil {
+		data, err := json.Marshal(relationships)
+		require.NoError(t, err)
+		env = append(env, "PLATFORM_RELATIONSHIPS="+base64.StdEncoding.EncodeToString(data))
+	}
+	return env
+}
+
+// sshEnv returns an active "main" environment with a deployment, and an SSH URL for each app and worker.
+func sshEnv(d *mockapi.Deployment) *mockapi.Environment {
+	env := makeEnv(layoutProjectID, "main", "production", "active", nil)
+	if d.Services == nil {
+		d.Services = map[string]mockapi.App{}
+	}
+	if d.Workers == nil {
+		d.Workers = map[string]mockapi.Worker{}
+	}
+	if d.Routes == nil {
+		d.Routes = map[string]any{}
+	}
+	d.Links = mockapi.MakeHALLinks("self=/projects/" + layoutProjectID + "/environments/main/deployment/current")
+	env.SetCurrentDeployment(d)
+	names := slices.Collect(maps.Keys(d.WebApps))
+	for name := range d.Workers {
+		names = append(names, name)
+	}
+	for _, name := range names {
+		env.Links["pf:ssh:"+name] = mockapi.HALLink{
+			HREF: "ssh://" + layoutProjectID + "-main--" + name + "@ssh.cli-tests.example.com",
+		}
+	}
+	return env
 }
 
 // setHook writes a hook script in the served repository.
