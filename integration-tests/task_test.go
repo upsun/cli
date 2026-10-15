@@ -62,9 +62,7 @@ func TestTaskRun(t *testing.T) {
 	for _, name := range []string{"migrate", "cache-clear"} {
 		apiHandler.Post(envPath+"/tasks/"+name+"/run", func(w http.ResponseWriter, _ *http.Request) {
 			ranTask.Store(name)
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"_embedded": map[string]any{"activities": []any{}},
-			})
+			apiHandler.RespondWithActivity(w, projectID, "main", "environment.task")
 		})
 	}
 
@@ -87,6 +85,22 @@ func TestTaskRun(t *testing.T) {
 		assert.Contains(t, stderr, "The task has been triggered.")
 		assert.Equal(t, "migrate", ranTask.Load())
 	})
+
+	for _, result := range []string{mockapi.ActivityResultSuccess, mockapi.ActivityResultFailure} {
+		t.Run("run_wait_"+result, func(t *testing.T) {
+			apiHandler.SetActivityResult(result)
+			stdout, stderr, err := f.RunCombinedOutput("task:run", "migrate", "-p", projectID, "-e", "main", "--yes", "--wait")
+			if result == mockapi.ActivityResultSuccess {
+				require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
+				assert.Contains(t, stderr, "The activity succeeded")
+			} else {
+				require.Error(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
+				assert.Contains(t, stderr, "The activity failed")
+			}
+			assert.Contains(t, stderr, "Mock log for environment.task")
+		})
+	}
+	apiHandler.SetActivityResult(mockapi.ActivityResultSuccess)
 
 	// With no task argument, the tasks are offered as a numbered list. They are
 	// sorted by name and numbered from 0, so choice 1 is "migrate".

@@ -157,6 +157,8 @@ Tests use github.com/stretchr/testify for assertions. Table-driven tests are pre
 
 Integration tests (`integration-tests/`) call `t.Parallel()`, so they must not share state: no `t.Setenv` or unsynchronized package variables, and use `cmdFactory.useConfig` to change the CLI config file. Write output with `t.Log` (e.g. `mockapi.RequestLogger`), not to stdout or stderr: it is then attributed to its test, and shown only on failure or with `-v`.
 
+The mock API (`pkg/mockapi`) creates an activity for each environment action (deploy, redeploy, backup, etc.). It is in progress until it is next read, and then completes with the result set by `SetActivityResult` (success by default). Custom handlers can create one with `RespondWithActivity`, and tests can inspect them with `ProjectActivities`.
+
 ### Configuration
 
 The CLI uses Viper for configuration. Environment variables use the prefix defined in the config (UPSUN_CLI_ or PLATFORM_CLI_). The prefix is set in the config YAML.

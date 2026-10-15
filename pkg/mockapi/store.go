@@ -17,6 +17,7 @@ type store struct {
 	canCreate map[string]*CanCreateResponse
 
 	activities        map[string]map[string]*Activity
+	activityResult    string
 	projectBackups    map[string]map[string]*Backup
 	projectVariables  map[string][]*Variable
 	envLevelVariables map[string]map[string][]*EnvLevelVariable

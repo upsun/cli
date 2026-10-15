@@ -148,11 +148,12 @@ func NewHandler(t *testing.T) *Handler {
 	h.Patch("/projects/{project_id}/environments/{environment_id}", h.handlePatchEnvironment)
 	h.Get("/projects/{project_id}/environments/{environment_id}/settings", h.handleGetEnvironmentSettings)
 	h.Patch("/projects/{project_id}/environments/{environment_id}/settings", h.handleSetEnvironmentSettings)
-	h.Post("/projects/{project_id}/environments/{environment_id}/deploy", h.handleEnvironmentAction)
-	h.Post("/projects/{project_id}/environments/{environment_id}/activate", h.handleEnvironmentAction)
-	h.Post("/projects/{project_id}/environments/{environment_id}/pause", h.handleEnvironmentAction)
-	h.Post("/projects/{project_id}/environments/{environment_id}/resume", h.handleEnvironmentAction)
-	h.Post("/projects/{project_id}/environments/{environment_id}/redeploy", h.handleEnvironmentAction)
+	for _, action := range []string{"deploy", "activate", "pause", "resume", "redeploy"} {
+		h.Post(
+			"/projects/{project_id}/environments/{environment_id}/"+action,
+			h.handleEnvironmentAction("environment."+action),
+		)
+	}
 	h.Get("/projects/{project_id}/environments/{environment_id}/backups", h.handleListBackups)
 	h.Post("/projects/{project_id}/environments/{environment_id}/backups", h.handleCreateBackup)
 	h.Get("/projects/{project_id}/environments/{environment_id}/deployments/current", h.handleGetCurrentDeployment)
@@ -172,6 +173,8 @@ func NewHandler(t *testing.T) *Handler {
 
 	h.Get("/projects/{project_id}/activities", h.handleListProjectActivities)
 	h.Get("/projects/{project_id}/activities/{id}", h.handleGetProjectActivity)
+	h.Get("/projects/{project_id}/activities/{id}/log", h.handleGetProjectActivityLog)
+	h.Post("/projects/{project_id}/activities/{id}/cancel", h.handleCancelProjectActivity)
 	h.Get("/projects/{project_id}/environments/{environment_id}/activities", h.handleListEnvironmentActivities)
 	h.Get("/projects/{project_id}/environments/{environment_id}/activities/{id}", h.handleGetEnvironmentActivity)
 

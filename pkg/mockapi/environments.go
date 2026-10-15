@@ -111,26 +111,29 @@ func (h *Handler) handleSetEnvironmentSettings(w http.ResponseWriter, req *http.
 	)
 
 	h.environments[env.ID] = env
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"_embedded": map[string]any{"entity": settings},
-	})
+	_ = json.NewEncoder(w).Encode(embedded("entity", settings))
 }
 
-// handleEnvironmentAction handles environment operations that return activities (deploy, pause, etc.).
-func (h *Handler) handleEnvironmentAction(w http.ResponseWriter, req *http.Request) {
-	env := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
-	if env == nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
+// handleEnvironmentAction returns a handler for an environment operation (deploy, pause, etc.).
+func (h *Handler) handleEnvironmentAction(activityType string) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		env := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
+		if env == nil {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		h.RespondWithActivity(w, env.Project, env.ID, activityType)
 	}
-	_ = json.NewEncoder(w).Encode(activityResponse())
 }
 
 // activityResponse returns a response with an empty list of embedded activities.
 func activityResponse() map[string]any {
-	return map[string]any{
-		"_embedded": map[string]any{"activities": []Activity{}},
-	}
+	return embedded("activities", []Activity{})
+}
+
+// embedded returns a response that embeds a value under a key.
+func embedded(key string, value any) map[string]any {
+	return map[string]any{"_embedded": map[string]any{key: value}}
 }
 
 func (h *Handler) handleGetCurrentDeployment(w http.ResponseWriter, req *http.Request) {
@@ -176,7 +179,7 @@ func (h *Handler) handlePatchNextDeployment(w http.ResponseWriter, req *http.Req
 	h.Lock()
 	env.deploymentPatches = append(env.deploymentPatches, body)
 	h.Unlock()
-	_ = json.NewEncoder(w).Encode(activityResponse())
+	h.RespondWithActivity(w, env.Project, env.ID, "environment.resources.update")
 }
 
 // DeploymentPatches returns the bodies of PATCH requests to an environment's next deployment.
@@ -233,7 +236,12 @@ func (h *Handler) handleCreateBackup(w http.ResponseWriter, req *http.Request) {
 		UpdatedAt:     time.Now(),
 	}
 	h.addProjectBackup(projectID, backup)
-	_ = json.NewEncoder(w).Encode(backup)
+	h.respondWithActivity(w, &Activity{
+		Type:         "environment.backup",
+		Project:      projectID,
+		Environments: []string{environmentID},
+		Payload:      map[string]any{"backup_name": backup.ID},
+	})
 }
 
 func (h *Handler) handleListBackups(w http.ResponseWriter, req *http.Request) {
