@@ -45,7 +45,7 @@ func (h *Handler) handleGetProjectSettings(w http.ResponseWriter, req *http.Requ
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	_ = json.NewEncoder(w).Encode(p.Settings)
+	_ = json.NewEncoder(w).Encode(withSelfLinks(p.Settings, req.URL.Path, true))
 }
 
 func (h *Handler) handlePatchProject(w http.ResponseWriter, req *http.Request) {

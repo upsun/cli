@@ -64,3 +64,59 @@ func TestDomainAdd(t *testing.T) {
 	assert.Equal(t, "example.com", captured["name"])
 	assert.NotContains(t, captured, "replacement_for", "request body must omit replacement_for when --attach is not given")
 }
+
+func TestDomainAddNonProduction(t *testing.T) {
+	t.Parallel()
+
+	t.Run("one production domain", func(t *testing.T) {
+		t.Parallel()
+		apiHandler, f, projectID := setUpDomains(t, "example.com")
+
+		_, stderr, err := f.RunCombinedOutput("domain:add", "-p", projectID, "-e", "staging", "staging.example.com")
+		require.NoError(t, err, stderr)
+		assert.Contains(t, stderr, "It will be attached to the production domain: example.com")
+		assert.Contains(t, stderr, "The activity succeeded")
+
+		domains := apiHandler.Domains(projectID, "staging")
+		require.Len(t, domains, 1)
+		assert.Equal(t, "staging.example.com", domains[0].Name)
+		assert.Equal(t, "replacement", domains[0].Type)
+		assert.Equal(t, "example.com", domains[0].ReplacementFor)
+	})
+
+	t.Run("choose a production domain", func(t *testing.T) {
+		t.Parallel()
+		apiHandler, f, projectID := setUpDomains(t, "example.com", "example.org")
+
+		_, stderr, err := f.RunInteractive("1\ny\n", "domain:add", "-p", projectID, "-e", "staging", "--no-wait",
+			"staging.example.org")
+		require.NoError(t, err, stderr)
+		assert.Contains(t, stderr, "Choose a production domain:")
+		assert.Contains(t, stderr, "It will be attached to the production domain: example.org")
+
+		domains := apiHandler.Domains(projectID, "staging")
+		require.Len(t, domains, 1)
+		assert.Equal(t, "example.org", domains[0].ReplacementFor)
+	})
+
+	t.Run("errors", func(t *testing.T) {
+		t.Parallel()
+		apiHandler, f, projectID := setUpDomains(t)
+
+		_, stderr, err := f.RunCombinedOutput("domain:add", "-p", projectID, "-e", "staging", "staging.example.com")
+		assertExitCode(t, 1, err)
+		assert.Contains(t, stderr, "No production domains found.")
+
+		_, stderr, err = f.RunCombinedOutput("domain:add", "-p", projectID, "-e", "staging",
+			"--attach", "missing.example.com", "staging.example.com")
+		assertExitCode(t, 1, err)
+		assert.Contains(t, stderr, "The production domain (--attach) was not found: missing.example.com")
+
+		_, stderr, err = f.RunCombinedOutput("domain:add", "-p", projectID, "-e", "main",
+			"--attach", "example.com", "www.example.com")
+		assertExitCode(t, 1, err)
+		assert.Contains(t, stderr, "The --attach option is only valid for non-production environment domains.")
+
+		assert.Empty(t, apiHandler.Domains(projectID, "staging"))
+	})
+}
