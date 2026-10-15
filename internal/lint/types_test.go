@@ -136,12 +136,20 @@ applications:
   foo:
     type: composable:25.11
     stack: [php@8.4]
+  classic:
+    type: php:8.4
+    stack: [php@8.4]
+  untyped:
+    stack: [php@8.4]
 tasks:
   job:
     base: performance-agent
     stack: [php@8.4]`,
 			expectErrorMessage: `linter errors:
+  - applications.classic.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list
   - applications.foo.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list
+  - applications.untyped.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list
+  - applications.untyped.type: type cannot be empty
   - tasks.job.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list`,
 		},
 		{
