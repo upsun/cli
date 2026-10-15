@@ -151,14 +151,14 @@ class PropertyFormatter implements InputConfiguringInterface
      */
     protected function formatHttpAccess(array|string|null $httpAccess): string
     {
-        $info = (array) $httpAccess;
+        $info = array_filter((array) $httpAccess, fn($value): bool => $value !== null);
         $info += [
             'addresses' => [],
             'basic_auth' => [],
             'is_enabled' => true,
         ];
         // Hide passwords.
-        $info['basic_auth'] = array_map(fn(): string => '******', $info['basic_auth']);
+        $info['basic_auth'] = array_map(fn(): string => '******', (array) $info['basic_auth']);
 
         return $this->format($info);
     }

@@ -65,12 +65,12 @@ class EnvironmentHttpAccessCommand extends CommandBase
     {
         $parts = explode(':', $auth, 2);
         if (count($parts) != 2) {
-            $message = sprintf('Auth "<error>%s</error>" is not valid. The format should be username:password', $auth);
+            $message = sprintf('Auth "%s" is not valid. The format should be username:password', $auth);
             throw new InvalidArgumentException($message);
         }
 
         if (!preg_match('#^[a-zA-Z0-9-_]{2,}$#', $parts[0])) {
-            $message = sprintf('The username "<error>%s</error>" for --auth is not valid', $parts[0]);
+            $message = sprintf('The username "%s" for --auth is not valid', $parts[0]);
             throw new InvalidArgumentException($message);
         }
 
@@ -93,7 +93,7 @@ class EnvironmentHttpAccessCommand extends CommandBase
         $parts = explode(':', $access, 2);
         if (count($parts) != 2) {
             $message = sprintf(
-                'Access "<error>%s</error>" is not valid, please use the format: permission:address',
+                'Access "%s" is not valid, please use the format: permission:address',
                 $access,
             );
             throw new InvalidArgumentException($message);
@@ -101,7 +101,7 @@ class EnvironmentHttpAccessCommand extends CommandBase
 
         if (!in_array($parts[0], ['allow', 'deny'])) {
             $message = sprintf(
-                "The permission type '<error>%s</error>' is not valid; it must be one of 'allow' or 'deny'",
+                "The permission type '%s' is not valid; it must be one of 'allow' or 'deny'",
                 $parts[0],
             );
             throw new InvalidArgumentException($message);
@@ -143,17 +143,17 @@ class EnvironmentHttpAccessCommand extends CommandBase
         $extractIp = preg_match('#^([^/]+)(/([0-9]{1,3}))?$#', $address, $matches);
         $is_valid_ip = $extractIp && filter_var($matches[1], FILTER_VALIDATE_IP);
         if (!$extractIp || !$is_valid_ip) {
-            $message = sprintf('The address "<error>%s</error>" is not a valid IP address or CIDR', $address);
+            $message = sprintf('The address "%s" is not a valid IP address or CIDR', $address);
             throw new InvalidArgumentException($message);
         }
         $is_valid_ipv4 = filter_var($matches[1], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4);
         $is_valid_ipv6 = filter_var($matches[1], FILTER_VALIDATE_IP, FILTER_FLAG_IPV6);
         if ($is_valid_ipv4 && isset($matches[3]) && $matches[3] > 32) {
-            $message = sprintf('The address "<error>%s</error>" is not a valid IPv4 address or CIDR', $address);
+            $message = sprintf('The address "%s" is not a valid IPv4 address or CIDR', $address);
             throw new InvalidArgumentException($message);
         }
         if ($is_valid_ipv6 && isset($matches[3]) && $matches[3] > 128) {
-            $message = sprintf('The address "<error>%s</error>" is not a valid IPv6 address or CIDR', $address);
+            $message = sprintf('The address "%s" is not a valid IPv6 address or CIDR', $address);
             throw new InvalidArgumentException($message);
         }
     }
