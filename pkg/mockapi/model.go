@@ -332,10 +332,10 @@ type Activity struct {
 	pendingResult string
 }
 
-// MarshalJSON adds the default links.
-func (a *Activity) MarshalJSON() ([]byte, error) {
+// MarshalJSON adds the default links. Its value receiver means it also applies when encoding a value.
+func (a Activity) MarshalJSON() ([]byte, error) { //nolint:gocritic // See above.
 	type activity Activity
-	c := activity(*a)
+	c := activity(a)
 	if c.Links == nil {
 		path := "/projects/" + url.PathEscape(a.Project) + "/activities/" + url.PathEscape(a.ID)
 		c.Links = MakeHALLinks("self="+path, "log="+path+"/log")

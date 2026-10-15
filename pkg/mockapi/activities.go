@@ -3,6 +3,7 @@ package mockapi
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"slices"
 	"time"
@@ -28,12 +29,15 @@ func (s *store) SetActivityResult(result string) {
 }
 
 // ProjectActivities returns copies of a project's activities, newest first.
+// The Payload is not copied.
 func (s *store) ProjectActivities(projectID string) []*Activity {
 	s.RLock()
 	defer s.RUnlock()
 	activities := make([]*Activity, 0, len(s.activities[projectID]))
 	for _, a := range s.activities[projectID] {
 		c := *a
+		c.Environments = slices.Clone(a.Environments)
+		c.Links = maps.Clone(a.Links)
 		activities = append(activities, &c)
 	}
 	slices.SortFunc(activities, func(a, b *Activity) int { return -timeCompare(a.CreatedAt, b.CreatedAt) })
