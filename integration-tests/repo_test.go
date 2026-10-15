@@ -22,7 +22,7 @@ type gitTreeEntry struct {
 }
 
 // serveGitRepository serves a project with a "main" environment, and a
-// repository through the Git Data API. Commit "c2" has the parent "c1".
+// repository through the Git Data API. The head commit "c2" has the parent "c1".
 func serveGitRepository(t *testing.T) (f *cmdFactory, projectID string) {
 	apiHandler := mockapi.NewHandler(t)
 	projectID = mockapi.ProjectID()
@@ -38,6 +38,7 @@ func serveGitRepository(t *testing.T) (f *cmdFactory, projectID string) {
 	// containing "/api/projects/", so serve the mock API under /api too.
 	env := makeEnv(projectID, "main", "production", "active", nil)
 	env.Links["self"] = mockapi.HALLink{HREF: "/api/projects/" + projectID + "/environments/main"}
+	env.HeadCommit = "c2"
 	apiHandler.SetEnvironments([]*mockapi.Environment{env})
 
 	commits := map[string]map[string]any{
@@ -126,6 +127,9 @@ func TestCommitGet(t *testing.T) {
 	// Parent syntax.
 	assertTrimmed(t, "c1", f.Run("commit:get", "-p", projectID, "-e", "main", "c2^", "-P", "sha"))
 	assertTrimmed(t, "Mock User", f.Run("commit:get", "-p", projectID, "-e", "main", "c2", "-P", "author.name"))
+	// The default is the environment's head commit.
+	assertTrimmed(t, "c2", f.Run("commit:get", "-p", projectID, "-e", "main", "-P", "sha"))
+	assertTrimmed(t, "c1", f.Run("commit:get", "-p", projectID, "-e", "main", "HEAD~1", "-P", "sha"))
 
 	_, stderr, err := f.RunCombinedOutput("commit:get", "-p", projectID, "-e", "main", "c1^")
 	assertExitCode(t, 1, err)
@@ -148,10 +152,11 @@ func TestRepo(t *testing.T) {
 		args       []string
 		wantStdout string
 	}{
-		{"cat", []string{"repo:cat", "README.md", "-c", "c2"}, "Readme\n"},
+		{"cat", []string{"repo:cat", "README.md"}, "Readme\n"},
+		{"cat commit", []string{"repo:cat", "README.md", "-c", "c1"}, "Old readme\n"},
 		{"cat nested", []string{"repo:cat", "src/main.go", "-c", "c2"}, "package main\n"},
 		{"cat parent commit", []string{"repo:cat", "README.md", "-c", "c2^"}, "Old readme\n"},
-		{"ls", []string{"repo:ls", "-c", "c2"}, "README.md\nsrc/\n"},
+		{"ls", []string{"repo:ls"}, "README.md\nsrc/\n"},
 		{"ls subdirectory", []string{"repo:ls", "src", "-c", "c2"}, "main.go\n"},
 		{"ls directories", []string{"repo:ls", "-d", "-c", "c2"}, "src/\n"},
 		{"ls files", []string{"repo:ls", "-f", "-c", "c2"}, "README.md\n"},
@@ -160,7 +165,7 @@ func TestRepo(t *testing.T) {
 			"100644 blob b-readme\tREADME.md\n040000 tree t-src\tsrc\n",
 		},
 		{"read file", []string{"repo:read", "src/main.go", "-c", "c2"}, "package main\n"},
-		{"read directory", []string{"repo:read", "src", "-c", "c2"}, "main.go\n"},
+		{"read directory", []string{"repo:read", "src"}, "main.go\n"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
