@@ -118,7 +118,8 @@ func TestUserUpdate(t *testing.T) {
 	f, _, projectID := setupProjectUsers(t)
 
 	// Environment type roles are merged with the existing ones.
-	_, stderr, err := f.RunCombinedOutput("user:update", "-p", projectID, "user-id-2@example.com", "-r", "production:admin")
+	_, stderr, err := f.RunCombinedOutput("user:update", "-p", projectID, "user-id-2@example.com",
+		"-r", "production:admin")
 	require.NoError(t, err)
 	assert.Contains(t, stderr, "Project role: viewer")
 	assert.Contains(t, stderr, "Role on environment type development: viewer")

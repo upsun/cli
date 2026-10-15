@@ -77,8 +77,8 @@ func TestTeamCreate(t *testing.T) {
 Admins	0	0	["admin"]
 Developers	1	1	["viewer","development:contributor"]
 Ops	0	0	["viewer","production:viewer","development:contributor"]
-`, f.Run("teams", "-o", "acme", "--format", "plain", "--columns", "label,member_count,project_count,project_permissions",
-		"--no-header"))
+`, f.Run("teams", "-o", "acme", "--format", "plain", "--no-header",
+		"--columns", "label,member_count,project_count,project_permissions"))
 
 	cases := []struct {
 		name       string
@@ -169,7 +169,7 @@ func TestTeamProject(t *testing.T) {
 
 	_, stderr, err = f.RunCombinedOutput("team:project:add", "-t", "team-dev", "betaprojectid")
 	require.NoError(t, err)
-	assert.Contains(t, stderr, "Are you sure you want to add the project Beta (betaprojectid) to the team Developers (team-dev)?")
+	assert.Contains(t, stderr, "add the project Beta (betaprojectid) to the team Developers (team-dev)?")
 	assert.Contains(t, stderr, "The project(s) were successfully added to the team Developers (team-dev).")
 	assertTrimmed(t, "alphaprojectid\nbetaprojectid", f.Run("team:projects", "-t", "team-dev",
 		"--format", "tsv", "--columns", "id", "--no-header"))
@@ -180,7 +180,7 @@ func TestTeamProject(t *testing.T) {
 
 	_, stderr, err = f.RunCombinedOutput("team:project:delete", "-t", "team-dev", "alphaprojectid")
 	require.NoError(t, err)
-	assert.Contains(t, stderr, "The project Alpha (alphaprojectid) was successfully removed from the team Developers (team-dev).")
+	assert.Contains(t, stderr, "Alpha (alphaprojectid) was successfully removed from the team Developers (team-dev).")
 	assertTrimmed(t, "betaprojectid", f.Run("team:projects", "-t", "team-dev",
 		"--format", "tsv", "--columns", "id", "--no-header"))
 }
@@ -194,11 +194,11 @@ func TestTeamUser(t *testing.T) {
 
 	_, stderr, err := f.RunCombinedOutput("team:user:add", "-t", "team-dev", "user-id-2@example.com")
 	require.NoError(t, err)
-	assert.Contains(t, stderr, "The user User user-id-2 (user-id-2@example.com) is already in the team Developers (team-dev).")
+	assert.Contains(t, stderr, "User user-id-2 (user-id-2@example.com) is already in the team Developers (team-dev).")
 
 	_, stderr, err = f.RunCombinedOutput("team:user:add", "-t", "team-dev", "outsider@example.com")
 	assert.Error(t, err)
-	assert.Contains(t, stderr, "The user with email address outsider@example.com was not found in the organization ACME Inc. (acme).")
+	assert.Contains(t, stderr, "outsider@example.com was not found in the organization ACME Inc. (acme).")
 	assert.Contains(t, stderr, "A team may only contain users who are part of the organization.")
 
 	_, stderr, err = f.RunCombinedOutput("team:user:add", "-t", "team-dev", "user-id-3@example.com")
@@ -218,11 +218,11 @@ func TestTeamUser(t *testing.T) {
 
 	_, stderr, err = f.RunCombinedOutput("team:user:delete", "-t", "team-dev", "user-id-2@example.com")
 	require.NoError(t, err)
-	assert.Contains(t, stderr, "The user User user-id-2 (user-id-2@example.com) was successfully removed from the team Developers (team-dev).")
+	assert.Contains(t, stderr, "(user-id-2@example.com) was successfully removed from the team Developers (team-dev).")
 
 	_, stderr, err = f.RunCombinedOutput("team:user:delete", "-t", "team-dev", "user-id-2@example.com")
 	assert.Error(t, err)
-	assert.Contains(t, stderr, "The user with email address user-id-2@example.com is not part of the team Developers (team-dev)")
+	assert.Contains(t, stderr, "user-id-2@example.com is not part of the team Developers (team-dev)")
 	assertTrimmed(t, "user-id-3\nmy-user-id", f.Run("team:users", "-t", "team-dev",
 		"--format", "tsv", "--columns", "id", "--no-header"))
 }

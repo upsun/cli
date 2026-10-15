@@ -67,13 +67,15 @@ func TestUserGet(t *testing.T) {
 			wantStderr: "Invalid level: foo",
 		},
 		{
-			name:       "environment level",
-			args:       []string{"user:get", "-p", projectID, "-e", "dev", "user-id-2@example.com", "--level", "environment", "--pipe"},
+			name: "environment level",
+			args: []string{"user:get", "-p", projectID, "-e", "dev", "user-id-2@example.com",
+				"--level", "environment", "--pipe"},
 			wantStdout: "viewer",
 		},
 		{
-			name:       "environment level without a role",
-			args:       []string{"user:get", "-p", projectID, "-e", "main", "user-id-2@example.com", "--level", "environment", "--pipe"},
+			name: "environment level without a role",
+			args: []string{"user:get", "-p", projectID, "-e", "main", "user-id-2@example.com",
+				"--level", "environment", "--pipe"},
 			wantStdout: "none",
 		},
 		{

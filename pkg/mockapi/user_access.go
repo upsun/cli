@@ -318,7 +318,7 @@ func (h *Handler) handleDeleteOrgMember(w http.ResponseWriter, req *http.Request
 	}
 	if h.orgMembers[orgID][i].Owner {
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]any{"title": "Bad Request", "detail": "The organization owner cannot be removed."})
+		_ = json.NewEncoder(w).Encode(map[string]any{"detail": "The organization owner cannot be removed."})
 		return
 	}
 	h.orgMembers[orgID] = slices.Delete(slices.Clone(h.orgMembers[orgID]), i, i+1)

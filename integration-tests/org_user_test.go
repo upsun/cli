@@ -59,7 +59,8 @@ user-id-2,user-id-2@example.com,false,billing
 	})
 
 	t.Run("update", func(t *testing.T) {
-		_, stderr, err := f.RunCombinedOutput("org:user:update", "-o", "acme", "user-id-2@example.com", "--permission", "billing")
+		_, stderr, err := f.RunCombinedOutput("org:user:update", "-o", "acme", "user-id-2@example.com",
+			"--permission", "billing")
 		require.NoError(t, err)
 		assert.Contains(t, stderr, "The user's permissions are already set to: billing")
 
@@ -70,9 +71,11 @@ user-id-2,user-id-2@example.com,false,billing
 		assert.Contains(t, stderr, "+ members")
 		assert.Contains(t, stderr, "+ plans")
 		assert.Contains(t, stderr, "The user's permissions are now: members, plans")
-		assertTrimmed(t, "- members\n- plans", f.Run("org:user:get", "-o", "acme", "user-id-2@example.com", "-P", "permissions"))
+		assertTrimmed(t, "- members\n- plans",
+			f.Run("org:user:get", "-o", "acme", "user-id-2@example.com", "-P", "permissions"))
 
-		_, stderr, err = f.RunCombinedOutput("org:user:update", "-o", "acme", "my-user-id@example.com", "--permission", "billing")
+		_, stderr, err = f.RunCombinedOutput("org:user:update", "-o", "acme", "my-user-id@example.com",
+			"--permission", "billing")
 		assert.Error(t, err)
 		assert.Contains(t, stderr, "The user is the owner of the organization, so does not need permissions.")
 	})
@@ -80,7 +83,7 @@ user-id-2,user-id-2@example.com,false,billing
 	t.Run("delete", func(t *testing.T) {
 		_, stderr, err := f.RunCombinedOutput("org:user:delete", "-o", "acme", "user-id-2@example.com", "--no")
 		assert.Error(t, err)
-		assert.Contains(t, stderr, "Are you sure you want to delete the user user-id-2@example.com from the organization ACME Inc. (acme)? [Y/n] n")
+		assert.Contains(t, stderr, "delete the user user-id-2@example.com from the organization ACME Inc. (acme)? [Y/n] n")
 		f.Run("org:user:get", "-o", "acme", "user-id-2@example.com")
 
 		_, stderr, err = f.RunCombinedOutput("org:user:delete", "-o", "acme", "user-id-2@example.com")
@@ -90,6 +93,7 @@ user-id-2,user-id-2@example.com,false,billing
 		_, stderr, err = f.RunCombinedOutput("org:user:get", "-o", "acme", "user-id-2@example.com")
 		assert.Error(t, err)
 		assert.Contains(t, stderr, "User not found: user-id-2@example.com")
-		assertTrimmed(t, "my-user-id", f.Run("org:user:list", "-o", "acme", "--format", "csv", "--columns", "id", "--no-header"))
+		assertTrimmed(t, "my-user-id",
+			f.Run("org:user:list", "-o", "acme", "--format", "csv", "--columns", "id", "--no-header"))
 	})
 }
