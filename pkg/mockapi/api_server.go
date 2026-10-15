@@ -197,5 +197,7 @@ func NewHandler(t *testing.T) *Handler {
 	h.Patch("/projects/{project_id}/environments/{environment_id}/variables/{name}", h.handlePatchEnvLevelVariable)
 	h.Delete("/projects/{project_id}/environments/{environment_id}/variables/{name}", h.handleDeleteEnvLevelVariable)
 
+	h.routeProjectResources()
+
 	return h
 }

@@ -372,8 +372,11 @@ type Domain struct {
 	Links HalLinks `json:"_links"`
 }
 
+// DomainSSL is computed from the project's certificates, as the API does.
 type DomainSSL struct {
-	HasCertificate bool `json:"has_certificate"`
+	HasCertificate bool       `json:"has_certificate"`
+	Certificate    string     `json:"certificate,omitempty"`
+	ExpiresOn      *time.Time `json:"expires_on,omitempty"`
 }
 
 type Integration struct {
@@ -381,7 +384,7 @@ type Integration struct {
 	Type string `json:"type"`
 
 	BaseURL    string `json:"base_url,omitempty"`
-	Token      string `json:"token,omitempty"`
+	Token      string `json:"-"` // Write-only in the API.
 	Repository string `json:"repository,omitempty"`
 
 	URL    string   `json:"url,omitempty"`
@@ -394,17 +397,28 @@ type Integration struct {
 }
 
 type Certificate struct {
-	ID            string   `json:"id"`
-	Domains       []string `json:"domains"`
-	Key           string   `json:"key,omitempty"`
-	Issuer        string   `json:"issuer"`
-	IsProvisioned bool     `json:"is_provisioned"`
+	ID            string     `json:"id"`
+	Certificate   string     `json:"certificate"`
+	Chain         []string   `json:"chain"`
+	Domains       []string   `json:"domains"`
+	AuthType      []string   `json:"auth_type"`
+	Issuer        []NameAttr `json:"issuer"`
+	IsProvisioned bool       `json:"is_provisioned"`
+	IsInvalid     bool       `json:"is_invalid"`
+	IsRoot        bool       `json:"is_root"`
 
 	ExpiresAt time.Time `json:"expires_at"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 
 	Links HalLinks `json:"_links"`
+}
+
+// NameAttr is an attribute of an X.509 name, such as the certificate issuer.
+type NameAttr struct {
+	OID   string `json:"oid"`
+	Alias string `json:"alias"`
+	Value string `json:"value"`
 }
 
 type Variable struct {

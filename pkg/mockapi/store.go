@@ -1,6 +1,7 @@
 package mockapi
 
 import (
+	"slices"
 	"sync"
 )
 
@@ -25,6 +26,11 @@ type store struct {
 	projectDomains      map[string][]*Domain
 	projectIntegrations map[string][]*Integration
 	projectCertificates map[string][]*Certificate
+
+	environmentDomains     map[string][]*Domain
+	backupRestores         map[string][]map[string]any
+	projectSettingsPatches map[string][]map[string]any
+	autoscalingPatches     map[string][]map[string]any
 }
 
 func (s *store) SetEnvironments(envs []*Environment) {
@@ -151,7 +157,7 @@ func (s *store) SetProjectDomains(projectID string, domains []*Domain) {
 	if s.projectDomains == nil {
 		s.projectDomains = make(map[string][]*Domain)
 	}
-	s.projectDomains[projectID] = domains
+	s.projectDomains[projectID] = slices.Clone(domains)
 }
 
 func (s *store) SetProjectIntegrations(projectID string, integrations []*Integration) {
@@ -160,7 +166,7 @@ func (s *store) SetProjectIntegrations(projectID string, integrations []*Integra
 	if s.projectIntegrations == nil {
 		s.projectIntegrations = make(map[string][]*Integration)
 	}
-	s.projectIntegrations[projectID] = integrations
+	s.projectIntegrations[projectID] = slices.Clone(integrations)
 }
 
 func (s *store) SetProjectCertificates(projectID string, certs []*Certificate) {
@@ -169,7 +175,7 @@ func (s *store) SetProjectCertificates(projectID string, certs []*Certificate) {
 	if s.projectCertificates == nil {
 		s.projectCertificates = make(map[string][]*Certificate)
 	}
-	s.projectCertificates[projectID] = certs
+	s.projectCertificates[projectID] = slices.Clone(certs)
 }
 
 func (s *store) SetBillingProfiles(profiles []*BillingProfile) {

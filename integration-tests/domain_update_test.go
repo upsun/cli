@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -133,4 +135,43 @@ func TestDomainGetProjectScope(t *testing.T) {
 	// printed the domain name.
 	assert.Contains(t, stdout, "example.com",
 		"expected domain name in output - stdout: %s\nstderr: %s", stdout, stderr)
+}
+
+func TestDomainUpdate(t *testing.T) {
+	t.Parallel()
+	apiHandler, f, projectID := setUpDomains(t, "example.com")
+
+	certPath, keyPath := writeSelfSignedCert(t, "example.com")
+
+	_, stderr, err := f.RunCombinedOutput("domain:update", "-p", projectID, "missing.example.com",
+		"--cert", certPath, "--key", keyPath)
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "Domain not found: missing.example.com")
+
+	_, stderr, err = f.RunCombinedOutput("domain:update", "-p", projectID, "example.com", "--cert", certPath)
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "Both the --cert and the --key are required for SSL certificates")
+
+	_, stderr, err = f.RunCombinedOutput("domain:update", "-p", projectID, "example.com",
+		"--cert", certPath, "--key", keyPath)
+	require.NoError(t, err, stderr)
+	assert.Contains(t, stderr, "Updating the domain example.com")
+	assert.Contains(t, stderr, "The activity succeeded")
+
+	// Like the API, the mock adds the certificate to the project.
+	cert, err := os.ReadFile(certPath)
+	require.NoError(t, err)
+	certs := apiHandler.ProjectCertificates(projectID)
+	require.Len(t, certs, 1)
+	assert.Equal(t, strings.TrimSpace(string(cert)), certs[0].Certificate)
+	assert.Equal(t, []string{"example.com"}, certs[0].Domains)
+	assertTrimmed(t, "true", f.Run("domain:get", "-p", projectID, "example.com", "-P", "ssl.has_certificate"))
+
+	// The same certificate again: the API does not return the private key, so
+	// the CLI cannot tell that nothing changed, and the API ignores the existing certificate.
+	_, stderr, err = f.RunCombinedOutput("domain:update", "-p", projectID, "example.com",
+		"--cert", certPath, "--key", keyPath)
+	require.NoError(t, err, stderr)
+	assert.Contains(t, stderr, "Updating the domain example.com")
+	assert.Len(t, apiHandler.ProjectCertificates(projectID), 1)
 }
