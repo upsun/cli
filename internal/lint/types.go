@@ -51,21 +51,23 @@ func CheckTypes(cfg *Config, reg registry.Registry) *Result {
 
 	for appName := range cfg.Applications {
 		app := cfg.Applications[appName]
-		app.Stack = checkStackList("applications."+appName+".stack", app.Stack, result)
+		stack := checkStackList("applications."+appName+".stack", app.Stack, result)
 		if app.Type == "" && !isStackEmpty(app.Stack) {
 			// For backwards compatibility, we allow 'stack' to be specified without 'type'.
-			result.AddWarning("applications."+appName,
-				"'type' should be specified (as a composable image) when using 'stack'")
+			if !isStackEmpty(stack) {
+				result.AddWarning("applications."+appName,
+					"'type' should be specified (as a composable image) when using 'stack'")
+			}
 			continue
 		}
-		checkRuntime("applications."+appName, app.Type, app.Stack, app.Image)
+		checkRuntime("applications."+appName, app.Type, stack, app.Image)
 	}
 	for taskName := range cfg.Tasks {
 		// A task using a built-in definition ('base') has no type of its own.
 		task := cfg.Tasks[taskName]
-		task.Stack = checkStackList("tasks."+taskName+".stack", task.Stack, result)
+		stack := checkStackList("tasks."+taskName+".stack", task.Stack, result)
 		if task.Base == "" {
-			checkRuntime("tasks."+taskName, task.Type, task.Stack, task.Image)
+			checkRuntime("tasks."+taskName, task.Type, stack, task.Image)
 		}
 	}
 	for appName := range cfg.Applications {

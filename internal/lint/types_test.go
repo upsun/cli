@@ -149,7 +149,6 @@ tasks:
   - applications.classic.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list
   - applications.foo.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list
   - applications.untyped.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list
-  - applications.untyped.type: type cannot be empty
   - tasks.job.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list`,
 		},
 		{
