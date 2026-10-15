@@ -134,8 +134,20 @@ func (h *Handler) handleListTeams(w http.ResponseWriter, req *http.Request) {
 			items = append(items, h.teamResponse(t))
 		}
 	}
+	// Sort by label, then by the requested field.
 	slices.SortFunc(items, func(a, b *Team) int { return strings.Compare(a.Label, b.Label) })
-	if strings.HasPrefix(req.URL.Query().Get("sort"), "-") {
+	sort := req.URL.Query().Get("sort")
+	switch strings.TrimPrefix(sort, "-") {
+	case "", "label":
+	case "created_at":
+		slices.SortStableFunc(items, func(a, b *Team) int { return timeCompare(a.CreatedAt, b.CreatedAt) })
+	case "updated_at":
+		slices.SortStableFunc(items, func(a, b *Team) int { return timeCompare(a.UpdatedAt, b.UpdatedAt) })
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if strings.HasPrefix(sort, "-") {
 		slices.Reverse(items)
 	}
 	_ = json.NewEncoder(w).Encode(struct {

@@ -79,6 +79,10 @@ Developers	1	1	["viewer","development:contributor"]
 Ops	0	0	["viewer","production:viewer","development:contributor"]
 `, f.Run("teams", "-o", "acme", "--format", "plain", "--no-header",
 		"--columns", "label,member_count,project_count,project_permissions"))
+	assertTrimmed(t, "Developers\nOps\nAdmins", f.Run("teams", "-o", "acme", "--sort", "created_at",
+		"--format", "plain", "--no-header", "--columns", "label"))
+	assertTrimmed(t, "Admins\nOps\nDevelopers", f.Run("teams", "-o", "acme", "--sort", "created_at", "--reverse",
+		"--format", "plain", "--no-header", "--columns", "label"))
 
 	cases := []struct {
 		name       string
