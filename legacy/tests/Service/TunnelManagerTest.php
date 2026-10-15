@@ -302,6 +302,34 @@ class TunnelManagerTest extends TestCase
         $this->assertSame(getmypid(), $result->pid);
     }
 
+    public function testIsOpenReturnsTheOpenTunnel(): void
+    {
+        // A new tunnel gets the next free port, but the open tunnel's port is the one in use.
+        $id = 'proj1--main--app--database--0';
+        $metadata = [
+            'projectId' => 'proj1',
+            'environmentId' => 'main',
+            'appName' => 'app',
+            'relationship' => 'database',
+            'serviceKey' => 0,
+            'service' => ['scheme' => 'mysql', 'host' => 'database.internal', 'port' => 3306],
+        ];
+        $this->writeTunnelInfo($id, $metadata + [
+            'localPort' => 30000,
+            'remoteHost' => 'database.internal',
+            'remotePort' => 3306,
+            'pid' => getmypid(),
+        ]);
+
+        $manager = $this->createManager($this->tempDir);
+
+        $result = $manager->isOpen(new Tunnel($id, 30001, 'database.internal', 3306, $metadata));
+
+        $this->assertInstanceOf(Tunnel::class, $result);
+        $this->assertSame(30000, $result->localPort);
+        $this->assertSame(getmypid(), $result->pid);
+    }
+
     public function testCloseRemovesTunnelFromState(): void
     {
         // close() has to rewrite the state file itself. Leaving that to the

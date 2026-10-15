@@ -142,8 +142,7 @@ class TunnelManager
      * Checks whether a tunnel is already open.
      *
      * @return false|Tunnel
-     *   If the tunnel is open, a new Tunnel object is returned with its PID
-     *   set.
+     *   The open tunnel, or false if it is not open.
      */
     public function isOpen(Tunnel $tunnel): false|Tunnel
     {
@@ -157,9 +156,7 @@ class TunnelManager
                     $this->close($t);
                     return false;
                 }
-                $tunnel->pid = $t->pid;
-
-                return $tunnel;
+                return $t;
             }
         }
 
