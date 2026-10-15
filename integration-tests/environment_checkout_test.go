@@ -58,3 +58,31 @@ func TestEnvironmentCheckoutNumericID(t *testing.T) {
 		})
 	}
 }
+
+// TestEnvironmentCheckoutRemote checks out an environment which only exists on the remote.
+func TestEnvironmentCheckoutRemote(t *testing.T) {
+	t.Parallel()
+	p := setUpGitProject(t,
+		makeEnv(layoutProjectID, "main", "production", "active", nil),
+		makeEnv(layoutProjectID, "feature", "development", "active", "main"),
+	)
+	repo := repoLayout{git: true, branch: "main", remoteName: "platform-test"}.build(t)
+	runGit(t, repo, "checkout", "--quiet", "-b", "feature")
+	runGit(t, repo, "commit", "--quiet", "--allow-empty", "-m", "Feature")
+	p.seed(t, repo, "main", "feature")
+	featureCommit := gitRef(t, repo, "feature")
+	runGit(t, repo, "checkout", "--quiet", "main")
+	runGit(t, repo, "branch", "--quiet", "-D", "feature")
+	p.f.dir = repo
+
+	_, stdErr, err := p.f.RunCombinedOutput("checkout", "feature")
+	require.NoError(t, err)
+	assert.Contains(t, stdErr, "Creating local branch feature based on upstream platform-test/feature")
+	assert.Equal(t, featureCommit, gitRef(t, repo, "HEAD"))
+	assert.Equal(t, "refs/heads/feature\n", gitConfig(t, repo, "branch.feature.merge"))
+	assert.Equal(t, "platform-test\n", gitConfig(t, repo, "branch.feature.remote"))
+
+	_, stdErr, err = p.f.RunCombinedOutput("checkout", "missing")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stdErr, "Branch not found: missing")
+}
