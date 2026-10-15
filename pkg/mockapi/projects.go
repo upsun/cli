@@ -3,6 +3,7 @@ package mockapi
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -94,21 +95,19 @@ func (h *Handler) handleProjectUserAccess(w http.ResponseWriter, req *http.Reque
 	var (
 		projectGrants = make([]*projectUserAccess, 0, len(h.userGrants))
 		userIDs       = make(uniqueMap)
-		orgIDs        = make(uniqueMap)
 	)
 	for _, g := range h.userGrants {
 		if g.ResourceType == "project" && g.ResourceID == projectID {
-			projectGrants = append(projectGrants, newProjectUserAccess(g))
+			projectGrants = append(projectGrants, h.newProjectUserAccess(g))
 			userIDs[g.UserID] = struct{}{}
-			orgIDs[g.OrganizationID] = struct{}{}
 		}
 	}
 	ret := struct {
 		Items []*projectUserAccess `json:"items"`
 		Links HalLinks             `json:"_links"`
 	}{Items: projectGrants, Links: MakeHALLinks(
+		"self=/projects/"+url.PathEscape(projectID)+"/user-access",
 		"ref:users:0=/ref/users?in="+strings.Join(userIDs.keys(), ","),
-		"ref:organizations:0=/ref/organizations?in="+strings.Join(orgIDs.keys(), ","),
 	)}
 	_ = json.NewEncoder(w).Encode(ret)
 }

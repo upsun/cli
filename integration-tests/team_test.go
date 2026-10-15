@@ -95,11 +95,6 @@ Ops	0	0	["viewer","production:viewer","development:contributor"]
 			wantStderr: "Another team team-dev exists in the organization with the same label: developers",
 		},
 		{
-			name:       "duplicate label without the check",
-			args:       []string{"--label", "Developers", "-r", "admin", "--no-check-unique"},
-			wantStderr: "A team already exists with the same label: Developers",
-		},
-		{
 			name:       "viewer without environment types",
 			args:       []string{"--label", "Viewers", "-r", "viewer"},
 			wantStderr: "At least one environment type role must be specified when the project role is viewer.",
@@ -112,6 +107,11 @@ Ops	0	0	["viewer","production:viewer","development:contributor"]
 			assert.Contains(t, stderr, c.wantStderr)
 		})
 	}
+
+	// The API does not require unique labels.
+	f.Run("team:create", "-o", "acme", "--label", "Developers", "-r", "admin", "--no-check-unique")
+	assertTrimmed(t, "Admins\nDevelopers\nDevelopers\nOps", f.Run("teams", "-o", "acme",
+		"--format", "plain", "--no-header", "--columns", "label"))
 }
 
 func TestTeamGetUpdateDelete(t *testing.T) {
