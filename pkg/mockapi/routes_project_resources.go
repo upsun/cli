@@ -19,4 +19,9 @@ func (h *Handler) routeProjectResources() {
 
 	h.Post("/projects/{project_id}/certificates", h.handleCreateProjectCertificate)
 	h.Delete("/projects/{project_id}/certificates/{certificate_id}", h.handleDeleteProjectCertificate)
+
+	h.Post("/projects/{project_id}/integrations", h.handleCreateProjectIntegration)
+	h.Patch("/projects/{project_id}/integrations/{integration_id}", h.handlePatchProjectIntegration)
+	h.Delete("/projects/{project_id}/integrations/{integration_id}", h.handleDeleteProjectIntegration)
+	h.Post("/projects/{project_id}/integrations/{integration_id}/validate", h.handleValidateProjectIntegration)
 }
