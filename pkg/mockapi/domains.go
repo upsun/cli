@@ -194,7 +194,7 @@ func (s *store) SetEnvironmentDomains(projectID, environmentID string, domains [
 	if s.environmentDomains == nil {
 		s.environmentDomains = make(map[string][]*Domain)
 	}
-	s.environmentDomains[projectID+"/"+environmentID] = domains
+	s.environmentDomains[projectID+"/"+environmentID] = slices.Clone(domains)
 }
 
 // Domains returns copies of a project's domains, or of an environment's if environmentID is not empty.

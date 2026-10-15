@@ -203,6 +203,10 @@ func TestAutoscalingSettingsSet(t *testing.T) {
 		"instances":      map[string]any{"max": 5.0},
 	}}}, patches[0])
 
+	// The new settings are read back. The "up" cooldown is not set.
+	assertTrimmed(t, "app,cpu,up,90.0%,300,,5", f.Run("autoscaling:get", "-p", projectID, "-e", "main",
+		"--format", "csv", "--no-header", "--columns", "service,metric,direction,threshold,duration,cooldown,max_instances"))
+
 	// Decline the confirmation.
 	_, stderr, err = f.RunInteractive("n\n", "autoscaling:set", "-p", projectID, "-e", "main",
 		"--service", "app", "--metric", "cpu", "--threshold-up", "70")

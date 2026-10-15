@@ -9,6 +9,24 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// mergePatch returns a copy of data with a patch applied, merging nested objects.
+func mergePatch(data, patch map[string]any) map[string]any {
+	result := maps.Clone(data)
+	if result == nil {
+		result = make(map[string]any, len(patch))
+	}
+	for k, v := range patch {
+		current, isMap := result[k].(map[string]any)
+		update, updateIsMap := v.(map[string]any)
+		if isMap && updateIsMap {
+			result[k] = mergePatch(current, update)
+		} else {
+			result[k] = v
+		}
+	}
+	return result
+}
+
 // handlePatchProjectSettings updates a project's settings, merging nested objects.
 func (h *Handler) handlePatchProjectSettings(w http.ResponseWriter, req *http.Request) {
 	projectID := chi.URLParam(req, "project_id")
@@ -24,18 +42,7 @@ func (h *Handler) handlePatchProjectSettings(w http.ResponseWriter, req *http.Re
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	settings := maps.Clone(p.Settings)
-	for k, v := range body {
-		current, isMap := settings[k].(map[string]any)
-		update, updateIsMap := v.(map[string]any)
-		if isMap && updateIsMap {
-			merged := maps.Clone(current)
-			maps.Copy(merged, update)
-			settings[k] = merged
-		} else {
-			settings[k] = v
-		}
-	}
+	settings := mergePatch(p.Settings, body)
 	patched := *p
 	patched.Settings = settings
 	h.projects[projectID] = &patched
@@ -53,6 +60,7 @@ func (s *store) ProjectSettingsPatches(projectID string) []map[string]any {
 	return slices.Clone(s.projectSettingsPatches[projectID])
 }
 
+// handlePatchAutoscalingSettings updates an environment's autoscaling settings, and records the request body.
 func (h *Handler) handlePatchAutoscalingSettings(w http.ResponseWriter, req *http.Request) {
 	env := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
 	if env == nil {
@@ -70,6 +78,7 @@ func (h *Handler) handlePatchAutoscalingSettings(w http.ResponseWriter, req *htt
 	}
 	key := env.Project + "/" + env.ID
 	h.autoscalingPatches[key] = append(h.autoscalingPatches[key], body)
+	env.autoscalingSettings = mergePatch(env.autoscalingSettings, body)
 	h.Unlock()
 	h.RespondWithActivity(w, env.Project, env.ID, "environment.autoscaling.update")
 }

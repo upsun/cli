@@ -127,12 +127,13 @@ class AutoscalingSettingsGetCommand extends CommandBase
                             continue;
                         }
                         $row['direction'] = $direction;
-                        $row['threshold'] = sprintf('%.1f%%', $condition['threshold']);
-                        $row['duration'] = $condition['duration'];
+                        $row['threshold'] = isset($condition['threshold']) ? sprintf('%.1f%%', $condition['threshold']) : $empty;
+                        $row['duration'] = $condition['duration'] ?? $empty;
 
-                        $row['cooldown'] = $settings['scale_cooldown'][$direction];
-                        $row['min_instances'] = $settings['instances']['min'];
-                        $row['max_instances'] = $settings['instances']['max'];
+                        // Settings may omit values, e.g. after a partial update.
+                        $row['cooldown'] = $settings['scale_cooldown'][$direction] ?? $empty;
+                        $row['min_instances'] = $settings['instances']['min'] ?? $empty;
+                        $row['max_instances'] = $settings['instances']['max'] ?? $empty;
 
                         $properties = $services[$service]->getProperties();
                         $row['instance_count'] = isset($properties['instance_count']) ? $this->propertyFormatter->format($properties['instance_count'], 'instance_count') : '1';
