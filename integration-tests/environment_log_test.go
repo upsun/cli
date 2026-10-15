@@ -249,7 +249,8 @@ func TestEnvironmentLogAPI(t *testing.T) {
 		_, stdErr, err := f.RunCombinedOutput(append([]string{"log", "-p", projectID, "-e", "main"}, c.args...)...)
 		require.NoError(t, err, stdErr)
 		unknown := c.services[len(c.services)-1]
-		assert.Contains(t, stdErr, "Warning: the service "+unknown+" is not in the current deployment (expected one of: "+validNames+")")
+		assert.Contains(t, stdErr, "Warning: the service "+unknown+
+			" is not in the current deployment (expected one of: "+validNames+")")
 		if c.hint {
 			assert.Contains(t, stdErr, "To filter by log type, use it as an argument, e.g.: platform-test log "+unknown)
 		} else {
