@@ -151,7 +151,7 @@ class PropertyFormatter implements InputConfiguringInterface
      */
     protected function formatHttpAccess(array|string|null $httpAccess): string
     {
-        $info = array_filter((array) $httpAccess, fn($value): bool => $value !== null);
+        $info = (array) $httpAccess;
         $info += [
             'addresses' => [],
             'basic_auth' => [],

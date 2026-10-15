@@ -39,7 +39,7 @@ func environmentPath(projectID, environmentID string) string {
 func (s *store) EnvironmentActions(projectID, environmentID string) []EnvironmentAction {
 	s.RLock()
 	defer s.RUnlock()
-	if e := s.environments[environmentID]; e != nil && e.Project == projectID {
+	if e := s.lookupEnvironment(projectID, environmentID); e != nil {
 		return slices.Clone(e.actions)
 	}
 	return nil
@@ -49,48 +49,69 @@ func (s *store) EnvironmentActions(projectID, environmentID string) []Environmen
 func (s *store) Environment(projectID, environmentID string) *Environment {
 	s.RLock()
 	defer s.RUnlock()
+	e := s.lookupEnvironment(projectID, environmentID)
+	if e == nil {
+		return nil
+	}
+	c := *e
+	c.Links = maps.Clone(e.Links)
+	c.HTTPAccess = maps.Clone(e.HTTPAccess)
+	c.MergeInfo = maps.Clone(e.MergeInfo)
+	c.actions = slices.Clone(e.actions)
+	return &c
+}
+
+// lookupEnvironment finds an environment. The caller must hold a lock.
+func (s *store) lookupEnvironment(projectID, environmentID string) *Environment {
 	if e := s.environments[environmentID]; e != nil && e.Project == projectID {
-		c := *e
-		c.Links = maps.Clone(e.Links)
-		c.HTTPAccess = maps.Clone(e.HTTPAccess)
-		return &c
+		return e
 	}
 	return nil
 }
 
-// recordAction records an operation request with its body.
-func (h *Handler) recordAction(env *Environment, activityType string, req *http.Request) map[string]any {
+// decodeBody decodes a JSON request body, if any.
+func decodeBody(req *http.Request) map[string]any {
 	var body map[string]any
 	if b, _ := io.ReadAll(req.Body); len(b) > 0 {
 		_ = json.Unmarshal(b, &body)
 	}
-	h.Lock()
-	defer h.Unlock()
-	env.actions = append(env.actions, EnvironmentAction{Type: activityType, Body: body})
 	return body
 }
 
-func (h *Handler) handleBranchEnvironment(w http.ResponseWriter, req *http.Request) {
-	parent := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
-	if parent == nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
+// recordAction records an operation request on an environment, returning the
+// environment, or nil if it does not exist. The caller must hold the write lock.
+func (h *Handler) recordAction(req *http.Request, activityType string, body map[string]any) *Environment {
+	env := h.lookupEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
+	if env != nil {
+		env.actions = append(env.actions, EnvironmentAction{Type: activityType, Body: body})
 	}
-	body := h.recordAction(parent, "environment.branch", req)
+	return env
+}
+
+func (h *Handler) handleBranchEnvironment(w http.ResponseWriter, req *http.Request) {
+	body := decodeBody(req)
 	name, _ := body["name"].(string)
 	title, _ := body["title"].(string)
 	envType, _ := body["type"].(string)
+
+	h.Lock()
+	parent := h.lookupEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
+	if parent == nil {
+		h.Unlock()
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 	if name == "" {
+		h.Unlock()
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
-	h.Lock()
 	if _, exists := h.environments[name]; exists {
 		h.Unlock()
 		w.WriteHeader(http.StatusConflict)
 		return
 	}
+	h.recordAction(req, "environment.branch", body)
 	now := time.Now()
 	child := &Environment{
 		ID:          name,
@@ -124,13 +145,14 @@ func (h *Handler) handleBranchEnvironment(w http.ResponseWriter, req *http.Reque
 }
 
 func (h *Handler) handleDeactivateEnvironment(w http.ResponseWriter, req *http.Request) {
-	env := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
+	body := decodeBody(req)
+	h.Lock()
+	env := h.recordAction(req, "environment.deactivate", body)
 	if env == nil {
+		h.Unlock()
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	h.recordAction(env, "environment.deactivate", req)
-	h.Lock()
 	env.Status = "inactive"
 	env.UpdatedAt = time.Now()
 	h.Unlock()
@@ -138,13 +160,13 @@ func (h *Handler) handleDeactivateEnvironment(w http.ResponseWriter, req *http.R
 }
 
 func (h *Handler) handleDeleteEnvironment(w http.ResponseWriter, req *http.Request) {
-	env := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
+	h.Lock()
+	defer h.Unlock()
+	env := h.lookupEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
 	if env == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	h.Lock()
-	defer h.Unlock()
 	if env.Status != "inactive" {
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]any{
