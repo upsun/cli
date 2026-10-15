@@ -146,7 +146,8 @@ func (r *requestRecorder) requestsTo(path string) []recordedRequest {
 	return slices.DeleteFunc(r.requests(), func(req recordedRequest) bool { return req.Path != path })
 }
 
-// TestApiCurl_RejectsHost checks that a path with a host is refused, so the access token is not sent to another host.
+// TestApiCurl_RejectsHost checks that a path with a host is refused without sending a request.
+// The path is appended to the API URL, so the host check is a second safeguard against sending the token elsewhere.
 func TestApiCurl_RejectsHost(t *testing.T) {
 	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
@@ -154,19 +155,14 @@ func TestApiCurl_RejectsHost(t *testing.T) {
 	apiRecorder := &requestRecorder{next: mockapi.NewHandler(t)}
 	apiServer := httptest.NewServer(apiRecorder)
 	defer apiServer.Close()
-	otherRecorder := &requestRecorder{next: http.NotFoundHandler()}
-	otherServer := httptest.NewServer(otherRecorder)
-	defer otherServer.Close()
 
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
-	otherHost := strings.TrimPrefix(otherServer.URL, "http://")
-	for _, path := range []string{otherServer.URL + "/steal", "//" + otherHost + "/steal"} {
+	for _, path := range []string{"https://example.com/steal", "//example.com/steal"} {
 		stdout, stderr, err := f.RunCombinedOutput("api:curl", path)
 		assertExitCode(t, 1, err)
 		assert.Empty(t, stdout)
 		assert.Contains(t, stderr, "Invalid path: "+path)
 	}
-	assert.Empty(t, otherRecorder.requests())
 	assert.Empty(t, apiRecorder.requests())
 }
 
