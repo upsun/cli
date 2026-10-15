@@ -156,9 +156,18 @@ func ExecHandler(workingDir string, env []string) CommandHandler {
 		c := exec.Command("bash", "-c", command)
 		c.Stdout = commandIO.StdOut
 		c.Stderr = commandIO.StdErr
-		c.Stdin = commandIO.StdIn
 		c.Dir = workingDir
 		c.Env = env
+		// Use a pipe so that Wait does not wait for the client to close stdin (e.g. with rsync).
+		stdin, err := c.StdinPipe()
+		if err != nil {
+			_, _ = fmt.Fprintf(commandIO.StdErr, "Failed to open stdin: %v", err)
+			return 1
+		}
+		go func() {
+			_, _ = io.Copy(stdin, commandIO.StdIn)
+			_ = stdin.Close()
+		}()
 		if err := c.Run(); err != nil {
 			exitErr := &exec.ExitError{}
 			if errors.As(err, &exitErr) {
