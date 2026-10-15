@@ -3,6 +3,7 @@ package tests
 import (
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -16,6 +17,9 @@ import (
 
 func TestMountDownloadToNewRelativeTarget(t *testing.T) {
 	t.Parallel()
+	if _, err := exec.LookPath("rsync"); err != nil {
+		t.Skip("rsync is not installed")
+	}
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
