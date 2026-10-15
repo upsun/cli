@@ -285,7 +285,9 @@ Releases are automated via GitHub Actions. To create a new release:
 
 If no draft matches the tag, the workflow creates and publishes a release with
 only the upgrade instructions. Release notes can still be edited after
-publishing: copy them over from the draft, and delete the draft.
+publishing: copy them over from the draft, and delete the draft. Each re-run of
+a failed workflow appends the upgrade instructions to the draft again, so remove
+any duplicates from the notes.
 
 ## Licenses
 
