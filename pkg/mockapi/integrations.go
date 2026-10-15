@@ -85,18 +85,24 @@ func (h *Handler) handlePatchProjectIntegration(w http.ResponseWriter, req *http
 
 func (h *Handler) handleDeleteProjectIntegration(w http.ResponseWriter, req *http.Request) {
 	projectID := chi.URLParam(req, "project_id")
-	h.Lock()
-	n := len(h.projectIntegrations[projectID])
-	h.projectIntegrations[projectID] = slices.DeleteFunc(h.projectIntegrations[projectID], func(i *Integration) bool {
-		return i.ID == chi.URLParam(req, "integration_id")
-	})
-	deleted := len(h.projectIntegrations[projectID]) < n
-	h.Unlock()
-	if !deleted {
+	if !h.deleteProjectIntegration(projectID, chi.URLParam(req, "integration_id")) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 	h.respondWithActivity(w, &Activity{Type: "integration.delete", Project: projectID})
+}
+
+// deleteProjectIntegration deletes an integration, and reports whether it existed.
+func (h *Handler) deleteProjectIntegration(projectID, integrationID string) bool {
+	h.Lock()
+	defer h.Unlock()
+	integrations := h.projectIntegrations[projectID]
+	idx := slices.IndexFunc(integrations, func(i *Integration) bool { return i.ID == integrationID })
+	if idx == -1 {
+		return false
+	}
+	h.projectIntegrations[projectID] = slices.Delete(integrations, idx, idx+1)
+	return true
 }
 
 // handleValidateProjectIntegration reports that an integration is valid.
