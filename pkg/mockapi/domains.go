@@ -276,10 +276,14 @@ func (h *Handler) handleDeleteDomain(w http.ResponseWriter, req *http.Request) {
 	h.respond(w, "deleted", http.StatusOK, nil, activity)
 }
 
-// SetEnvironmentDomains sets an environment's domains. The default branch's domains are the project's domains.
+// SetEnvironmentDomains sets an environment's domains. The default branch's
+// domains are the project's domains, so the project must be set first.
 func (s *store) SetEnvironmentDomains(projectID, environmentID string, domains []*Domain) {
 	s.Lock()
 	defer s.Unlock()
+	if _, ok := s.projects[projectID]; !ok {
+		panic("SetEnvironmentDomains: the project must be set first: " + projectID)
+	}
 	m, key, _ := s.domainMap(projectID, environmentID)
 	m[key] = slices.Clone(domains)
 }
