@@ -372,7 +372,10 @@ type Domain struct {
 }
 
 type DomainSSL struct {
-	HasCertificate bool `json:"has_certificate"`
+	HasCertificate bool     `json:"has_certificate"`
+	Certificate    string   `json:"certificate"`
+	Key            string   `json:"key"`
+	Chain          []string `json:"chain"`
 }
 
 type Integration struct {

@@ -24,6 +24,7 @@ type store struct {
 	envLevelVariables map[string]map[string][]*EnvLevelVariable
 
 	projectDomains      map[string][]*Domain
+	environmentDomains  map[string][]*Domain
 	projectIntegrations map[string][]*Integration
 	projectCertificates map[string][]*Certificate
 }
