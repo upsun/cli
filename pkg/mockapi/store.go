@@ -19,6 +19,7 @@ type store struct {
 	activities        map[string]map[string]*Activity
 	activityResult    string
 	projectBackups    map[string]map[string]*Backup
+	backupRestores    map[string][]map[string]any
 	projectVariables  map[string][]*Variable
 	envLevelVariables map[string]map[string][]*EnvLevelVariable
 

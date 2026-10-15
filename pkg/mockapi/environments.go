@@ -258,7 +258,7 @@ func (h *Handler) handleListBackups(w http.ResponseWriter, req *http.Request) {
 	if projectBackups, ok := h.projectBackups[projectID]; ok {
 		for _, b := range projectBackups {
 			if b.EnvironmentID == environmentID {
-				backups = append(backups, b)
+				backups = append(backups, backupWithLinks(projectID, b))
 			}
 		}
 	}

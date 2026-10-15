@@ -53,6 +53,11 @@ func (h *Handler) RespondWithActivity(w http.ResponseWriter, projectID, environm
 
 // respondWithActivity adds an in-progress activity and writes an action response that embeds it.
 func (h *Handler) respondWithActivity(w http.ResponseWriter, a *Activity) {
+	h.respondWithEntity(w, nil, a)
+}
+
+// respondWithEntity adds an in-progress activity and writes a response that embeds it and, if not nil, an entity.
+func (h *Handler) respondWithEntity(w http.ResponseWriter, entity any, a *Activity) {
 	h.Lock()
 	defer h.Unlock()
 	now := time.Now()
@@ -74,7 +79,11 @@ func (h *Handler) respondWithActivity(w http.ResponseWriter, a *Activity) {
 		h.activities[a.Project] = make(map[string]*Activity)
 	}
 	h.activities[a.Project][a.ID] = a
-	_ = json.NewEncoder(w).Encode(embedded("activities", []*Activity{a}))
+	resp := map[string]any{"activities": []*Activity{a}}
+	if entity != nil {
+		resp["entity"] = entity
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{"_embedded": resp})
 }
 
 // complete completes a created activity, as it is being read. The caller must hold the write lock.
