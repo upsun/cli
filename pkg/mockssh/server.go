@@ -15,7 +15,6 @@ import (
 	"os/exec"
 	"sync"
 	"testing"
-	"time"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -30,14 +29,32 @@ type Server struct {
 	CertAuthorityKeys []ssh.PublicKey
 	CertChecker       ssh.CertChecker
 
+	// The following fields must be set before clients connect, as connection handlers read them without locking.
+
 	// An optional CommandHandler, which responds to commands sent over SSH.
 	// NewServer will give this a default using ExecHandler, which can also
 	// be reused from custom handlers.
 	CommandHandler CommandHandler
 
+	// SFTPDir enables the SFTP subsystem, with this working directory.
+	SFTPDir string
+
+	// DialTCP enables local port forwarding ("direct-tcpip" channels, as with "ssh -L"),
+	// by connecting to the requested host and port. Otherwise, forwarding is rejected.
+	DialTCP func(host string, port int) (net.Conn, error)
+
+	// ListenUnix enables remote forwarding of Unix sockets (as with "ssh -R /path:host:port"),
+	// by listening at the requested path. Otherwise, forwarding is rejected.
+	ListenUnix func(path string) (net.Listener, error)
+
 	// listener and port are set after Start.
 	listener net.Listener
 	port     int
+
+	// conns are the open connections, which Stop closes.
+	connsMu sync.Mutex
+	conns   map[net.Conn]struct{}
+	wg      sync.WaitGroup
 }
 
 type CommandIO struct {
@@ -63,7 +80,7 @@ func NewServer(t *testing.T, authorityEndpoint string) (*Server, error) {
 		return nil, fmt.Errorf("failed to fetch authority keys: %v", err)
 	}
 
-	s := &Server{t: t, hostKey: hk}
+	s := &Server{t: t, hostKey: hk, conns: make(map[net.Conn]struct{})}
 	s.CommandHandler = ExecHandler("", nil)
 	s.CertChecker = s.defaultCertChecker()
 	s.CertAuthorityKeys = keys
@@ -106,48 +123,61 @@ func (s *Server) start() error {
 	}
 	t.Logf("Test SSH server listening at %s", listener.Addr())
 
-	go func(l net.Listener) {
+	s.wg.Go(func() {
 		for {
-			conn, err := l.Accept()
+			conn, err := listener.Accept()
 			if err != nil {
-				if errors.Is(err, net.ErrClosed) {
-					break
+				if !errors.Is(err, net.ErrClosed) {
+					t.Errorf("Failed to accept connection: %v", err)
 				}
-				t.Errorf("Failed to accept connection: %v", err)
-				continue
-			}
-
-			sshConn, chans, reqs, err := ssh.NewServerConn(conn, config)
-			if err != nil {
-				t.Logf("Handshake failed: %v", err)
 				return
 			}
-
-			t.Logf("Handling SSH connection from %s", sshConn.RemoteAddr())
-
-			wg := sync.WaitGroup{}
-			wg.Add(1)
-			go func() {
-				ssh.DiscardRequests(reqs)
-				wg.Done()
-			}()
-			wg.Add(1)
-			go func() {
-				s.handleChannels(sshConn, chans)
-				wg.Done()
-			}()
-			wg.Wait()
+			if !s.trackConn(conn) {
+				_ = conn.Close()
+				return
+			}
+			s.wg.Go(func() {
+				defer s.untrackConn(conn)
+				s.handleConn(conn, config)
+			})
 		}
-	}(s.listener)
+	})
 
 	return nil
 }
 
+// Stop stops the server, closes open connections, and waits for their handlers.
 func (s *Server) Stop() error {
+	var err error
 	if s.listener != nil {
-		return s.listener.Close()
+		err = s.listener.Close()
 	}
-	return nil
+	s.connsMu.Lock()
+	for c := range s.conns {
+		_ = c.Close()
+	}
+	s.conns = nil
+	s.connsMu.Unlock()
+	s.wg.Wait()
+	return err
+}
+
+// trackConn records an open connection, returning false if the server has stopped.
+func (s *Server) trackConn(c net.Conn) bool {
+	s.connsMu.Lock()
+	defer s.connsMu.Unlock()
+	if s.conns == nil {
+		return false
+	}
+	s.conns[c] = struct{}{}
+	return true
+}
+
+func (s *Server) untrackConn(c net.Conn) {
+	_ = c.Close()
+	s.connsMu.Lock()
+	defer s.connsMu.Unlock()
+	delete(s.conns, c)
 }
 
 // ExecHandler returns a CommandHandler to execute a command in the given environment.
@@ -214,73 +244,6 @@ func (s *Server) serverConfig() *ssh.ServerConfig {
 	}
 
 	return conf
-}
-
-func (s *Server) handleChannels(conn ssh.ConnMetadata, chans <-chan ssh.NewChannel) {
-	t := s.t
-
-	for newChannel := range chans {
-		if newChannel.ChannelType() != "session" {
-			err := newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
-			if err != nil {
-				t.Errorf("Failed to reject channel: %v", err)
-			}
-			continue
-		}
-
-		channel, requests, err := newChannel.Accept()
-		if err != nil {
-			t.Errorf("Failed to accept channel: %v", err)
-			return
-		}
-
-		timer := time.NewTimer(time.Second * 10)
-
-		var exitWithStatus = make(chan int, 1)
-		go func(in <-chan *ssh.Request) {
-			for req := range in {
-				if !req.WantReply {
-					continue
-				}
-				switch req.Type {
-				case "exec":
-					err := req.Reply(true, nil)
-					if err != nil {
-						t.Errorf("Failed to reply to command: %v", err)
-					}
-					// Strip the first four bytes of the payload, the uint32 representing the string length.
-					// See https://datatracker.ietf.org/doc/html/rfc4251#section-5
-					cmd := req.Payload[4:]
-					t.Logf("Handling command: %s", cmd)
-					exitWithStatus <- s.CommandHandler(conn, string(cmd), CommandIO{
-						StdIn:  channel,
-						StdOut: channel,
-						StdErr: channel.Stderr(),
-					})
-					return
-				default:
-					_ = req.Reply(false, nil)
-				}
-			}
-		}(requests)
-
-		for {
-			select {
-			case s := <-exitWithStatus:
-				_, err = channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{uint32(s)}))
-				if err != nil {
-					t.Fatalf("Failed to send exit status: %v", err)
-				}
-				goto closeChannel
-			case <-timer.C:
-				t.Error("Timed out")
-				goto closeChannel
-			}
-		}
-
-	closeChannel:
-		_ = channel.Close()
-	}
 }
 
 // generateHostKey returns a host key, generated once, as servers may run in parallel tests.

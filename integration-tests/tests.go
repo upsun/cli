@@ -263,3 +263,21 @@ func waitForServer(t *testing.T, client *http.Client, url string) *http.Response
 	}, 10*time.Second, 50*time.Millisecond, "server did not respond: %s", url)
 	return resp
 }
+
+// syncBuffer is a buffer that is safe for concurrent use, e.g. to read a running command's output.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
