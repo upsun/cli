@@ -233,25 +233,39 @@ func TestEnvironmentLogAPI(t *testing.T) {
 		assert.Equal(t, []string{expected}, last["services[]"], args)
 	}
 
-	// Service, app and worker names are validated against the deployment.
+	// Names that are not in the current deployment produce a warning, but are still queried.
 	validNames := "admin, admin--queue, app, app--mail, app--queue, db, router"
 	for _, c := range []struct {
-		args        []string
-		stdErr      string
-		hint        string
-		notInStdErr string
+		args     []string
+		services []string
+		hint     bool
 	}{
-		{
-			args:   []string{"-s", "access"},
-			stdErr: "Invalid --service: access (expected one of: " + validNames + ")",
-			hint:   "To filter by log type, use it as an argument, e.g.: platform-test log access",
-		},
-		{
-			args:        []string{"-s", "db,missing"},
-			stdErr:      "Invalid --service: missing (expected one of: " + validNames + ")",
-			notInStdErr: "To filter by log type",
-		},
-		{args: []string{"--app", "missing"}, stdErr: "Invalid --app: missing (expected one of: admin, app)"},
+		{args: []string{"-s", "access"}, services: []string{"access"}, hint: true},
+		{args: []string{"-s", "db,old"}, services: []string{"db", "old"}},
+		{args: []string{"--app", "old"}, services: []string{"old"}},
+		{args: []string{"--worker", "app--old"}, services: []string{"app--old"}},
+		{args: []string{"--app", "app", "--worker", "old"}, services: []string{"app--old"}},
+	} {
+		_, stdErr, err := f.RunCombinedOutput(append([]string{"log", "-p", projectID, "-e", "main"}, c.args...)...)
+		require.NoError(t, err, stdErr)
+		unknown := c.services[len(c.services)-1]
+		assert.Contains(t, stdErr, "Warning: the service "+unknown+" is not in the current deployment (expected one of: "+validNames+")")
+		if c.hint {
+			assert.Contains(t, stdErr, "To filter by log type, use it as an argument, e.g.: platform-test log "+unknown)
+		} else {
+			assert.NotContains(t, stdErr, "To filter by log type")
+		}
+		mu.Lock()
+		last = queries[len(queries)-1]
+		mu.Unlock()
+		assert.Equal(t, c.services, last["services[]"], c.args)
+	}
+
+	// Short worker names that cannot be qualified are errors.
+	for _, c := range []struct {
+		args   []string
+		stdErr string
+	}{
 		{args: []string{"--worker", "queue"}, stdErr: "Ambiguous worker name: queue (matches: admin--queue, app--queue)"},
 		{args: []string{"--worker", "missing"}, stdErr: "Worker not found: missing"},
 		{
@@ -265,12 +279,6 @@ func TestEnvironmentLogAPI(t *testing.T) {
 		_, stdErr, err := f.RunCombinedOutput(append([]string{"log", "-p", projectID, "-e", "main"}, c.args...)...)
 		assert.Error(t, err, c.args)
 		assert.Contains(t, stdErr, c.stdErr)
-		if c.hint != "" {
-			assert.Contains(t, stdErr, c.hint)
-		}
-		if c.notInStdErr != "" {
-			assert.NotContains(t, stdErr, c.notInStdErr)
-		}
 		mu.Lock()
 		assert.Len(t, queries, count, "no query is sent: %v", c.args)
 		mu.Unlock()

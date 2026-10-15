@@ -735,6 +735,30 @@ class Selector implements CompleterInterface
     }
 
     /**
+     * Qualifies a --worker option value with the app name, if needed.
+     *
+     * @return string|null
+     *   The qualified worker name (<app>--<worker>), or null if the worker is
+     *   given by its short name and there is no app name.
+     */
+    public function qualifyWorkerName(string $workerOption, ?string $appName): ?string
+    {
+        if (str_contains($workerOption, '--')) {
+            if ($appName !== null && stripos($workerOption, $appName . '--') !== 0) {
+                throw new InvalidArgumentException(sprintf(
+                    'App name "%s" conflicts with worker name "%s"',
+                    $appName,
+                    $workerOption,
+                ));
+            }
+
+            return $workerOption;
+        }
+
+        return $appName !== null ? $appName . '--' . $workerOption : null;
+    }
+
+    /**
      * Finds the qualified name of the worker selected by the --worker option.
      *
      * The worker can be given by its qualified name (<app>--<worker>), or by
@@ -753,22 +777,9 @@ class Selector implements CompleterInterface
      */
     public function selectWorkerName(EnvironmentDeployment $deployment, InputInterface $input, string $workerOption, ?string $appName): string
     {
-        // Check for a conflict with the --app option.
-        if ($appName !== null
-            && str_contains($workerOption, '--')
-            && stripos($workerOption, $appName . '--') !== 0) {
-            throw new InvalidArgumentException(sprintf(
-                'App name "%s" conflicts with worker name "%s"',
-                $appName,
-                $workerOption,
-            ));
-        }
-
         // If we have the app name, load the worker directly.
-        if (str_contains($workerOption, '--') || $appName !== null) {
-            $qualifiedWorkerName = str_contains($workerOption, '--')
-                ? $workerOption
-                : $appName . '--' . $workerOption;
+        $qualifiedWorkerName = $this->qualifyWorkerName($workerOption, $appName);
+        if ($qualifiedWorkerName !== null) {
             try {
                 $worker = $deployment->getWorker($qualifiedWorkerName);
             } catch (\InvalidArgumentException) {

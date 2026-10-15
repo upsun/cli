@@ -451,7 +451,8 @@ class EnvironmentLogCommand extends CommandBase
     /**
      * Returns the service names to filter logs by, from the --service, --app and --worker options.
      *
-     * The names are validated against the environment's current deployment, if there is one.
+     * Names that are not in the environment's current deployment produce a
+     * warning, as logs of removed services can still be read.
      *
      * @return list<string>
      */
@@ -464,6 +465,9 @@ class EnvironmentLogCommand extends CommandBase
         if ($worker === '') {
             $worker = null;
         }
+        if ($services === [] && $appName === null && $worker === null) {
+            return [];
+        }
 
         try {
             $deployment = $this->api->getCurrentDeployment($selection->getEnvironment());
@@ -472,55 +476,44 @@ class EnvironmentLogCommand extends CommandBase
             $deployment = null;
         }
 
-        if ($deployment === null) {
-            if ($worker !== null) {
-                if (str_contains($worker, '--')) {
-                    $services[] = $worker;
-                } elseif ($appName !== null) {
-                    $services[] = $appName . '--' . $worker;
-                } else {
+        if ($worker !== null) {
+            // The app name is only used to qualify the worker name.
+            $qualified = $this->selector->qualifyWorkerName($worker, $appName);
+            if ($qualified === null) {
+                if ($deployment === null) {
                     throw new InvalidArgumentException(sprintf('The worker name must include the app name, e.g.: --worker <app>--%s', $worker));
                 }
-            } elseif ($appName !== null) {
-                $services[] = $appName;
+                $qualified = $this->selector->selectWorkerName($deployment, $input, $worker, null);
             }
+            $services[] = $qualified;
+        } elseif ($appName !== null) {
+            $services[] = $appName;
+        }
+        $services = array_values(array_unique($services));
 
-            return array_values(array_unique($services));
+        if ($deployment === null) {
+            return $services;
         }
 
-        $appNames = array_map('strval', array_keys($deployment->webapps));
         $validNames = array_merge(
-            $appNames,
+            array_map('strval', array_keys($deployment->webapps)),
             array_map('strval', array_keys($deployment->workers)),
             array_map('strval', array_keys($deployment->services)),
             ['router'],
         );
         $validNames = array_values(array_unique($validNames));
         sort($validNames);
-        sort($appNames);
-
         foreach ($services as $service) {
-            if (!in_array($service, $validNames, true)) {
-                $message = sprintf('Invalid --service: %s (expected one of: %s)', $service, implode(', ', $validNames));
-                if ($service === 'error' || isset(self::LOG_KINDS[$service])) {
-                    $message .= "\n" . sprintf('To filter by log type, use it as an argument, e.g.: %s %s', $this->config->getStr('application.executable') . ' log', $service);
-                }
-                throw new InvalidArgumentException($message);
+            if (in_array($service, $validNames, true)) {
+                continue;
+            }
+            $this->stdErr->writeln(sprintf('<comment>Warning:</comment> the service <comment>%s</comment> is not in the current deployment (expected one of: %s)', $service, implode(', ', $validNames)));
+            if ($service === 'error' || isset(self::LOG_KINDS[$service])) {
+                $this->stdErr->writeln(sprintf('To filter by log type, use it as an argument, e.g.: <info>%s log %s</info>', $this->config->getStr('application.executable'), $service));
             }
         }
 
-        if ($appName !== null && !in_array($appName, $appNames, true)) {
-            throw new InvalidArgumentException(sprintf('Invalid --app: %s (expected one of: %s)', $appName, implode(', ', $appNames)));
-        }
-
-        if ($worker !== null) {
-            // The app name is only used to qualify the worker name.
-            $services[] = $this->selector->selectWorkerName($deployment, $input, $worker, $appName);
-        } elseif ($appName !== null) {
-            $services[] = $appName;
-        }
-
-        return array_values(array_unique($services));
+        return $services;
     }
 
     /**
