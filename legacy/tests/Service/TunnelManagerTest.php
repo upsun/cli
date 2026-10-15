@@ -330,6 +330,36 @@ class TunnelManagerTest extends TestCase
         $this->assertSame(getmypid(), $result->pid);
     }
 
+    public function testIsOpenKeepsCurrentMetadata(): void
+    {
+        // A stored entry may lack the service metadata, e.g. from an older version.
+        $id = 'proj1--main--app--database--0';
+        $metadata = [
+            'projectId' => 'proj1',
+            'environmentId' => 'main',
+            'appName' => 'app',
+            'relationship' => 'database',
+            'serviceKey' => 0,
+            'service' => ['scheme' => 'mysql', 'host' => 'database.internal', 'port' => 3306],
+        ];
+        $stored = $metadata;
+        unset($stored['service']);
+        $this->writeTunnelInfo($id, $stored + [
+            'localPort' => 30000,
+            'remoteHost' => 'database.internal',
+            'remotePort' => 3306,
+            'pid' => getmypid(),
+        ]);
+
+        $manager = $this->createManager($this->tempDir);
+
+        $result = $manager->isOpen(new Tunnel($id, 30001, 'database.internal', 3306, $metadata));
+
+        $this->assertInstanceOf(Tunnel::class, $result);
+        $this->assertSame(30000, $result->localPort);
+        $this->assertSame($metadata, $result->metadata);
+    }
+
     public function testCloseRemovesTunnelFromState(): void
     {
         // close() has to rewrite the state file itself. Leaving that to the

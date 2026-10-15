@@ -142,7 +142,7 @@ class TunnelManager
      * Checks whether a tunnel is already open.
      *
      * @return false|Tunnel
-     *   The open tunnel, or false if it is not open.
+     *   The tunnel with the open tunnel's local port and PID, or false if it is not open.
      */
     public function isOpen(Tunnel $tunnel): false|Tunnel
     {
@@ -156,7 +156,8 @@ class TunnelManager
                     $this->close($t);
                     return false;
                 }
-                return $t;
+                // The stored metadata may be from an older version, so only the port and PID are used.
+                return new Tunnel($tunnel->id, $t->localPort, $tunnel->remoteHost, $tunnel->remotePort, $tunnel->metadata, $t->pid);
             }
         }
 
