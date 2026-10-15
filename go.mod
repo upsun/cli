@@ -15,6 +15,7 @@ require (
 	github.com/godbus/dbus/v5 v5.2.3
 	github.com/gofrs/flock v0.13.1
 	github.com/oklog/ulid/v2 v2.1.2
+	github.com/pkg/sftp v1.13.11
 	github.com/platformsh/platformify v0.5.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
@@ -91,6 +92,7 @@ require (
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
 	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
+	github.com/kr/fs v0.1.0 // indirect
 	github.com/leodido/go-urn v1.5.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
 	github.com/mailru/easyjson v0.9.2 // indirect
