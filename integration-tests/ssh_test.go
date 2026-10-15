@@ -94,7 +94,9 @@ func TestSSHAppSelection(t *testing.T) {
 			"admin": {Name: "admin", Type: "php:8.4", Size: "M", Mounts: map[string]mockapi.Mount{}},
 		},
 		Workers: map[string]mockapi.Worker{
-			"app--queue": {App: mockapi.App{Name: "app--queue", Type: "golang:1.23", Size: "S", Mounts: map[string]mockapi.Mount{}}},
+			"app--queue": {App: mockapi.App{
+				Name: "app--queue", Type: "golang:1.23", Size: "S", Mounts: map[string]mockapi.Mount{},
+			}},
 		},
 	}))
 	// The server prints the SSH user, which identifies the container.
@@ -115,7 +117,8 @@ func TestSSHAppSelection(t *testing.T) {
 	all := strings.Split(strings.TrimSpace(f.Run("ssh", "-p", layoutProjectID, "-e", "main", "--all")), "\n")
 	assert.ElementsMatch(t, []string{sshURL("app"), sshURL("admin"), sshURL("app--queue")}, all)
 
-	assert.Equal(t, sshUser+"admin: echo hi\n", f.Run("ssh", "-p", layoutProjectID, "-e", "main", "-A", "admin", "echo hi"))
+	assert.Equal(t, sshUser+"admin: echo hi\n",
+		f.Run("ssh", "-p", layoutProjectID, "-e", "main", "-A", "admin", "echo hi"))
 	assert.Equal(t, sshUser+"app--queue: ls -a\n",
 		f.Run("ssh", "-p", layoutProjectID, "-e", "main", "--worker", "app--queue", "--", "ls", "-a"))
 

@@ -3,12 +3,14 @@ package tests
 import (
 	"encoding/base64"
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -141,11 +143,14 @@ func sshEnv(d *mockapi.Deployment) *mockapi.Environment {
 	}
 	d.Links = mockapi.MakeHALLinks("self=/projects/" + layoutProjectID + "/environments/main/deployment/current")
 	env.SetCurrentDeployment(d)
-	for name := range d.WebApps {
-		env.Links["pf:ssh:"+name] = mockapi.HALLink{HREF: "ssh://" + layoutProjectID + "-main--" + name + "@ssh.cli-tests.example.com"}
-	}
+	names := slices.Collect(maps.Keys(d.WebApps))
 	for name := range d.Workers {
-		env.Links["pf:ssh:"+name] = mockapi.HALLink{HREF: "ssh://" + layoutProjectID + "-main--" + name + "@ssh.cli-tests.example.com"}
+		names = append(names, name)
+	}
+	for _, name := range names {
+		env.Links["pf:ssh:"+name] = mockapi.HALLink{
+			HREF: "ssh://" + layoutProjectID + "-main--" + name + "@ssh.cli-tests.example.com",
+		}
 	}
 	return env
 }

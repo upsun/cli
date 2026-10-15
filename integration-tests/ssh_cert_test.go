@@ -90,7 +90,8 @@ func TestSSHCertLoad(t *testing.T) {
 	assert.Contains(t, output, "key_id: "+myUserID+"\n")
 	assert.Equal(t, 3, authServer.SSHCertificateCount())
 
-	validBefore, err := strconv.ParseInt(strings.TrimSpace(f.Run("ssh-cert:info", "-P", "valid_before", "--date-fmt", "U")), 10, 64)
+	validBefore, err := strconv.ParseInt(
+		strings.TrimSpace(f.Run("ssh-cert:info", "-P", "valid_before", "--date-fmt", "U")), 10, 64)
 	require.NoError(t, err)
 	assert.WithinDuration(t, before.Add(time.Hour), time.Unix(validBefore, 0), time.Minute)
 
