@@ -529,6 +529,18 @@ applications:
 			wantErrors: `linter errors:
   - applications.app.web.egress: Additional property build is not allowed`,
 		},
+		{
+			name: "invalid container profile override",
+			content: `
+applications:
+  app:
+    type: php:8.4
+    web:
+      container_profile: 5
+`,
+			wantErrors: `linter errors:
+  - applications.app.web.container_profile: Invalid type. Expected: [string,null], given: integer`,
+		},
 	}
 
 	for _, c := range cases {

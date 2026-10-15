@@ -31,7 +31,7 @@ func CheckSchemaAt(data any, schema *gojsonschema.Schema, pathPrefix string) *Re
 	}
 	errs := schemaResult.Errors()
 	for _, e := range errs {
-		if e.Type() == "number_any_of" && hasDetailedError(errs, e) {
+		if (e.Type() == "number_any_of" || e.Type() == "number_all_of") && hasDetailedError(errs, e) {
 			continue
 		}
 		field := e.Field()
@@ -54,11 +54,11 @@ func CheckSchemaAt(data any, schema *gojsonschema.Schema, pathPrefix string) *Re
 }
 
 // hasDetailedError reports whether another error is at or below the field of an
-// anyOf error, which gojsonschema adds after the errors of the closest branch.
-func hasDetailedError(errs []gojsonschema.ResultError, anyOf gojsonschema.ResultError) bool {
-	field := anyOf.Field()
+// anyOf or allOf error, as gojsonschema also reports the errors of the branches.
+func hasDetailedError(errs []gojsonschema.ResultError, summary gojsonschema.ResultError) bool {
+	field := summary.Field()
 	for _, e := range errs {
-		if e == anyOf {
+		if e == summary {
 			continue
 		}
 		if f := e.Field(); f == field || field == "(root)" || strings.HasPrefix(f, field+".") {
