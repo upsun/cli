@@ -35,7 +35,30 @@ func TestEnvironmentLogAPI(t *testing.T) {
 			"environments=/projects/"+projectID+"/environments"),
 		DefaultBranch: "main",
 	}})
-	apiHandler.SetEnvironments([]*mockapi.Environment{makeEnv(projectID, "main", "production", "active", nil)})
+	mainEnv := makeEnv(projectID, "main", "production", "active", nil)
+	app := mockapi.App{Type: "golang:1.23", Size: "M", Disk: 2048, Mounts: map[string]mockapi.Mount{}}
+	webApp := func(name string) mockapi.App {
+		a := app
+		a.Name = name
+		return a
+	}
+	worker := func(name string) mockapi.Worker {
+		return mockapi.Worker{App: webApp(name)}
+	}
+	mainEnv.SetCurrentDeployment(&mockapi.Deployment{
+		WebApps: map[string]mockapi.App{"app": webApp("app"), "admin": webApp("admin")},
+		Services: map[string]mockapi.App{
+			"db": {Name: "db", Type: "mariadb:11.4", Size: "S", Disk: 1024},
+		},
+		Workers: map[string]mockapi.Worker{
+			"app--queue":   worker("app--queue"),
+			"admin--queue": worker("admin--queue"),
+			"app--mail":    worker("app--mail"),
+		},
+		Routes: mockRoutes(),
+		Links:  mockapi.MakeHALLinks("self=/projects/" + projectID + "/environments/main/deployment/current"),
+	})
+	apiHandler.SetEnvironments([]*mockapi.Environment{mainEnv})
 
 	// 150 log lines, one per second, ending 20 seconds ago.
 	end := time.Now().Add(-20 * time.Second).UTC().Truncate(time.Second)
@@ -129,11 +152,11 @@ func TestEnvironmentLogAPI(t *testing.T) {
 	assert.Equal(t, "-1", last.Get("log_kinds_mode"))
 
 	// Filters.
-	f.Run("log", "-p", projectID, "-e", "main", "-s", "app,worker", "--severity", "warning", "--since", "5m")
+	f.Run("log", "-p", projectID, "-e", "main", "-s", "app,db", "--severity", "warning", "--since", "5m")
 	mu.Lock()
 	last = queries[len(queries)-1]
 	mu.Unlock()
-	assert.Equal(t, []string{"app", "worker"}, last["services[]"])
+	assert.Equal(t, []string{"app", "db"}, last["services[]"])
 	assert.Equal(t, []string{"EMERGENCY", "ALERT", "CRITICAL", "ERROR", "WARNING"}, last["severities[]"])
 	from, _ := strconv.ParseInt(last.Get("from"), 10, 64)
 	assert.InDelta(t, time.Now().Add(-5*time.Minute).Unix(), from, 60)
@@ -189,6 +212,77 @@ func TestEnvironmentLogAPI(t *testing.T) {
 		_, stdErr, err := f.RunCombinedOutput(append([]string{"log", "-p", projectID, "-e", "main"}, c.args...)...)
 		assert.Error(t, err)
 		assert.Contains(t, stdErr, c.stdErr)
+	}
+
+	// Workers are selected with the logs API, by their qualified name.
+	for _, args := range [][]string{
+		{"--worker", "app--queue"},
+		{"--app", "app", "--worker", "queue"},
+		{"--worker", "mail"},
+	} {
+		_, stdErr, err := f.RunCombinedOutput(append([]string{"log", "-p", projectID, "-e", "main"}, args...)...)
+		require.NoError(t, err, stdErr)
+		assert.NotContains(t, stdErr, "Reading log file")
+		mu.Lock()
+		last = queries[len(queries)-1]
+		mu.Unlock()
+		expected := "app--queue"
+		if args[len(args)-1] == "mail" {
+			expected = "app--mail"
+		}
+		assert.Equal(t, []string{expected}, last["services[]"], args)
+	}
+
+	// Names that are not in the current deployment produce a warning, but are still queried.
+	validNames := "admin, admin--queue, app, app--mail, app--queue, db, router"
+	for _, c := range []struct {
+		args     []string
+		services []string
+		hint     bool
+	}{
+		{args: []string{"-s", "access"}, services: []string{"access"}, hint: true},
+		{args: []string{"-s", "db,old"}, services: []string{"db", "old"}},
+		{args: []string{"--app", "old"}, services: []string{"old"}},
+		{args: []string{"--worker", "app--old"}, services: []string{"app--old"}},
+		{args: []string{"--app", "app", "--worker", "old"}, services: []string{"app--old"}},
+	} {
+		_, stdErr, err := f.RunCombinedOutput(append([]string{"log", "-p", projectID, "-e", "main"}, c.args...)...)
+		require.NoError(t, err, stdErr)
+		unknown := c.services[len(c.services)-1]
+		assert.Contains(t, stdErr, "Warning: the service "+unknown+
+			" is not in the current deployment (expected one of: "+validNames+")")
+		if c.hint {
+			assert.Contains(t, stdErr, "To filter by log type, use it as an argument, e.g.: platform-test log "+unknown)
+		} else {
+			assert.NotContains(t, stdErr, "To filter by log type")
+		}
+		mu.Lock()
+		last = queries[len(queries)-1]
+		mu.Unlock()
+		assert.Equal(t, c.services, last["services[]"], c.args)
+	}
+
+	// Short worker names that cannot be qualified are errors.
+	for _, c := range []struct {
+		args   []string
+		stdErr string
+	}{
+		{args: []string{"--worker", "queue"}, stdErr: "Ambiguous worker name: queue (matches: admin--queue, app--queue)"},
+		{args: []string{"--worker", "missing"}, stdErr: "Worker not found: missing"},
+		{
+			args:   []string{"--app", "admin", "--worker", "app--queue"},
+			stdErr: `App name "admin" conflicts with worker name "app--queue"`,
+		},
+	} {
+		mu.Lock()
+		count := len(queries)
+		mu.Unlock()
+		_, stdErr, err := f.RunCombinedOutput(append([]string{"log", "-p", projectID, "-e", "main"}, c.args...)...)
+		assert.Error(t, err, c.args)
+		assert.Contains(t, stdErr, c.stdErr)
+		mu.Lock()
+		assert.Len(t, queries, count, "no query is sent: %v", c.args)
+		mu.Unlock()
 	}
 
 	// The app can be selected by an environment variable.
