@@ -56,7 +56,11 @@ class EnvironmentSshCommand extends CommandBase
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         try {
-            $selection = $this->selector->getSelection($input, new SelectorConfig(chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
+            // The --all option lists every app, so it does not need a container.
+            $selection = $this->selector->getSelection($input, new SelectorConfig(
+                chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive(),
+                selectRemoteContainer: !Option::bool($input, 'all'),
+            ));
             $environment = $selection->getEnvironment();
 
             if (Option::bool($input, 'all')) {
