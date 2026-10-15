@@ -21,9 +21,9 @@ func mergePatch(data, patch map[string]any) map[string]any {
 			delete(result, k)
 			continue
 		}
-		current, isMap := result[k].(map[string]any)
-		update, updateIsMap := v.(map[string]any)
-		if isMap && updateIsMap {
+		if update, ok := v.(map[string]any); ok {
+			// A nil current value (or one that isn't an object) is merged as an empty object.
+			current, _ := result[k].(map[string]any)
 			result[k] = mergePatch(current, update)
 		} else {
 			result[k] = v

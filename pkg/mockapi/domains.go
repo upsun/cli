@@ -12,22 +12,26 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// domainStore returns the map and key for the domains in the request. Like the
-// API, a project's domains are the production domains, which are also the
-// default branch's environment domains. The caller must hold the write lock.
+// domainStore returns the map and key for the domains in the request. The caller must hold the write lock.
 func (h *Handler) domainStore(req *http.Request) (domains map[string][]*Domain, key string, production bool) {
-	projectID := chi.URLParam(req, "project_id")
-	environmentID := chi.URLParam(req, "environment_id")
-	if p, ok := h.projects[projectID]; environmentID == "" || (ok && environmentID == p.DefaultBranch) {
-		if h.projectDomains == nil {
-			h.projectDomains = make(map[string][]*Domain)
+	return h.domainMap(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
+}
+
+// domainMap returns the map and key for a project's or an environment's
+// domains, creating the map if needed. Like the API, a project's domains are
+// the production domains, which are also the default branch's environment
+// domains. The caller must hold the write lock.
+func (s *store) domainMap(projectID, environmentID string) (domains map[string][]*Domain, key string, production bool) {
+	if p, ok := s.projects[projectID]; environmentID == "" || (ok && environmentID == p.DefaultBranch) {
+		if s.projectDomains == nil {
+			s.projectDomains = make(map[string][]*Domain)
 		}
-		return h.projectDomains, projectID, true
+		return s.projectDomains, projectID, true
 	}
-	if h.environmentDomains == nil {
-		h.environmentDomains = make(map[string][]*Domain)
+	if s.environmentDomains == nil {
+		s.environmentDomains = make(map[string][]*Domain)
 	}
-	return h.environmentDomains, projectID + "/" + environmentID, false
+	return s.environmentDomains, projectID + "/" + environmentID, false
 }
 
 // domainCollectionPath returns the path of the collection of domains in the request.
@@ -272,27 +276,22 @@ func (h *Handler) handleDeleteDomain(w http.ResponseWriter, req *http.Request) {
 	h.respond(w, "deleted", http.StatusOK, nil, activity)
 }
 
-// SetEnvironmentDomains sets the domains of a non-production environment.
+// SetEnvironmentDomains sets an environment's domains. The default branch's domains are the project's domains.
 func (s *store) SetEnvironmentDomains(projectID, environmentID string, domains []*Domain) {
 	s.Lock()
 	defer s.Unlock()
-	if s.environmentDomains == nil {
-		s.environmentDomains = make(map[string][]*Domain)
-	}
-	s.environmentDomains[projectID+"/"+environmentID] = slices.Clone(domains)
+	m, key, _ := s.domainMap(projectID, environmentID)
+	m[key] = slices.Clone(domains)
 }
 
-// Domains returns copies of a project's domains, or of a non-production
-// environment's if environmentID is not empty. SSL information is not included.
+// Domains returns copies of a project's domains, or of an environment's if
+// environmentID is not empty. SSL information is not included.
 func (s *store) Domains(projectID, environmentID string) []*Domain {
-	s.RLock()
-	defer s.RUnlock()
-	domains := s.projectDomains[projectID]
-	if environmentID != "" {
-		domains = s.environmentDomains[projectID+"/"+environmentID]
-	}
-	result := make([]*Domain, 0, len(domains))
-	for _, d := range domains {
+	s.Lock()
+	defer s.Unlock()
+	m, key, _ := s.domainMap(projectID, environmentID)
+	result := make([]*Domain, 0, len(m[key]))
+	for _, d := range m[key] {
 		result = append(result, copyDomain(d))
 	}
 	return result
