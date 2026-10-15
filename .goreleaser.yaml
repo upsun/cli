@@ -88,9 +88,9 @@ checksum:
 snapshot:
   version_template: '{{ incpatch .Version }}-{{ .Now.Format "2006-01-02" }}-{{ .ShortCommit }}-next'
 
+# Release notes are written in a draft release: see "Creating a Release" in the README.
 changelog:
-  sort: asc
-  use: github-native
+  disable: true
 
 universal_binaries:
   - id: platform-macos
@@ -103,6 +103,8 @@ universal_binaries:
 release:
   # Upload to a draft release titled with the tag, if any, then publish it, as immutable releases can't get new assets.
   use_existing_draft: true
+  # Add the footer after the draft's notes.
+  mode: append
   replace_existing_artifacts: true
   github:
     owner: upsun
