@@ -116,19 +116,23 @@ func innerAppConfigValidateCommand(cnf *config.Config) Command {
 			cnf.Application.Executable + " app:config-validate [<path>]",
 		},
 		Aliases: []string{
-			"validate",
 			"lint",
+			"validate",
 		},
 		Description: "Validate the configuration files of a project, reporting all errors at once",
 		Help:        "",
 		Examples: []Example{
 			{
 				Commandline: "",
-				Description: "Validate the project configuration files in your current directory",
+				Description: "Validate the project configuration files in the current Git repository",
+			},
+			{
+				Commandline: "path/to/project",
+				Description: "Validate the project configuration files in a specific directory",
 			},
 			{
 				Commandline: "--format=json",
-				Description: "Validate the current directory and output the results as JSON",
+				Description: "Validate the current Git repository and output the results as JSON",
 			},
 		},
 		Definition: Definition{
@@ -308,12 +312,8 @@ func (c *Command) HelpPage(cnf *config.Config) string {
 		fmt.Fprintln(writer, color.YellowString("Examples:"))
 		for _, example := range c.Examples {
 			fmt.Fprintln(writer, indentLines(example.Description.String()+":", 1))
-			usage := cnf.Application.Executable + " " + c.Name.String()
-			if len(c.Usage) > 0 {
-				usage = c.Usage[0]
-			}
-			fmt.Fprintln(writer,
-				color.GreenString(fmt.Sprintf("   %s %s", usage, example.Commandline)))
+			commandline := strings.TrimSpace(cnf.Application.Executable + " " + c.PreferredName() + " " + example.Commandline)
+			fmt.Fprintln(writer, color.GreenString("   "+commandline))
 			fmt.Fprintln(writer, "")
 		}
 	}
@@ -321,6 +321,14 @@ func (c *Command) HelpPage(cnf *config.Config) string {
 	writer.Flush()
 
 	return b.String()
+}
+
+// PreferredName returns the first alias, or the command name, as in the legacy CLI.
+func (c *Command) PreferredName() string {
+	if len(c.Aliases) > 0 {
+		return c.Aliases[0]
+	}
+	return c.Name.String()
 }
 
 type CommandName struct {
