@@ -25,6 +25,7 @@ trap 'rm -rf "$tmp"' EXIT
 php_version=$(makefile_var PHP_VERSION)
 php_build=$(makefile_var PHP_BUILD)
 cacert_date=$(makefile_var CACERT_DATE)
+# Builds are numbered from 1, so PHP_BUILD = 0 (for a new PHP version) always updates.
 old_tag="php-$php_version-$php_build"
 minor=$(cut -d. -f1,2 <<< "$php_version")
 
@@ -69,7 +70,7 @@ if [[ "$new_tag" != "$old_tag" ]]; then
     titles+=("upgrade PHP to $new_version (build $new_build)")
   fi
 
-  # Lists changed source archives, grouped by platform.
+  # Lists changed source archives, one row per change, with the platforms it applies to.
   changes=$(jq -rn --slurpfile old "$tmp/old/sources.json" --slurpfile new "$tmp/new/sources.json" '
     $old[0] as $o | $new[0] as $n
     | [($o + $n | keys[]) as $p | (($o[$p] // {}) + ($n[$p] // {}) | keys[]) as $lib

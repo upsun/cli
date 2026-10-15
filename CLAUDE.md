@@ -146,7 +146,7 @@ make download-php
 
 **Upgrading PHP Version**:
 - The `update-php` workflow runs daily: it finds the latest cli-php-builds release for the current PHP minor version, and the latest CA bundle, and opens or updates a pull request that updates `PHP_VERSION`, `PHP_BUILD`, the checksums and the CA bundle (with `scripts/update-php.sh`). The pull request lists the changed source archives (from the releases' `sources.json`)
-- For a new PHP minor version: trigger the build workflow at [upsun/cli-php-builds](https://github.com/upsun/cli-php-builds/actions) with the new version, then set `PHP_VERSION` to it and `PHP_BUILD` to `0`, run `scripts/update-php.sh <title-file> <body-file>`, and `make download-php` to check the downloads
+- For a new PHP minor version: trigger the build workflow at [upsun/cli-php-builds](https://github.com/upsun/cli-php-builds/actions) with the new version, then set `PHP_VERSION` to it and `PHP_BUILD` to `0` (builds are numbered from 1), run `scripts/update-php.sh <title-file> <body-file>`, and `make download-php` to check the downloads
 
 ## Development Notes
 
