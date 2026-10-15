@@ -108,7 +108,15 @@ func freePort(t *testing.T) int {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port
+	return tcpPort(t, l)
+}
+
+// tcpPort returns the port of a TCP listener.
+func tcpPort(t *testing.T, l net.Listener) int {
+	t.Helper()
+	addr, ok := l.Addr().(*net.TCPAddr)
+	require.True(t, ok)
+	return addr.Port
 }
 
 func TestTunnelOpen(t *testing.T) {
@@ -124,17 +132,20 @@ func TestTunnelOpen(t *testing.T) {
 	assert.Contains(t, stdErr, "SSH tunnel opened to database at: mysql://user:@127.0.0.1:")
 	assert.Contains(t, stdErr, "SSH tunnel opened to redis at: redis://:@127.0.0.1:")
 
-	var relationships map[string][]map[string]any
+	var relationships map[string][]struct {
+		Host string `json:"host"`
+		Port int    `json:"port"`
+	}
 	encoded := strings.TrimSpace(f.Run(append([]string{"tunnel:info", "--encode"}, args...)...))
 	decoded, err := base64.StdEncoding.DecodeString(encoded)
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(decoded, &relationships))
 	require.Len(t, relationships["database"], 1)
 	require.Len(t, relationships["redis"], 1)
-	assert.Equal(t, "127.0.0.1", relationships["database"][0]["host"])
+	assert.Equal(t, "127.0.0.1", relationships["database"][0].Host)
 
-	dbPort := int(relationships["database"][0]["port"].(float64))
-	redisPort := int(relationships["redis"][0]["port"].(float64))
+	dbPort := relationships["database"][0].Port
+	redisPort := relationships["redis"][0].Port
 	assert.Equal(t, "database", readTunnel(t, dbPort))
 	assert.Equal(t, "redis", readTunnel(t, redisPort))
 
@@ -146,7 +157,8 @@ func TestTunnelOpen(t *testing.T) {
 	// Opening tunnels again reuses them.
 	_, stdErr, err = runWithFiles(f, append([]string{"tunnel:open"}, args...)...)
 	require.NoError(t, err)
-	assert.Contains(t, stdErr, fmt.Sprintf("A tunnel is already opened to the relationship database, at: mysql://user:@127.0.0.1:%d", dbPort))
+	assert.Contains(t, stdErr, fmt.Sprintf(
+		"A tunnel is already opened to the relationship database, at: mysql://user:@127.0.0.1:%d", dbPort))
 
 	_, stdErr, err = f.RunCombinedOutput(append([]string{"tunnel:close", "--yes"}, args...)...)
 	require.NoError(t, err)

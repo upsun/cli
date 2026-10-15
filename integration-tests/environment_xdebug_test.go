@@ -1,10 +1,18 @@
 package tests
 
 import (
+	"bytes"
+	"io"
+	"net"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -120,4 +128,110 @@ func TestEnvironmentXdebug(t *testing.T) {
 		assert.Equal(t, []string{"rm -rf /run/xdebug-tunnel.sock"}, commands[c.wantUser], c.env)
 		mu.Unlock()
 	}
+}
+
+func TestEnvironmentXdebugTunnel(t *testing.T) {
+	t.Parallel()
+	p := setUpProject(t, sshEnv(&mockapi.Deployment{
+		WebApps: map[string]mockapi.App{
+			"app": {Name: "app", Type: "php:8.4", Size: "M", Mounts: map[string]mockapi.Mount{},
+				Runtime: map[string]any{"xdebug": map[string]any{"idekey": "secret_key"}}},
+		},
+	}))
+	sshServer := p.serveSSH(t, func(_ ssh.ConnMetadata, _ string, _ mockssh.CommandIO) int { return 0 })
+
+	// The server listens at a local socket instead of /run/xdebug-tunnel.sock. A short
+	// directory is used, as socket paths are limited to about 100 characters.
+	socketDir, err := os.MkdirTemp("", "xdebug")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(socketDir) })
+	socket := filepath.Join(socketDir, "xdebug.sock")
+	var requestedPath atomic.Value
+	sshServer.ListenUnix = func(path string) (net.Listener, error) {
+		requestedPath.Store(path)
+		return net.Listen("unix", socket)
+	}
+
+	// The IDE listens locally.
+	ide, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = ide.Close() })
+	port := tcpPort(t, ide)
+	received := make(chan string, 1)
+	go func() {
+		c, err := ide.Accept()
+		if err != nil {
+			return
+		}
+		defer c.Close()
+		b, _ := io.ReadAll(c)
+		received <- string(b)
+	}()
+
+	cmd := p.f.buildCommand("xdebug", "-p", layoutProjectID, "-e", "main", "--port", strconv.Itoa(port))
+	var stdErr syncBuffer
+	cmd.Stderr = &stdErr
+	require.NoError(t, cmd.Start())
+	var waitErr error
+	exited := make(chan struct{})
+	go func() {
+		waitErr = cmd.Wait()
+		close(exited)
+	}()
+	t.Cleanup(func() {
+		select {
+		case <-exited:
+		case <-time.After(10 * time.Second):
+			_ = cmd.Process.Kill()
+			t.Error("xdebug did not exit")
+		}
+		p.f.logStderr(stdErr.String())
+	})
+
+	// A connection from the app (Xdebug) to the socket reaches the IDE.
+	var conn net.Conn
+	require.Eventually(t, func() bool {
+		conn, err = net.Dial("unix", socket)
+		return err == nil
+	}, 10*time.Second, 50*time.Millisecond)
+	_, err = io.WriteString(conn, "<init idekey=\"secret_key\"/>")
+	require.NoError(t, err)
+	require.NoError(t, conn.Close())
+	select {
+	case got := <-received:
+		assert.Equal(t, "<init idekey=\"secret_key\"/>", got)
+	case <-time.After(10 * time.Second):
+		t.Fatal("the IDE did not receive a connection")
+	}
+	assert.Equal(t, "/run/xdebug-tunnel.sock", requestedPath.Load())
+	require.Eventually(t, func() bool {
+		return strings.Contains(stdErr.String(), "Xdebug tunnel opened at: 127.0.0.1:"+strconv.Itoa(port))
+	}, 10*time.Second, 50*time.Millisecond)
+
+	// The tunnel closes with the SSH connection.
+	require.NoError(t, sshServer.Stop())
+	select {
+	case <-exited:
+	case <-time.After(10 * time.Second):
+		t.Fatal("xdebug did not exit after the SSH connection closed")
+	}
+	assertExitCode(t, 255, waitErr)
+}
+
+// syncBuffer is a buffer that is safe for concurrent use, e.g. to read a running command's output.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
