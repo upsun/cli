@@ -68,8 +68,7 @@ func (h *Handler) handleCreateSubscription(w http.ResponseWriter, req *http.Requ
 func (h *Handler) handleGetSubscription(w http.ResponseWriter, req *http.Request) {
 	h.RLock()
 	defer h.RUnlock()
-	id := chi.URLParam(req, "subscription_id")
-	sub := h.subscriptions[id]
+	sub := h.findSubscription(chi.URLParam(req, "subscription_id"), chi.URLParam(req, "organization_id"))
 	if sub == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return

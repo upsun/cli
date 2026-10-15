@@ -58,18 +58,7 @@ func (h *Handler) handleListOrgSubscriptions(w http.ResponseWriter, req *http.Re
 		if p.Organization != orgID || p.SubscriptionID == "" {
 			continue
 		}
-		sub := &Subscription{
-			ID:            p.SubscriptionID,
-			Links:         MakeHALLinks("self=" + collectionPath + "/" + url.PathEscape(p.SubscriptionID)),
-			ProjectID:     p.ID,
-			ProjectRegion: p.Region,
-			ProjectTitle:  p.Title,
-			Status:        "active",
-		}
-		if stored, ok := h.subscriptions[p.SubscriptionID]; ok {
-			c := *stored
-			sub = &c
-		}
+		sub := h.projectSubscription(p)
 		if (statuses == nil && sub.Status != "deleted") || slices.Contains(statuses, sub.Status) {
 			subs = append(subs, sub)
 		}
@@ -87,6 +76,40 @@ func (h *Handler) handleListOrgSubscriptions(w http.ResponseWriter, req *http.Re
 		links["next"] = HALLink{HREF: collectionPath + "?" + query.Encode()}
 	}
 	_ = json.NewEncoder(w).Encode(map[string]any{"count": count, "items": subs, "_links": links})
+}
+
+// projectSubscription returns a copy of a project's subscription: the stored
+// one if it was created through the mock, otherwise an active subscription
+// derived from the project. The caller must hold a lock.
+func (h *Handler) projectSubscription(p *Project) *Subscription {
+	if stored, ok := h.subscriptions[p.SubscriptionID]; ok {
+		c := *stored
+		return &c
+	}
+	return &Subscription{
+		ID: p.SubscriptionID,
+		Links: MakeHALLinks("self=/organizations/" + url.PathEscape(p.Organization) +
+			"/subscriptions/" + url.PathEscape(p.SubscriptionID)),
+		ProjectID:     p.ID,
+		ProjectRegion: p.Region,
+		ProjectTitle:  p.Title,
+		Status:        "active",
+	}
+}
+
+// findSubscription returns a copy of a subscription, which must belong to the
+// organization if orgID is not empty, or nil. The caller must hold a lock.
+func (h *Handler) findSubscription(id, orgID string) *Subscription {
+	for _, p := range h.projects {
+		if p.SubscriptionID == id && (orgID == "" || p.Organization == orgID) {
+			return h.projectSubscription(p)
+		}
+	}
+	if stored, ok := h.subscriptions[id]; ok && orgID == "" {
+		c := *stored
+		return &c
+	}
+	return nil
 }
 
 // statusFilterKey matches the forms of the "filter[status]" query parameter:

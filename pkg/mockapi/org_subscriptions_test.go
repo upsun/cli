@@ -47,6 +47,16 @@ func TestOrgSubscriptions(t *testing.T) {
 	}
 	assert.Equal(t, map[string]string{"1001": "active", created.ID: "provisioning"}, statuses)
 
+	// The listed subscriptions can be read.
+	for _, item := range list.Items {
+		var sub Subscription
+		require.Equal(t, http.StatusOK, do(http.MethodGet, item.Links["self"].HREF, "", &sub))
+		assert.Equal(t, item.ID, sub.ID)
+		require.Equal(t, http.StatusOK, do(http.MethodGet, "/subscriptions/"+item.ID, "", &sub))
+		assert.Equal(t, item.Status, sub.Status)
+	}
+	assert.Equal(t, http.StatusNotFound, do(http.MethodGet, "/organizations/org2/subscriptions/1001", "", nil))
+
 	// Status filters, including the indexed form that PHP's http_build_query() produces.
 	for _, query := range []string{
 		"filter[status][value][]=active&filter[status][operator]=IN",
