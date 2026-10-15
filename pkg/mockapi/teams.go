@@ -351,13 +351,15 @@ func (h *Handler) handleAddTeamProjects(w http.ResponseWriter, req *http.Request
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	now := time.Now()
 	for _, item := range body {
-		p, ok := h.projects[item.ProjectID]
-		if !ok || p.Organization != t.OrganizationID {
+		if p, ok := h.projects[item.ProjectID]; !ok || p.Organization != t.OrganizationID {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+	}
+	now := time.Now()
+	for _, item := range body {
+		p := h.projects[item.ProjectID]
 		if slices.ContainsFunc(h.teamProjects[teamID], func(a *TeamProjectAccess) bool { return a.ProjectID == p.ID }) {
 			continue
 		}

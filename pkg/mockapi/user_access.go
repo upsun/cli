@@ -175,6 +175,7 @@ func (h *Handler) handlePatchProjectUserAccess(w http.ResponseWriter, req *http.
 	patched := *h.userGrants[i]
 	patched.Permissions = body.Permissions
 	patched.UpdatedAt = time.Now()
+	h.userGrants = slices.Clone(h.userGrants)
 	h.userGrants[i] = &patched
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -303,6 +304,7 @@ func (h *Handler) handlePatchOrgMember(w http.ResponseWriter, req *http.Request)
 	patched := *h.orgMembers[orgID][i]
 	patched.Permissions = body.Permissions
 	patched.UpdatedAt = time.Now()
+	h.orgMembers[orgID] = slices.Clone(h.orgMembers[orgID])
 	h.orgMembers[orgID][i] = &patched
 	_ = json.NewEncoder(w).Encode(newOrgMember(&patched))
 }
