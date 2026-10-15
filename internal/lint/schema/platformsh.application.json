@@ -1118,9 +1118,13 @@
       "title": "Resolve additional IPs to domain names."
     },
     "stack": {
-      "type": "object",
+      "type": [
+        "object",
+        "array",
+        "null"
+      ],
       "title": "Composable image definition",
-      "description": "The runtimes and packages that make up the composable image. Each is a name, a mapping, or a list of them.",
+      "description": "The runtimes and packages that make up the composable image. Each is a name, a mapping, or a list of them. A list is only accepted when empty (checked by the linter).",
       "properties": {
         "runtimes": {
           "anyOf": [

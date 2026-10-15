@@ -329,6 +329,28 @@ routes:
 `,
 		},
 		{
+			name: "empty stacks",
+			content: `
+applications:
+  empty_list:
+    type: composable:25.11
+    stack: []
+  empty_map:
+    type: composable:25.11
+    stack: {}
+  empty_runtimes:
+    type: composable:25.11
+    stack: {runtimes: [], packages: []}
+  classic:
+    type: php:8.4
+    stack: []
+routes:
+  "https://{default}/":
+    type: upstream
+    upstream: "empty_list:http"
+`,
+		},
+		{
 			name: "OCI images",
 			content: `
 applications:
@@ -359,7 +381,7 @@ routes:
 applications:
   app:
     type: composable:25.11
-    stack: ["php@8.4"]
+    stack: {runtimes: ["php@8.4"]}
     egress:
       runtime:
         allowed_domains:
@@ -373,8 +395,18 @@ applications:
 `,
 			wantErrors: `linter errors:
   - applications.app.crons.report.timeout: Must be less than or equal to 86400
-  - applications.app.egress.runtime.allowed_domains.0: host is required
-  - applications.app.stack: Invalid type. Expected: object, given: array`,
+  - applications.app.egress.runtime.allowed_domains.0: host is required`,
+		},
+		{
+			name: "stack list",
+			content: `
+applications:
+  app:
+    type: composable:25.11
+    stack: ["php@8.4"]
+`,
+			wantErrors: `linter errors:
+  - applications.app.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list`,
 		},
 		{
 			name: "invalid images",

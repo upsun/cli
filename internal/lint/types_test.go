@@ -84,8 +84,8 @@ services:
 applications:
   foo:
     stack:
-      - bun@1
-      - ffmpeg`,
+      runtimes: [bun@1]
+      packages: [ffmpeg]`,
 			expectErrorMessage: `linter warnings:
   - applications.foo: 'type' should be specified (as a composable image) when using 'stack'`,
 		},
@@ -128,6 +128,21 @@ tasks:
   - tasks.bad.type: type cannot be empty
 linter warnings:
   - tasks.bad.stack: 'stack' is only used with a composable image type`,
+		},
+		{
+			name: "stack_list",
+			content: `
+applications:
+  foo:
+    type: composable:25.11
+    stack: [php@8.4]
+tasks:
+  job:
+    base: performance-agent
+    stack: [php@8.4]`,
+			expectErrorMessage: `linter errors:
+  - applications.foo.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list
+  - tasks.job.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list`,
 		},
 		{
 			name: "stack_with_non_composable_type",
