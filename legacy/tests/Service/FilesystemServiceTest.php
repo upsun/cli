@@ -124,6 +124,25 @@ class FilesystemServiceTest extends TestCase
         $this->fs->makePathAbsolute('nonexistent/test.txt');
     }
 
+    public function testFormatPathForDisplay(): void
+    {
+        $testDir = $this->tempDir();
+        mkdir($testDir . '/existing');
+        chdir($testDir);
+
+        $cases = [
+            ['existing', 'existing'],
+            [$testDir . '/existing', 'existing'],
+            ['nonexistent', 'nonexistent'],
+            ['nonexistent/sub', 'nonexistent/sub'],
+            [$testDir . '/nonexistent', 'nonexistent'],
+            ['./nonexistent/', 'nonexistent'],
+        ];
+        foreach ($cases as [$path, $expected]) {
+            $this->assertEquals($expected, $this->fs->formatPathForDisplay($path), $path);
+        }
+    }
+
     /**
      * Test FilesystemHelper::symlinkAll().
      */
