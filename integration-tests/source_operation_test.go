@@ -2,7 +2,6 @@ package tests
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -44,10 +43,11 @@ func TestSourceOperation(t *testing.T) {
 	})
 	var receivedBody atomic.Value // map[string]any
 	apiHandler.Post(envPath+"/source-operation", func(w http.ResponseWriter, r *http.Request) {
-		b, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
 		var body map[string]any
-		require.NoError(t, json.Unmarshal(b, &body))
+		if !assert.NoError(t, json.NewDecoder(r.Body).Decode(&body)) {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		receivedBody.Store(body)
 		apiHandler.RespondWithActivity(w, projectID, "main", "environment.source-operation")
 	})

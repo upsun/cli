@@ -11,7 +11,9 @@ import (
 
 func TestLocalDir(t *testing.T) {
 	t.Parallel()
-	repo := initGitRepo(t)
+	// Resolve symlinks, e.g. in the macOS temporary directory, as PHP's getcwd() does.
+	repo, err := filepath.EvalSymlinks(initGitRepo(t))
+	require.NoError(t, err)
 	localDir := filepath.Join(repo, ".platform", "local")
 	require.NoError(t, os.MkdirAll(filepath.Join(localDir, "builds"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(localDir, "project.yaml"), []byte("id: abc123\n"), 0o644))

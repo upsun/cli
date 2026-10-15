@@ -13,6 +13,7 @@ import (
 
 // handleListOrgSubscriptions lists the subscriptions of an organization's
 // projects, paginated with the "page[size]" and "page[after]" query parameters.
+// Subscriptions created through the mock are listed as stored.
 func (h *Handler) handleListOrgSubscriptions(w http.ResponseWriter, req *http.Request) {
 	h.RLock()
 	defer h.RUnlock()
@@ -21,6 +22,11 @@ func (h *Handler) handleListOrgSubscriptions(w http.ResponseWriter, req *http.Re
 	subs := make([]*Subscription, 0)
 	for _, p := range h.projects {
 		if p.Organization != orgID || p.SubscriptionID == "" {
+			continue
+		}
+		if sub, ok := h.subscriptions[p.SubscriptionID]; ok {
+			c := *sub
+			subs = append(subs, &c)
 			continue
 		}
 		subs = append(subs, &Subscription{
@@ -54,6 +60,13 @@ func (h *Handler) handleDeleteOrg(w http.ResponseWriter, req *http.Request) {
 	if _, ok := h.orgs[orgID]; !ok {
 		w.WriteHeader(http.StatusNotFound)
 		return
+	}
+	// Like the API, refuse to delete an organization that owns projects.
+	for _, p := range h.projects {
+		if p.Organization == orgID {
+			w.WriteHeader(http.StatusConflict)
+			return
+		}
 	}
 	delete(h.orgs, orgID)
 	w.WriteHeader(http.StatusNoContent)
