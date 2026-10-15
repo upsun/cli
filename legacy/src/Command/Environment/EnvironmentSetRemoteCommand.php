@@ -118,7 +118,8 @@ class EnvironmentSetRemoteCommand extends CommandBase
                 $actualRemoteEnvironment,
             ));
         } elseif ($mappedByDefault) {
-            $actualRemoteEnvironment = $specifiedBranch;
+            // The branch name or its upstream is the environment ID.
+            $actualRemoteEnvironment = $specifiedEnvironmentId;
             $this->stdErr->writeln(sprintf(
                 'The local branch <info>%s</info> is mapped to the default remote environment, <info>%s</info>',
                 $specifiedBranch,
