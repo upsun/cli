@@ -29,6 +29,8 @@ type Server struct {
 	CertAuthorityKeys []ssh.PublicKey
 	CertChecker       ssh.CertChecker
 
+	// The following fields must be set before clients connect, as connection handlers read them without locking.
+
 	// An optional CommandHandler, which responds to commands sent over SSH.
 	// NewServer will give this a default using ExecHandler, which can also
 	// be reused from custom handlers.
