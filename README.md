@@ -264,16 +264,21 @@ make vendor-snapshot VENDOR_NAME='Vendor Name' VENDOR_BINARY='vendorcli'
 
 Releases are automated via GitHub Actions. To create a new release:
 
-1. Create and push a new tag:
+1. Optionally, write the release notes in a draft release on GitHub, titled with
+   the new tag (e.g. `v5.0.0`). Save it as a draft: don't publish it. Releases are
+   immutable, so assets can't be added once a release is published.
+
+2. Create and push a new tag:
    ```console
    git tag -m 'Release v5.0.0' 'v5.0.0'
    git push origin v5.0.0
    ```
 
-2. The [Release workflow](.github/workflows/release.yml) will automatically:
+3. The [Release workflow](.github/workflows/release.yml) will automatically:
    - Build binaries for all platforms
    - Sign packages (APK, DEB, RPM)
-   - Create a GitHub release with all artifacts
+   - Upload all artifacts to the draft release (or create one with generated
+     notes), and publish it
    - Update package repositories at repositories.upsun.com
    - Build and push Docker image to ghcr.io/upsun/cli
 
