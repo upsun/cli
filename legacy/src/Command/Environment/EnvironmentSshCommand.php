@@ -64,6 +64,10 @@ class EnvironmentSshCommand extends CommandBase
             $environment = $selection->getEnvironment();
 
             if (Option::bool($input, 'all')) {
+                // Without a container selection, check the state here.
+                if (in_array($environment->status, ['inactive', 'paused'], true)) {
+                    throw new EnvironmentStateException('The environment is ' . $environment->status, $environment);
+                }
                 $output->writeln(array_values($environment->getSshUrls()));
 
                 return 0;
