@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -187,7 +186,7 @@ func TestTunnelSingle(t *testing.T) {
 
 	cmd := f.buildCommand("tunnel:single", "-p", layoutProjectID, "-e", "main", "-r", "redis",
 		"--port", strconv.Itoa(port))
-	var stdErr bytes.Buffer
+	var stdErr syncBuffer
 	cmd.Stderr = &stdErr
 	require.NoError(t, cmd.Start())
 	var waitErr error

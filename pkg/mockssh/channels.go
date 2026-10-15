@@ -22,32 +22,18 @@ func (s *Server) handleConn(conn net.Conn, config *ssh.ServerConfig) {
 
 	t.Logf("Handling SSH connection from %s", sshConn.RemoteAddr())
 
-	// Listeners for remote forwarding, closed with the connection.
-	var (
-		listenersMu sync.Mutex
-		listeners   []net.Listener
-	)
 	// connClosed stops forwarding, as forwarded connections may stay open after the SSH connection closes.
 	connClosed := make(chan struct{})
 	var wg sync.WaitGroup
 	defer func() {
 		close(connClosed)
-		listenersMu.Lock()
-		for _, l := range listeners {
-			_ = l.Close()
-		}
-		listenersMu.Unlock()
 		wg.Wait()
 	}()
 
 	wg.Go(func() {
 		for req := range reqs {
 			if req.Type == "streamlocal-forward@openssh.com" {
-				if l := s.forwardUnix(sshConn, req, &wg, connClosed); l != nil {
-					listenersMu.Lock()
-					listeners = append(listeners, l)
-					listenersMu.Unlock()
-				}
+				s.forwardUnix(sshConn, req, &wg, connClosed)
 				continue
 			}
 			if req.WantReply {
@@ -162,24 +148,25 @@ func (s *Server) handleDirectTCPIP(newChannel ssh.NewChannel, connClosed <-chan 
 }
 
 // forwardUnix handles a request for remote forwarding of a Unix socket, if ListenUnix is set.
-// It returns the listener, or nil if the request is rejected.
-func (s *Server) forwardUnix(
-	conn *ssh.ServerConn, req *ssh.Request, wg *sync.WaitGroup, connClosed <-chan struct{},
-) net.Listener {
+func (s *Server) forwardUnix(conn *ssh.ServerConn, req *ssh.Request, wg *sync.WaitGroup, connClosed <-chan struct{}) {
 	t := s.t
 	var payload struct{ Path string }
 	if s.ListenUnix == nil || ssh.Unmarshal(req.Payload, &payload) != nil {
 		_ = req.Reply(false, nil)
-		return nil
+		return
 	}
 	l, err := s.ListenUnix(payload.Path)
 	if err != nil {
 		t.Logf("Failed to listen at %s: %v", payload.Path, err)
 		_ = req.Reply(false, nil)
-		return nil
+		return
 	}
 	_ = req.Reply(true, nil)
 	t.Logf("Forwarding connections from the socket %s", payload.Path)
+	wg.Go(func() {
+		<-connClosed
+		_ = l.Close()
+	})
 	wg.Go(func() {
 		for {
 			c, err := l.Accept()
@@ -199,7 +186,6 @@ func (s *Server) forwardUnix(
 			})
 		}
 	})
-	return l
 }
 
 // proxy copies data in both directions until both sides are closed, or the SSH connection is closed.

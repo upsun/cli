@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"bytes"
 	"io"
 	"net"
 	"net/http/httptest"
@@ -216,22 +215,4 @@ func TestEnvironmentXdebugTunnel(t *testing.T) {
 		t.Fatal("xdebug did not exit after the SSH connection closed")
 	}
 	assertExitCode(t, 255, waitErr)
-}
-
-// syncBuffer is a buffer that is safe for concurrent use, e.g. to read a running command's output.
-type syncBuffer struct {
-	mu  sync.Mutex
-	buf bytes.Buffer
-}
-
-func (b *syncBuffer) Write(p []byte) (int, error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.Write(p)
-}
-
-func (b *syncBuffer) String() string {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.String()
 }
