@@ -17,7 +17,11 @@ func (h *Handler) handleListProjectVariables(w http.ResponseWriter, req *http.Re
 	variables := h.projectVariables[projectID]
 	// Sort variables in descending order by created date.
 	slices.SortFunc(variables, func(a, b *Variable) int { return -timeCompare(a.CreatedAt, b.CreatedAt) })
-	_ = json.NewEncoder(w).Encode(variables)
+	redacted := make([]*Variable, len(variables))
+	for i, v := range variables {
+		redacted[i] = redactVariable(v)
+	}
+	_ = json.NewEncoder(w).Encode(redacted)
 }
 
 func (h *Handler) handleGetProjectVariable(w http.ResponseWriter, req *http.Request) {
@@ -27,7 +31,7 @@ func (h *Handler) handleGetProjectVariable(w http.ResponseWriter, req *http.Requ
 	variableName, _ := url.PathUnescape(chi.URLParam(req, "name"))
 	for _, v := range h.projectVariables[projectID] {
 		if variableName == v.Name {
-			_ = json.NewEncoder(w).Encode(v)
+			_ = json.NewEncoder(w).Encode(redactVariable(v))
 			return
 		}
 	}
@@ -64,9 +68,7 @@ func (h *Handler) handleCreateProjectVariable(w http.ResponseWriter, req *http.R
 	}
 	h.projectVariables[projectID] = append(h.projectVariables[projectID], &newVar)
 
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"_embedded": map[string]any{"entity": newVar},
-	})
+	_ = json.NewEncoder(w).Encode(embedded("entity", redactVariable(&newVar)))
 }
 
 func (h *Handler) handleDeleteProjectVariable(w http.ResponseWriter, req *http.Request) {
@@ -99,6 +101,7 @@ func (h *Handler) handlePatchProjectVariable(w http.ResponseWriter, req *http.Re
 	}
 	if key == -1 {
 		w.WriteHeader(http.StatusNotFound)
+		return
 	}
 	patched := *h.projectVariables[projectID][key]
 	err := json.NewDecoder(req.Body).Decode(&patched)
@@ -108,7 +111,7 @@ func (h *Handler) handlePatchProjectVariable(w http.ResponseWriter, req *http.Re
 	}
 	patched.UpdatedAt = time.Now()
 	h.projectVariables[projectID][key] = &patched
-	_ = json.NewEncoder(w).Encode(&patched)
+	_ = json.NewEncoder(w).Encode(redactVariable(&patched))
 }
 
 func (h *Handler) handleListEnvLevelVariables(w http.ResponseWriter, req *http.Request) {
@@ -119,7 +122,11 @@ func (h *Handler) handleListEnvLevelVariables(w http.ResponseWriter, req *http.R
 	variables := h.envLevelVariables[projectID][environmentID]
 	// Sort variables in descending order by created date.
 	slices.SortFunc(variables, func(a, b *EnvLevelVariable) int { return -timeCompare(a.CreatedAt, b.CreatedAt) })
-	_ = json.NewEncoder(w).Encode(variables)
+	redacted := make([]*EnvLevelVariable, len(variables))
+	for i, v := range variables {
+		redacted[i] = redactEnvLevelVariable(v)
+	}
+	_ = json.NewEncoder(w).Encode(redacted)
 }
 
 func (h *Handler) handleGetEnvLevelVariable(w http.ResponseWriter, req *http.Request) {
@@ -130,7 +137,7 @@ func (h *Handler) handleGetEnvLevelVariable(w http.ResponseWriter, req *http.Req
 	variableName, _ := url.PathUnescape(chi.URLParam(req, "name"))
 	for _, v := range h.envLevelVariables[projectID][environmentID] {
 		if variableName == v.Name {
-			_ = json.NewEncoder(w).Encode(v)
+			_ = json.NewEncoder(w).Encode(redactEnvLevelVariable(v))
 			return
 		}
 	}
@@ -174,9 +181,7 @@ func (h *Handler) handleCreateEnvLevelVariable(w http.ResponseWriter, req *http.
 		&newVar,
 	)
 
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"_embedded": map[string]any{"entity": newVar},
-	})
+	_ = json.NewEncoder(w).Encode(embedded("entity", redactEnvLevelVariable(&newVar)))
 }
 
 func (h *Handler) handlePatchEnvLevelVariable(w http.ResponseWriter, req *http.Request) {
@@ -194,6 +199,7 @@ func (h *Handler) handlePatchEnvLevelVariable(w http.ResponseWriter, req *http.R
 	}
 	if key == -1 {
 		w.WriteHeader(http.StatusNotFound)
+		return
 	}
 	patched := *h.envLevelVariables[projectID][environmentID][key]
 	err := json.NewDecoder(req.Body).Decode(&patched)
@@ -203,7 +209,7 @@ func (h *Handler) handlePatchEnvLevelVariable(w http.ResponseWriter, req *http.R
 	}
 	patched.UpdatedAt = time.Now()
 	h.envLevelVariables[projectID][environmentID][key] = &patched
-	_ = json.NewEncoder(w).Encode(&patched)
+	_ = json.NewEncoder(w).Encode(redactEnvLevelVariable(&patched))
 }
 
 func (h *Handler) handleDeleteEnvLevelVariable(w http.ResponseWriter, req *http.Request) {
@@ -222,4 +228,24 @@ func (h *Handler) handleDeleteEnvLevelVariable(w http.ResponseWriter, req *http.
 		}
 	}
 	w.WriteHeader(http.StatusNotFound)
+}
+
+// redactVariable returns a copy of a variable without its value if it is sensitive, as in the API.
+func redactVariable(v *Variable) *Variable {
+	if !v.IsSensitive {
+		return v
+	}
+	c := *v
+	c.Value = ""
+	return &c
+}
+
+// redactEnvLevelVariable returns a copy of a variable without its value if it is sensitive, as in the API.
+func redactEnvLevelVariable(v *EnvLevelVariable) *EnvLevelVariable {
+	if !v.IsSensitive {
+		return v
+	}
+	c := *v
+	c.Value = ""
+	return &c
 }

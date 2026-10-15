@@ -70,6 +70,21 @@ func TestAuthAPITokenLogin_CommandAfterLogin(t *testing.T) {
 	assert.Contains(t, out, "acme")
 }
 
+// TestAuthAPITokenLogin_ConfiguredToken checks that the login is refused when an API token is set via config.
+func TestAuthAPITokenLogin_ConfiguredToken(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiServer := newMyUserAPI(t)
+	defer apiServer.Close()
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	_, stderr, err := f.RunInteractive(mockapi.ValidAPITokens[0]+"\n", "auth:api-token-login")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "An API token is already set via config")
+	assert.NotContains(t, stderr, "Please enter an API token")
+}
+
 func TestAuthAPITokenLogin_NonInteractive(t *testing.T) {
 	t.Parallel()
 	f := newCommandFactory(t, "", "")
