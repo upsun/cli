@@ -19,14 +19,17 @@ type store struct {
 	activities        map[string]map[string]*Activity
 	activityResult    string
 	projectBackups    map[string]map[string]*Backup
-	backupRestores    map[string][]map[string]any
 	projectVariables  map[string][]*Variable
 	envLevelVariables map[string]map[string][]*EnvLevelVariable
 
 	projectDomains      map[string][]*Domain
-	environmentDomains  map[string][]*Domain
 	projectIntegrations map[string][]*Integration
 	projectCertificates map[string][]*Certificate
+
+	environmentDomains     map[string][]*Domain
+	backupRestores         map[string][]map[string]any
+	projectSettingsPatches map[string][]map[string]any
+	autoscalingPatches     map[string][]map[string]any
 }
 
 func (s *store) SetEnvironments(envs []*Environment) {

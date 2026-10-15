@@ -1,6 +1,6 @@
 package mockapi
 
-// routeProjectResources adds routes to manage project resources such as backups, domains and integrations.
+// routeProjectResources adds routes to manage project resources such as backups, domains, integrations and settings.
 func (h *Handler) routeProjectResources() {
 	backupPath := "/projects/{project_id}/environments/{environment_id}/backups/{backup_id}"
 	h.Get(backupPath, h.handleGetBackup)
@@ -24,4 +24,7 @@ func (h *Handler) routeProjectResources() {
 	h.Patch("/projects/{project_id}/integrations/{integration_id}", h.handlePatchProjectIntegration)
 	h.Delete("/projects/{project_id}/integrations/{integration_id}", h.handleDeleteProjectIntegration)
 	h.Post("/projects/{project_id}/integrations/{integration_id}/validate", h.handleValidateProjectIntegration)
+
+	h.Patch("/projects/{project_id}/settings", h.handlePatchProjectSettings)
+	h.Patch("/projects/{project_id}/environments/{environment_id}/autoscaling", h.handlePatchAutoscalingSettings)
 }
