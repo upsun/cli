@@ -124,9 +124,30 @@ func TestSSHAppSelection(t *testing.T) {
 
 	_, stdErr, err := f.RunCombinedOutput("ssh", "-p", layoutProjectID, "-e", "main", "--app", "missing", "--pipe")
 	assert.Error(t, err)
-	assert.Contains(t, stdErr, "missing")
+	assert.Contains(t, stdErr, `App not found: missing`)
 
 	_, stdErr, err = f.RunCombinedOutput("ssh", "-p", layoutProjectID, "-e", "main", "--pipe")
 	assert.Error(t, err)
 	assert.Contains(t, stdErr, "Specifying the --app or --worker is required in non-interactive mode")
+}
+
+func TestSSHInactiveEnvironment(t *testing.T) {
+	t.Parallel()
+	// Paused and inactive environments have no current deployment.
+	statuses := []string{"paused", "inactive"}
+	envs := make([]*mockapi.Environment, 0, len(statuses))
+	for _, status := range statuses {
+		env := makeEnv(layoutProjectID, status, "development", status, "main")
+		env.Links["pf:ssh:app"] = mockapi.HALLink{HREF: "ssh://" + status + "--app@ssh.cli-tests.example.com"}
+		envs = append(envs, env)
+	}
+	f := setUpProject(t, envs...).f
+
+	for _, status := range statuses {
+		for _, opt := range []string{"--pipe", "--all"} {
+			_, stdErr, err := f.RunCombinedOutput("ssh", "-p", layoutProjectID, "-e", status, opt)
+			assertExitCode(t, 1, err)
+			assert.Contains(t, stdErr, "is "+status+", so an SSH connection is not possible", opt)
+		}
+	}
 }
