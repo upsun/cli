@@ -485,6 +485,8 @@ services:
 applications:
   app:
     type: php:8.4
+    firewall:
+      outbound: [{ips: ["192.0.2.0/24"]}]
     web:
       additional_hosts: {api.example.com: 1}
       operations:
@@ -497,12 +499,22 @@ applications:
           start: php worker.php
         egress:
           build: {allowed_domains: [{host: repo.packagist.org}]}
+        firewall:
+          outbound: [{ips: ["192.0.2.0/24"]}]
+services:
+  db:
+    type: mariadb:11.4
+    firewall:
+      outbound: [{ips: ["192.0.2.0/24"]}]
 `,
 			wantErrors: `linter errors:
   - applications.app.web.additional_hosts.api.example.com: Invalid type. Expected: string, given: integer
   - applications.app.web.operations.warm: commands is required
   - applications.app.web: Additional property firewall is not allowed
-  - applications.app.workers.queue.egress: Additional property build is not allowed`,
+  - applications.app.workers.queue.egress: Additional property build is not allowed
+  - applications.app.workers.queue: Additional property firewall is not allowed
+  - applications.app: Additional property firewall is not allowed
+  - services.db: Additional property firewall is not allowed`,
 		},
 		{
 			name: "web build egress",
