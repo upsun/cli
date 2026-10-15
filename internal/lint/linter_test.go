@@ -433,6 +433,102 @@ routes:
   - applications.classic.image: 'image' is only used with a docker: type
   - applications.none.image: either name or buildfile must be provided, both are missing`,
 		},
+		{
+			name: "container overrides",
+			content: `
+applications:
+  app:
+    type: php:8.4
+    relationships:
+      db: "db:mysql"
+    web:
+      access: {ssh: admin}
+      additional_hosts: {api.example.com: 192.0.2.1}
+      authorizations: [{type: env, action: view}]
+      container_profile: BALANCED
+      egress:
+        runtime: {allowed_domains: [{host: api.example.com}]}
+      mounts:
+        web: {source: storage, source_path: web}
+      operations:
+        warm: {commands: {start: php warm.php}}
+      relationships:
+        database: "db:mysql"
+      timezone: Europe/Paris
+      variables: {env: {ROLE: web}}
+    workers:
+      queue:
+        commands:
+          start: php worker.php
+        access: {ssh: admin}
+        additional_hosts: {queue.example.com: 192.0.2.2}
+        authorizations: [{type: env, action: view}]
+        container_profile: HIGH_MEMORY
+        egress:
+          runtime: {allowed_domains: [{host: queue.example.com}]}
+        mounts:
+          queue: {source: tmp}
+        operations:
+          drain: {commands: {start: php drain.php}}
+        relationships:
+          database: "db:mysql"
+        timezone: Europe/Paris
+        variables: {env: {ROLE: worker}}
+services:
+  db:
+    type: mariadb:11.4
+`,
+		},
+		{
+			name: "invalid container overrides",
+			content: `
+applications:
+  app:
+    type: php:8.4
+    firewall:
+      outbound: [{ips: ["192.0.2.0/24"]}]
+    web:
+      additional_hosts: {api.example.com: 1}
+      operations:
+        warm: {role: admin}
+      firewall:
+        outbound: [{ips: ["192.0.2.0/24"]}]
+    workers:
+      queue:
+        commands:
+          start: php worker.php
+        egress:
+          build: {allowed_domains: [{host: repo.packagist.org}]}
+        firewall:
+          outbound: [{ips: ["192.0.2.0/24"]}]
+services:
+  db:
+    type: mariadb:11.4
+    firewall:
+      outbound: [{ips: ["192.0.2.0/24"]}]
+`,
+			wantErrors: `linter errors:
+  - applications.app.web.additional_hosts.api.example.com: Invalid type. Expected: string, given: integer
+  - applications.app.web.operations.warm: commands is required
+  - applications.app.web: Additional property firewall is not allowed
+  - applications.app.workers.queue.egress: Additional property build is not allowed
+  - applications.app.workers.queue: Additional property firewall is not allowed
+  - applications.app: Additional property firewall is not allowed
+  - services.db: Additional property firewall is not allowed`,
+		},
+		{
+			name: "web build egress",
+			content: `
+applications:
+  app:
+    type: php:8.4
+    web:
+      egress:
+        build: {allowed_domains: [{host: repo.packagist.org}]}
+`,
+			wantErrors: `linter warnings:
+  - applications.app.web.egress.build: build-phase egress has no effect on web: set it on the application`,
+		},
 	}
 
 	for _, c := range cases {
