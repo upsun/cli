@@ -128,11 +128,12 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 - GoReleaser builds multiple variants (upsun, platform, vendor-specific)
 
 **PHP Binary Handling**:
-- PHP binaries are downloaded from [upsun/cli-php-builds](https://github.com/upsun/cli-php-builds) releases
+- PHP binaries are downloaded from [upsun/cli-php-builds](https://github.com/upsun/cli-php-builds) releases, tagged `php-<PHP_VERSION>-<PHP_BUILD>`. They are rebuilt (with a new build number) when PHP or a library has a new release
+- Their SHA-256 checksums are pinned in `internal/legacy/php_sha256sums.txt` (the release's `SHA256SUMS.txt`), and verified after download
 - All platforms use static binaries built with [static-php-cli](https://github.com/crazywhalecc/static-php-cli)
 - Supported platforms: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64
 - Extensions included: curl, filter, openssl, pcntl (Unix), phar, posix (Unix), zlib
-- Windows requires `cacert.pem` for OpenSSL (embedded separately)
+- Windows requires `cacert.pem` for OpenSSL (embedded separately), pinned by date and checksum (`CACERT_DATE`, `CACERT_SHA256`)
 
 **Downloading PHP Binaries**:
 ```bash
@@ -144,10 +145,8 @@ make download-php
 ```
 
 **Upgrading PHP Version**:
-1. Trigger the build workflow at [upsun/cli-php-builds](https://github.com/upsun/cli-php-builds/actions) with the new PHP version
-2. Update `PHP_VERSION` in the Makefile
-3. Run `make php` (or `make download-php`) to download the new binaries
-4. Test and release
+- The `update-php` workflow runs daily: it finds the latest cli-php-builds release for the current PHP minor version, and the latest CA bundle, and opens or updates a pull request that updates `PHP_VERSION`, `PHP_BUILD`, the checksums and the CA bundle (with `scripts/update-php.sh`). The pull request lists the changed source archives (from the releases' `sources.json`)
+- For a new PHP minor version: trigger the build workflow at [upsun/cli-php-builds](https://github.com/upsun/cli-php-builds/actions) with the new version, then set `PHP_VERSION` to it and `PHP_BUILD` to `0`, run `scripts/update-php.sh <title-file> <body-file>`, and `make download-php` to check the downloads
 
 ## Development Notes
 

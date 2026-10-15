@@ -1,4 +1,11 @@
+# The PHP version, and the cli-php-builds build number (rebuilt when a library is updated).
+# Checksums of the binaries are pinned in PHP_SHA256SUMS. Updated by the update-php workflow.
 PHP_VERSION = 8.5.11
+PHP_BUILD = 1
+
+# The CA bundle embedded for PHP on Windows, from https://curl.se/docs/caextract.html.
+CACERT_DATE = 2026-09-25
+CACERT_SHA256 = a41b5d356aea97a529fe27e0f7316d2f9d946d75927476cf9cf1b90637d00505
 
 .DEFAULT_GOAL := help
 
@@ -29,7 +36,19 @@ REPOGEN_VERSION=v1.0.4
 # PHP binaries are downloaded from cli-php-builds releases.
 # See: https://github.com/upsun/cli-php-builds
 PHP_BUILDS_REPO = upsun/cli-php-builds
-PHP_RELEASE_URL = https://github.com/$(PHP_BUILDS_REPO)/releases/download/php-$(PHP_VERSION)
+PHP_RELEASE_TAG = php-$(PHP_VERSION)-$(PHP_BUILD)
+PHP_RELEASE_URL = https://github.com/$(PHP_BUILDS_REPO)/releases/download/$(PHP_RELEASE_TAG)
+PHP_SHA256SUMS = internal/legacy/php_sha256sums.txt
+
+# Verifies a downloaded file against a checksum. Usage: $(call verify-sha256,file,checksum)
+SHA256SUM := $(shell command -v sha256sum 2>/dev/null || echo shasum -a 256)
+define verify-sha256
+	@test -n "$(2)" || { echo "No checksum for $(1)" >&2; exit 1; }
+	echo "$(2)  $(1)" | $(SHA256SUM) -c -
+endef
+
+# The pinned checksum of a PHP release asset. Usage: $(call php-sha256,asset-name)
+php-sha256 = $(shell awk '$$2 == "$(1)" { print $$1 }' $(PHP_SHA256SUMS))
 
 # Files embedded in the Go binary.
 ARCHIVES = internal/legacy/archives
@@ -113,17 +132,19 @@ $(ARCHIVES)/commands-vendor.json: $(ARCHIVES)/platform.phar internal/config/embe
 legacy/vendor/autoload.php:
 	cd legacy && composer install --no-interaction
 
-# Records PHP_VERSION, so that the PHP binaries are downloaded again when it changes.
+# Records the PHP release tag, so that the PHP binaries are downloaded again when it changes.
 $(ARCHIVES)/php-version: FORCE
 	@mkdir -p $(ARCHIVES)
-	@echo $(PHP_VERSION) | cmp -s - $@ || echo $(PHP_VERSION) > $@
+	@echo $(PHP_RELEASE_TAG) | cmp -s - $@ || echo $(PHP_RELEASE_TAG) > $@
 
 $(PHP_UNIX_BINARIES): $(ARCHIVES)/php_%: $(ARCHIVES)/php-version
 	curl -fSL "$(PHP_RELEASE_URL)/php-$(PHP_VERSION)-$(subst _,-,$*)" -o $@
+	$(call verify-sha256,$@,$(call php-sha256,php-$(PHP_VERSION)-$(subst _,-,$*)))
 	chmod +x $@
 
 $(ARCHIVES)/php_windows.exe: $(ARCHIVES)/php-version
 	curl -fSL "$(PHP_RELEASE_URL)/php-$(PHP_VERSION)-windows-amd64.exe" -o $@
+	$(call verify-sha256,$@,$(call php-sha256,php-$(PHP_VERSION)-windows-amd64.exe))
 
 .PHONY: $(ARCHIVES)/php_windows_amd64
 $(ARCHIVES)/php_windows_amd64: $(ARCHIVES)/php_windows.exe $(ARCHIVES)/cacert.pem
@@ -131,7 +152,8 @@ $(ARCHIVES)/php_windows_amd64: $(ARCHIVES)/php_windows.exe $(ARCHIVES)/cacert.pe
 .PHONY: $(ARCHIVES)/cacert.pem
 $(ARCHIVES)/cacert.pem:
 	mkdir -p $(ARCHIVES)
-	curl -fSL https://curl.se/ca/cacert.pem -o $@
+	curl -fSL https://curl.se/ca/cacert-$(CACERT_DATE).pem -o $@
+	$(call verify-sha256,$@,$(CACERT_SHA256))
 
 .PHONY: FORCE
 FORCE:

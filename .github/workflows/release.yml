@@ -70,10 +70,6 @@ jobs:
       - name: Install legacy dependencies
         run: cd legacy && composer install --no-interaction
 
-      - name: Get PHP version from Makefile
-        id: php-version
-        run: echo "version=$(grep '^PHP_VERSION' Makefile | cut -d= -f2 | tr -d ' ')" >> $GITHUB_OUTPUT
-
       - name: Get tool versions from Makefile
         id: tool-versions
         run: |
@@ -87,7 +83,7 @@ jobs:
           path: |
             internal/legacy/archives/php_*
             internal/legacy/archives/php-version
-          key: php-binaries-v2-${{ steps.php-version.outputs.version }}
+          key: php-binaries-v3-${{ hashFiles('internal/legacy/php_sha256sums.txt') }}
 
       - name: Download all PHP binaries
         if: steps.php-cache.outputs.cache-hit != 'true'
