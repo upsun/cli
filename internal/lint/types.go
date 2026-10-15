@@ -42,7 +42,7 @@ func CheckTypes(cfg *Config, reg registry.Registry) *Result {
 		}
 		check(path+".type", t, true)
 		isComposable := strings.HasPrefix(t, "composable")
-		if isComposable && isStackEmpty(stack) {
+		if isComposable && stack == nil {
 			result.AddWarning(path, "'stack' should be specified when using a composable image")
 		} else if !isComposable && !isStackEmpty(stack) {
 			result.AddWarning(path+".stack", "'stack' is only used with a composable image type")
@@ -51,18 +51,23 @@ func CheckTypes(cfg *Config, reg registry.Registry) *Result {
 
 	for appName := range cfg.Applications {
 		app := cfg.Applications[appName]
+		stack := checkStackList("applications."+appName+".stack", app.Stack, result)
 		if app.Type == "" && !isStackEmpty(app.Stack) {
 			// For backwards compatibility, we allow 'stack' to be specified without 'type'.
-			result.AddWarning("applications."+appName,
-				"'type' should be specified (as a composable image) when using 'stack'")
+			if !isStackEmpty(stack) {
+				result.AddWarning("applications."+appName,
+					"'type' should be specified (as a composable image) when using 'stack'")
+			}
 			continue
 		}
-		checkRuntime("applications."+appName, app.Type, app.Stack, app.Image)
+		checkRuntime("applications."+appName, app.Type, stack, app.Image)
 	}
 	for taskName := range cfg.Tasks {
 		// A task using a built-in definition ('base') has no type of its own.
-		if task := cfg.Tasks[taskName]; task.Base == "" {
-			checkRuntime("tasks."+taskName, task.Type, task.Stack, task.Image)
+		task := cfg.Tasks[taskName]
+		stack := checkStackList("tasks."+taskName+".stack", task.Stack, result)
+		if task.Base == "" {
+			checkRuntime("tasks."+taskName, task.Type, stack, task.Image)
 		}
 	}
 	for appName := range cfg.Applications {
@@ -78,6 +83,17 @@ func CheckTypes(cfg *Config, reg registry.Registry) *Result {
 	}
 
 	return result
+}
+
+// checkStackList reports a stack written as a non-empty list, a format the
+// platform no longer accepts. It returns the stack for further checks: an
+// empty mapping in place of a reported list, so it is not reported again.
+func checkStackList(path string, stack any, result *Result) any {
+	if l, ok := stack.([]any); ok && len(l) > 0 {
+		result.AddError(path, "'stack' must be a mapping of 'runtimes' and 'packages', not a list")
+		return map[string]any{}
+	}
+	return stack
 }
 
 // checkType validates an image type and version. It returns a warning for a

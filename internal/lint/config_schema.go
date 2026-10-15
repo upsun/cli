@@ -140,8 +140,11 @@ func DecodeConfig(content string) (*Config, error) {
 
 // isStackEmpty reports whether a stack declares no runtimes or packages. The
 // stack is a mapping of "runtimes" and "packages", each a name, a mapping or a
-// list; the schema rejects other forms.
+// list; an empty list or null is also accepted.
 func isStackEmpty(stack any) bool {
+	if l, ok := stack.([]any); ok {
+		return len(l) == 0
+	}
 	m, ok := stack.(map[string]any)
 	if !ok {
 		return stack == nil

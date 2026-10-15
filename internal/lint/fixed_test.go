@@ -149,6 +149,24 @@ stack: {runtimes: ["php@8.3"]}`,
 			wantNoErr: true,
 		},
 		{
+			name: "composable image with an empty stack",
+			files: map[string]string{
+				".platform.app.yaml": `name: myapp
+type: "composable:25.11"
+stack: []`,
+			},
+			wantNoErr: true,
+		},
+		{
+			name: "composable image with a stack list",
+			files: map[string]string{
+				".platform.app.yaml": `name: myapp
+type: "composable:25.11"
+stack: ["php@8.3"]`,
+			},
+			wantErrors: []string{"applications.myapp.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list"},
+		},
+		{
 			name: "composable image with stack and no type",
 			files: map[string]string{
 				".platform.app.yaml": `name: myapp
