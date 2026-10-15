@@ -113,11 +113,17 @@ type Environment struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 	Links       HalLinks  `json:"_links"`
 
+	HTTPAccess       map[string]any `json:"http_access,omitempty"`
+	HeadCommit       string         `json:"head_commit,omitempty"`
+	MergeInfo        map[string]any `json:"merge_info,omitempty"`
+	CanRollingDeploy bool           `json:"can_rolling_deploy,omitempty"`
+
 	currentDeployment   *Deployment
 	nextDeployment      map[string]any
 	deploymentPatches   []map[string]any
 	autoscalingSettings map[string]any
 	settings            map[string]any
+	actions             []EnvironmentAction
 }
 
 func (e *Environment) SetCurrentDeployment(d *Deployment) {

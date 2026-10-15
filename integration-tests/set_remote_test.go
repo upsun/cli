@@ -212,3 +212,53 @@ func TestEnvironmentSetRemoteDetachedHead(t *testing.T) {
 	assert.NotContains(t, stdErr, "TypeError")
 	assert.Contains(t, stdErr, "Could not determine the current branch.")
 }
+
+func TestEnvironmentSetRemote(t *testing.T) {
+	t.Parallel()
+	f := setUpProject(t,
+		makeEnv(layoutProjectID, "main", "production", "active", nil),
+		makeEnv(layoutProjectID, "feature", "development", "active", "main"),
+	).f
+	repo := repoLayout{git: true, branch: "main", remoteName: "platform-test", projectYAML: true}.build(t)
+	f.dir = repo
+	projectConfig := func() string {
+		b, err := os.ReadFile(filepath.Join(repo, ".platform", "local", "project.yaml"))
+		require.NoError(t, err)
+		return string(b)
+	}
+
+	// Map a local branch to an environment with another name.
+	runGit(t, repo, "checkout", "--quiet", "-b", "local-feature")
+	_, stdErr, err := f.RunCombinedOutput("environment:set-remote", "feature")
+	require.NoError(t, err)
+	assert.Contains(t, stdErr, "The local branch local-feature is mapped to the remote environment feature")
+	assert.Contains(t, projectConfig(), "local-feature: feature")
+	assert.Equal(t, "feature\n", f.Run("environment:info", "id"))
+
+	// Unmap it.
+	_, stdErr, err = f.RunCombinedOutput("environment:set-remote", "0")
+	require.NoError(t, err)
+	assert.Contains(t, stdErr, "The local branch local-feature is not mapped to a remote environment")
+	assert.NotContains(t, projectConfig(), "local-feature")
+
+	// A branch whose upstream is the environment is mapped by default.
+	runGit(t, repo, "update-ref", "refs/remotes/platform-test/feature", "HEAD")
+	runGit(t, repo, "branch", "--quiet", "--set-upstream-to=platform-test/feature")
+	_, stdErr, err = f.RunCombinedOutput("environment:set-remote", "feature")
+	require.NoError(t, err)
+	assert.Contains(t, stdErr, "The local branch local-feature is mapped to the default remote environment, feature")
+	assert.NotContains(t, projectConfig(), "local-feature")
+
+	// Map another branch, specified as an argument.
+	_, stdErr, err = f.RunCombinedOutput("environment:set-remote", "main", "local-feature")
+	require.NoError(t, err)
+	assert.Contains(t, stdErr, "The local branch local-feature is mapped to the remote environment main")
+
+	_, stdErr, err = f.RunCombinedOutput("environment:set-remote", "missing")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stdErr, "Environment not found: missing")
+
+	_, stdErr, err = f.RunCombinedOutput("environment:set-remote", "feature", "missing-branch")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stdErr, "Branch not found: missing-branch")
+}

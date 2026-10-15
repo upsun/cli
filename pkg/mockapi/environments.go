@@ -53,6 +53,8 @@ func (h *Handler) handlePatchEnvironment(w http.ResponseWriter, req *http.Reques
 	defer h.Unlock()
 
 	patched := *env
+	patched.HTTPAccess = maps.Clone(env.HTTPAccess)
+	patched.MergeInfo = maps.Clone(env.MergeInfo)
 	err := json.NewDecoder(req.Body).Decode(&patched)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -61,7 +63,7 @@ func (h *Handler) handlePatchEnvironment(w http.ResponseWriter, req *http.Reques
 
 	patched.UpdatedAt = time.Now()
 	h.environments[patched.ID] = &patched
-	_ = json.NewEncoder(w).Encode(&patched)
+	_ = json.NewEncoder(w).Encode(embedded("entity", &patched))
 }
 
 func (h *Handler) handleGetEnvironmentSettings(w http.ResponseWriter, req *http.Request) {
@@ -117,7 +119,10 @@ func (h *Handler) handleSetEnvironmentSettings(w http.ResponseWriter, req *http.
 // handleEnvironmentAction returns a handler for an environment operation (deploy, pause, etc.).
 func (h *Handler) handleEnvironmentAction(activityType string) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		env := h.findEnvironment(chi.URLParam(req, "project_id"), chi.URLParam(req, "environment_id"))
+		body := decodeBody(req)
+		h.Lock()
+		env := h.recordAction(req, activityType, body)
+		h.Unlock()
 		if env == nil {
 			w.WriteHeader(http.StatusNotFound)
 			return

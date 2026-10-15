@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/upsun/cli/pkg/mockapi"
 )
@@ -54,4 +55,32 @@ func TestEnvironmentActivate(t *testing.T) {
 	_, stdErr, err = f.RunCombinedOutput("environment:activate", "-p", projectID, "-e", "main")
 	assert.NoError(t, err)
 	assert.Contains(t, stdErr, "already active")
+}
+
+func TestEnvironmentActivateParent(t *testing.T) {
+	t.Parallel()
+	staging := makeEnv(layoutProjectID, "staging", "staging", "inactive", "main")
+	staging.AddOperations("activate")
+	p := setUpProject(t,
+		makeEnv(layoutProjectID, "main", "production", "active", nil),
+		makeEnv(layoutProjectID, "dev", "development", "active", "main"),
+		staging,
+	)
+
+	_, stdErr, err := p.f.RunCombinedOutput("environment:activate", "-p", layoutProjectID, "staging",
+		"--parent", "missing")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stdErr, "Parent environment not found: missing")
+	assert.Empty(t, p.actions("staging"))
+
+	_, stdErr, err = p.f.RunCombinedOutput("environment:activate", "-p", layoutProjectID, "staging",
+		"--parent", "dev")
+	require.NoError(t, err)
+	assert.Contains(t, stdErr, "Setting parent of environment staging to dev")
+	assert.Contains(t, stdErr, "Activating environment staging")
+	assert.Equal(t, "dev", p.env("staging").Parent)
+	actions := p.actions("staging")
+	if assert.Len(t, actions, 1) {
+		assert.Equal(t, "environment.activate", actions[0].Type)
+	}
 }
