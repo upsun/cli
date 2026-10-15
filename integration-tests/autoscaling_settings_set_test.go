@@ -24,7 +24,7 @@ import (
 // triggers.cpu.down. summarizeChanges then runs formatDurationChange(null, ...).
 func TestAutoscalingSettingsSetMissingDuration(t *testing.T) {
 	t.Parallel()
-	f, projectID := setupAutoscalingSettingsSet(t)
+	f, _, projectID := setupAutoscalingSettingsSet(t)
 
 	// Use --dry-run to skip the confirmation; we just need summarizeChanges to run.
 	stdout, stderr, err := f.RunCombinedOutput(
@@ -50,7 +50,7 @@ func TestAutoscalingSettingsSetMissingDuration(t *testing.T) {
 // rather than causing a TypeError.
 func TestAutoscalingSettingsSetInvalidThreshold(t *testing.T) {
 	t.Parallel()
-	f, projectID := setupAutoscalingSettingsSet(t)
+	f, _, projectID := setupAutoscalingSettingsSet(t)
 
 	cases := []struct {
 		name   string
@@ -82,7 +82,7 @@ func TestAutoscalingSettingsSetInvalidThreshold(t *testing.T) {
 // threshold at the interactive prompt is not reported as a change.
 func TestAutoscalingSettingsSetAcceptDefaults(t *testing.T) {
 	t.Parallel()
-	f, projectID := setupAutoscalingSettingsSet(t)
+	f, _, projectID := setupAutoscalingSettingsSet(t)
 
 	// Accept every default, including the metric (the only service is selected automatically).
 	input := strings.Repeat("\n", 12)
@@ -92,11 +92,11 @@ func TestAutoscalingSettingsSetAcceptDefaults(t *testing.T) {
 	assert.NotContains(t, stderr, "from 80% to 80%")
 }
 
-func setupAutoscalingSettingsSet(t *testing.T) (f *cmdFactory, projectID string) {
+func setupAutoscalingSettingsSet(t *testing.T) (f *cmdFactory, apiHandler *mockapi.Handler, projectID string) {
 	authServer := mockapi.NewAuthServer(t)
 	t.Cleanup(authServer.Close)
 
-	apiHandler := mockapi.NewHandler(t)
+	apiHandler = mockapi.NewHandler(t)
 
 	projectID = mockapi.ProjectID()
 
@@ -147,7 +147,6 @@ func setupAutoscalingSettingsSet(t *testing.T) (f *cmdFactory, projectID string)
 	// Current autoscaling settings — note "triggers.cpu" exists but has no
 	// "down" sub-array, which is what triggers the formatDurationChange(null)
 	// call in summarizeChangesPerService.
-	autoscalingPath := "/projects/" + projectID + "/environments/main/autoscaling"
 	main.SetAutoscalingSettings(map[string]any{
 		"defaults": map[string]any{
 			"triggers": map[string]any{
@@ -179,12 +178,52 @@ func setupAutoscalingSettingsSet(t *testing.T) (f *cmdFactory, projectID string)
 		},
 	})
 
-	apiHandler.Patch(autoscalingPath, func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{})
-	})
-
 	apiServer := httptest.NewServer(apiHandler)
 	t.Cleanup(apiServer.Close)
 
-	return newCommandFactory(t, apiServer.URL, authServer.URL), projectID
+	return newCommandFactory(t, apiServer.URL, authServer.URL), apiHandler, projectID
+}
+
+func TestAutoscalingSettingsSet(t *testing.T) {
+	t.Parallel()
+	f, apiHandler, projectID := setupAutoscalingSettingsSet(t)
+
+	_, stderr, err := f.RunCombinedOutput("autoscaling:set", "-p", projectID, "-e", "main",
+		"--service", "app", "--metric", "cpu", "--threshold-up", "90", "--duration-up", "5m",
+		"--cooldown-down", "10m", "--instances-max", "5")
+	require.NoError(t, err, stderr)
+	assert.Contains(t, stderr, "Summary of changes")
+	assert.Contains(t, stderr, "Setting the autoscaling configuration on the environment main")
+
+	patches := apiHandler.AutoscalingPatches(projectID, "main")
+	require.Len(t, patches, 1)
+	assert.Equal(t, map[string]any{"services": map[string]any{"app": map[string]any{
+		"triggers":       map[string]any{"cpu": map[string]any{"up": map[string]any{"threshold": 90.0, "duration": 300.0}}},
+		"scale_cooldown": map[string]any{"down": 600.0},
+		"instances":      map[string]any{"max": 5.0},
+	}}}, patches[0])
+
+	// The new settings are read back. The "up" cooldown is not set.
+	assertTrimmed(t, "app,cpu,up,90.0%,300,,5", f.Run("autoscaling:get", "-p", projectID, "-e", "main",
+		"--format", "csv", "--no-header", "--columns", "service,metric,direction,threshold,duration,cooldown,max_instances"))
+
+	// Decline the confirmation.
+	_, stderr, err = f.RunInteractive("n\n", "autoscaling:set", "-p", projectID, "-e", "main",
+		"--service", "app", "--metric", "cpu", "--threshold-up", "70")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "Are you sure you want to continue?")
+	assert.Len(t, apiHandler.AutoscalingPatches(projectID, "main"), 1)
+}
+
+func TestAutoscalingSettingsGet(t *testing.T) {
+	t.Parallel()
+	f, _, projectID := setupAutoscalingSettingsSet(t)
+
+	stdout, stderr, err := f.RunCombinedOutput("autoscaling:get", "-p", projectID, "-e", "main",
+		"--format", "csv", "--columns", "service,metric,direction,threshold,duration,enabled,min_instances,max_instances")
+	require.NoError(t, err, stderr)
+	assertTrimmed(t, `
+App or service,Metric,Direction,Threshold (%),Duration (s),Enabled,Minimum instances,Maximum instances
+app,cpu,up,80.0%,60,true,1,3
+`, stdout)
 }

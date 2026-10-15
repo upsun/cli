@@ -53,8 +53,41 @@ func (h *Handler) RespondWithActivity(w http.ResponseWriter, projectID, environm
 
 // respondWithActivity adds an in-progress activity and writes an action response that embeds it.
 func (h *Handler) respondWithActivity(w http.ResponseWriter, a *Activity) {
+	h.respond(w, "OK", http.StatusOK, nil, a)
+}
+
+// respond writes a response in the API's envelope for writes and actions. It
+// embeds the entity and the activity if they are not nil. The activity is added in progress.
+func (h *Handler) respond(w http.ResponseWriter, status string, code int, entity any, a *Activity) {
 	h.Lock()
 	defer h.Unlock()
+	embeddedValues := map[string]any{"activities": []*Activity{}}
+	if a != nil {
+		h.addActivity(a)
+		embeddedValues["activities"] = []*Activity{a}
+	}
+	if entity != nil {
+		embeddedValues["entity"] = entity
+	}
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(apiResponse{Status: status, Code: code, Embedded: embeddedValues})
+}
+
+// statusError is the status of an error response.
+const statusError = "error"
+
+// apiResponse is the API's response format for writes, actions and errors.
+type apiResponse struct {
+	Status   string         `json:"status"`
+	Code     int            `json:"code"`
+	Title    string         `json:"title,omitempty"`
+	Message  string         `json:"message,omitempty"`
+	Detail   map[string]any `json:"detail,omitempty"`
+	Embedded map[string]any `json:"_embedded,omitempty"`
+}
+
+// addActivity adds an in-progress activity. The caller must hold the write lock.
+func (h *Handler) addActivity(a *Activity) {
 	now := time.Now()
 	a.ID = lowercaseAlphanumericID(16)
 	a.State = "in_progress"
@@ -74,7 +107,14 @@ func (h *Handler) respondWithActivity(w http.ResponseWriter, a *Activity) {
 		h.activities[a.Project] = make(map[string]*Activity)
 	}
 	h.activities[a.Project][a.ID] = a
-	_ = json.NewEncoder(w).Encode(embedded("activities", []*Activity{a}))
+}
+
+// writeError writes an error response in the API's format, with optional details.
+func writeError(w http.ResponseWriter, code int, message string, detail map[string]any) {
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(apiResponse{
+		Status: statusError, Code: code, Title: http.StatusText(code), Message: message, Detail: detail,
+	})
 }
 
 // complete completes a created activity, as it is being read. The caller must hold the write lock.
