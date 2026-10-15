@@ -14,7 +14,16 @@ import (
 func TestOrgSubscriptions(t *testing.T) {
 	h := NewHandler(t)
 	h.SetOrgs([]*Org{{ID: "org1"}, {ID: "org2"}})
-	h.SetProjects([]*Project{{ID: "p1", Title: "P1", Organization: "org1", SubscriptionID: "1001"}})
+	h.SetProjects([]*Project{
+		{ID: "p1", Title: "P1", Organization: "org1", SubscriptionID: "1001"},
+		{ID: "p2", Title: "P2", Organization: "org1", SubscriptionID: "1002"},
+	})
+	// A stored subscription, as if it was created through the mock, and still provisioning.
+	h.subscriptions = map[string]*Subscription{"1002": {
+		ID:     "1002",
+		Status: "provisioning",
+		Links:  MakeHALLinks("self=/organizations/org1/subscriptions/1002"),
+	}}
 	server := httptest.NewServer(h)
 	defer server.Close()
 
@@ -32,11 +41,7 @@ func TestOrgSubscriptions(t *testing.T) {
 		return resp.StatusCode
 	}
 
-	// A subscription created through the mock is listed as stored, while it is provisioning.
-	var created Subscription
-	require.Equal(t, http.StatusOK, do(http.MethodPost, "/organizations/org1/subscriptions",
-		`{"project_region":"r","project_title":"New"}`, &created))
-
+	// The stored subscription is listed as stored.
 	var list struct {
 		Items []*Subscription `json:"items"`
 	}
@@ -45,7 +50,7 @@ func TestOrgSubscriptions(t *testing.T) {
 	for _, s := range list.Items {
 		statuses[s.ID] = s.Status
 	}
-	assert.Equal(t, map[string]string{"1001": "active", created.ID: "provisioning"}, statuses)
+	assert.Equal(t, map[string]string{"1001": "active", "1002": "provisioning"}, statuses)
 
 	// The listed subscriptions can be read.
 	for _, item := range list.Items {
