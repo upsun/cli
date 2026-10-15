@@ -43,6 +43,41 @@ type AuthServer struct {
 	accessCount     int
 	reuseDetected   bool
 	revokedFamilies map[string]bool
+
+	sshCertMu       sync.Mutex
+	sshCertKeyID    string
+	sshCertLifetime time.Duration
+	sshCertCount    int
+}
+
+// SetSSHCertificate sets the key ID and lifetime of issued SSH certificates (default: "test-key-id" and 1 minute).
+// The legacy CLI only reuses a certificate if its key ID is the user ID, and it expires more than 2 minutes later.
+func (s *AuthServer) SetSSHCertificate(keyID string, lifetime time.Duration) {
+	s.sshCertMu.Lock()
+	defer s.sshCertMu.Unlock()
+	s.sshCertKeyID = keyID
+	s.sshCertLifetime = lifetime
+}
+
+// SSHCertificateCount returns the number of SSH certificates issued.
+func (s *AuthServer) SSHCertificateCount() int {
+	s.sshCertMu.Lock()
+	defer s.sshCertMu.Unlock()
+	return s.sshCertCount
+}
+
+func (s *AuthServer) nextSSHCertificate() (keyID string, lifetime time.Duration) {
+	s.sshCertMu.Lock()
+	defer s.sshCertMu.Unlock()
+	s.sshCertCount++
+	keyID, lifetime = s.sshCertKeyID, s.sshCertLifetime
+	if keyID == "" {
+		keyID = "test-key-id"
+	}
+	if lifetime == 0 {
+		lifetime = time.Minute
+	}
+	return keyID, lifetime
 }
 
 // SetTokenLifetime sets the lifetime of issued access tokens (default: 1 hour).
@@ -315,13 +350,14 @@ func NewAuthServer(t *testing.T) *AuthServer {
 		extensions["permit-port-forwarding"] = ""
 		extensions["permit-pty"] = ""
 		extensions["permit-user-rc"] = ""
+		keyID, lifetime := srv.nextSSHCertificate()
 		cert := &ssh.Certificate{
 			Key:         key,
 			Serial:      0,
 			CertType:    ssh.UserCert,
-			KeyId:       "test-key-id",
+			KeyId:       keyID,
 			ValidAfter:  uint64(time.Now().Add(-1 * time.Second).Unix()),
-			ValidBefore: uint64(time.Now().Add(time.Minute).Unix()),
+			ValidBefore: uint64(time.Now().Add(lifetime).Unix()),
 			Permissions: ssh.Permissions{
 				Extensions: extensions,
 			},
