@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -31,13 +32,12 @@ func TestMountSize(t *testing.T) {
 	p := setUpProject(t, sshEnv(mountsDeployment()))
 	// The df output has two mounts on one disk and one on another. Each du output is the path's length in KiB.
 	env := remoteEnv(t, map[string]string{
-		"df": `cat <<OUT
-Filesystem 1-blocks Used Available Capacity Mounted on
+		"df": "cat <<'OUT'\n" + strings.ReplaceAll(`Filesystem 1-blocks Used Available Capacity Mounted on
 /dev/root 8589934592 4294967296 4294967296 50% /
-/dev/sdb 1073741824 268435456 805306368 25% $PLATFORM_APP_DIR/var/log
-/dev/sdb 1073741824 268435456 805306368 25% $PLATFORM_APP_DIR/web/uploads
-tmpfs 536870912 0 536870912 0% $PLATFORM_APP_DIR/tmp
-OUT`,
+/dev/sdb 1073741824 268435456 805306368 25% APP_DIR/var/log
+/dev/sdb 1073741824 268435456 805306368 25% APP_DIR/web/uploads
+tmpfs 536870912 0 536870912 0% APP_DIR/tmp
+`, "APP_DIR", appDir) + "OUT\n",
 		"du": `for path; do :; done; printf '%d\t%s\n' $((${#path} * 1024)) "$path"`,
 	}, nil)
 	p.serveSSH(t, mockssh.ExecHandler(appDir, append(env, "PLATFORM_APP_DIR="+appDir)))
