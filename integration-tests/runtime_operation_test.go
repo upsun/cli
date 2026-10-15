@@ -84,9 +84,7 @@ func TestRuntimeOperationRun(t *testing.T) {
 		var body map[string]any
 		require.NoError(t, json.Unmarshal(b, &body))
 		receivedBody.Store(body)
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"_embedded": map[string]any{"activities": []any{}},
-		})
+		apiHandler.RespondWithActivity(w, projectID, "main", "environment.operation")
 	})
 
 	apiServer := httptest.NewServer(apiHandler)
@@ -137,6 +135,22 @@ func TestRuntimeOperationRun(t *testing.T) {
 		require.True(t, ok, "operations POST was not received")
 		assert.Equal(t, []any{"--force", "my value,other"}, body["parameters"])
 	})
+
+	for _, result := range []string{mockapi.ActivityResultSuccess, mockapi.ActivityResultFailure} {
+		t.Run("run_wait_"+result, func(t *testing.T) {
+			apiHandler.SetActivityResult(result)
+			stdout, stderr, err := f.RunCombinedOutput("operation:run", "migrate", "-p", projectID, "-e", "main", "--yes")
+			if result == mockapi.ActivityResultSuccess {
+				require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
+				assert.Contains(t, stderr, "The activity succeeded")
+			} else {
+				require.Error(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
+				assert.Contains(t, stderr, "The activity failed")
+			}
+			assert.Contains(t, stderr, "Mock log for environment.operation")
+		})
+	}
+	apiHandler.SetActivityResult(mockapi.ActivityResultSuccess)
 
 	// Drive the not-found branch: this is the path where $appName starts null
 	// and remains null when the operation name doesn't match. The command

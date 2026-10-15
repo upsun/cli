@@ -3,6 +3,7 @@ package mockapi
 // TODO unify these models with the 'api' package, and/or use OpenAPI or similar to generate them
 
 import (
+	"encoding/json"
 	"net/url"
 	"strings"
 	"time"
@@ -323,6 +324,30 @@ type Activity struct {
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	// Links defaults to "self", "log" and, if the activity is cancellable, "#cancel".
+	Links HalLinks `json:"_links,omitempty"`
+
+	// pendingResult is the result the activity completes with when it is next read.
+	pendingResult string
+}
+
+// MarshalJSON adds the default links. Its value receiver means it also applies when encoding a value.
+func (a Activity) MarshalJSON() ([]byte, error) { //nolint:gocritic // See above.
+	type activity Activity
+	c := activity(a)
+	if c.Links == nil {
+		path := "/projects/" + url.PathEscape(a.Project) + "/activities/" + url.PathEscape(a.ID)
+		c.Links = MakeHALLinks("self="+path, "log="+path+"/log")
+		if a.cancellable() {
+			c.Links["#cancel"] = HALLink{HREF: path + "/cancel"}
+		}
+	}
+	return json.Marshal(c)
+}
+
+func (a *Activity) cancellable() bool {
+	return a.State == "pending" || a.State == "in_progress"
 }
 
 type Domain struct {
