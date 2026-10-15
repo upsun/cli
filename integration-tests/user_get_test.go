@@ -11,8 +11,8 @@ import (
 	"github.com/upsun/cli/pkg/mockapi"
 )
 
-// TestUserGet covers user:get with missing optional inputs, which previously
-// caused TypeErrors in the legacy CLI.
+// TestUserGet covers user:get, including missing optional inputs, which
+// previously caused TypeErrors in the legacy CLI.
 func TestUserGet(t *testing.T) {
 	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
@@ -31,6 +31,10 @@ func TestUserGet(t *testing.T) {
 	})
 	apiHandler.SetProjects([]*mockapi.Project{
 		makeProject(projectID, "org-id-1", "test-vendor", "Project 1", "region-1"),
+	})
+	apiHandler.SetEnvironments([]*mockapi.Environment{
+		makeEnv(projectID, "main", "production", "active", nil),
+		makeEnv(projectID, "dev", "development", "active", "main"),
 	})
 	apiHandler.SetUserGrants([]*mockapi.UserGrant{
 		{
@@ -61,6 +65,28 @@ func TestUserGet(t *testing.T) {
 			args:       []string{"user:get", "-p", projectID, "user-id-2@example.com", "--level", "foo"},
 			wantErr:    true,
 			wantStderr: "Invalid level: foo",
+		},
+		{
+			name:       "environment level",
+			args:       []string{"user:get", "-p", projectID, "-e", "dev", "user-id-2@example.com", "--level", "environment", "--pipe"},
+			wantStdout: "viewer",
+		},
+		{
+			name:       "environment level without a role",
+			args:       []string{"user:get", "-p", projectID, "-e", "main", "user-id-2@example.com", "--level", "environment", "--pipe"},
+			wantStdout: "none",
+		},
+		{
+			name:       "user not found",
+			args:       []string{"user:get", "-p", projectID, "nobody@example.com"},
+			wantErr:    true,
+			wantStderr: "User not found: nobody@example.com",
+		},
+		{
+			name:       "deprecated role option",
+			args:       []string{"user:get", "-p", projectID, "user-id-2@example.com", "--role", "admin"},
+			wantErr:    true,
+			wantStderr: "The --role option is no longer available for this command.",
 		},
 		{
 			name:       "no email in non-interactive mode",
