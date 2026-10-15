@@ -175,6 +175,8 @@ func NewHandler(t *testing.T) *Handler {
 	h.Get("/projects/{project_id}/certificates", h.handleListProjectCertificates)
 	h.Get("/projects/{project_id}/certificates/{certificate_id}", h.handleGetProjectCertificate)
 	h.Get("/projects/{project_id}/user-access", h.handleProjectUserAccess)
+	h.registerUserAccessRoutes()
+	h.registerTeamRoutes()
 	h.Get("/ref/projects", h.handleProjectRefs)
 
 	h.Get("/regions", h.handleListRegions)
