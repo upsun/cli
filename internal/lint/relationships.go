@@ -69,7 +69,13 @@ func CheckRelationships(cfg *Config) *Result {
 		}
 	}
 	for appName := range cfg.Applications {
-		checkRelationships("application", appName, "applications."+appName, cfg.Applications[appName].Relationships)
+		app := cfg.Applications[appName]
+		path := "applications." + appName
+		checkRelationships("application", appName, path, app.Relationships)
+		checkRelationships("application", appName, path+".web", app.Web.Relationships)
+		for workerName, w := range app.Workers {
+			checkRelationships("application", appName, path+".workers."+workerName, w.Relationships)
+		}
 	}
 	for taskName := range cfg.Tasks {
 		checkRelationships("task", taskName, "tasks."+taskName, cfg.Tasks[taskName].Relationships)
@@ -86,6 +92,7 @@ func CheckRelationships(cfg *Config) *Result {
 	for appName := range cfg.Applications {
 		app := cfg.Applications[appName]
 		linkMounts(app.Mounts)
+		linkMounts(app.Web.Mounts)
 		for _, w := range app.Workers {
 			linkMounts(w.Mounts)
 		}

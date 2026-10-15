@@ -22,8 +22,7 @@
               "root": {
                 "type": "string",
                 "title": "The root of the application relative to the repository root",
-                "description": " \nDefaults to the root project directory.  \nUseful for multi-app setups: \nhttps://docs.upsun.com/anchors/app/multiple/",
-                "default": null
+                "description": " \nDefaults to the root project directory.  \nUseful for multi-app setups: \nhttps://docs.upsun.com/anchors/app/multiple/"
               },
               "operations": {
                 "type": "object",
@@ -47,11 +46,7 @@
             },
             "additionalProperties": false,
             "title": "Information on the app’s source code and operations that can be run on it",
-            "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/source/operations/",
-            "default": {
-              "operations": {},
-              "root": null
-            }
+            "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/source/operations/"
           },
           "resources": {
             "$ref": "#/definitions/deprecated/resources"
@@ -74,18 +69,20 @@
                   "additionalProperties": {}
                 },
                 "title": "Variables provide environment-sensitive information to control how your application behaves",
-                "description": "To set a Unix environment variable, specify a key of `env:`, and then each sub-item of that is a key/value pair that will be injected into the environment."
+                "description": "Overrides the application's value for this container."
               },
               "timezone": {
                 "type": "string",
                 "title": "The timezone of the application",
-                "description": "This primarily affects the timezone in which cron tasks will run. It will not affect the application itself. Defaults to UTC if not specified."
+                "description": "Overrides the application's value for this container."
               },
               "mounts": {
-                "$ref": "#/definitions/mounts"
+                "$ref": "#/definitions/mounts",
+                "description": "Overrides the application's value for this container."
               },
               "relationships": {
-                "$ref": "#/definitions/relationships"
+                "$ref": "#/definitions/relationships",
+                "description": "Overrides the application's value for this container."
               },
               "access": {
                 "type": "object",
@@ -93,13 +90,15 @@
                   "type": "string"
                 },
                 "title": "Access information, a mapping between access type and roles",
-                "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/access/"
+                "description": "Overrides the application's value for this container."
               },
               "size": {
-                "$ref": "#/definitions/deprecated/size"
+                "$ref": "#/definitions/deprecated/size",
+                "description": "Overrides the application's value for this container."
               },
               "resources": {
-                "$ref": "#/definitions/deprecated/resources"
+                "$ref": "#/definitions/deprecated/resources",
+                "description": "Overrides the application's value for this container."
               },
               "locations": {
                 "type": "object",
@@ -219,7 +218,7 @@
                           "type": "string",
                           "title": "The maximum size request that can be buffered",
                           "description": "Supports K, M, and G suffixes. \nMore information: \nhttps://docs.upsun.com/anchors/app/reference/web/commands/request-buffering/",
-                          "default": 262144000
+                          "default": "250m"
                         }
                       },
                       "additionalProperties": false,
@@ -267,8 +266,7 @@
                   },
                   "protocol": {
                     "type": "string",
-                    "title": "Protocol",
-                    "default": null
+                    "title": "Protocol"
                   }
                 },
                 "additionalProperties": false,
@@ -324,13 +322,28 @@
                 "deprecationMessage": "Deprecated"
               },
               "authorizations": {
-                "$ref": "#/definitions/authorizations"
+                "$ref": "#/definitions/authorizations",
+                "description": "Overrides the application's value for this container."
               },
               "egress": {
-                "$ref": "#/definitions/egress"
+                "$ref": "#/definitions/egress",
+                "description": "Overrides the application's value for this container."
               },
               "container_profile": {
-                "$ref": "#/definitions/container_profile"
+                "$ref": "#/definitions/container_profile",
+                "description": "Overrides the application's value for this container."
+              },
+              "additional_hosts": {
+                "$ref": "#/definitions/additional_hosts",
+                "description": "Overrides the application's value for this container."
+              },
+              "firewall": {
+                "$ref": "#/definitions/firewall",
+                "description": "Overrides the application's value for this container."
+              },
+              "operations": {
+                "$ref": "#/definitions/operations",
+                "description": "Overrides the application's value for this container."
               }
             },
             "additionalProperties": false,
@@ -344,7 +357,8 @@
               "type": "object",
               "properties": {
                 "firewall": {
-                  "$ref": "#/definitions/firewall"
+                  "$ref": "#/definitions/firewall",
+                  "description": "Overrides the application's value for this container."
                 },
                 "variables": {
                   "type": "object",
@@ -353,14 +367,12 @@
                     "additionalProperties": {}
                   },
                   "title": "Variables to control the environment",
-                  "description": "Variables provide environment-sensitive information to control how your application behaves. To set a Unix environment variable, specify a key of `env:`, and then each sub-item of that is a key/value pair that will be injected into the environment. \nMore information: \nhttps://docs.upsun.com/anchors/app/reference/variables/",
-                  "default": {}
+                  "description": "Overrides the application's value for this container."
                 },
                 "timezone": {
                   "type": "string",
                   "title": "The timezone of the application",
-                  "description": "This primarily affects the timezone in which cron tasks will run.  It will not affect the application itself. Defaults to UTC if not specified. \nSee also: \nhttps://docs.upsun.com/anchors/app/timezone/",
-                  "default": null
+                  "description": "Overrides the application's value for this container."
                 },
                 "mounts": {
                   "type": "object",
@@ -397,11 +409,11 @@
                     "additionalProperties": false
                   },
                   "title": "Filesystem mounts of this application",
-                  "description": "Directories that are writable even after the app is built. Allocated disk for mounts is defined with a separate resource configuration call using `upsun resources:set`. \nContains a dictionary of mounts: \nhttps://docs.upsun.com/anchors/app/reference/mounts/",
-                  "default": {}
+                  "description": "Overrides the application's value for this container."
                 },
                 "relationships": {
-                  "$ref": "#/definitions/relationships"
+                  "$ref": "#/definitions/relationships",
+                  "description": "Overrides the application's value for this container."
                 },
                 "access": {
                   "type": "object",
@@ -409,19 +421,19 @@
                     "type": "string"
                   },
                   "title": "Access control for roles accessing app environments",
-                  "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/access/",
-                  "default": {
-                    "ssh": "contributor"
-                  }
+                  "description": "Overrides the application's value for this container."
                 },
                 "size": {
-                  "$ref": "#/definitions/deprecated/size"
+                  "$ref": "#/definitions/deprecated/size",
+                  "description": "Overrides the application's value for this container."
                 },
                 "resources": {
-                  "$ref": "#/definitions/deprecated/resources"
+                  "$ref": "#/definitions/deprecated/resources",
+                  "description": "Overrides the application's value for this container."
                 },
                 "container_profile": {
-                  "$ref": "#/definitions/container_profile"
+                  "$ref": "#/definitions/container_profile",
+                  "description": "Overrides the application's value for this container."
                 },
                 "commands": {
                   "type": "object",
@@ -450,10 +462,20 @@
                   "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/workers/"
                 },
                 "authorizations": {
-                  "$ref": "#/definitions/authorizations"
+                  "$ref": "#/definitions/authorizations",
+                  "description": "Overrides the application's value for this container."
                 },
                 "egress": {
-                  "$ref": "#/definitions/egress"
+                  "$ref": "#/definitions/worker_egress",
+                  "description": "Overrides the application's value for this container."
+                },
+                "additional_hosts": {
+                  "$ref": "#/definitions/additional_hosts",
+                  "description": "Overrides the application's value for this container."
+                },
+                "operations": {
+                  "$ref": "#/definitions/operations",
+                  "description": "Overrides the application's value for this container."
                 }
               },
               "required": [
@@ -494,16 +516,12 @@
             "properties": {
               "flavor": {
                 "type": "string",
-                "description": "The pre-set build tasks to use for this application",
-                "default": null
+                "description": "The pre-set build tasks to use for this application"
               }
             },
             "additionalProperties": false,
             "title": "The build configuration of the application",
-            "description": "It contains a build dictionary.  \nMore information: \nhttps://docs.upsun.com/anchors/app/reference/build/",
-            "default": {
-              "flavor": null
-            }
+            "description": "It contains a build dictionary.  \nMore information: \nhttps://docs.upsun.com/anchors/app/reference/build/"
           },
           "dependencies": {
             "type": "object",
@@ -520,20 +538,17 @@
               "build": {
                 "type": "string",
                 "title": "Hook executed after the build process",
-                "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/hooks/",
-                "default": null
+                "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/hooks/"
               },
               "deploy": {
                 "type": "string",
                 "title": "Hook executed after the deployment of new code",
-                "description": "More information: \nhttps://docs.upsun.com\t\n/anchors/app/reference/hooks/",
-                "default": null
+                "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/hooks/"
               },
               "post_deploy": {
                 "type": "string",
                 "title": "Hook executed after an environment is fully deployed",
-                "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/hooks/",
-                "default": null
+                "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/hooks/"
               }
             },
             "additionalProperties": false,
@@ -562,8 +577,7 @@
                     "stop": {
                       "type": "string",
                       "title": "The command used to stop the cron job",
-                      "description": "The command that’s issued to give the cron command a chance to shutdown gracefully, such as to finish an active item in a list of tasks. Issued when a cron task is interrupted by a user through the CLI or Console. If not specified, a `SIGTERM` signal is sent to the process.",
-                      "default": null
+                      "description": "The command that’s issued to give the cron command a chance to shutdown gracefully, such as to finish an active item in a list of tasks. Issued when a cron task is interrupted by a user through the CLI or Console. If not specified, a `SIGTERM` signal is sent to the process."
                     }
                   },
                   "required": [
@@ -668,18 +682,12 @@
             "$ref": "#/definitions/container_profile"
           },
           "additional_hosts": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            },
-            "title": "Maps of hostnames to IP addresses",
-            "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/additional-hosts/"
+            "$ref": "#/definitions/additional_hosts"
           },
           "timezone": {
             "type": "string",
             "title": "The timezone of the application",
-            "description": "This primarily affects the timezone in which cron tasks will run. It will not affect the application itself. Defaults to UTC if not specified. \nSee also: \nhttps://docs.upsun.com/anchors/app/timezone/",
-            "default": null
+            "description": "This primarily affects the timezone in which cron tasks will run. It will not affect the application itself. Defaults to UTC if not specified. \nSee also: \nhttps://docs.upsun.com/anchors/app/timezone/"
           },
           "preflight": {
             "type": "object",
@@ -709,52 +717,7 @@
             }
           },
           "operations": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "object",
-              "properties": {
-                "commands": {
-                  "type": "object",
-                  "properties": {
-                    "start": {
-                      "type": "string",
-                      "title": "The command used to start the application",
-                      "description": "It will be restarted if it terminates. Do not use on PHP unless using a custom persistent process like React PHP."
-                    },
-                    "stop": {
-                      "type": "string",
-                      "description": "The command used to stop the operation."
-                    }
-                  },
-                  "required": [
-                    "start"
-                  ]
-                },
-                "role": {
-                  "type": "string",
-                  "title": "which users can trigger it according to their user role",
-                  "description": "More information: \nhttps://docs.upsun.com/anchors/app/runtime-operations/define/",
-                  "enum": [
-                    "viewer",
-                    "contributor",
-                    "admin"
-                  ]
-                },
-                "timeout": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 86400,
-                  "description": "The maximum duration in seconds."
-                }
-              },
-              "required": [
-                "commands"
-              ],
-              "additionalProperties": false
-            },
-            "title": "Runtime operations that can be executed in the application container",
-            "description": "More information: \nhttps://docs.upsun.com/anchors/app/runtime-operations/",
-            "default": {}
+            "$ref": "#/definitions/operations"
           },
           "authorizations": {
             "$ref": "#/definitions/authorizations"
@@ -900,8 +863,7 @@
           "type": {
             "type": "string",
             "title": "The service type",
-            "description": "One of the available services in the format `type:version`. \nMore information:  \nhttps://docs.upsun.com/anchors/services/available/",
-            "default": {}
+            "description": "One of the available services in the format `type:version`. \nMore information:  \nhttps://docs.upsun.com/anchors/services/available/"
           },
           "size": {
             "$ref": "#/definitions/deprecated/size"
@@ -1109,8 +1071,7 @@
           "timezone": {
             "type": "string",
             "title": "The timezone of the application",
-            "description": "This primarily affects the timezone in which cron tasks will run. It will not affect the application itself. Defaults to UTC if not specified. \nSee also: \nhttps://docs.upsun.com/anchors/app/timezone/",
-            "default": null
+            "description": "This primarily affects the timezone in which cron tasks will run. It will not affect the application itself. Defaults to UTC if not specified. \nSee also: \nhttps://docs.upsun.com/anchors/app/timezone/"
           },
           "type": {
             "type": "string",
@@ -1144,7 +1105,6 @@
       ],
       "title": "The container profile for this application/service in production",
       "description": "Leave blank to allow it to be set dynamically. \nMore information: \nhttps://docs.upsun.com/anchors/resources/manage/configuration/profiles/adjust/",
-      "default": "",
       "anyOf": [
         {
           "type": "string",
@@ -1170,8 +1130,7 @@
       "id": {
         "type": "string",
         "title": "Route Identifier",
-        "description": "A unique identifier for the route. See route identifiers: \nhttps://docs.upsun.com/anchors/routes/identifiers/",
-        "default": null
+        "description": "A unique identifier for the route. See route identifiers: \nhttps://docs.upsun.com/anchors/routes/identifiers/"
       },
       "attributes": {
         "type": "object",
@@ -1231,14 +1190,12 @@
                 "prefix": {
                   "type": "boolean",
                   "title": "Prefix of the redirect path",
-                  "description": "Specifies whether both the path and all its children or just the path itself should be redirected.  \nMore information: \nhttps://docs.upsun.com/anchors/routes/redirects/affix/",
-                  "default": null
+                  "description": "Specifies whether both the path and all its children or just the path itself should be redirected.  \nMore information: \nhttps://docs.upsun.com/anchors/routes/redirects/affix/"
                 },
                 "append_suffix": {
                   "type": "boolean",
                   "title": "Suffix of the redirect path",
-                  "description": "Determines if the suffix is carried over with the redirect. More information. \nhttps://docs.upsun.com/anchors/routes/redirects/affix/",
-                  "default": null
+                  "description": "Determines if the suffix is carried over with the redirect. More information. \nhttps://docs.upsun.com/anchors/routes/redirects/affix/"
                 },
                 "code": {
                   "type": "integer",
@@ -1252,8 +1209,7 @@
                     "string"
                   ],
                   "title": "The amount of time, in seconds, to cache the redirects",
-                  "description": "The duration the redirect is cached for.  \nMore information: \nhttps://docs.upsun.com/anchors/routes/redirects/caching/manage/",
-                  "default": null
+                  "description": "The duration the redirect is cached for.  \nMore information: \nhttps://docs.upsun.com/anchors/routes/redirects/caching/manage/"
                 }
               },
               "required": [
@@ -1266,8 +1222,7 @@
         "required": [
           "paths"
         ],
-        "additionalProperties": false,
-        "default": {}
+        "additionalProperties": false
       },
       "tls": {
         "type": "object",
@@ -1282,8 +1237,7 @@
               "enabled": {
                 "type": "boolean",
                 "title": "Whether strict transport security is enabled or not",
-                "description": "If set to true, HSTS is enabled for 1 year.  \nIf set to false, other properties are ignored.",
-                "default": null
+                "description": "If set to true, HSTS is enabled for 1 year.  \nIf set to false, other properties are ignored."
               },
               "include_subdomains": {
                 "type": "boolean",
@@ -1298,12 +1252,7 @@
                 "default": false
               }
             },
-            "additionalProperties": false,
-            "default": {
-              "preload": null,
-              "include_subdomains": false,
-              "enabled": false
-            }
+            "additionalProperties": false
           },
           "min_version": {
             "type": [
@@ -1344,17 +1293,7 @@
             "default": []
           }
         },
-        "additionalProperties": false,
-        "default": {
-          "client_authentication": null,
-          "min_version": null,
-          "client_certificate_authorities": [],
-          "strict_transport_security": {
-            "preload": null,
-            "include_subdomains": null,
-            "enabled": null
-          }
-        }
+        "additionalProperties": false
       },
       "to": {
         "type": "string",
@@ -1461,8 +1400,7 @@
         ]
       },
       "title": "The relationships of the application/service to other services",
-      "description": "Contains a dictionary of relationships: \nhttps://docs.upsun.com/anchors/app/reference/relationships/",
-      "default": {}
+      "description": "Contains a dictionary of relationships: \nhttps://docs.upsun.com/anchors/app/reference/relationships/"
     },
     "firewall": {
       "type": "object",
@@ -1516,8 +1454,7 @@
       "additionalProperties": false,
       "nullable": true,
       "title": "Outbound firewall rules for the application",
-      "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/firewall/",
-      "default": null
+      "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/firewall/"
     },
     "mounts": {
       "type": "object",
@@ -1554,8 +1491,7 @@
         "additionalProperties": false
       },
       "title": "Filesystem mounts of this application",
-      "description": "Directories that are writable even after the app is built. Allocated disk for mounts is defined with a separate resource configuration call using `upsun resources:set`. \nContains a dictionary of mounts: \nhttps://docs.upsun.com/anchors/app/reference/mounts/",
-      "default": {}
+      "description": "Directories that are writable even after the app is built. Allocated disk for mounts is defined with a separate resource configuration call using `upsun resources:set`. \nContains a dictionary of mounts: \nhttps://docs.upsun.com/anchors/app/reference/mounts/"
     },
     "deprecated": {
       "size": {
@@ -1627,60 +1563,10 @@
       "description": "Routes outbound traffic through the egress proxy, allowing only the listed domains, per phase (`build` or `runtime`).",
       "properties": {
         "build": {
-          "type": "object",
-          "properties": {
-            "allowed_domains": {
-              "type": "array",
-              "description": "The domains that outbound traffic may reach.",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "host": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "port": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 65535
-                  }
-                },
-                "required": [
-                  "host"
-                ],
-                "additionalProperties": false
-              }
-            }
-          },
-          "additionalProperties": false
+          "$ref": "#/definitions/egress_phase"
         },
         "runtime": {
-          "type": "object",
-          "properties": {
-            "allowed_domains": {
-              "type": "array",
-              "description": "The domains that outbound traffic may reach.",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "host": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "port": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 65535
-                  }
-                },
-                "required": [
-                  "host"
-                ],
-                "additionalProperties": false
-              }
-            }
-          },
-          "additionalProperties": false
+          "$ref": "#/definitions/egress_phase"
         }
       },
       "additionalProperties": false
@@ -1763,6 +1649,100 @@
               }
             }
           ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "additional_hosts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Maps of hostnames to IP addresses",
+      "description": "More information: \nhttps://docs.upsun.com/anchors/app/reference/additional-hosts/"
+    },
+    "operations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "commands": {
+            "type": "object",
+            "properties": {
+              "start": {
+                "type": "string",
+                "title": "The command used to start the application",
+                "description": "It will be restarted if it terminates. Do not use on PHP unless using a custom persistent process like React PHP."
+              },
+              "stop": {
+                "type": "string",
+                "description": "The command used to stop the operation."
+              }
+            },
+            "required": [
+              "start"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "title": "which users can trigger it according to their user role",
+            "description": "More information: \nhttps://docs.upsun.com/anchors/app/runtime-operations/define/",
+            "enum": [
+              "viewer",
+              "contributor",
+              "admin"
+            ]
+          },
+          "timeout": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 86400,
+            "description": "The maximum duration in seconds."
+          }
+        },
+        "required": [
+          "commands"
+        ],
+        "additionalProperties": false
+      },
+      "title": "Runtime operations that can be executed in the application container",
+      "description": "More information: \nhttps://docs.upsun.com/anchors/app/runtime-operations/"
+    },
+    "egress_phase": {
+      "type": "object",
+      "properties": {
+        "allowed_domains": {
+          "type": "array",
+          "description": "The domains that outbound traffic may reach.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "host": {
+                "type": "string",
+                "minLength": 1
+              },
+              "port": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              }
+            },
+            "required": [
+              "host"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "worker_egress": {
+      "type": "object",
+      "title": "Egress proxy allowlists",
+      "description": "Routes outbound traffic through the egress proxy at runtime, allowing only the listed domains. Build-phase egress is set on the application.",
+      "properties": {
+        "runtime": {
+          "$ref": "#/definitions/egress_phase"
         }
       },
       "additionalProperties": false

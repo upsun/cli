@@ -29,6 +29,9 @@ type Config struct {
 			} `yaml:"commands,omitempty"`
 
 			Locations map[string]WebLocation `yaml:"locations,omitempty"`
+
+			Relationships map[string]any   `yaml:"relationships,omitempty"`
+			Mounts        map[string]Mount `yaml:"mounts,omitempty"`
 		} `yaml:"web,omitempty"`
 
 		Relationships map[string]any   `yaml:"relationships,omitempty"`
@@ -45,6 +48,7 @@ type Config struct {
 			Type           string           `yaml:"type,omitempty"`
 			Authorizations []Authorization  `yaml:"authorizations,omitempty"`
 			Mounts         map[string]Mount `yaml:"mounts,omitempty"`
+			Relationships  map[string]any   `yaml:"relationships,omitempty"`
 
 			Commands struct {
 				PreStart  string `yaml:"pre_start,omitempty"`

@@ -185,6 +185,37 @@ tasks:
         service: db`,
 		},
 		{
+			name: "container_overrides",
+			// Services used only by web or worker overrides are not unused.
+			content: `
+applications:
+  app:
+    type: php:8.4
+    web:
+      relationships:
+        cache: "cache:redis"
+      mounts:
+        /files:
+          source: service
+          service: files
+    workers:
+      queue:
+        commands:
+          start: php worker.php
+        relationships:
+          database: "db:mysql"
+          missing:
+services:
+  cache:
+    type: redis:8.0
+  db:
+    type: mariadb:11.4
+  files:
+    type: network-storage:2.0`,
+			expectErrorMessage: `linter errors:
+  - applications.app.workers.queue.relationships.missing: relationship 'missing' in application 'app' does not match any service (or app)`, //nolint:lll
+		},
+		{
 			name: "task_relationship_not_found",
 			content: `
 applications:
