@@ -6,6 +6,7 @@ namespace Platformsh\Cli\Service;
 
 use Platformsh\Cli\Util\OsUtil;
 use Symfony\Component\Filesystem\Filesystem as SymfonyFilesystem;
+use Symfony\Component\Filesystem\Path;
 
 class Filesystem
 {
@@ -219,10 +220,16 @@ class Filesystem
      */
     public function makePathRelative(string $path, string $reference): string
     {
-        $path = realpath($path) ?: $path;
-        $reference = realpath($reference) ?: $reference;
+        // Symfony's makePathRelative() requires absolute paths, but these may not exist yet.
+        $path = realpath($path) ?: $this->makeAbsoluteFromCwd($path);
+        $reference = realpath($reference) ?: $this->makeAbsoluteFromCwd($reference);
 
         return rtrim($this->fs->makePathRelative($path, $reference), DIRECTORY_SEPARATOR);
+    }
+
+    private function makeAbsoluteFromCwd(string $path): string
+    {
+        return Path::isAbsolute($path) ? $path : Path::makeAbsolute($path, (string) getcwd());
     }
 
     /**
