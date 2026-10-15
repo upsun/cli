@@ -28,14 +28,15 @@ func (s *store) SetActivityResult(result string) {
 }
 
 // ProjectActivities returns copies of a project's activities, newest first.
-func (s *store) ProjectActivities(projectID string) []Activity {
+func (s *store) ProjectActivities(projectID string) []*Activity {
 	s.RLock()
 	defer s.RUnlock()
-	activities := make([]Activity, 0, len(s.activities[projectID]))
+	activities := make([]*Activity, 0, len(s.activities[projectID]))
 	for _, a := range s.activities[projectID] {
-		activities = append(activities, *a)
+		c := *a
+		activities = append(activities, &c)
 	}
-	slices.SortFunc(activities, func(a, b Activity) int { return -timeCompare(a.CreatedAt, b.CreatedAt) })
+	slices.SortFunc(activities, func(a, b *Activity) int { return -timeCompare(a.CreatedAt, b.CreatedAt) })
 	return activities
 }
 
@@ -72,30 +73,26 @@ func (h *Handler) respondWithActivity(w http.ResponseWriter, a *Activity) {
 	_ = json.NewEncoder(w).Encode(embedded("activities", []*Activity{a}))
 }
 
-// completeActivities completes a project's created activities, as they are being read.
-func (s *store) completeActivities(projectID string) {
-	s.Lock()
-	defer s.Unlock()
-	now := time.Now()
-	for _, a := range s.activities[projectID] {
-		if a.pendingResult != "" && a.State == "in_progress" {
-			a.State = "complete"
-			a.Result = a.pendingResult
-			a.CompletionPercent = 100
-			a.CompletedAt = now
-			a.UpdatedAt = now
-		}
-		a.pendingResult = ""
+// complete completes a created activity, as it is being read. The caller must hold the write lock.
+func (a *Activity) complete() {
+	if a.pendingResult != "" && a.State == "in_progress" {
+		now := time.Now()
+		a.State = "complete"
+		a.Result = a.pendingResult
+		a.CompletionPercent = 100
+		a.CompletedAt = now
+		a.UpdatedAt = now
 	}
+	a.pendingResult = ""
 }
 
 func (h *Handler) handleListProjectActivities(w http.ResponseWriter, req *http.Request) {
+	h.Lock()
+	defer h.Unlock()
 	projectID := chi.URLParam(req, "project_id")
-	h.completeActivities(projectID)
-	h.RLock()
-	defer h.RUnlock()
 	var activities = make([]*Activity, 0, len(h.activities[projectID]))
 	for _, a := range h.activities[projectID] {
+		a.complete()
 		activities = append(activities, a)
 	}
 	// Sort activities in descending order by created date.
@@ -104,12 +101,10 @@ func (h *Handler) handleListProjectActivities(w http.ResponseWriter, req *http.R
 }
 
 func (h *Handler) handleGetProjectActivity(w http.ResponseWriter, req *http.Request) {
-	projectID := chi.URLParam(req, "project_id")
-	h.completeActivities(projectID)
-	h.RLock()
-	defer h.RUnlock()
-	activityID := chi.URLParam(req, "id")
-	if a := h.activities[projectID][activityID]; a != nil {
+	h.Lock()
+	defer h.Unlock()
+	if a := h.activities[chi.URLParam(req, "project_id")][chi.URLParam(req, "id")]; a != nil {
+		a.complete()
 		_ = json.NewEncoder(w).Encode(a)
 		return
 	}
@@ -117,15 +112,14 @@ func (h *Handler) handleGetProjectActivity(w http.ResponseWriter, req *http.Requ
 }
 
 func (h *Handler) handleGetProjectActivityLog(w http.ResponseWriter, req *http.Request) {
-	projectID := chi.URLParam(req, "project_id")
-	h.completeActivities(projectID)
-	h.RLock()
-	defer h.RUnlock()
-	a := h.activities[projectID][chi.URLParam(req, "id")]
+	h.Lock()
+	defer h.Unlock()
+	a := h.activities[chi.URLParam(req, "project_id")][chi.URLParam(req, "id")]
 	if a == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
+	a.complete()
 	item, _ := json.Marshal(map[string]any{
 		"_id": "1",
 		"data": map[string]any{
@@ -163,14 +157,14 @@ func (h *Handler) handleCancelProjectActivity(w http.ResponseWriter, req *http.R
 }
 
 func (h *Handler) handleListEnvironmentActivities(w http.ResponseWriter, req *http.Request) {
+	h.Lock()
+	defer h.Unlock()
 	projectID := chi.URLParam(req, "project_id")
-	h.completeActivities(projectID)
-	h.RLock()
-	defer h.RUnlock()
 	environmentID := chi.URLParam(req, "environment_id")
 	var activities = make([]*Activity, 0, len(h.activities[projectID]))
 	for _, a := range h.activities[projectID] {
 		if slices.Contains(a.Environments, environmentID) {
+			a.complete()
 			activities = append(activities, a)
 		}
 	}
@@ -180,14 +174,13 @@ func (h *Handler) handleListEnvironmentActivities(w http.ResponseWriter, req *ht
 }
 
 func (h *Handler) handleGetEnvironmentActivity(w http.ResponseWriter, req *http.Request) {
-	projectID := chi.URLParam(req, "project_id")
-	h.completeActivities(projectID)
-	h.RLock()
-	defer h.RUnlock()
-	a := h.activities[projectID][chi.URLParam(req, "id")]
+	h.Lock()
+	defer h.Unlock()
+	a := h.activities[chi.URLParam(req, "project_id")][chi.URLParam(req, "id")]
 	if a == nil || !slices.Contains(a.Environments, chi.URLParam(req, "environment_id")) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
+	a.complete()
 	_ = json.NewEncoder(w).Encode(a)
 }

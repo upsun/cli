@@ -150,6 +150,7 @@ func TestRuntimeOperationRun(t *testing.T) {
 			assert.Contains(t, stderr, "Mock log for environment.operation")
 		})
 	}
+	apiHandler.SetActivityResult(mockapi.ActivityResultSuccess)
 
 	// Drive the not-found branch: this is the path where $appName starts null
 	// and remains null when the operation name doesn't match. The command
