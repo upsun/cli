@@ -56,6 +56,7 @@ type Project struct {
 	Title         string            `json:"title"`
 	Region        string            `json:"region"`
 	Organization  string            `json:"organization"`
+	Owner         string            `json:"owner,omitempty"`
 	Vendor        string            `json:"vendor"`
 	Repository    ProjectRepository `json:"repository"`
 	DefaultBranch string            `json:"default_branch"`
