@@ -7,6 +7,8 @@ import (
 
 type store struct {
 	sync.RWMutex
+	accessStore
+	teamStore
 	myUser          *User
 	orgs            map[string]*Org
 	projects        map[string]*Project
