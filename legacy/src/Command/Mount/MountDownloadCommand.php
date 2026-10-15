@@ -241,9 +241,9 @@ class MountDownloadCommand extends CommandBase
      */
     private function getLocalAppPath(App $app): ?string
     {
-        foreach ($this->getLocalApps() as $path => $candidateApp) {
+        foreach ($this->getLocalApps() as $candidateApp) {
             if ($candidateApp->getName() === $app->getName()) {
-                return $path;
+                return $candidateApp->getRoot();
             }
         }
 

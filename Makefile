@@ -92,13 +92,14 @@ $(ARCHIVES)/platform.phar: $(LEGACY_SOURCES) | legacy/vendor/autoload.php
 	cd legacy && php bin/platform self:build --no-interaction --output=../$@
 
 # Index the legacy CLI's commands for each embedded config, so the Go layer can resolve abbreviations of its own
-# commands and complete command and option names. HOME is isolated from user config. The version is set, as by the Go
+# commands and complete command and option names. HOME is isolated from user config. It runs outside any project, as
+# some commands are hidden depending on the local project (e.g. environment:xdebug). The version is set, as by the Go
 # wrapper, so that the CLI does not try to read it from Git. Usage: $(call legacy-index,phar,config-file)
 define legacy-index
 	tmp=$$(mktemp -d) && \
 	prefix=$$(go run ./scripts/env-prefix $(2)) && \
-	env HOME=$$tmp CLI_CONFIG_FILE=$(abspath $(2)) "$${prefix}NO_LEGACY_WARNING=1" "$${prefix}APPLICATION_VERSION=0.0.0" \
-		php $(1) list --all --format=json --no-interaction < /dev/null > $$tmp/commands.json && \
+	(cd $$tmp && env HOME=$$tmp CLI_CONFIG_FILE=$(abspath $(2)) "$${prefix}NO_LEGACY_WARNING=1" "$${prefix}APPLICATION_VERSION=0.0.0" \
+		php $(abspath $(1)) list --all --format=json --no-interaction < /dev/null > $$tmp/commands.json) && \
 	mv $$tmp/commands.json $@; \
 	status=$$?; rm -rf $$tmp; exit $$status
 endef

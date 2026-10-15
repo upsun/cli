@@ -161,6 +161,9 @@ type App struct {
 	Disk int    `json:"disk"`
 
 	Mounts map[string]Mount `json:"mounts"`
+
+	Runtime map[string]any `json:"runtime,omitempty"`
+	Stack   any            `json:"stack,omitempty"`
 }
 
 type Commands struct {

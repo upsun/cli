@@ -36,7 +36,14 @@ readonly class ApplicationFinder
 
         $finder = $this->findAppConfigFiles($directory);
         if (!$finder) {
-            return [];
+            // Without a per-app config file, the project uses Upsun's unified
+            // config, e.g. .upsun/config.yaml.
+            $applications = $this->findFlexApplications($directory);
+            if (\count($applications) === 1) {
+                \reset($applications)->setSingle(true);
+            }
+
+            return \array_values($applications);
         }
 
         // Find applications defined in individual files, e.g.
@@ -112,6 +119,40 @@ readonly class ApplicationFinder
                 throw new InvalidConfigException(sprintf('An application named %s is already defined', $appConfig['name']), $configFile, $key . '.name');
             }
             $applications[$appName ?: $appRoot] = new LocalApplication($appRoot, $this->config, $directory, new AppConfig($appConfig));
+        }
+
+        return $applications;
+    }
+
+    /**
+     * Finds applications in the unified config files, e.g. .upsun/*.yaml.
+     *
+     * @return array<string, LocalApplication>
+     */
+    private function findFlexApplications(string $directory): array
+    {
+        $configDir = $directory . DIRECTORY_SEPARATOR . $this->config->getStr('service.project_config_dir');
+        $files = \array_merge(\glob($configDir . '/*.yaml') ?: [], \glob($configDir . '/*.yml') ?: []);
+        \sort($files);
+
+        $applications = [];
+        foreach ($files as $configFile) {
+            $config = (new YamlParser())->parseFile($configFile);
+            if (!\is_array($config) || !\is_array($config['applications'] ?? null)) {
+                continue;
+            }
+            foreach ($config['applications'] as $name => $appConfig) {
+                if (!\is_array($appConfig)) {
+                    $type = gettype($appConfig);
+                    throw new InvalidConfigException("Application config has invalid type $type: it must be an object", $configFile, 'applications.' . $name);
+                }
+                /** @var array<string, mixed> $appConfig */
+                $appRoot = $this->getExplicitRoot($appConfig, $directory) ?? $directory;
+                if (!\is_dir($appRoot)) {
+                    throw new InvalidConfigException('Directory not found: ' . $appRoot, $configFile, 'applications.' . $name . '.source.root');
+                }
+                $applications[(string) $name] = new LocalApplication($appRoot, $this->config, $directory, new AppConfig(['name' => (string) $name] + $appConfig));
+            }
         }
 
         return $applications;

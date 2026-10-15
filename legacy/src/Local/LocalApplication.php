@@ -146,7 +146,7 @@ class LocalApplication
      * @throws ParseException if config cannot be parsed
      * @throws \Exception if the config file cannot be read
      */
-    private function getConfigObject(): AppConfig
+    public function getConfigObject(): AppConfig
     {
         if (!isset($this->config)) {
             if ($this->cliConfig->has('service.app_config_file')) {

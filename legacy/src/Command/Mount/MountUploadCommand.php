@@ -100,9 +100,9 @@ class MountUploadCommand extends CommandBase
             $finder = $this->applicationFinder;
             $applications = $finder->findApplications($projectRoot);
             $appPath = $projectRoot;
-            foreach ($applications as $path => $candidateApp) {
+            foreach ($applications as $candidateApp) {
                 if ($candidateApp->getName() === $container->getName()) {
-                    $appPath = $path;
+                    $appPath = $candidateApp->getRoot();
                     break;
                 }
             }

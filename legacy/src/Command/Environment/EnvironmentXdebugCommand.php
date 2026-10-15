@@ -68,8 +68,7 @@ class EnvironmentXdebugCommand extends CommandBase
             $isPhp = false;
             $finder = $this->applicationFinder;
             foreach ($finder->findApplications($directory) as $app) {
-                $type = $app->getType();
-                if ($type === 'php' || str_starts_with((string) $type, 'php:')) {
+                if ($app->getConfigObject()->getPhpRuntime() !== null) {
                     $isPhp = true;
                     break;
                 }
@@ -87,10 +86,10 @@ class EnvironmentXdebugCommand extends CommandBase
         $container = $selection->getRemoteContainer();
         $sshUrl = $container->getSshUrl(Option::stringOrNull($input, 'instance') ?? '');
 
-        $config = $container->getConfig()->getNormalized();
-        $ideKey = $config['runtime']['xdebug']['idekey'] ?? '';
+        $xdebug = $container->getConfig()->getPhpRuntime()['xdebug'] ?? null;
+        $ideKey = is_array($xdebug) && is_string($xdebug['idekey'] ?? null) ? $xdebug['idekey'] : '';
 
-        if (!$ideKey) {
+        if ($ideKey === '') {
             $this->stdErr->writeln('<error>No IDE key found.</error>');
             $this->stdErr->writeln('');
             $this->stdErr->writeln('To use Xdebug your project must have an <comment>idekey</comment> value set.');
@@ -105,6 +104,16 @@ class EnvironmentXdebugCommand extends CommandBase
                 . "runtime:\n"
                 . "    xdebug:\n"
                 . "        idekey: <options=underscore>secret_key</>",
+            );
+            $this->stdErr->writeln('');
+            $this->stdErr->writeln('Or, with a composable image:');
+            $this->stdErr->writeln(
+                "\n<comment># ...\n"
+                . "stack:\n"
+                . "    runtimes:\n"
+                . "        - php@8.4:\n"
+                . "            xdebug:\n"
+                . "                idekey: <options=underscore>secret_key</>",
             );
 
             return 1;

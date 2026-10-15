@@ -1,0 +1,7 @@
+applications:
+  app:
+    type: 'php:8.4'
+  frontend:
+    type: 'nodejs:22'
+    source:
+      root: frontend

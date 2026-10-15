@@ -1,0 +1,3 @@
+applications:
+  worker:
+    type: 'composable:25.05'
