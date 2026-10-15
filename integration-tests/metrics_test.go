@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/upsun/cli/pkg/mockapi"
 )
@@ -131,4 +132,80 @@ func TestMetricsLatest(t *testing.T) {
 	})
 	out = latest()
 	assertTrimmed(t, row(3, "app\t0.2\t1\t20.0%"), out)
+}
+
+func TestMetricsMemory(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+
+	apiHandler := mockapi.NewHandler(t)
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	projectID := mockapi.ProjectID()
+	apiHandler.SetProjects([]*mockapi.Project{{
+		ID: projectID,
+		Links: mockapi.MakeHALLinks("self=/projects/"+projectID,
+			"environments=/projects/"+projectID+"/environments"),
+		DefaultBranch: "main",
+	}})
+
+	envPath := "/projects/" + projectID + "/environments/main"
+	main := makeEnv(projectID, "main", "production", "active", nil)
+	main.SetCurrentDeployment(&mockapi.Deployment{
+		WebApps:  map[string]mockapi.App{"app": {Name: "app", Type: "golang:1.23", Size: "AUTO"}},
+		Services: map[string]mockapi.App{},
+		Workers:  map[string]mockapi.Worker{},
+		Routes:   map[string]any{},
+		Links:    mockapi.MakeHALLinks("self=" + envPath + "/deployment/current"),
+	})
+	apiHandler.SetEnvironments([]*mockapi.Environment{main})
+
+	mem := func(used, limit float64) map[string]any {
+		return map[string]any{"memory_used": map[string]any{"avg": used}, "memory_limit": map[string]any{"max": limit}}
+	}
+	// Points are old enough not to be treated as recent.
+	var (
+		mu  sync.Mutex
+		now time.Time
+	)
+	ts := func(minutesAgo int) time.Time { return now.Add(-time.Duration(minutesAgo) * time.Minute) }
+	overviewPath := envPath + "/observability/resources/overview"
+	apiHandler.Get(envPath+"/observability/", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"_links": mockapi.MakeHALLinks("resources_overview=" + apiServer.URL + overviewPath),
+		})
+	})
+	apiHandler.Get(overviewPath, func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		now = time.Now().UTC().Truncate(time.Minute)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"_grain": 60,
+			"_from":  ts(10).Unix(),
+			"_to":    now.Unix(),
+			"data": []map[string]any{
+				{"timestamp": ts(6).Unix(), "services": map[string]any{"app": mem(256*1024*1024, 1024*1024*1024)}},
+				{"timestamp": ts(5).Unix(), "services": map[string]any{"app": mem(512*1024*1024, 1024*1024*1024)}},
+			},
+		})
+	})
+	row := func(minutesAgo int, rest string) string {
+		mu.Lock()
+		defer mu.Unlock()
+		return ts(minutesAgo).Format("2006-01-02T15:04:05+00:00") + "\t" + rest
+	}
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+
+	out := f.Run("metrics:memory", "-p", projectID, "-e", "main", "--format", "tsv", "--no-header")
+	assertTrimmed(t, row(6, "app\t256.0 MiB\t1.0 GiB\t25.0%")+"\n"+row(5, "app\t512.0 MiB\t1.0 GiB\t50.0%"), out)
+
+	out = f.Run("metrics:memory", "-p", projectID, "-e", "main", "--format", "tsv", "--no-header", "--bytes")
+	assertTrimmed(t, row(6, "app\t268435456\t1073741824\t25.0%")+"\n"+row(5, "app\t536870912\t1073741824\t50.0%"), out)
+
+	_, stderr, err := f.RunCombinedOutput("metrics:memory", "-p", projectID, "-e", "main")
+	require.NoError(t, err, stderr)
+	assert.Contains(t, stderr, "Average memory usage at 1m intervals")
 }
