@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"regexp"
 	"slices"
 	"strconv"
 
@@ -27,8 +28,12 @@ func (h *Handler) handleListOrgSubscriptions(w http.ResponseWriter, req *http.Re
 	query := req.URL.Query()
 	size := defaultSubscriptionPageSize
 	if s := query.Get("page[size]"); s != "" {
-		n, err := strconv.Atoi(s)
-		if err != nil || n < 1 || n > maxSubscriptionPageSize {
+		n, _ := strconv.Atoi(s)
+		if n < 1 {
+			writeProblem(w, http.StatusBadRequest, errors.New("invalid page size"))
+			return
+		}
+		if n > maxSubscriptionPageSize {
 			writeProblem(w, http.StatusBadRequest, errors.New("page size must not be larger than 100"))
 			return
 		}
@@ -84,12 +89,17 @@ func (h *Handler) handleListOrgSubscriptions(w http.ResponseWriter, req *http.Re
 	_ = json.NewEncoder(w).Encode(map[string]any{"count": count, "items": subs, "_links": links})
 }
 
-// statusFilter returns the statuses in a "filter[status]" query parameter, in
-// any of the forms the API accepts, or nil if there is no filter.
+// statusFilterKey matches the forms of the "filter[status]" query parameter:
+// with or without "[value]", and with an optional "[]" or indexed "[0]" suffix.
+var statusFilterKey = regexp.MustCompile(`^filter\[status\](\[value\])?(\[\d*\])?$`)
+
+// statusFilter returns the statuses in a "filter[status]" query parameter, or nil if there is no filter.
 func statusFilter(query url.Values) []string {
 	var statuses []string
-	for _, suffix := range []string{"", "[]", "[value]", "[value][]"} {
-		statuses = append(statuses, query["filter[status]"+suffix]...)
+	for key, values := range query {
+		if statusFilterKey.MatchString(key) {
+			statuses = append(statuses, values...)
+		}
 	}
 	return statuses
 }

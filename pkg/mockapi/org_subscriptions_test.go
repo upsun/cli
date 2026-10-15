@@ -47,11 +47,16 @@ func TestOrgSubscriptions(t *testing.T) {
 	}
 	assert.Equal(t, map[string]string{"1001": "active", created.ID: "provisioning"}, statuses)
 
-	// Status filters.
-	require.Equal(t, http.StatusOK, do(http.MethodGet,
-		"/organizations/org1/subscriptions?filter[status][value][]=active&filter[status][operator]=IN", "", &list))
-	require.Len(t, list.Items, 1)
-	assert.Equal(t, "1001", list.Items[0].ID)
+	// Status filters, including the indexed form that PHP's http_build_query() produces.
+	for _, query := range []string{
+		"filter[status][value][]=active&filter[status][operator]=IN",
+		"filter[status][value][0]=active&filter[status][value][1]=suspended&filter[status][operator]=IN",
+		"filter[status]=active",
+	} {
+		require.Equal(t, http.StatusOK, do(http.MethodGet, "/organizations/org1/subscriptions?"+query, "", &list), query)
+		require.Len(t, list.Items, 1, query)
+		assert.Equal(t, "1001", list.Items[0].ID, query)
+	}
 
 	// Pages, with an opaque cursor.
 	assert.Equal(t, http.StatusBadRequest, do(http.MethodGet, "/organizations/org1/subscriptions?page[size]=101", "", nil))
