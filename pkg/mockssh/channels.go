@@ -27,8 +27,11 @@ func (s *Server) handleConn(conn net.Conn, config *ssh.ServerConfig) {
 		listenersMu sync.Mutex
 		listeners   []net.Listener
 	)
+	// connClosed stops forwarding, as forwarded connections may stay open after the SSH connection closes.
+	connClosed := make(chan struct{})
 	var wg sync.WaitGroup
 	defer func() {
+		close(connClosed)
 		listenersMu.Lock()
 		for _, l := range listeners {
 			_ = l.Close()
@@ -40,7 +43,7 @@ func (s *Server) handleConn(conn net.Conn, config *ssh.ServerConfig) {
 	wg.Go(func() {
 		for req := range reqs {
 			if req.Type == "streamlocal-forward@openssh.com" {
-				if l := s.forwardUnix(sshConn, req, &wg); l != nil {
+				if l := s.forwardUnix(sshConn, req, &wg, connClosed); l != nil {
 					listenersMu.Lock()
 					listeners = append(listeners, l)
 					listenersMu.Unlock()
@@ -58,7 +61,7 @@ func (s *Server) handleConn(conn net.Conn, config *ssh.ServerConfig) {
 		case "session":
 			wg.Go(func() { s.handleSession(sshConn, newChannel) })
 		case "direct-tcpip":
-			wg.Go(func() { s.handleDirectTCPIP(newChannel) })
+			wg.Go(func() { s.handleDirectTCPIP(newChannel, connClosed) })
 		default:
 			_ = newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
 		}
@@ -126,7 +129,7 @@ func serveSFTP(channel ssh.Channel, dir string) int {
 }
 
 // handleDirectTCPIP handles local port forwarding, if DialTCP is set.
-func (s *Server) handleDirectTCPIP(newChannel ssh.NewChannel) {
+func (s *Server) handleDirectTCPIP(newChannel ssh.NewChannel, connClosed <-chan struct{}) {
 	t := s.t
 	if s.DialTCP == nil {
 		_ = newChannel.Reject(ssh.Prohibited, "port forwarding is disabled")
@@ -155,12 +158,14 @@ func (s *Server) handleDirectTCPIP(newChannel ssh.NewChannel) {
 		return
 	}
 	go ssh.DiscardRequests(requests)
-	proxy(channel, target)
+	proxy(channel, target, connClosed)
 }
 
 // forwardUnix handles a request for remote forwarding of a Unix socket, if ListenUnix is set.
 // It returns the listener, or nil if the request is rejected.
-func (s *Server) forwardUnix(conn *ssh.ServerConn, req *ssh.Request, wg *sync.WaitGroup) net.Listener {
+func (s *Server) forwardUnix(
+	conn *ssh.ServerConn, req *ssh.Request, wg *sync.WaitGroup, connClosed <-chan struct{},
+) net.Listener {
 	t := s.t
 	var payload struct{ Path string }
 	if s.ListenUnix == nil || ssh.Unmarshal(req.Payload, &payload) != nil {
@@ -190,15 +195,25 @@ func (s *Server) forwardUnix(conn *ssh.ServerConn, req *ssh.Request, wg *sync.Wa
 					return
 				}
 				go ssh.DiscardRequests(requests)
-				proxy(channel, c)
+				proxy(channel, c, connClosed)
 			})
 		}
 	})
 	return l
 }
 
-// proxy copies data in both directions until either side is closed.
-func proxy(channel ssh.Channel, conn net.Conn) {
+// proxy copies data in both directions until both sides are closed, or the SSH connection is closed.
+func proxy(channel ssh.Channel, conn net.Conn, connClosed <-chan struct{}) {
+	finished := make(chan struct{})
+	defer close(finished)
+	go func() {
+		select {
+		case <-connClosed:
+		case <-finished:
+		}
+		_ = channel.Close()
+		_ = conn.Close()
+	}()
 	done := make(chan struct{}, 2)
 	go func() {
 		_, _ = io.Copy(channel, conn)
@@ -214,6 +229,4 @@ func proxy(channel ssh.Channel, conn net.Conn) {
 	}()
 	<-done
 	<-done
-	_ = channel.Close()
-	_ = conn.Close()
 }

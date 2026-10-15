@@ -140,9 +140,9 @@ func TestEnvironmentXdebugTunnel(t *testing.T) {
 	}))
 	sshServer := p.serveSSH(t, func(_ ssh.ConnMetadata, _ string, _ mockssh.CommandIO) int { return 0 })
 
-	// The server listens at a local socket instead of /run/xdebug-tunnel.sock. A short
-	// directory is used, as socket paths are limited to about 100 characters.
-	socketDir, err := os.MkdirTemp("", "xdebug")
+	// The server listens at a local socket instead of /run/xdebug-tunnel.sock. It is
+	// in /tmp, as socket paths are limited to about 100 characters.
+	socketDir, err := os.MkdirTemp("/tmp", "xdebug")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(socketDir) })
 	socket := filepath.Join(socketDir, "xdebug.sock")
