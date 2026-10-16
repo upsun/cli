@@ -406,7 +406,26 @@ applications:
     stack: ["php@8.4"]
 `,
 			wantErrors: `linter errors:
-  - applications.app.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list`,
+  - applications.app.stack: Array must have at most 0 items`,
+		},
+		{
+			name: "Fixed-only keys",
+			content: `
+applications:
+  app:
+    type: php:8.4
+    disk: 1024
+    firewall:
+      outbound: []
+services:
+  db:
+    type: postgresql:16
+    disk: 1024
+`,
+			wantErrors: `linter errors:
+  - applications.app: Additional property disk is not allowed
+  - applications.app: Additional property firewall is not allowed
+  - services.db: Additional property disk is not allowed`,
 		},
 		{
 			name: "invalid images",

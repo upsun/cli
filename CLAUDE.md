@@ -78,7 +78,7 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 **Commands**: `commands/`
 - `root.go`: Root command that sets up the Cobra CLI and delegates to legacy CLI when needed
 - Native Go commands: init, list, version, config:install, project:convert, completion, lint, and with Go auth (below): auth:browser-login (login), auth:api-token-login, auth:logout (logout), auth:token
-- `lint.go`: Native config linter, `lint` (also `validate`; registered under the namespaced name `app:config-validate`). Validates Flex (`.upsun`) and Fixed (`.platform`) config in `internal/lint`, reporting all errors at once
+- `lint.go`: Native config linter, `lint` (also `validate`; registered under the namespaced name `app:config-validate`). Validates Flex (`.upsun`) and Fixed (`.platform`) config in `internal/lint`, reporting all errors at once. The Flex JSON schema and the image registry come from meta.upsun.com (`make update-schema`, `make update-registry`): schema changes are made in the upsun/meta repository first. Fixed config is checked with the same schema, patched by `internal/lint/schema/fixed-overlay.json` (a JSON Merge Patch adding Fixed-only keys such as `disk`)
 - Unrecognized commands are passed to the legacy PHP CLI
 
 **Configuration**: `internal/config/`

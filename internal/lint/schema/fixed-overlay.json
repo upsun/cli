@@ -1,0 +1,87 @@
+{
+  "definitions": {
+    "fixed": {
+      "disk": {
+        "type": ["integer", "null"],
+        "minimum": 0,
+        "title": "The writable disk size to reserve on this container, in MB"
+      },
+      "size": {
+        "type": "string",
+        "enum": ["AUTO", "XS", "S", "M", "L", "XL", "2XL", "4XL"],
+        "title": "The container size for this application in production",
+        "description": "Leave blank to allow it to be set dynamically."
+      },
+      "caches": {
+        "type": "object",
+        "title": "The configuration of paths managed by the build cache",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "directory": {
+              "type": ["string", "null"],
+              "title": "The directory, relative to the application root, that should be cached"
+            },
+            "watch": {
+              "type": "array",
+              "items": {"type": "string"},
+              "title": "The file or files whose hashed contents should be considered part of the cache key"
+            },
+            "allow_stale": {
+              "type": "boolean",
+              "title": "If true, on a cache miss the last cache version will be used and can be updated in place",
+              "default": false
+            },
+            "share_between_apps": {
+              "type": "boolean",
+              "title": "Whether multiple applications in the project should share cached directories",
+              "default": false
+            }
+          },
+          "required": ["watch"],
+          "patternProperties": {"^\\.": {}},
+          "additionalProperties": false
+        }
+      }
+    }
+  },
+  "properties": {
+    "applications": {
+      "additionalProperties": {
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "The name of the application, which must be unique within the project"
+          },
+          "disk": {"$ref": "#/definitions/fixed/disk"},
+          "size": {"$ref": "#/definitions/fixed/size"},
+          "build": {
+            "properties": {
+              "caches": {"$ref": "#/definitions/fixed/caches"}
+            }
+          },
+          "web": {
+            "properties": {
+              "disk": {"$ref": "#/definitions/fixed/disk"}
+            }
+          },
+          "workers": {
+            "additionalProperties": {
+              "properties": {
+                "disk": {"$ref": "#/definitions/fixed/disk"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "services": {
+      "additionalProperties": {
+        "properties": {
+          "disk": {"$ref": "#/definitions/fixed/disk"}
+        }
+      }
+    }
+  }
+}

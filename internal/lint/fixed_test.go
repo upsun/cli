@@ -32,6 +32,57 @@ relationships:
 			wantNoErr: true,
 		},
 		{
+			name: "Fixed-only keys",
+			files: map[string]string{
+				".platform.app.yaml": `name: myapp
+type: "php:8.4"
+size: L
+disk: 2048
+build:
+  caches:
+    vendor:
+      directory: vendor
+      watch: [composer.lock]
+web:
+  disk: 1024
+workers:
+  queue:
+    disk: 512
+    commands:
+      start: php worker.php`,
+				".platform/services.yaml": `db:
+  type: "postgresql:16"
+  disk: 1024`,
+			},
+			wantNoErr: true,
+		},
+		{
+			name: "firewall",
+			files: map[string]string{
+				".platform.app.yaml": `name: myapp
+type: "php:8.4"
+firewall:
+  outbound: []`,
+				".platform/services.yaml": `db:
+  type: "postgresql:16"
+  firewall:
+    outbound: []`,
+			},
+			wantErrors: []string{
+				".platform.app.yaml:1: applications.myapp: Additional property firewall is not allowed",
+				".platform/services.yaml:1: services.db: Additional property firewall is not allowed",
+			},
+		},
+		{
+			name: "invalid size",
+			files: map[string]string{
+				".platform.app.yaml": `name: myapp
+type: "php:8.4"
+size: XXL`,
+			},
+			wantErrors: []string{"applications.myapp.size: must be one of the following"},
+		},
+		{
 			name: "rule overriding passthru with a boolean",
 			files: map[string]string{
 				".platform.app.yaml": `name: myapp
@@ -164,7 +215,7 @@ stack: []`,
 type: "composable:25.11"
 stack: ["php@8.3"]`,
 			},
-			wantErrors: []string{"applications.myapp.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list"},
+			wantErrors: []string{"applications.myapp.stack: Array must have at most 0 items"},
 		},
 		{
 			name: "composable image with stack and no type",
@@ -172,7 +223,7 @@ stack: ["php@8.3"]`,
 				".platform.app.yaml": `name: myapp
 stack: {runtimes: ["php@8.3"]}`,
 			},
-			wantNoErr: true,
+			wantErrors: []string{"applications.myapp: type is required"},
 		},
 		{
 			name: "invalid type and bad upstream",

@@ -3,6 +3,7 @@ package schema
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,9 +31,12 @@ applications:
 
 // TestSchemaDefaults checks that each default is valid, as editors insert defaults on completion.
 func TestSchemaDefaults(t *testing.T) {
-	var root map[string]any
-	require.NoError(t, json.Unmarshal(configSchema, &root))
+	for name, root := range schemaRoots(t) {
+		t.Run(name, func(t *testing.T) { checkDefaults(t, root) })
+	}
+}
 
+func checkDefaults(t *testing.T, root map[string]any) {
 	var walk func(node any, path string)
 	walk = func(node any, path string) {
 		switch n := node.(type) {
@@ -44,7 +48,7 @@ func TestSchemaDefaults(t *testing.T) {
 				}
 				sub["definitions"] = root["definitions"]
 				sub["$schema"] = root["$schema"]
-				s, err := gojsonschema.NewSchema(gojsonschema.NewGoLoader(sub))
+				s, err := compile(gojsonschema.NewGoLoader(sub))
 				require.NoError(t, err, path)
 				result, err := s.Validate(gojsonschema.NewGoLoader(def))
 				require.NoError(t, err, path)
@@ -65,19 +69,26 @@ func TestSchemaDefaults(t *testing.T) {
 	walk(root, "")
 }
 
-// TestSchemaKeywords checks that no keyword is beside a $ref, and that mappings
-// with fixed keys allow keys starting with ".", which the platform ignores (e.g.
-// YAML anchors), except in the stack, which the platform checks itself.
+// TestSchemaKeywords checks that no keyword is beside a $ref, that remote refs
+// are replaced, and that mappings with fixed keys allow keys starting with ".",
+// which the platform ignores (e.g. YAML anchors), except in the stack, which the
+// platform checks itself.
 func TestSchemaKeywords(t *testing.T) {
-	var root map[string]any
-	require.NoError(t, json.Unmarshal(configSchema, &root))
+	for name, root := range schemaRoots(t) {
+		t.Run(name, func(t *testing.T) { checkKeywords(t, root) })
+	}
+}
 
+func checkKeywords(t *testing.T, root map[string]any) {
 	var walk func(node any, path string)
 	walk = func(node any, path string) {
 		switch n := node.(type) {
 		case map[string]any:
-			if _, ok := n["$ref"]; ok {
+			if ref, ok := n["$ref"].(string); ok {
 				assert.Len(t, n, 1, "%s: draft-07 ignores keywords beside $ref", path)
+				if !strings.HasPrefix(ref, "#") {
+					assert.Contains(t, remoteRefs, ref, "%s: remote $ref must be in remoteRefs, or it is fetched", path)
+				}
 			}
 			if n["additionalProperties"] == false && path != ".definitions.stack" {
 				assert.Equal(t, map[string]any{"^\\.": map[string]any{}}, n["patternProperties"], path)
@@ -92,4 +103,13 @@ func TestSchemaKeywords(t *testing.T) {
 		}
 	}
 	walk(root, "")
+}
+
+// schemaRoots returns the Flex schema, and the Flex schema with the Fixed overlay.
+func schemaRoots(t *testing.T) map[string]map[string]any {
+	var flex map[string]any
+	require.NoError(t, json.Unmarshal(configSchema, &flex))
+	fixed, err := fixedSchema()
+	require.NoError(t, err)
+	return map[string]map[string]any{"flex": flex, "fixed": fixed}
 }

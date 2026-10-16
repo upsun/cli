@@ -50,10 +50,10 @@ jobs:
       - name: Check goreleaser config
         run: make goreleaser-check
 
-  # Checks that the embedded image registry matches upstream.
-  # Fails when upstream publishes changes; run `make update-registry` to refresh.
+  # Checks that the embedded image registry and Flex config schema match upstream.
+  # Fails when upstream publishes changes; run `make update-registry` or `make update-schema` to refresh.
   # Non-blocking, since upstream changes are unrelated to the pull request.
-  image-registry:
+  lint-upstream:
     runs-on: ubuntu-latest
     continue-on-error: true
 
@@ -68,6 +68,10 @@ jobs:
 
       - name: Check the embedded image registry is up to date
         run: make check-registry
+
+      - name: Check the embedded Flex config schema is up to date
+        if: ${{ !cancelled() }}
+        run: make check-schema
 
   legacy-php:
     runs-on: ubuntu-latest
