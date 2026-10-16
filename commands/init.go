@@ -4,18 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
-	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/fatih/color"
-	"github.com/platformsh/platformify/commands"
-	"github.com/platformsh/platformify/vendorization"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/upsun/whatsun/pkg/digest"
@@ -30,7 +25,7 @@ import (
 	_init "github.com/upsun/cli/internal/init"
 )
 
-func newInitCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cobra.Command {
+func newInitCommand(cnf *config.Config) *cobra.Command {
 	var (
 		useAI       bool
 		initOptions = &_init.Options{}
@@ -39,14 +34,15 @@ func newInitCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		Use:     "init [flags]",
 		Aliases: []string{"project:init", "ify"},
 		Short:   "Generate configuration for a project",
-		Long:    initCommandHelp(cnf, false),
+		Long:    initCommandHelp(cnf),
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInitCommand(cmd, args, useAI, initOptions, assets)
+			return runInitCommand(cmd, args, useAI, initOptions)
 		},
 	}
 
 	cmd.Flags().BoolVar(&useAI, "ai", false, "Use AI configuration")
+	_ = cmd.Flags().MarkDeprecated("ai", "AI is always used: use --yes to skip the confirmation")
 	cmd.Flags().StringVar(&initOptions.ExtraContext, "context", "",
 		"Add extra context for AI configuration")
 	cmd.Flags().BoolVar(&initOptions.OnlyShowDigest, "digest", false,
@@ -60,27 +56,23 @@ func newInitCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 	return cmd
 }
 
-func initCommandHelp(cnf *config.Config, short bool) string {
+func initCommandHelp(cnf *config.Config) string {
 	var s strings.Builder
 
 	bold := color.New(color.Bold)
 	fmt.Fprintf(&s,
 		"This command will generate a %s that you can build on.\n", bold.Sprint("starter configuration"))
-	fmt.Fprintln(&s, "You can use AI, or follow a step-by-step setup guide.")
+	fmt.Fprintln(&s, "It sends a sanitized repository digest to OpenAI for automated analysis.")
 
-	fmt.Fprintln(&s, "\nUsing AI will send a sanitized repository digest to OpenAI for automated analysis.")
-
-	if !short {
-		fmt.Fprintln(&s, "You can review the digest at any time by running:",
-			color.GreenString(cnf.Application.Executable+" init --digest"))
-	}
+	fmt.Fprintln(&s, "You can review the digest at any time by running:",
+		color.GreenString(cnf.Application.Executable+" init --digest"))
 
 	return s.String()
 }
 
 // runInitCommand handles the main logic for the init command.
 func runInitCommand(
-	cmd *cobra.Command, args []string, useAI bool, initOptions *_init.Options, assets *vendorization.VendorAssets,
+	cmd *cobra.Command, args []string, useAI bool, initOptions *_init.Options,
 ) error {
 	var path = "."
 	if len(args) > 0 {
@@ -103,23 +95,18 @@ func runInitCommand(
 		return yaml.NewEncoder(cmd.OutOrStdout()).Encode(dg)
 	}
 
-	runNonAIConfig := func() error {
-		return commands.Platformify(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), assets)
+	if cmd.Flags().Changed("ai") && !useAI {
+		return fmt.Errorf("configuration without AI is no longer available")
 	}
 
 	cnf := config.FromContext(cmd.Context())
+	if !cnf.API.EnableOrganizations {
+		return fmt.Errorf("this command requires organizations to be enabled")
+	}
 
 	ia, err := newInitAuth(cmd, cnf)
 	if err != nil {
 		return err
-	}
-
-	msg, canUse := canUseAI(cnf)
-	if !canUse {
-		if useAI {
-			return fmt.Errorf("cannot use AI: %s", msg)
-		}
-		return runNonAIConfig()
 	}
 
 	var stderr = cmd.ErrOrStderr()
@@ -127,7 +114,7 @@ func runInitCommand(
 	fmt.Fprintln(stderr, color.CyanString("Creating %s configuration", cnf.Service.Name))
 	fmt.Fprintln(stderr)
 
-	var isInteractive = !viper.GetBool("no-interaction")
+	var interactive = isInteractive(cmd)
 
 	debugLogf("Checking selected organization")
 	var org *api.Organization
@@ -144,31 +131,26 @@ func runInitCommand(
 		}
 	}
 
-	// Ask the user if they want to configure their project using AI (if not explicitly set).
-	if !cmd.Flags().Changed("ai") && (org == nil || org.Type == api.OrgTypeFlexible) {
-		if !isInteractive {
-			return fmt.Errorf("specifying --ai=false or --ai=true is required in non-interactive mode")
-		}
-		fmt.Fprintln(stderr, initCommandHelp(cnf, true))
-
-		res, err := choose(stderr, "How would you like to configure your project?", []string{
-			"With AI (automatic)",
-			"Without AI (guided)",
-		})
-		if err != nil {
-			return err
-		}
-		useAI = res == "With AI (automatic)"
-	}
-
-	if !useAI {
-		return runNonAIConfig()
-	}
-
 	if org != nil && org.Type != api.OrgTypeFlexible {
 		fmt.Fprintf(stderr, "Selected organization: %s (%s)\n", color.YellowString(org.Label), color.YellowString(org.ID))
 		fmt.Fprintln(stderr, color.YellowString(
 			"Note: AI configuration is only compatible with `%s` organizations\n", api.OrgTypeFlexible))
+	}
+
+	// Ask for consent to send the digest, unless given by --yes (or the deprecated --ai).
+	if !useAI && !viper.GetBool("yes") {
+		if !interactive {
+			return fmt.Errorf("use --yes to confirm in non-interactive mode")
+		}
+		fmt.Fprintln(stderr, initCommandHelp(cnf))
+		ok, err := confirm(cmd, "Do you want to continue?", false)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return nil
+		}
+		fmt.Fprintln(stderr)
 	}
 
 	if err := ia.ensureAuthenticated(); err != nil {
@@ -184,7 +166,7 @@ func runInitCommand(
 	initOptions.HTTPClient = ia.httpClient
 	initOptions.APIURL = ia.apiURL
 	initOptions.UserAgent = cnf.UserAgent()
-	initOptions.IsInteractive = isInteractive
+	initOptions.IsInteractive = interactive
 	initOptions.Yes = viper.GetBool("yes")
 	initOptions.IsDebug = viper.GetBool("debug")
 	initOptions.DebugLogFunc = debugLogf
@@ -269,14 +251,6 @@ func handleOrganizations(
 	return org, nil
 }
 
-// canUseAI validates that AI can be used with the current configuration.
-func canUseAI(cnf *config.Config) (msg string, canUseAI bool) {
-	if !cnf.API.EnableOrganizations {
-		return "using AI requires Organizations to be enabled", false
-	}
-	return "", true
-}
-
 // findGitRoot finds the closest parent directory containing a .git folder.
 // Returns an absolute path to the git root, or empty string if not in a git repo.
 func findGitRoot(startDir string) (string, error) {
@@ -340,20 +314,5 @@ func getCurrentOrganizationAndProjectID(ctx context.Context, wrapper *legacy.CLI
 	}
 	orgID = strings.TrimSpace(buf.String())
 
-	return
-}
-
-// choose asks the user to select between options.
-// TODO refactor this to a shared internal package
-func choose(stderr io.Writer, message string, options []string) (result string, err error) {
-	var renderer survey.Renderer
-	renderer.WithStdio(terminal.Stdio{Err: stderr})
-	prompt := &survey.Select{
-		Renderer: renderer,
-		Message:  message,
-		Options:  options,
-		Default:  options[0],
-	}
-	err = survey.AskOne(prompt, &result, survey.WithValidator(survey.Required))
 	return
 }

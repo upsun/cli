@@ -16,7 +16,6 @@ require (
 	github.com/gofrs/flock v0.13.1
 	github.com/oklog/ulid/v2 v2.1.2
 	github.com/pkg/sftp v1.13.11
-	github.com/platformsh/platformify v0.5.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0

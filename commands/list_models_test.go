@@ -40,8 +40,8 @@ func TestHelpPageExamples(t *testing.T) {
  Create the starter YAML file(s) for your project:
    upsun init
 
- Disable AI mode:
-   upsun init --ai=false
+ Add context for AI configuration:
+   upsun init --context='Use PostgreSQL for the database'
 `,
 		},
 		{

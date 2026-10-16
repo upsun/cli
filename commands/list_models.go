@@ -32,33 +32,20 @@ func innerProjectInitCommand(cnf *config.Config) Command {
 			"init", "ify",
 		},
 		Description: "Initialize a project",
-		Help:        CleanString(initCommandHelp(cnf, false)),
+		Help:        CleanString(initCommandHelp(cnf)),
 		Examples: []Example{
 			{
 				Commandline: "",
 				Description: "Create the starter YAML file(s) for your project",
 			},
 			{
-				Commandline: "--ai=false",
-				Description: "Disable AI mode",
-			},
-			{
-				Commandline: "--ai --context='Use PostgreSQL for the database'",
+				Commandline: "--context='Use PostgreSQL for the database'",
 				Description: "Add context for AI configuration",
 			},
 		},
 		Definition: Definition{
 			Arguments: &orderedmap.OrderedMap[string, Argument]{},
 			Options: orderedmap.New[string, Option](orderedmap.WithInitialData[string, Option](
-				orderedmap.Pair[string, Option]{
-					Key: "ai",
-					Value: Option{
-						Name:        "--ai",
-						AcceptValue: true,
-						Description: "Use AI configuration",
-						Default:     Any{any: false},
-					},
-				},
 				orderedmap.Pair[string, Option]{
 					Key: "context",
 					Value: Option{
