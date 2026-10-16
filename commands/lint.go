@@ -25,9 +25,19 @@ var errLintFailed = &exitError{code: 1}
 
 func newLintCommand(cnf *config.Config) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:           "app:config-validate [path]",
-		Short:         "Validate project configuration",
-		Aliases:       []string{"lint", "validate"},
+		Use:     "app:config-validate [path]",
+		Short:   "Validate the configuration files of a project, reporting all errors at once",
+		Aliases: []string{"lint", "validate"},
+		Annotations: map[string]string{
+			argAnnotationPrefix + "path": "The project directory to validate " +
+				"(default: the Git repository root, or the current directory)",
+		},
+		Example: "  # Validate the project configuration files in the current Git repository (or directory)\n" +
+			"  " + cnf.Application.Executable + " lint\n\n" +
+			"  # Validate the project configuration files in a specific directory\n" +
+			"  " + cnf.Application.Executable + " lint path/to/project\n\n" +
+			"  # Validate the current Git repository (or directory) and output the results as JSON\n" +
+			"  " + cnf.Application.Executable + " lint --format=json",
 		Args:          cobra.MaximumNArgs(1),
 		SilenceErrors: true,
 		SilenceUsage:  true,
@@ -36,11 +46,7 @@ func newLintCommand(cnf *config.Config) *cobra.Command {
 		},
 	}
 	cmd.Flags().Bool("stdin", false, "Read merged Flex configuration from standard input")
-	cmd.Flags().String("format", "text", "Output format: text or json")
-	cmd.SetHelpFunc(func(_ *cobra.Command, _ []string) {
-		internalCmd := innerAppConfigValidateCommand(cnf)
-		fmt.Println(internalCmd.HelpPage(cnf))
-	})
+	cmd.Flags().String("format", "text", `The output format: "text" or "json"`)
 	return cmd
 }
 

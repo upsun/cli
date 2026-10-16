@@ -144,10 +144,9 @@ func (f *MDListFormatter) Format(list *List, cnf *config.Config) ([]byte, error)
 			b.Paragraph(cmd.Help.String()).Ln()
 		}
 
-		if cmd.Definition.Arguments != nil && cmd.Definition.Arguments.Len() > 0 {
+		if len(cmd.Definition.Arguments) > 0 {
 			b.H4("Arguments")
-			for pair := cmd.Definition.Arguments.Oldest(); pair != nil; pair = pair.Next() {
-				arg := pair.Value
+			for _, arg := range cmd.Definition.Arguments {
 				line := md.Code(arg.Name)
 				opts := make([]string, 0, 2)
 				if arg.IsRequired {
@@ -167,10 +166,9 @@ func (f *MDListFormatter) Format(list *List, cnf *config.Config) ([]byte, error)
 			}
 		}
 
-		if cmd.Definition.Options != nil && cmd.Definition.Options.Len() > 0 {
+		if len(cmd.Definition.Options) > 0 {
 			b.H4("Options")
-			for pair := cmd.Definition.Options.Oldest(); pair != nil; pair = pair.Next() {
-				opt := pair.Value
+			for _, opt := range cmd.Definition.Options {
 				line := md.Code(opt.Name)
 				if opt.Shortcut != "" {
 					line += " (" + md.Code(opt.Shortcut) + ")"

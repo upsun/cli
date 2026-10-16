@@ -36,11 +36,17 @@ func newInitCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		initOptions = &_init.Options{}
 	)
 	cmd := &cobra.Command{
-		Use:     "init [flags]",
-		Aliases: []string{"project:init", "ify"},
-		Short:   "Generate configuration for a project",
+		Use:     "project:init",
+		Aliases: []string{"init", "ify"},
+		Short:   "Initialize a project",
 		Long:    initCommandHelp(cnf, false),
-		Args:    cobra.NoArgs,
+		Example: "  # Create the starter YAML file(s) for your project\n" +
+			"  " + cnf.Application.Executable + " init\n\n" +
+			"  # Disable AI mode\n" +
+			"  " + cnf.Application.Executable + " init --ai=false\n\n" +
+			"  # Add context for AI configuration\n" +
+			"  " + cnf.Application.Executable + " init --ai --context='Use PostgreSQL for the database'",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInitCommand(cmd, args, useAI, initOptions, assets)
 		},
@@ -51,11 +57,6 @@ func newInitCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		"Add extra context for AI configuration")
 	cmd.Flags().BoolVar(&initOptions.OnlyShowDigest, "digest", false,
 		"Only show the repository digest (the AI configuration input), without sending it")
-
-	cmd.SetHelpFunc(func(_ *cobra.Command, _ []string) {
-		internalCmd := innerProjectInitCommand(cnf)
-		fmt.Println(internalCmd.HelpPage(cnf))
-	})
 
 	return cmd
 }

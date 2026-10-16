@@ -182,13 +182,13 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		newConfigInstallCommand(),
 		newCompletionCommand(cnf),
 		newHelpCommand(cnf),
-		newInitCommand(cnf, assets),
-		newLintCommand(cnf),
+		useLegacyStyleHelp(cnf, newInitCommand(cnf, assets)),
+		useLegacyStyleHelp(cnf, newLintCommand(cnf)),
 		newListCommand(cnf),
 		versionCommand,
 	)
 	if cnf.Service.ProjectConfigFlavor == "upsun" {
-		cmd.AddCommand(newProjectConvertCommand(cnf))
+		cmd.AddCommand(useLegacyStyleHelp(cnf, newProjectConvertCommand(cnf)))
 	}
 	if cnf.GoAuthEnabled() {
 		cmd.AddCommand(newAuthInternalCommand(cnf))
