@@ -120,6 +120,8 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 
 ### Build System
 
+**winget**: GoReleaser only generates the `Upsun.CLI` manifests. The release workflow's `winget` job submits them with `scripts/winget-submit.sh`: it pushes a branch to the `upsun/winget-pkgs` fork and opens a PR to `microsoft/winget-pkgs`, with a bot's classic token (`WINGET_GITHUB_TOKEN`). It is a separate job so that a failure does not block the rest of the release.
+
 **Multi-Vendor Support**:
 - Uses Go build tags to compile different binaries:
   - Default (no tags): Upsun CLI
@@ -190,7 +192,8 @@ The CLI checks for updates from GitHub releases (when Wrapper.GitHubRepo is set 
 
 Install-method detection (`internal/install.go`) tailors or suppresses the notice:
 - System package managers (apt, yum/dnf, apk) are detected via a marker file installed by the nfpm packages (`packaging/install-source` → `/usr/share/<slug>/install-source`). Before printing a notice, older package installs without the marker are also detected by querying dpkg/rpm/apk. The notice is suppressed because the OS handles updates.
-- Homebrew, Scoop, npm, and the bash installer get a tailored upgrade command, built from config fields (`Wrapper.HomebrewTap`, `Wrapper.NpmPackage`, `Wrapper.InstallerURL`, `Application.Executable`).
+- Homebrew, Scoop, npm, winget, and the bash installer get a tailored upgrade command, built from config fields (`Wrapper.HomebrewTap`, `Wrapper.NpmPackage`, `Wrapper.WingetPackage`, `Wrapper.InstallerURL`, `Application.Executable`).
+- winget installs are detected by their path (`\WinGet\Packages\`). A release reaches winget only after Microsoft merges its manifest PR in `microsoft/winget-pkgs`, so for winget installs the background check reads the newest version there (from the GitHub API) instead of the latest GitHub release.
 - The notice is throttled to once a week (`LastNotified` in state) and only shown in an interactive terminal.
 - `<PREFIX>INSTALL_METHOD` forces the method; `<PREFIX>UPDATES_CHECK=0` disables checks entirely.
 - With `CLI_CONFIG_FILE` (e.g. a `config:install` shim), the `wrapper.*` keys and the application name, executable and slug come from the embedded config (`Config.Embedded()`), as the binary is the same. The notice is only shown if there is an upgrade command for the install method, as the binary may be a private copy.

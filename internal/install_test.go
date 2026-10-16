@@ -85,6 +85,32 @@ func TestDetectInstallMethod(t *testing.T) {
 			want: InstallScoop,
 		},
 		{
+			name: "winget user scope, via the resolved link",
+			probe: installProbe{
+				goos: "windows",
+				exe: `C:\Users\u\AppData\Local\Microsoft\WinGet\Packages\` +
+					`Upsun.CLI_Microsoft.Winget.Source_8wekyb3d8bbwe\upsun.exe`,
+				slug: "upsun", getenv: func(string) string { return "" }, fileExists: noFile, brewPrefix: noBrew,
+			},
+			want: InstallWinget,
+		},
+		{
+			name: "winget machine scope",
+			probe: installProbe{
+				goos: "windows", exe: `C:\Program Files\WinGet\Packages\Upsun.CLI_Microsoft.Winget.Source_8wekyb3d8bbwe\upsun.exe`,
+				slug: "upsun", getenv: func(string) string { return "" }, fileExists: noFile, brewPrefix: noBrew,
+			},
+			want: InstallWinget,
+		},
+		{
+			name: "winget path on linux is not detected as winget",
+			probe: installProbe{
+				goos: "linux", exe: "/home/u/WinGet/Packages/upsun/upsun", slug: "upsun",
+				getenv: func(string) string { return "" }, fileExists: noFile, brewPrefix: noBrew,
+			},
+			want: InstallUnknown,
+		},
+		{
 			name: "scoop path on linux is not detected as scoop",
 			probe: installProbe{
 				goos: "linux", exe: "/home/u/scoop/apps/upsun/upsun", slug: "upsun",
@@ -174,6 +200,7 @@ func TestParseMethod(t *testing.T) {
 		{"apk", InstallPackage, true},
 		{"npm", InstallNpm, true},
 		{"  scoop  ", InstallScoop, true},
+		{"winget", InstallWinget, true},
 		{"nonsense", InstallUnknown, false},
 		{"", InstallUnknown, false},
 	}
