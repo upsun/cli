@@ -234,6 +234,43 @@ scoops:
     description: Upsun CLI
     license: MIT
 
+winget:
+  - name: Upsun CLI
+    package_identifier: Upsun.CLI
+    path: manifests/u/Upsun/CLI/{{ .Version }}
+    skip_upload: '{{ envOrDefault "SKIP_UPLOAD_WINGET" "auto" }}'
+    ids:
+      - upsun
+    publisher: Upsun
+    publisher_url: https://upsun.com
+    publisher_support_url: https://github.com/upsun/cli/issues
+    privacy_url: https://upsun.com/trust-center/privacy/privacy-notice/
+    short_description: Upsun CLI
+    description: The command-line interface for Upsun.
+    homepage: https://docs.upsun.com/anchors/cli/
+    license: MIT
+    license_url: https://github.com/upsun/cli/blob/main/LICENSE
+    release_notes_url: https://github.com/upsun/cli/releases/tag/{{ .Tag }}
+    tags:
+      - cli
+      - upsun
+      - paas
+    commit_author:
+      name: Upsun
+      email: hello@upsun.com
+    commit_msg_template: "New version: {{ .PackageIdentifier }} version {{ .Version }}"
+    repository:
+      owner: upsun
+      name: winget-pkgs
+      branch: "Upsun.CLI-{{ .Version }}"
+      token: "{{ .Env.WINGET_GITHUB_TOKEN }}"
+      pull_request:
+        enabled: true
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master
+
 nfpms:
   - id: platform
     homepage: https://docs.upsun.com/anchors/fixed/cli/
