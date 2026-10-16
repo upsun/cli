@@ -406,19 +406,7 @@ applications:
     stack: ["php@8.4"]
 `,
 			wantErrors: `linter errors:
-  - applications.app.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list`,
-		},
-		{
-			name: "stack list with a semantic error",
-			content: `
-applications:
-  Foo_:
-    type: composable:25.11
-    stack: ["php@8.4"]
-`,
-			wantErrors: `linter errors:
-  - applications.Foo_.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list
-  - applications.Foo_: "Foo_" is not a valid application name, it can only contain lowercase alphanumeric characters, dashes, or underscores.`, //nolint:lll
+  - applications.app.stack: Array must have at most 0 items`,
 		},
 		{
 			name: "invalid images",

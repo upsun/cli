@@ -34,11 +34,6 @@ func CheckSchemaAt(data any, schema *gojsonschema.Schema, pathPrefix string) *Re
 		if (e.Type() == "number_any_of" || e.Type() == "number_all_of") && hasDetailedError(errs, e) {
 			continue
 		}
-		// A non-empty stack list ("maxItems: 0" in the schema) is reported by
-		// checkStackList, so that the semantic checks still run.
-		if e.Type() == "array_max_items" && isStackField(e.Field()) {
-			continue
-		}
 		field := e.Field()
 		if field == "(root)" {
 			field = ""
@@ -56,11 +51,6 @@ func CheckSchemaAt(data any, schema *gojsonschema.Schema, pathPrefix string) *Re
 	}
 
 	return result
-}
-
-// isStackField reports whether a schema error's field is a stack.
-func isStackField(field string) bool {
-	return field == "stack" || strings.HasSuffix(field, ".stack")
 }
 
 // hasDetailedError reports whether another error is at or below the field of an
