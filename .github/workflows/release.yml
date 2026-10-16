@@ -128,14 +128,6 @@ jobs:
           SKIP_UPLOAD_TAPS: auto
         run: make release
 
-      - name: Upload winget manifests
-        if: steps.tag.outputs.is_prerelease == 'false'
-        uses: actions/upload-artifact@v7
-        with:
-          name: winget-manifests
-          path: dist/winget
-          if-no-files-found: error
-
       - name: Configure AWS credentials
         if: steps.tag.outputs.is_prerelease == 'false'
         uses: aws-actions/configure-aws-credentials@v6
@@ -151,6 +143,16 @@ jobs:
           RSA_PRIVATE_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/rsa-signing-key.pem
           RSA_PUBLIC_KEY_FILE: ${{ steps.signing-keys.outputs.key_dir }}/rsa-signing-key.pub
         run: bash ./repogen.sh
+
+      # After the other uploads, so that a problem here does not block them.
+      - name: Upload winget manifests
+        if: steps.tag.outputs.is_prerelease == 'false'
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: winget-manifests
+          path: dist/winget
+          if-no-files-found: warn
 
       - name: Clean up signing keys
         if: always()

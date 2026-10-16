@@ -31,14 +31,28 @@ else
   title="New package: $id version $version"
 fi
 
-# A stale fork still works: the PR only adds files.
-gh api -X POST "repos/$fork/merge-upstream" -f branch=master >/dev/null ||
-  echo "::warning::Could not sync $fork with $upstream"
-sha=$(gh api "repos/$fork/git/ref/heads/master" --jq .object.sha)
-gh api "repos/$fork/git/refs" -f ref="refs/heads/$branch" -f sha="$sha" >/dev/null
+# The steps below can be re-run after a partial failure.
+if url=$(gh pr list --repo "$upstream" --head "$branch" --state open --json url --jq '.[0].url // empty') && [ -n "$url" ]; then
+  echo "A pull request is already open: $url"
+  exit 0
+fi
+
+if ! gh api "repos/$fork/git/ref/heads/$branch" >/dev/null 2>&1; then
+  # A stale fork still works: the PR only adds files.
+  gh api -X POST "repos/$fork/merge-upstream" -f branch=master >/dev/null ||
+    echo "::warning::Could not sync $fork with $upstream"
+  sha=$(gh api "repos/$fork/git/ref/heads/master" --jq .object.sha)
+  gh api "repos/$fork/git/refs" -f ref="refs/heads/$branch" -f sha="$sha" >/dev/null
+fi
 
 for f in "$dir"/*.yaml; do
-  gh api -X PUT "repos/$fork/contents/$path/$(basename "$f")" \
+  file="$path/$(basename "$f")"
+  # Replacing a file needs its current blob SHA.
+  args=()
+  if existing=$(gh api "repos/$fork/contents/$file?ref=$branch" --jq .sha 2>/dev/null); then
+    args=(-f sha="$existing")
+  fi
+  gh api -X PUT "repos/$fork/contents/$file" "${args[@]}" \
     -f message="$title" -f branch="$branch" -f content="$(base64 -w0 "$f")" >/dev/null
 done
 
