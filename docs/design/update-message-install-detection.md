@@ -218,9 +218,9 @@ hint.
 sudo-free path.
 
 ² winget releases wait for Microsoft to merge each manifest PR. For winget
-installs, the background check sends a HEAD request for the release's manifest
-(`https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests/<letter>/<id path>/<version>/<id>.yaml`),
-and only caches the version if it exists, so the check is retried until then.
+installs, the background check lists the package's versions in winget-pkgs
+(`https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/<letter>/<id path>`),
+and caches the newest one instead of the latest GitHub release.
 
 With an alternative config (`CLI_CONFIG_FILE`, e.g. a shim from
 `config:install`), the binary is unchanged, so the `wrapper.*` keys and the

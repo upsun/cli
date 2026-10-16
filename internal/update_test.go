@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -81,42 +82,35 @@ func TestUpdateCheckWait(t *testing.T) {
 	})
 }
 
-func TestWingetManifestURL(t *testing.T) {
-	cases := []struct{ pkg, version, want string }{
-		{"Upsun.CLI", "v5.14.0", "https://x.test/manifests/u/Upsun/CLI/5.14.0/Upsun.CLI.yaml"},
-		{"Upsun.CLI", "5.14.0", "https://x.test/manifests/u/Upsun/CLI/5.14.0/Upsun.CLI.yaml"},
-		{"Example.Tools.CLI", "v1.0.0", "https://x.test/manifests/e/Example/Tools/CLI/1.0.0/Example.Tools.CLI.yaml"},
-	}
-	for _, c := range cases {
-		assert.Equal(t, c.want, wingetManifestURL("https://x.test/manifests", c.pkg, c.version))
-	}
-}
-
-func TestInWinget(t *testing.T) {
+func TestLatestWingetVersion(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/merged.yaml":
-			assert.Equal(t, http.MethodHead, r.Method)
-		case "/pending.yaml":
-			w.WriteHeader(http.StatusNotFound)
+		case "/manifests/u/Upsun/CLI":
+			fmt.Fprint(w, `[{"name":"5.9.0","type":"dir"},{"name":"5.13.0","type":"dir"},`+
+				`{"name":"5.10.1","type":"dir"},{"name":"README.md","type":"file"},{"name":"other","type":"dir"}]`)
+		case "/manifests/e/Example/Empty":
+			fmt.Fprint(w, `[]`)
+		case "/manifests/e/Example/Error":
+			w.WriteHeader(http.StatusForbidden)
 		default:
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
 	defer srv.Close()
 
 	cases := []struct {
-		path    string
-		want    bool
+		pkg     string
+		want    string
 		wantErr bool
 	}{
-		{"/merged.yaml", true, false},
-		{"/pending.yaml", false, false},
-		{"/error.yaml", false, true},
+		{"Upsun.CLI", "v5.13.0", false},
+		{"Example.Empty", "", false},
+		{"Example.Missing", "", false},
+		{"Example.Error", "", true},
 	}
 	for _, c := range cases {
-		t.Run(c.path, func(t *testing.T) {
-			got, err := inWinget(srv.Client(), srv.URL+c.path)
+		t.Run(c.pkg, func(t *testing.T) {
+			got, err := latestWingetVersion(srv.Client(), srv.URL+"/manifests", c.pkg)
 			if c.wantErr {
 				assert.Error(t, err)
 			} else {
