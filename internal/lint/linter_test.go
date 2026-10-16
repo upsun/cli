@@ -409,6 +409,28 @@ applications:
   - applications.app.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list`,
 		},
 		{
+			name: "task stack list with another schema error",
+			content: `
+applications:
+  app:
+    type: php:8.4
+    crons:
+      report:
+        spec: "* * * * *"
+        commands: {start: "true"}
+        timeout: 100000
+tasks:
+  t:
+    type: composable:25.11
+    stack: ["php@8.4"]
+    run:
+      command: "true"
+`,
+			wantErrors: `linter errors:
+  - applications.app.crons.report.timeout: Must be less than or equal to 86400
+  - tasks.t.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list`,
+		},
+		{
 			name: "invalid images",
 			content: `
 applications:

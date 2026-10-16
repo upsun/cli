@@ -234,7 +234,6 @@ lint-php: composer-dev ## Run PHP linters (php-cs-fixer, PHPStan)
 	cd legacy && ./vendor/bin/phpstan analyse
 
 # The image registry, used by lint, is transformed from https://meta.upsun.com/images by gen.go.
-# The schemas in internal/lint/schema are maintained in this repository.
 .PHONY: update-registry
 update-registry: ## Refresh the embedded image registry from meta.upsun.com
 	cd internal/lint/registry && go run gen.go
@@ -243,6 +242,17 @@ update-registry: ## Refresh the embedded image registry from meta.upsun.com
 .PHONY: check-registry
 check-registry: update-registry
 	git diff --exit-code -- internal/lint/registry/registry.json
+
+# The Flex config schema, used by lint, is from https://meta.upsun.com/schema/upsun (the upsun/meta repository).
+# The Fixed config schemas in internal/lint/schema are maintained in this repository.
+.PHONY: update-schema
+update-schema: ## Refresh the embedded Flex config schema from meta.upsun.com
+	cd internal/lint/schema && go run gen.go
+
+# Fail if the embedded Flex config schema is stale.
+.PHONY: check-schema
+check-schema: update-schema
+	git diff --exit-code -- internal/lint/schema/upsun-config-schema.json
 
 # Installs dev dependencies, which a phar build removes. PHPStan's binary marks that they are installed.
 .PHONY: composer-dev

@@ -85,12 +85,15 @@ func CheckTypes(cfg *Config, reg registry.Registry) *Result {
 	return result
 }
 
+// errStackList is the error for a non-empty stack list.
+const errStackList = "'stack' must be a mapping of 'runtimes' and 'packages', not a list"
+
 // checkStackList reports a stack written as a non-empty list, a format the
 // platform no longer accepts. It returns the stack for further checks: an
 // empty mapping in place of a reported list, so it is not reported again.
 func checkStackList(path string, stack any, result *Result) any {
 	if l, ok := stack.([]any); ok && len(l) > 0 {
-		result.AddError(path, "'stack' must be a mapping of 'runtimes' and 'packages', not a list")
+		result.AddError(path, errStackList)
 		return map[string]any{}
 	}
 	return stack

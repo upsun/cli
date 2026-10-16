@@ -40,6 +40,10 @@ func CheckSchemaAt(data any, schema *gojsonschema.Schema, pathPrefix string) *Re
 		}
 		// Some descriptions repeat the field, which is already in the path.
 		msg := strings.TrimPrefix(e.Description(), field+" ")
+		// The schema rejects a non-empty stack list with "maxItems: 0".
+		if e.Type() == "array_max_items" && (field == "stack" || strings.HasSuffix(field, ".stack")) {
+			msg = errStackList
+		}
 		switch {
 		case pathPrefix == "":
 		case field == "":
