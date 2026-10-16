@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/symfony-cli/terminal"
@@ -52,9 +53,17 @@ func StartUpdateCheck(cnf *config.Config) *UpdateCheck {
 	c := &UpdateCheck{done: make(chan struct{})}
 	go func() {
 		defer close(c.done)
-		releaseInfo, err := getLatestReleaseInfo(cnf.Embedded().Wrapper.GitHubRepo)
+		bin := cnf.Embedded()
+		releaseInfo, err := getLatestReleaseInfo(bin.Wrapper.GitHubRepo)
 		if err != nil || releaseInfo.Version == "" {
 			return
+		}
+		// A release reaches winget once Microsoft merges its manifest, hours or days later.
+		if pkg := bin.Wrapper.WingetPackage; pkg != "" && IsWinget(cnf) {
+			client := &http.Client{Timeout: updateRequestTimeout}
+			if ok, err := inWinget(client, wingetManifestURL(wingetManifestsURL, pkg, releaseInfo.Version)); err != nil || !ok {
+				return
+			}
 		}
 		//nolint:errcheck // not being able to set the state should have no impact on the rest of the program
 		state.Update(cnf, func(s *state.State) {
@@ -165,4 +174,34 @@ func getLatestReleaseInfo(repo string) (*ReleaseInfo, error) {
 	}
 
 	return &latestRelease, nil
+}
+
+// wingetManifestsURL is the manifests directory of the winget-pkgs repository.
+const wingetManifestsURL = "https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests"
+
+// wingetManifestURL returns the URL of a package version's manifest in winget-pkgs,
+// e.g. manifests/u/Upsun/CLI/5.14.0/Upsun.CLI.yaml.
+func wingetManifestURL(base, pkg, ver string) string {
+	return fmt.Sprintf("%s/%s/%s/%s/%s.yaml",
+		base, strings.ToLower(pkg[:1]), strings.ReplaceAll(pkg, ".", "/"), strings.TrimPrefix(ver, "v"), pkg)
+}
+
+// inWinget reports whether the manifest at url exists.
+func inWinget(client *http.Client, url string) (bool, error) {
+	req, err := http.NewRequest(http.MethodHead, url, http.NoBody)
+	if err != nil {
+		return false, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, err
+	}
+	resp.Body.Close()
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return true, nil
+	case http.StatusNotFound:
+		return false, nil
+	}
+	return false, fmt.Errorf("unexpected status: %s", resp.Status)
 }

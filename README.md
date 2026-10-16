@@ -196,7 +196,7 @@ control it:
 
 - `UPSUN_CLI_UPDATES_CHECK=0` disables update checks and notices entirely.
 - `UPSUN_CLI_INSTALL_METHOD=<method>` forces the detected install method, where
-  `<method>` is one of `homebrew`, `scoop`, `npm`, `package`, or `script`. Use
+  `<method>` is one of `homebrew`, `scoop`, `npm`, `winget`, `package`, or `script`. Use
   `package` to silence the notice when the OS manages updates.
 
 ## Configuration

@@ -5,6 +5,7 @@ wrapper:
   homebrew_tap: upsun/tap/upsun-cli
   github_repo: upsun/cli
   npm_package: upsun
+  winget_package: Upsun.CLI
   installer_url: https://raw.githubusercontent.com/upsun/cli/main/installer.sh
 
 application:

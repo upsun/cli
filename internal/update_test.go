@@ -1,6 +1,8 @@
 package internal
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -77,4 +79,50 @@ func TestUpdateCheckWait(t *testing.T) {
 		c.Wait(50 * time.Millisecond)
 		assert.GreaterOrEqual(t, time.Since(start), 50*time.Millisecond)
 	})
+}
+
+func TestWingetManifestURL(t *testing.T) {
+	cases := []struct{ pkg, version, want string }{
+		{"Upsun.CLI", "v5.14.0", "https://x.test/manifests/u/Upsun/CLI/5.14.0/Upsun.CLI.yaml"},
+		{"Upsun.CLI", "5.14.0", "https://x.test/manifests/u/Upsun/CLI/5.14.0/Upsun.CLI.yaml"},
+		{"Example.Tools.CLI", "v1.0.0", "https://x.test/manifests/e/Example/Tools/CLI/1.0.0/Example.Tools.CLI.yaml"},
+	}
+	for _, c := range cases {
+		assert.Equal(t, c.want, wingetManifestURL("https://x.test/manifests", c.pkg, c.version))
+	}
+}
+
+func TestInWinget(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/merged.yaml":
+			assert.Equal(t, http.MethodHead, r.Method)
+		case "/pending.yaml":
+			w.WriteHeader(http.StatusNotFound)
+		default:
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}))
+	defer srv.Close()
+
+	cases := []struct {
+		path    string
+		want    bool
+		wantErr bool
+	}{
+		{"/merged.yaml", true, false},
+		{"/pending.yaml", false, false},
+		{"/error.yaml", false, true},
+	}
+	for _, c := range cases {
+		t.Run(c.path, func(t *testing.T) {
+			got, err := inWinget(srv.Client(), srv.URL+c.path)
+			if c.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, c.want, got)
+		})
+	}
 }

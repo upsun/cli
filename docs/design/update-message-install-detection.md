@@ -85,6 +85,7 @@ Verified from `.goreleaser.yaml`, `installer.sh`, and `npm/wrapper/`.
 | Homebrew (`brews:`) | `$(brew --prefix)/bin/<exe>` (symlink into `…/Cellar/`) | No | `brew update && brew upgrade <tap>` |
 | Scoop (`scoops:`, Windows) | `…\scoop\apps\<exe>\current\<exe>.exe` (shim in `…\scoop\shims\`) | No | `scoop update <exe>` |
 | npm (`npm/wrapper/`) | `…/node_modules/@upsun/cli-<suffix>/bin/<exe>` | No | `npm install -g <pkg>@latest` |
+| winget (`winget:`, Windows) | `…\WinGet\Packages\<id>_<source>\<exe>.exe` (link in `…\WinGet\Links\`) | No | `winget upgrade <id>` |
 | apt / `.deb` (`nfpms:`) | `/usr/bin/<exe>` | Yes | suppress |
 | yum·dnf / `.rpm` (`nfpms:`) | `/usr/bin/<exe>` | Yes | suppress |
 | apk / `.apk` (`nfpms:`) | `/usr/bin/<exe>` | Yes | suppress |
@@ -144,16 +145,18 @@ A new function `DetectInstallMethod(cnf) InstallMethod` resolves the method once
 2. **Package marker.** Marker file present → `package`.
 3. **npm.** Resolved executable path contains `node_modules` and the package
    scope (`@<vendor>/cli-` derived from config, or simply `node_modules`). → `npm`.
-4. **Scoop** (Windows only). Path contains a `scoop{sep}` segment. → `scoop`.
-5. **Homebrew.** Existing `isUnderHomebrew` logic (path under `brew --prefix`),
+4. **winget** (Windows only). Path contains `WinGet{sep}Packages{sep}` (user or
+   machine scope). → `winget`.
+5. **Scoop** (Windows only). Path contains a `scoop{sep}` segment. → `scoop`.
+6. **Homebrew.** Existing `isUnderHomebrew` logic (path under `brew --prefix`),
    plus a cheap pre-check for `/Cellar/<formula>/` in the path to avoid the
    subprocess when obviously Homebrew. → `homebrew`.
-6. **Script.** Otherwise, if the binary is in a normal bin dir
+7. **Script.** Otherwise, if the binary is in a normal bin dir
    (`/usr/bin`, `/usr/local/bin`, `$INSTALL_DIR`-style) → `script`, unless on
    Linux `dpkg-query -S`, `rpm -qf` or `apk info --who-owns` says a package owns
    it → `package`. This covers packages installed before the marker existed.
    It is too slow for the hot path, so it only runs before printing a notice.
-7. **Unknown.** Anything else (e.g. `go run`, source builds). → `unknown`.
+8. **Unknown.** Anything else (e.g. `go run`, source builds). → `unknown`.
 
 Resolve symlinks with `filepath.EvalSymlinks(os.Executable())` before matching so
 that shimmed/symlinked installs report their real location.
@@ -207,11 +210,17 @@ hint.
 | `homebrew` | Yes | `brew update && brew upgrade <wrapper.homebrew_tap>` | Yes |
 | `scoop` | Yes | `scoop update <application.executable>` | Yes |
 | `npm` | Yes | `npm install -g <wrapper.npm_package>@latest` | Yes |
+| `winget` | Yes, once the release is in winget² | `winget upgrade <wrapper.winget_package>` | Yes |
 | `script` | Yes | `curl -fsSL <wrapper.installer_url> \| INSTALL_METHOD=raw INSTALL_DIR=<exe dir> sh` | No (remote + maybe sudo)¹ |
 | `unknown` | Yes | `follow the instructions at https://github.com/<repo>#upgrade` (today's text) | No |
 
 ¹ Becomes auto-updatable in Phase 3 if raw installs move to a user-local,
 sudo-free path.
+
+² winget releases wait for Microsoft to merge each manifest PR. For winget
+installs, the background check sends a HEAD request for the release's manifest
+(`https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests/<letter>/<id path>/<version>/<id>.yaml`),
+and only caches the version if it exists, so the check is retried until then.
 
 With an alternative config (`CLI_CONFIG_FILE`, e.g. a shim from
 `config:install`), the binary is unchanged, so the `wrapper.*` keys and the
@@ -312,13 +321,14 @@ Wrapper struct {
     HomebrewTap   string `yaml:"homebrew_tap,omitempty"`
     GitHubRepo    string `yaml:"github_repo,omitempty"`
     NpmPackage    string `yaml:"npm_package,omitempty"`    // e.g. "upsun"
+    WingetPackage string `yaml:"winget_package,omitempty"` // e.g. "Upsun.CLI"
     InstallerURL  string `yaml:"installer_url,omitempty"`  // e.g. "https://raw.githubusercontent.com/upsun/cli/main/installer.sh"
     InstallMethod string `yaml:"install_method,omitempty"` // optional forced override
 }
 ```
 
-Populate `npm_package` and `installer_url` in `internal/config/upsun-cli.yaml`
-only: npm and `installer.sh` ship only the `upsun` binary, so
+Populate `npm_package`, `winget_package` and `installer_url` in `internal/config/upsun-cli.yaml`
+only: npm, winget and `installer.sh` ship only the `upsun` binary, so
 `internal/config/platformsh-cli.yaml` leaves them empty. A channel with an empty config field
 simply falls back to the generic GitHub link for that branch (graceful for vendor
 builds that don't ship that channel).
