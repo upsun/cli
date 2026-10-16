@@ -6,7 +6,7 @@
 set -euo pipefail
 
 root=$1
-fork=${WINGET_FORK:-upsun/winget-pkgs}
+fork=upsun/winget-pkgs
 upstream=microsoft/winget-pkgs
 
 if [ -z "${GH_TOKEN:-}" ]; then
