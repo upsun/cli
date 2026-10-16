@@ -120,6 +120,8 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 
 ### Build System
 
+**winget**: GoReleaser only generates the `Upsun.CLI` manifests. The release workflow's `winget` job submits them with `scripts/winget-submit.sh`: it pushes a branch to the `upsun/winget-pkgs` fork and opens a PR to `microsoft/winget-pkgs`, with a bot's classic token (`WINGET_GITHUB_TOKEN`). It is a separate job so that a failure does not block the rest of the release.
+
 **Multi-Vendor Support**:
 - Uses Go build tags to compile different binaries:
   - Default (no tags): Upsun CLI
@@ -128,11 +130,12 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 - GoReleaser builds multiple variants (upsun, platform, vendor-specific)
 
 **PHP Binary Handling**:
-- PHP binaries are downloaded from [upsun/cli-php-builds](https://github.com/upsun/cli-php-builds) releases
+- PHP binaries are downloaded from [upsun/cli-php-builds](https://github.com/upsun/cli-php-builds) releases, tagged `php-<PHP_VERSION>-<PHP_BUILD>`. They are rebuilt (with a new build number) when PHP or a library has a new release
+- Their SHA-256 checksums are pinned in `internal/legacy/php_sha256sums.txt` (the release's `SHA256SUMS.txt`), and verified after download
 - All platforms use static binaries built with [static-php-cli](https://github.com/crazywhalecc/static-php-cli)
 - Supported platforms: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64
 - Extensions included: curl, filter, openssl, pcntl (Unix), phar, posix (Unix), zlib
-- Windows requires `cacert.pem` for OpenSSL (embedded separately)
+- Windows requires `cacert.pem` for OpenSSL (embedded separately), pinned by date and checksum (`CACERT_DATE`, `CACERT_SHA256`)
 
 **Downloading PHP Binaries**:
 ```bash
@@ -144,10 +147,8 @@ make download-php
 ```
 
 **Upgrading PHP Version**:
-1. Trigger the build workflow at [upsun/cli-php-builds](https://github.com/upsun/cli-php-builds/actions) with the new PHP version
-2. Update `PHP_VERSION` in the Makefile
-3. Run `make php` (or `make download-php`) to download the new binaries
-4. Test and release
+- The `update-php` workflow runs daily: it finds the latest cli-php-builds release for the current PHP minor version, and the latest CA bundle, and opens or updates a pull request that updates `PHP_VERSION`, `PHP_BUILD`, the checksums and the CA bundle (with `scripts/update-php.sh`). The pull request lists the changed source archives (from the releases' `sources.json`)
+- For a new PHP minor version: trigger the build workflow at [upsun/cli-php-builds](https://github.com/upsun/cli-php-builds/actions) with the new version, then set `PHP_VERSION` to it and `PHP_BUILD` to `0` (builds are numbered from 1), run `scripts/update-php.sh <title-file> <body-file>`, and `make download-php` to check the downloads
 
 ## Development Notes
 
@@ -191,7 +192,8 @@ The CLI checks for updates from GitHub releases (when Wrapper.GitHubRepo is set 
 
 Install-method detection (`internal/install.go`) tailors or suppresses the notice:
 - System package managers (apt, yum/dnf, apk) are detected via a marker file installed by the nfpm packages (`packaging/install-source` → `/usr/share/<slug>/install-source`). Before printing a notice, older package installs without the marker are also detected by querying dpkg/rpm/apk. The notice is suppressed because the OS handles updates.
-- Homebrew, Scoop, npm, and the bash installer get a tailored upgrade command, built from config fields (`Wrapper.HomebrewTap`, `Wrapper.NpmPackage`, `Wrapper.InstallerURL`, `Application.Executable`).
+- Homebrew, Scoop, npm, winget, and the bash installer get a tailored upgrade command, built from config fields (`Wrapper.HomebrewTap`, `Wrapper.NpmPackage`, `Wrapper.WingetPackage`, `Wrapper.InstallerURL`, `Application.Executable`).
+- winget installs are detected by their path (`\WinGet\Packages\`). A release reaches winget only after Microsoft merges its manifest PR in `microsoft/winget-pkgs`, so for winget installs the background check reads the newest version there (from the GitHub API) instead of the latest GitHub release.
 - The notice is throttled to once a week (`LastNotified` in state) and only shown in an interactive terminal.
 - `<PREFIX>INSTALL_METHOD` forces the method; `<PREFIX>UPDATES_CHECK=0` disables checks entirely.
 - With `CLI_CONFIG_FILE` (e.g. a `config:install` shim), the `wrapper.*` keys and the application name, executable and slug come from the embedded config (`Config.Embedded()`), as the binary is the same. The notice is only shown if there is an upgrade command for the install method, as the binary may be a private copy.

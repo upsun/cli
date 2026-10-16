@@ -1,6 +1,9 @@
 package internal
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -77,4 +80,43 @@ func TestUpdateCheckWait(t *testing.T) {
 		c.Wait(50 * time.Millisecond)
 		assert.GreaterOrEqual(t, time.Since(start), 50*time.Millisecond)
 	})
+}
+
+func TestLatestWingetVersion(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/manifests/u/Upsun/CLI":
+			fmt.Fprint(w, `[{"name":"5.9.0","type":"dir"},{"name":"5.13.0","type":"dir"},`+
+				`{"name":"5.10.1","type":"dir"},{"name":"README.md","type":"file"},{"name":"other","type":"dir"}]`)
+		case "/manifests/e/Example/Empty":
+			fmt.Fprint(w, `[]`)
+		case "/manifests/e/Example/Error":
+			w.WriteHeader(http.StatusForbidden)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	cases := []struct {
+		pkg     string
+		want    string
+		wantErr bool
+	}{
+		{"Upsun.CLI", "v5.13.0", false},
+		{"Example.Empty", "", false},
+		{"Example.Missing", "", false},
+		{"Example.Error", "", true},
+	}
+	for _, c := range cases {
+		t.Run(c.pkg, func(t *testing.T) {
+			got, err := latestWingetVersion(srv.Client(), srv.URL+"/manifests", c.pkg)
+			if c.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, c.want, got)
+		})
+	}
 }

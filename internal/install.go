@@ -23,6 +23,7 @@ const (
 	InstallHomebrew InstallMethod = "homebrew"
 	InstallScoop    InstallMethod = "scoop"
 	InstallNpm      InstallMethod = "npm"
+	InstallWinget   InstallMethod = "winget"
 	InstallPackage  InstallMethod = "package" // a system package manager: apt, yum/dnf, apk
 	InstallScript   InstallMethod = "script"  // the bash installer's raw method
 )
@@ -90,6 +91,20 @@ func IsAutoUpdating(cnf *config.Config) bool {
 	return packageMarkerExists(resolvedExecutable(), bin.Application.Slug, fileExists)
 }
 
+// IsWinget is a cheap check (no subprocess) for a winget install.
+func IsWinget(cnf *config.Config) bool {
+	if m, ok := overrideMethod(cnf.Application.EnvPrefix, cnf.Embedded().Wrapper.InstallMethod, getenvFunc); ok {
+		return m == InstallWinget
+	}
+	return isWingetPath(runtime.GOOS, resolvedExecutable())
+}
+
+// isWingetPath reports whether exe is in a winget portable package directory,
+// e.g. %LOCALAPPDATA%\Microsoft\WinGet\Packages or %ProgramFiles%\WinGet\Packages.
+func isWingetPath(goos, exe string) bool {
+	return goos == "windows" && strings.Contains(normPath(exe), "/winget/packages/")
+}
+
 func detectInstallMethod(p *installProbe) InstallMethod {
 	if m, ok := overrideMethod(p.envPrefix, p.configMethod, p.getenv); ok {
 		return m
@@ -100,6 +115,9 @@ func detectInstallMethod(p *installProbe) InstallMethod {
 	n := normPath(p.exe)
 	if strings.Contains(n, "/node_modules/") {
 		return InstallNpm
+	}
+	if isWingetPath(p.goos, p.exe) {
+		return InstallWinget
 	}
 	if p.goos == "windows" && strings.Contains(n, "/scoop/") {
 		return InstallScoop
@@ -136,6 +154,8 @@ func parseMethod(v string) (InstallMethod, bool) {
 		return InstallScoop, true
 	case string(InstallNpm):
 		return InstallNpm, true
+	case string(InstallWinget):
+		return InstallWinget, true
 	case string(InstallScript):
 		return InstallScript, true
 	case string(InstallPackage), "apt", "yum", "dnf", "apk", "deb", "rpm":

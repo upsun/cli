@@ -173,11 +173,17 @@ jobs:
       - name: Download embedded PHP files
         shell: bash
         run: |
-          php_version=$(grep -m1 '^PHP_VERSION' Makefile | cut -d' ' -f3)
+          # Line endings may be converted on checkout.
+          var() { tr -d '\r' < Makefile | sed -n "s/^$1 = //p"; }
+          php_version=$(var PHP_VERSION)
+          asset="php-$php_version-windows-amd64.exe"
+          php_sha256=$(tr -d '\r' < internal/legacy/php_sha256sums.txt | awk -v a="$asset" '$2 == a { print $1 }')
           mkdir -p internal/legacy/archives
-          curl -fSL "https://github.com/upsun/cli-php-builds/releases/download/php-$php_version/php-$php_version-windows-amd64.exe" \
+          curl -fSL "https://github.com/upsun/cli-php-builds/releases/download/php-$php_version-$(var PHP_BUILD)/$asset" \
             -o internal/legacy/archives/php_windows.exe
-          curl -fSL https://curl.se/ca/cacert.pem -o internal/legacy/archives/cacert.pem
+          curl -fSL "https://curl.se/ca/cacert-$(var CACERT_DATE).pem" -o internal/legacy/archives/cacert.pem
+          echo "$php_sha256  internal/legacy/archives/php_windows.exe" | sha256sum -c -
+          echo "$(var CACERT_SHA256)  internal/legacy/archives/cacert.pem" | sha256sum -c -
           # Only needed so that the package builds.
           touch internal/legacy/archives/platform.phar
           touch internal/legacy/archives/commands-upsun.json internal/legacy/archives/commands-platformsh.json

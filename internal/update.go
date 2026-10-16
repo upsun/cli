@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/symfony-cli/terminal"
@@ -52,13 +53,13 @@ func StartUpdateCheck(cnf *config.Config) *UpdateCheck {
 	c := &UpdateCheck{done: make(chan struct{})}
 	go func() {
 		defer close(c.done)
-		releaseInfo, err := getLatestReleaseInfo(cnf.Embedded().Wrapper.GitHubRepo)
-		if err != nil || releaseInfo.Version == "" {
+		latest, err := latestVersion(cnf)
+		if err != nil || latest == "" {
 			return
 		}
 		//nolint:errcheck // not being able to set the state should have no impact on the rest of the program
 		state.Update(cnf, func(s *state.State) {
-			s.Updates.KnownLatestVersion = releaseInfo.Version
+			s.Updates.KnownLatestVersion = latest
 		})
 	}()
 	return c
@@ -165,4 +166,63 @@ func getLatestReleaseInfo(repo string) (*ReleaseInfo, error) {
 	}
 
 	return &latestRelease, nil
+}
+
+// latestVersion returns the newest release that the install method can upgrade to.
+func latestVersion(cnf *config.Config) (string, error) {
+	bin := cnf.Embedded()
+	client := &http.Client{Timeout: updateRequestTimeout}
+	// A release reaches winget once Microsoft merges its manifest, hours or days later.
+	if pkg := bin.Wrapper.WingetPackage; pkg != "" && IsWinget(cnf) {
+		return latestWingetVersion(client, wingetManifestsAPIURL, pkg)
+	}
+	releaseInfo, err := getLatestReleaseInfo(bin.Wrapper.GitHubRepo)
+	if err != nil {
+		return "", err
+	}
+	return releaseInfo.Version, nil
+}
+
+// wingetManifestsAPIURL is the GitHub API URL of the winget-pkgs manifests directory.
+const wingetManifestsAPIURL = "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests"
+
+// latestWingetVersion returns the newest version of a package in winget-pkgs,
+// as a release tag (with a "v" prefix), or an empty string if there is none.
+func latestWingetVersion(client *http.Client, base, pkg string) (string, error) {
+	// For example: manifests/u/Upsun/CLI contains a directory per version.
+	url := fmt.Sprintf("%s/%s/%s", base, strings.ToLower(pkg[:1]), strings.ReplaceAll(pkg, ".", "/"))
+	resp, err := client.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusNotFound:
+		return "", nil
+	default:
+		return "", fmt.Errorf("unexpected status: %s", resp.Status)
+	}
+	var entries []struct {
+		Name string `json:"name"`
+		Type string `json:"type"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&entries); err != nil {
+		return "", err
+	}
+	latest := ""
+	for _, e := range entries {
+		if e.Type != "dir" || !version.Validate(e.Name) {
+			continue
+		}
+		if latest == "" {
+			latest = e.Name
+		} else if cmp, err := version.Compare(e.Name, latest); err == nil && cmp > 0 {
+			latest = e.Name
+		}
+	}
+	if latest == "" {
+		return "", nil
+	}
+	return "v" + latest, nil
 }

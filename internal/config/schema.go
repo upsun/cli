@@ -23,8 +23,9 @@ type Config struct {
 		HomebrewTap   string `yaml:"homebrew_tap,omitempty"`   // e.g. "upsun/tap/platformsh-cli"
 		GitHubRepo    string `yaml:"github_repo,omitempty"`    // e.g. "upsun/cli"
 		NpmPackage    string `yaml:"npm_package,omitempty"`    // e.g. "upsun"
+		WingetPackage string `yaml:"winget_package,omitempty"` // e.g. "Upsun.CLI"
 		InstallerURL  string `yaml:"installer_url,omitempty"`  // e.g. "https://raw.githubusercontent.com/upsun/cli/main/installer.sh"
-		InstallMethod string `yaml:"install_method,omitempty"` // forces the detected install method (homebrew, scoop, npm, package, script)
+		InstallMethod string `yaml:"install_method,omitempty"` // forces the detected install method (homebrew, scoop, npm, winget, package, script)
 	} `yaml:"wrapper,omitempty"`
 
 	Application struct {

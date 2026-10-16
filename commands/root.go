@@ -305,6 +305,10 @@ func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod, exe st
 		if cnf.Wrapper.NpmPackage != "" {
 			return "npm install -g " + cnf.Wrapper.NpmPackage + "@latest"
 		}
+	case internal.InstallWinget:
+		if cnf.Wrapper.WingetPackage != "" {
+			return "winget upgrade " + cnf.Wrapper.WingetPackage
+		}
 	case internal.InstallScript:
 		// The raw method replaces the binary in INSTALL_DIR; without it, the
 		// installer may choose a package manager instead (e.g. apt on Debian).
