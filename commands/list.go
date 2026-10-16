@@ -41,26 +41,10 @@ func newListCommand(cnf *config.Config) *cobra.Command {
 			list.Application.Name = cnf.Application.Name
 			list.Application.Executable = cnf.Application.Executable
 
-			projectInitCommand := innerProjectInitCommand(cnf)
-
-			if !list.DescribesNamespace() || list.Namespace == projectInitCommand.Name.Namespace {
-				list.AddCommand(&projectInitCommand)
-			}
-
-			appConfigValidateCommand := innerAppConfigValidateCommand(cnf)
-
-			if !list.DescribesNamespace() || list.Namespace == appConfigValidateCommand.Name.Namespace {
-				list.AddCommand(&appConfigValidateCommand)
-			}
-
-			appProjectConvertCommand := innerProjectConvertCommand(cnf)
-
-			if cnf.Service.ProjectConfigFlavor == "upsun" &&
-				(!list.DescribesNamespace() || list.Namespace == appProjectConvertCommand.Name.Namespace) {
-				list.AddCommand(&appProjectConvertCommand)
-			}
-
-			for _, c := range authCommands(cnf) {
+			for _, c := range cmd.Root().Commands() {
+				if c.Annotations[legacyStyleAnnotation] == "" {
+					continue
+				}
 				desc := commandFromCobra(cnf, c)
 				if desc.Hidden && !viper.GetBool("all") {
 					continue

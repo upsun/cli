@@ -12,185 +12,9 @@ import (
 	"text/tabwriter"
 
 	"github.com/fatih/color"
-	orderedmap "github.com/wk8/go-ordered-map/v2"
 
 	"github.com/upsun/cli/internal/config"
 )
-
-func innerProjectInitCommand(cnf *config.Config) Command {
-	noInteractionOption := NoInteractionOption(cnf)
-
-	return Command{
-		Name: CommandName{
-			Namespace: "project",
-			Command:   "init",
-		},
-		Usage: []string{
-			cnf.Application.Executable + " init",
-		},
-		Aliases: []string{
-			"init", "ify",
-		},
-		Description: "Initialize a project",
-		Help:        CleanString(initCommandHelp(cnf, false)),
-		Examples: []Example{
-			{
-				Commandline: "",
-				Description: "Create the starter YAML file(s) for your project",
-			},
-			{
-				Commandline: "--ai=false",
-				Description: "Disable AI mode",
-			},
-			{
-				Commandline: "--ai --context='Use PostgreSQL for the database'",
-				Description: "Add context for AI configuration",
-			},
-		},
-		Definition: Definition{
-			Arguments: &orderedmap.OrderedMap[string, Argument]{},
-			Options: orderedmap.New[string, Option](orderedmap.WithInitialData[string, Option](
-				orderedmap.Pair[string, Option]{
-					Key: "ai",
-					Value: Option{
-						Name:        "--ai",
-						AcceptValue: true,
-						Description: "Use AI configuration",
-						Default:     Any{any: false},
-					},
-				},
-				orderedmap.Pair[string, Option]{
-					Key: "context",
-					Value: Option{
-						Name:            "--context",
-						AcceptValue:     true,
-						IsValueRequired: true,
-						Description:     "Add extra context for AI configuration",
-						Default:         Any{any: ""},
-					},
-				},
-				orderedmap.Pair[string, Option]{
-					Key: "digest",
-					Value: Option{
-						Name:        "--digest",
-						AcceptValue: false,
-						Description: "Only show the repository digest (the AI configuration input), without sending it",
-						Default:     Any{any: false},
-					},
-				},
-				orderedmap.Pair[string, Option]{
-					Key:   HelpOption.GetName(),
-					Value: HelpOption,
-				},
-				orderedmap.Pair[string, Option]{
-					Key:   VerboseOption.GetName(),
-					Value: VerboseOption,
-				},
-				orderedmap.Pair[string, Option]{
-					Key:   VersionOption.GetName(),
-					Value: VersionOption,
-				},
-				orderedmap.Pair[string, Option]{
-					Key:   YesOption.GetName(),
-					Value: YesOption,
-				},
-				orderedmap.Pair[string, Option]{
-					Key:   noInteractionOption.GetName(),
-					Value: noInteractionOption,
-				},
-			)),
-		},
-		Hidden: false,
-	}
-}
-
-func innerAppConfigValidateCommand(cnf *config.Config) Command {
-	noInteractionOption := NoInteractionOption(cnf)
-
-	return Command{
-		Name: CommandName{
-			Namespace: "app",
-			Command:   "config-validate",
-		},
-		Usage: []string{
-			cnf.Application.Executable + " app:config-validate [<path>]",
-		},
-		Aliases: []string{
-			"lint",
-			"validate",
-		},
-		Description: "Validate the configuration files of a project, reporting all errors at once",
-		Help:        "",
-		Examples: []Example{
-			{
-				Commandline: "",
-				Description: "Validate the project configuration files in the current Git repository (or directory)",
-			},
-			{
-				Commandline: "path/to/project",
-				Description: "Validate the project configuration files in a specific directory",
-			},
-			{
-				Commandline: "--format=json",
-				Description: "Validate the current Git repository (or directory) and output the results as JSON",
-			},
-		},
-		Definition: Definition{
-			Arguments: orderedmap.New[string, Argument](orderedmap.WithInitialData[string, Argument](
-				orderedmap.Pair[string, Argument]{
-					Key: "path",
-					Value: Argument{
-						Name:        "path",
-						IsRequired:  false,
-						IsArray:     false,
-						Description: "The project directory to validate (default: the Git repository root, or the current directory)",
-					},
-				},
-			)),
-			Options: orderedmap.New[string, Option](orderedmap.WithInitialData[string, Option](
-				orderedmap.Pair[string, Option]{
-					Key: "format",
-					Value: Option{
-						Name:            "--format",
-						AcceptValue:     true,
-						IsValueRequired: true,
-						Description:     "The output format: \"text\" or \"json\"",
-						Default:         Any{"text"},
-					},
-				},
-				orderedmap.Pair[string, Option]{
-					Key: "stdin",
-					Value: Option{
-						Name:        "--stdin",
-						Description: "Read merged Flex configuration from standard input",
-						Default:     Any{false},
-					},
-				},
-				orderedmap.Pair[string, Option]{
-					Key:   HelpOption.GetName(),
-					Value: HelpOption,
-				},
-				orderedmap.Pair[string, Option]{
-					Key:   VerboseOption.GetName(),
-					Value: VerboseOption,
-				},
-				orderedmap.Pair[string, Option]{
-					Key:   VersionOption.GetName(),
-					Value: VersionOption,
-				},
-				orderedmap.Pair[string, Option]{
-					Key:   YesOption.GetName(),
-					Value: YesOption,
-				},
-				orderedmap.Pair[string, Option]{
-					Key:   noInteractionOption.GetName(),
-					Value: noInteractionOption,
-				},
-			)),
-		},
-		Hidden: false,
-	}
-}
 
 type List struct {
 	Application Application `json:"application"`
@@ -281,18 +105,16 @@ func (c *Command) HelpPage(cnf *config.Config) string {
 		}
 		fmt.Fprintln(writer, "")
 	}
-	if c.Definition.Arguments != nil && c.Definition.Arguments.Len() > 0 {
+	if len(c.Definition.Arguments) > 0 {
 		fmt.Fprintln(writer, color.YellowString("Arguments:"))
-		for pair := c.Definition.Arguments.Oldest(); pair != nil; pair = pair.Next() {
-			arg := pair.Value
+		for _, arg := range c.Definition.Arguments {
 			fmt.Fprintf(writer, "  %s\t%s\n", color.GreenString(arg.Name), arg.Description)
 		}
 		fmt.Fprintln(writer, "")
 	}
-	if c.Definition.Options != nil && c.Definition.Options.Len() > 0 {
+	if len(c.Definition.Options) > 0 {
 		fmt.Fprintln(writer, color.YellowString("Options:"))
-		for pair := c.Definition.Options.Oldest(); pair != nil; pair = pair.Next() {
-			opt := pair.Value
+		for _, opt := range c.Definition.Options {
 			shortcut := opt.Shortcut
 			if shortcut == "" {
 				shortcut = "   "
@@ -439,8 +261,60 @@ type Example struct {
 }
 
 type Definition struct {
-	Arguments *orderedmap.OrderedMap[string, Argument] `json:"arguments"`
-	Options   *orderedmap.OrderedMap[string, Option]   `json:"options"`
+	Arguments orderedList[Argument] `json:"arguments"`
+	Options   orderedList[Option]   `json:"options"`
+}
+
+// orderedList is encoded as a JSON object keyed by each item's name, in order.
+type orderedList[T interface{ key() string }] []T
+
+func (l orderedList[T]) MarshalJSON() ([]byte, error) {
+	var b bytes.Buffer
+	b.WriteByte('{')
+	for i, v := range l {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		k, err := json.Marshal(v.key())
+		if err != nil {
+			return nil, err
+		}
+		val, err := json.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
+		b.Write(k)
+		b.WriteByte(':')
+		b.Write(val)
+	}
+	b.WriteByte('}')
+	return b.Bytes(), nil
+}
+
+func (l *orderedList[T]) UnmarshalJSON(data []byte) error {
+	*l = nil
+	// PHP encodes an empty array as [].
+	if s := string(bytes.TrimSpace(data)); s == "[]" || s == "null" {
+		return nil
+	}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	if t, err := dec.Token(); err != nil {
+		return err
+	} else if t != json.Delim('{') {
+		return fmt.Errorf("expected a JSON object, got: %v", t)
+	}
+	for dec.More() {
+		// The key is the item's name, so it can be skipped.
+		if _, err := dec.Token(); err != nil {
+			return err
+		}
+		var v T
+		if err := dec.Decode(&v); err != nil {
+			return err
+		}
+		*l = append(*l, v)
+	}
+	return nil
 }
 
 type Argument struct {
@@ -465,6 +339,10 @@ type Option struct {
 func (o *Option) GetName() string {
 	return strings.TrimPrefix(o.Name, "--")
 }
+
+func (o Option) key() string { return o.GetName() } //nolint:gocritic // orderedList needs a value receiver.
+
+func (a Argument) key() string { return a.Name }
 
 type YesNo bool
 

@@ -424,7 +424,8 @@ func newAuthTokenCommand(cnf *config.Config) *cobra.Command {
 			"API domain.",
 		Example: fmt.Sprintf("  # Print the payload for JWT-formatted tokens\n"+
 			"  %[1]s auth:token -W | cut -d. -f2 | base64 -d\n\n"+
-			"  # Use the token in a curl command\n  curl -H\"$(%[1]s auth:token -HW)\" %[2]s/users/me",
+			"  # Print an Authorization header, e.g. for: curl -H\"$(%[1]s auth:token -HW)\" %[2]s/users/me\n"+
+			"  %[1]s auth:token -HW",
 			cnf.Application.Executable, strings.TrimRight(cnf.API.BaseURL, "/")),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if noWarn, _ := cmd.Flags().GetBool("no-warn"); !noWarn {
