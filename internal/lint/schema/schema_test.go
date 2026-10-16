@@ -31,9 +31,12 @@ applications:
 
 // TestSchemaDefaults checks that each default is valid, as editors insert defaults on completion.
 func TestSchemaDefaults(t *testing.T) {
-	var root map[string]any
-	require.NoError(t, json.Unmarshal(configSchema, &root))
+	for name, root := range schemaRoots(t) {
+		t.Run(name, func(t *testing.T) { checkDefaults(t, root) })
+	}
+}
 
+func checkDefaults(t *testing.T, root map[string]any) {
 	var walk func(node any, path string)
 	walk = func(node any, path string) {
 		switch n := node.(type) {
@@ -71,9 +74,12 @@ func TestSchemaDefaults(t *testing.T) {
 // which the platform ignores (e.g. YAML anchors), except in the stack, which the
 // platform checks itself.
 func TestSchemaKeywords(t *testing.T) {
-	var root map[string]any
-	require.NoError(t, json.Unmarshal(configSchema, &root))
+	for name, root := range schemaRoots(t) {
+		t.Run(name, func(t *testing.T) { checkKeywords(t, root) })
+	}
+}
 
+func checkKeywords(t *testing.T, root map[string]any) {
 	var walk func(node any, path string)
 	walk = func(node any, path string) {
 		switch n := node.(type) {
@@ -97,4 +103,13 @@ func TestSchemaKeywords(t *testing.T) {
 		}
 	}
 	walk(root, "")
+}
+
+// schemaRoots returns the Flex schema, and the Flex schema with the Fixed overlay.
+func schemaRoots(t *testing.T) map[string]map[string]any {
+	var flex map[string]any
+	require.NoError(t, json.Unmarshal(configSchema, &flex))
+	fixed, err := fixedSchema()
+	require.NoError(t, err)
+	return map[string]map[string]any{"flex": flex, "fixed": fixed}
 }

@@ -244,7 +244,7 @@ check-registry: update-registry
 	git diff --exit-code -- internal/lint/registry/registry.json
 
 # The Flex config schema, used by lint, is from https://meta.upsun.com/schema/upsun (the upsun/meta repository).
-# The Fixed config schemas in internal/lint/schema are maintained in this repository.
+# Fixed config is checked with the same schema and an overlay, internal/lint/schema/fixed-overlay.json.
 .PHONY: update-schema
 update-schema: ## Refresh the embedded Flex config schema from meta.upsun.com
 	cd internal/lint/schema && go run gen.go
