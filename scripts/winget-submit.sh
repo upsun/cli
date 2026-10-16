@@ -32,8 +32,11 @@ else
 fi
 
 # The steps below can be re-run after a partial failure.
-if url=$(gh pr list --repo "$upstream" --head "$branch" --state open --json url --jq '.[0].url // empty') && [ -n "$url" ]; then
-  echo "A pull request is already open: $url"
+# An open or merged PR from the fork means this version is already submitted.
+query='[.[] | select(.headRepositoryOwner.login == "'"${fork%%/*}"'" and .state != "CLOSED")][0].url // empty'
+if url=$(gh pr list --repo "$upstream" --head "$branch" --state all --json url,state,headRepositoryOwner --jq "$query") &&
+  [ -n "$url" ]; then
+  echo "A pull request already exists: $url"
   exit 0
 fi
 
