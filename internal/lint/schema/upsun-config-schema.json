@@ -10,6 +10,14 @@
         "properties": {
           "type": {
             "type": "string",
+            "anyOf": [
+              {
+                "$ref": "https://meta.upsun.com/schema/runtime-versions"
+              },
+              {
+                "pattern": "^(composable|docker):"
+              }
+            ],
             "title": "The base runtime (language) and version to use for this application",
             "description": "The base image to use with a specific app language.  \nFormat: runtime:version. \nMore information: \nhttps://docs.upsun.com/anchors/app/reference/type/"
           },
@@ -1205,6 +1213,11 @@
         "properties": {
           "type": {
             "type": "string",
+            "allOf": [
+              {
+                "$ref": "https://meta.upsun.com/schema/service-versions"
+              }
+            ],
             "title": "The service type",
             "description": "One of the available services in the format `type:version`. \nMore information:  \nhttps://docs.upsun.com/anchors/services/available/"
           },
@@ -1484,6 +1497,14 @@
           },
           "type": {
             "type": "string",
+            "anyOf": [
+              {
+                "$ref": "https://meta.upsun.com/schema/runtime-versions"
+              },
+              {
+                "pattern": "^(composable|docker):"
+              }
+            ],
             "title": "The runtime image and version to use for this task",
             "description": "The base image to use with a specific app language.  \nFormat: runtime:version. \nMore information: \nhttps://docs.upsun.com/anchors/app/reference/type/"
           },
@@ -2010,7 +2031,7 @@
         "null"
       ],
       "title": "Composable image definition",
-      "description": "The runtimes and packages that make up the composable image. Each is a name, a mapping, or a list of them. A list is only accepted when empty (checked by the linter).",
+      "description": "The runtimes and packages that make up the composable image. Each is a name, a mapping, or a list of them. A list is only accepted when empty.",
       "properties": {
         "runtimes": {
           "anyOf": [
@@ -2069,7 +2090,8 @@
           ]
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "maxItems": 0
     },
     "additional_hosts": {
       "type": "object",

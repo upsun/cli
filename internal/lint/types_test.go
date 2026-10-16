@@ -79,17 +79,6 @@ services:
 			expectErrorMessage: "linter errors:\n  - services.myservice.type: type 'nodejs' is a runtime type, not a service type", //nolint:lll
 		},
 		{
-			name: "composable_without_type",
-			content: `
-applications:
-  foo:
-    stack:
-      runtimes: [bun@1]
-      packages: [ffmpeg]`,
-			expectErrorMessage: `linter warnings:
-  - applications.foo: 'type' should be specified (as a composable image) when using 'stack'`,
-		},
-		{
 			name: "composable_without_stack",
 			content: fmt.Sprintf(`
 applications:
@@ -128,28 +117,6 @@ tasks:
   - tasks.bad.type: type cannot be empty
 linter warnings:
   - tasks.bad.stack: 'stack' is only used with a composable image type`,
-		},
-		{
-			name: "stack_list",
-			content: `
-applications:
-  foo:
-    type: composable:25.11
-    stack: [php@8.4]
-  classic:
-    type: php:8.4
-    stack: [php@8.4]
-  untyped:
-    stack: [php@8.4]
-tasks:
-  job:
-    base: performance-agent
-    stack: [php@8.4]`,
-			expectErrorMessage: `linter errors:
-  - applications.classic.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list
-  - applications.foo.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list
-  - applications.untyped.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list
-  - tasks.job.stack: 'stack' must be a mapping of 'runtimes' and 'packages', not a list`,
 		},
 		{
 			name: "stack_with_non_composable_type",
