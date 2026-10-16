@@ -120,6 +120,8 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 
 ### Build System
 
+**winget**: GoReleaser only generates the `Upsun.CLI` manifests. The release workflow's `winget` job submits them with `scripts/winget-submit.sh`: it pushes a branch to the `upsun/winget-pkgs` fork and opens a PR to `microsoft/winget-pkgs`, with a bot's classic token (`WINGET_GITHUB_TOKEN`). It is a separate job so that a failure does not block the rest of the release.
+
 **Multi-Vendor Support**:
 - Uses Go build tags to compile different binaries:
   - Default (no tags): Upsun CLI

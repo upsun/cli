@@ -238,7 +238,9 @@ winget:
   - name: Upsun CLI
     package_identifier: Upsun.CLI
     path: manifests/u/Upsun/CLI/{{ .Version }}
-    skip_upload: '{{ envOrDefault "SKIP_UPLOAD_WINGET" "auto" }}'
+    # Only generate the manifests: the release workflow's winget job submits them, so a failure there does not block
+    # the rest of the release.
+    skip_upload: true
     ids:
       - upsun
     publisher: Upsun
@@ -255,21 +257,9 @@ winget:
       - cli
       - upsun
       - paas
-    commit_author:
-      name: Upsun
-      email: hello@upsun.com
-    commit_msg_template: "New version: {{ .PackageIdentifier }} version {{ .Version }}"
     repository:
       owner: upsun
       name: winget-pkgs
-      branch: "Upsun.CLI-{{ .Version }}"
-      token: "{{ .Env.WINGET_GITHUB_TOKEN }}"
-      pull_request:
-        enabled: true
-        base:
-          owner: microsoft
-          name: winget-pkgs
-          branch: master
 
 nfpms:
   - id: platform
