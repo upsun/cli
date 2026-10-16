@@ -79,7 +79,7 @@ func TestCommandFromCobraArguments(t *testing.T) {
 	cnf := &config.Config{}
 	cnf.Application.Executable = "upsun"
 	c := &cobra.Command{
-		Use:         "foo:bar <id> [path] [files...]",
+		Use:         "foo:bar <id> [path] [files...] [more]...",
 		Aliases:     []string{"fb"},
 		Annotations: map[string]string{argAnnotationPrefix + "id": "The ID"},
 	}
@@ -88,8 +88,9 @@ func TestCommandFromCobraArguments(t *testing.T) {
 		{Name: "id", IsRequired: true, Description: "The ID"},
 		{Name: "path"},
 		{Name: "files", IsArray: true},
+		{Name: "more", IsArray: true},
 	}, cmd.Definition.Arguments)
-	assert.Equal(t, []string{"upsun fb <id> [<path>] [<files>...]"}, cmd.Usage)
+	assert.Equal(t, []string{"upsun fb <id> [<path>] [<files>...] [<more>...]"}, cmd.Usage)
 }
 
 func TestOrderedListJSON(t *testing.T) {

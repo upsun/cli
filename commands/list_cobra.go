@@ -90,9 +90,12 @@ func argumentsFromCobra(c *cobra.Command) orderedList[Argument] {
 		if field == "[flags]" {
 			continue
 		}
-		name, optional := strings.CutPrefix(field, "[")
+		// The ellipsis may be inside or outside the brackets: "[files...]" or "[files]...".
+		name, isArray := strings.CutSuffix(field, "...")
+		name, optional := strings.CutPrefix(name, "[")
 		name = strings.TrimSuffix(name, "]")
-		name, isArray := strings.CutSuffix(name, "...")
+		name, inner := strings.CutSuffix(name, "...")
+		isArray = isArray || inner
 		name = strings.Trim(name, "<>")
 		args = append(args, Argument{
 			Name:        name,
