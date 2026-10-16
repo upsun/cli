@@ -526,8 +526,229 @@ applications:
       egress:
         build: {allowed_domains: [{host: repo.packagist.org}]}
 `,
-			wantErrors: `linter warnings:
-  - applications.app.web.egress.build: build-phase egress has no effect on web: set it on the application`,
+			wantErrors: `linter errors:
+  - applications.app.web.egress: Additional property build is not allowed`,
+		},
+		{
+			name: "invalid container profile override",
+			content: `
+applications:
+  app:
+    type: php:8.4
+    web:
+      container_profile: 5
+`,
+			wantErrors: `linter errors:
+  - applications.app.web.container_profile: Invalid type. Expected: [string,null], given: integer`,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			result, err := CheckContent(c.content)
+			require.NoError(t, err)
+			if c.wantErrors == "" {
+				assert.False(t, result.HasErrors(), "unexpected errors: %s", result)
+				assert.False(t, result.HasWarnings(), "unexpected warnings: %s", result)
+				return
+			}
+			assert.Equal(t, c.wantErrors, result.Error())
+		})
+	}
+}
+
+// Configs that the platform accepts with the Upsun settings.
+func TestLint_PlatformLenience(t *testing.T) {
+	cases := []struct {
+		name       string
+		content    string
+		wantErrors string
+	}{
+		{
+			name: "null optional fields",
+			content: `
+applications:
+  app:
+    type: php:8.4
+    timezone: null
+    hooks: {build: null, deploy: null, post_deploy: null}
+    runtime: {extensions: null, sizing_hints: {request_memory: null}, xdebug: null}
+    source: {root: null}
+    mounts:
+      files: {source: storage, service: null}
+    web:
+      size: null
+      mounts: null
+      relationships: null
+      operations: null
+      commands: {start: null}
+      upstream: {protocol: null}
+      locations:
+        /:
+          root: null
+          passthru: null
+          index: null
+          request_buffering: {max_request_size: null}
+          rules:
+            '\.css$': {expires: null, allow: null}
+    workers:
+      queue:
+        size: null
+        egress: null
+        commands: {start: php worker.php, pre_start: null}
+    crons:
+      report:
+        spec: "0 * * * *"
+        shutdown_timeout: null
+        commands: {start: php report.php, stop: null}
+    operations:
+      op:
+        timeout: null
+        commands: {start: echo, stop: null}
+    egress:
+      runtime:
+        allowed_domains:
+          - host: api.example.com
+            port: null
+routes:
+  "https://{default}/":
+    type: upstream
+    upstream: app:http
+    id: null
+    primary: null
+    tls:
+      strict_transport_security: {enabled: null, preload: null}
+tasks:
+  agent:
+    type: python:3.14
+    timezone: null
+    egress: null
+    run: {command: ./run}
+`,
+		},
+		{
+			name: "null where the platform rejects it",
+			content: `
+applications:
+  app:
+    type: php:8.4
+    mounts: null
+    web:
+      locations:
+        /: {allow: null}
+`,
+			wantErrors: `linter errors:
+  - applications.app.mounts: Invalid type. Expected: object, given: null
+  - applications.app.web.locations./.allow: Invalid type. Expected: boolean, given: null`,
+		},
+		{
+			name: "keys starting with a dot",
+			content: `
+.defaults: &defaults
+  type: php:8.4
+applications:
+  .base: &base
+    type: php:8.4
+    web:
+      locations:
+        /: {root: public}
+  app:
+    <<: *base
+    .note: x
+    relationships: {db: "db:mysql"}
+    web:
+      .note: x
+      commands: {.note: x, start: php -S 0:8080}
+      locations:
+        /:
+          .note: x
+          root: public
+          request_buffering: {.note: x}
+          rules:
+            '\.css$': {.note: x, allow: true}
+    mounts:
+      files: {.note: x, source: storage}
+    crons:
+      report:
+        .note: x
+        spec: "0 * * * *"
+        commands: {.note: x, start: php report.php}
+    workers:
+      queue:
+        .note: {anchor: true}
+        commands: {start: php worker.php}
+    egress:
+      .note: x
+      runtime:
+        .note: x
+        allowed_domains: [{host: api.example.com, .note: x}]
+services:
+  .note: x
+  db:
+    .note: x
+    type: mariadb:11.4
+routes:
+  .note: x
+  "https://{default}/":
+    .note: x
+    type: upstream
+    upstream: app:http
+    cache: {.note: x, enabled: false}
+`,
+		},
+		{
+			name: "keys starting with a dot where the platform reads them",
+			content: `
+applications:
+  app:
+    type: php:8.4
+    crons:
+      .note: x
+tasks:
+  .note: x
+`,
+			wantErrors: `linter errors:
+  - applications.app.crons..note: Invalid type. Expected: object, given: string
+  - tasks..note: Invalid type. Expected: object, given: string`,
+		},
+		{
+			name: "integer max_request_size and dynamic_compression",
+			content: `
+applications:
+  app:
+    type: php:8.4
+    web:
+      locations:
+        /:
+          root: public
+          dynamic_compression: true
+          request_buffering: {enabled: true, max_request_size: 5242880}
+          rules:
+            '\.css$': {dynamic_compression: false}
+`,
+		},
+		{
+			name: "no applications",
+			content: `
+routes:
+  "https://{default}/":
+    type: redirect
+    to: https://example.com/
+`,
+		},
+		{
+			name: "custom container profile",
+			content: `
+applications:
+  app:
+    type: php:8.4
+    container_profile: CUSTOM
+    relationships: {db: "db:mysql"}
+services:
+  db:
+    type: mariadb:11.4
+    container_profile: CUSTOM
+`,
 		},
 	}
 

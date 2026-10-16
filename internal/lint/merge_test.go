@@ -109,6 +109,22 @@ func TestMergeConfigFiles_DuplicateKey(t *testing.T) {
 	require.Contains(t, err.Error(), "b.yml:2: duplicate key 'foo' in section 'applications' (already defined in a.yaml)")
 }
 
+func TestMergeConfigFiles_DotPrefixedNames(t *testing.T) {
+	fsys := fstest.MapFS{
+		"a.yaml": &fstest.MapFile{Data: []byte(`applications:
+  .base: &base {type: go}
+  foo: *base`)},
+		"b.yml": &fstest.MapFile{Data: []byte(`applications:
+  .base: {type: node}
+routes:
+  .note: x`)},
+	}
+	merged, sources, err := mergeConfigFiles(fsys, []string{"a.yaml", "b.yml"})
+	require.NoError(t, err)
+	assert.Equal(t, "applications:\n    foo:\n        type: go\n", merged)
+	assert.Len(t, sources, 1)
+}
+
 func TestGetMergedConfigFiles_Success(t *testing.T) {
 	fsys := fstest.MapFS{
 		".upsun/a.yaml": &fstest.MapFile{Data: []byte(`applications:

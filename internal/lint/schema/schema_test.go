@@ -64,3 +64,32 @@ func TestSchemaDefaults(t *testing.T) {
 	}
 	walk(root, "")
 }
+
+// TestSchemaKeywords checks that no keyword is beside a $ref, and that mappings
+// with fixed keys allow keys starting with ".", which the platform ignores (e.g.
+// YAML anchors), except in the stack, which the platform checks itself.
+func TestSchemaKeywords(t *testing.T) {
+	var root map[string]any
+	require.NoError(t, json.Unmarshal(configSchema, &root))
+
+	var walk func(node any, path string)
+	walk = func(node any, path string) {
+		switch n := node.(type) {
+		case map[string]any:
+			if _, ok := n["$ref"]; ok {
+				assert.Len(t, n, 1, "%s: draft-07 ignores keywords beside $ref", path)
+			}
+			if n["additionalProperties"] == false && path != ".definitions.stack" {
+				assert.Equal(t, map[string]any{"^\\.": map[string]any{}}, n["patternProperties"], path)
+			}
+			for k, v := range n {
+				walk(v, path+"."+k)
+			}
+		case []any:
+			for i, v := range n {
+				walk(v, fmt.Sprintf("%s.%d", path, i))
+			}
+		}
+	}
+	walk(root, "")
+}

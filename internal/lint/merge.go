@@ -74,6 +74,9 @@ func mergeConfigFiles(fsys fs.FS, files []string) (merged string, sources source
 			for _, entry := range mappingEntries(section) {
 				nameNode, valueNode := entry.key, entry.value
 				name := nameNode.Value
+				if strings.HasPrefix(name, ".") && key != keyTasks {
+					continue
+				}
 				if prev, exists := sources[key+"."+name]; exists {
 					return "", nil, &sourceError{file: file, line: nameNode.Line, msg: fmt.Sprintf(
 						"duplicate key '%s' in section '%s' (already defined in %s)", name, key, prev.file)}
