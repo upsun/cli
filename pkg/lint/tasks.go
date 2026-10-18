@@ -14,9 +14,9 @@ var authorizationActions = map[string]string{
 	"env":  "view",
 }
 
-// CheckTasks checks task definitions and the authorizations of applications,
+// checkTasks checks task definitions and the authorizations of applications,
 // their web and worker containers, and tasks.
-func CheckTasks(cfg *Config) *Result {
+func checkTasks(cfg *config) *Result {
 	result := &Result{}
 
 	for name := range cfg.Tasks {
@@ -49,7 +49,7 @@ func CheckTasks(cfg *Config) *Result {
 		}
 	}
 
-	checkAuthorizations := func(path string, authorizations []Authorization) {
+	checkAuthorizations := func(path string, authorizations []authorization) {
 		for i, a := range authorizations {
 			itemPath := path + ".authorizations." + strconv.Itoa(i)
 			if want, ok := authorizationActions[a.Type]; ok && a.Action != want {
@@ -84,7 +84,7 @@ func CheckTasks(cfg *Config) *Result {
 }
 
 // availableHint lists the defined task names for an error message.
-func availableHint(tasks map[string]Task) string {
+func availableHint(tasks map[string]task) string {
 	if len(tasks) == 0 {
 		return " (no tasks are defined)"
 	}

@@ -7,11 +7,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
+type config struct {
 	Applications map[string]struct {
 		Type  string    `yaml:"type"`
 		Stack any       `yaml:"stack,omitempty"`
-		Image *OCIImage `yaml:"image,omitempty"`
+		Image *ociImage `yaml:"image,omitempty"`
 
 		Hooks struct {
 			Build      string `yaml:"build,omitempty"`
@@ -19,24 +19,24 @@ type Config struct {
 			PostDeploy string `yaml:"post_deploy,omitempty"`
 		} `yaml:"hooks,omitempty"`
 
-		Authorizations []Authorization `yaml:"authorizations,omitempty"`
+		Authorizations []authorization `yaml:"authorizations,omitempty"`
 
 		Web struct {
-			Authorizations []Authorization `yaml:"authorizations,omitempty"`
+			Authorizations []authorization `yaml:"authorizations,omitempty"`
 
 			Commands struct {
 				Start     string `yaml:"start,omitempty"`
 				PostStart string `yaml:"post_start,omitempty"`
 			} `yaml:"commands,omitempty"`
 
-			Locations map[string]WebLocation `yaml:"locations,omitempty"`
+			Locations map[string]webLocation `yaml:"locations,omitempty"`
 
 			Relationships map[string]any   `yaml:"relationships,omitempty"`
-			Mounts        map[string]Mount `yaml:"mounts,omitempty"`
+			Mounts        map[string]mount `yaml:"mounts,omitempty"`
 		} `yaml:"web,omitempty"`
 
 		Relationships map[string]any   `yaml:"relationships,omitempty"`
-		Mounts        map[string]Mount `yaml:"mounts,omitempty"`
+		Mounts        map[string]mount `yaml:"mounts,omitempty"`
 
 		Crons map[string]struct {
 			Commands struct {
@@ -47,8 +47,8 @@ type Config struct {
 
 		Workers map[string]struct {
 			Type           string           `yaml:"type,omitempty"`
-			Authorizations []Authorization  `yaml:"authorizations,omitempty"`
-			Mounts         map[string]Mount `yaml:"mounts,omitempty"`
+			Authorizations []authorization  `yaml:"authorizations,omitempty"`
+			Mounts         map[string]mount `yaml:"mounts,omitempty"`
 			Relationships  map[string]any   `yaml:"relationships,omitempty"`
 
 			Commands struct {
@@ -71,21 +71,21 @@ type Config struct {
 		To       string `yaml:"to,omitempty"`
 	} `yaml:"routes,omitempty"`
 
-	Tasks map[string]Task `yaml:"tasks,omitempty"`
+	Tasks map[string]task `yaml:"tasks,omitempty"`
 }
 
-// WebLocation configures how requests under a web location are served.
-type WebLocation struct {
+// webLocation configures how requests under a web location are served.
+type webLocation struct {
 	Root  string         `yaml:"root,omitempty"`
 	Rules map[string]any `yaml:"rules,omitempty"`
 }
 
-// Task is an on-demand, run-to-completion workload (Flex only).
-type Task struct {
+// task is an on-demand, run-to-completion workload (Flex only).
+type task struct {
 	Type  string    `yaml:"type,omitempty"`
 	Base  string    `yaml:"base,omitempty"`
 	Stack any       `yaml:"stack,omitempty"`
-	Image *OCIImage `yaml:"image,omitempty"`
+	Image *ociImage `yaml:"image,omitempty"`
 
 	Run struct {
 		Command string `yaml:"command,omitempty"`
@@ -97,8 +97,8 @@ type Task struct {
 	} `yaml:"hooks,omitempty"`
 
 	Relationships  map[string]any   `yaml:"relationships,omitempty"`
-	Mounts         map[string]Mount `yaml:"mounts,omitempty"`
-	Authorizations []Authorization  `yaml:"authorizations,omitempty"`
+	Mounts         map[string]mount `yaml:"mounts,omitempty"`
+	Authorizations []authorization  `yaml:"authorizations,omitempty"`
 
 	// fields lists the keys set on the task, to check that "base" is used alone.
 	// As on the platform, this includes keys starting with ".".
@@ -106,8 +106,8 @@ type Task struct {
 }
 
 // UnmarshalYAML decodes a task and records which keys it sets.
-func (t *Task) UnmarshalYAML(node *yaml.Node) error {
-	type plain Task
+func (t *task) UnmarshalYAML(node *yaml.Node) error {
+	type plain task
 	if err := node.Decode((*plain)(t)); err != nil {
 		return err
 	}
@@ -117,31 +117,31 @@ func (t *Task) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-// OCIImage configures the image of a container with a docker: type.
-type OCIImage struct {
+// ociImage configures the image of a container with a docker: type.
+type ociImage struct {
 	Name      string `yaml:"name,omitempty"`
 	Buildfile string `yaml:"buildfile,omitempty"`
 }
 
-// Mount is a writable directory in a container.
-type Mount struct {
+// mount is a writable directory in a container.
+type mount struct {
 	Source  string `yaml:"source,omitempty"`
 	Service string `yaml:"service,omitempty"`
 }
 
-// Authorization grants a workload access to the Upsun API at runtime.
-type Authorization struct {
+// authorization grants a workload access to the Upsun API at runtime.
+type authorization struct {
 	Type     string `yaml:"type"`
 	Action   string `yaml:"action"`
 	Resource string `yaml:"resource,omitempty"`
 }
 
-func DecodeConfig(content string) (*Config, error) {
+func decodeConfig(content string) (*config, error) {
 	var doc yaml.Node
 	if err := yaml.Unmarshal([]byte(content), &doc); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
-	var c Config
+	var c config
 	if len(doc.Content) == 0 {
 		return &c, nil
 	}

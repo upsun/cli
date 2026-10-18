@@ -33,7 +33,7 @@ func validateLocationPath(path string) string {
 	return ""
 }
 
-func CheckWebConfig(cfg *Config) *Result {
+func checkWebConfig(cfg *config) *Result {
 	result := &Result{}
 
 	for appName := range cfg.Applications {

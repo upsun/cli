@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/upsun/cli/internal/schema"
 	"github.com/upsun/cli/pkg/registry"
-	"github.com/upsun/cli/pkg/schema"
 )
 
 var ErrEmptyContent = errors.New("empty content")
@@ -22,11 +22,11 @@ func CheckContent(content string) (*Result, error) {
 	}
 
 	// Check YAML validity and schema compliance.
-	if result := CheckYAMLSchema(content, yamlSchema); result.HasErrors() {
+	if result := checkYAMLSchema(content, yamlSchema); result.HasErrors() {
 		return result, nil
 	}
 
-	cfg, err := DecodeConfig(content)
+	cfg, err := decodeConfig(content)
 	if err != nil {
 		return nil, err
 	}
@@ -35,20 +35,20 @@ func CheckContent(content string) (*Result, error) {
 }
 
 // runChecks runs the semantic checks over a decoded config.
-func runChecks(cfg *Config) (*Result, error) {
+func runChecks(cfg *config) (*Result, error) {
 	reg, err := registry.Parsed()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load registry: %w", err)
 	}
 
-	return Combine(
-		CheckRelationships(cfg),
-		CheckNames(cfg),
-		CheckTypes(cfg, reg),
-		CheckScripts(cfg),
-		CheckWebConfig(cfg),
-		CheckDependencies(cfg),
-		CheckRoutes(cfg),
-		CheckTasks(cfg),
+	return combine(
+		checkRelationships(cfg),
+		checkNames(cfg),
+		checkTypes(cfg, reg),
+		checkScripts(cfg),
+		checkWebConfig(cfg),
+		checkDependencies(cfg),
+		checkRoutes(cfg),
+		checkTasks(cfg),
 	), nil
 }

@@ -3,7 +3,7 @@
 // Command gen fetches the Upsun configuration schema from meta.upsun.com and
 // writes it, indented, to upsun-config-schema.json.
 //
-// Run it with: go run gen.go (or `go generate ./pkg/schema`).
+// Run it with: go run gen.go (or `go generate ./internal/schema`).
 package main
 
 import (

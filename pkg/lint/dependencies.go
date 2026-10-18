@@ -2,8 +2,8 @@ package lint
 
 import "fmt"
 
-// CheckDependencies validates the application dependencies section.
-func CheckDependencies(cfg *Config) *Result {
+// checkDependencies validates the application dependencies section.
+func checkDependencies(cfg *config) *Result {
 	result := &Result{}
 
 	validTypes := map[string]bool{

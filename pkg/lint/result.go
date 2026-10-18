@@ -133,8 +133,8 @@ func (r *Result) Merge(other *Result) {
 	r.Warnings = append(r.Warnings, other.Warnings...)
 }
 
-// Combine combines a list of validation results.
-func Combine(results ...*Result) *Result {
+// combine combines a list of validation results.
+func combine(results ...*Result) *Result {
 	result := &Result{}
 	for _, r := range results {
 		if r != nil {

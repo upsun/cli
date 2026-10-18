@@ -244,15 +244,15 @@ check-registry: update-registry
 	git diff --exit-code -- pkg/registry/registry.json
 
 # The Flex config schema, used by lint, is from https://meta.upsun.com/schema/upsun (the upsun/meta repository).
-# Fixed config is checked with the same schema and an overlay, pkg/schema/fixed-overlay.json.
+# Fixed config is checked with the same schema and an overlay, internal/schema/fixed-overlay.json.
 .PHONY: update-schema
 update-schema: ## Refresh the embedded Flex config schema from meta.upsun.com
-	cd pkg/schema && go run gen.go
+	cd internal/schema && go run gen.go
 
 # Fail if the embedded Flex config schema is stale.
 .PHONY: check-schema
 check-schema: update-schema
-	git diff --exit-code -- pkg/schema/upsun-config-schema.json
+	git diff --exit-code -- internal/schema/upsun-config-schema.json
 
 # Installs dev dependencies, which a phar build removes. PHPStan's binary marks that they are installed.
 .PHONY: composer-dev

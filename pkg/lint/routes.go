@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// CheckRoutes validates that upstream routes link to existing applications or services.
-func CheckRoutes(cfg *Config) *Result {
+// checkRoutes validates that upstream routes link to existing applications or services.
+func checkRoutes(cfg *config) *Result {
 	result := &Result{}
 
 	// Check if at least 1 route is defined when multiple applications exist

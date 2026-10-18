@@ -7,7 +7,7 @@ import (
 	"mvdan.cc/sh/v3/syntax"
 )
 
-func CheckScripts(cfg *Config) *Result {
+func checkScripts(cfg *config) *Result {
 	result := &Result{}
 
 	var scripts = make(map[string]string)

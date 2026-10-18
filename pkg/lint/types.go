@@ -8,8 +8,8 @@ import (
 	"github.com/upsun/cli/pkg/registry"
 )
 
-// CheckTypes checks that application, worker, task and service types are supported images and versions.
-func CheckTypes(cfg *Config, reg registry.Registry) *Result {
+// checkTypes checks that application, worker, task and service types are supported images and versions.
+func checkTypes(cfg *config, reg registry.Registry) *Result {
 	result := &Result{}
 
 	// check reports an error, or a warning for a retired version, at path.
@@ -23,7 +23,7 @@ func CheckTypes(cfg *Config, reg registry.Registry) *Result {
 	}
 
 	// checkRuntime checks the type, stack and image of an application or task at path.
-	checkRuntime := func(path, t string, stack any, image *OCIImage) {
+	checkRuntime := func(path, t string, stack any, image *ociImage) {
 		// A docker: type is built from an OCI image rather than a registry image.
 		if strings.HasPrefix(t, "docker:") {
 			switch {

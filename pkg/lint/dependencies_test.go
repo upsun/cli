@@ -102,12 +102,12 @@ applications:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg, err := DecodeConfig(tt.yaml)
+			cfg, err := decodeConfig(tt.yaml)
 			if err != nil {
 				t.Fatalf("failed to decode YAML: %v", err)
 			}
 
-			result := CheckDependencies(cfg)
+			result := checkDependencies(cfg)
 
 			if len(tt.wantErrs) == 0 {
 				if result.HasErrors() {

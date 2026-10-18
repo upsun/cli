@@ -11,7 +11,7 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
 
-	"github.com/upsun/cli/pkg/schema"
+	"github.com/upsun/cli/internal/schema"
 )
 
 // Configuration section keys.
@@ -71,7 +71,7 @@ func lintFixed(dir string, cfg fixedNames) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	decoded, err := DecodeConfig(string(mergedYAML))
+	decoded, err := decodeConfig(string(mergedYAML))
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (l *fixedLoader) load(abs string) (file string, node *yaml.Node) {
 
 // check validates data against a schema, locating issues within node.
 func (l *fixedLoader) check(data any, sch *gojsonschema.Schema, key string, src source) {
-	checked := CheckSchemaAt(data, sch, key)
+	checked := checkSchemaAt(data, sch, key)
 	sourceIndex{key: src}.locate(checked)
 	l.result.Merge(checked)
 }
@@ -241,7 +241,7 @@ func (l *fixedLoader) loadSection(
 	for _, entry := range mappingEntries(node) {
 		l.sources[section+"."+entry.key.Value] = source{file: file, line: entry.key.Line, node: entry.value}
 	}
-	checked := CheckSchemaAt(data, sch, section)
+	checked := checkSchemaAt(data, sch, section)
 	l.sources.locate(checked)
 	l.result.Merge(checked)
 	return data, nil

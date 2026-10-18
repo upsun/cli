@@ -14,8 +14,8 @@ var (
 	isAlphanumeric          = regexp.MustCompile(`^[a-z0-9]+$`).MatchString
 )
 
-// CheckNames checks that application, service, worker and task names are correct.
-func CheckNames(cfg *Config) *Result {
+// checkNames checks that application, service, worker and task names are correct.
+func checkNames(cfg *config) *Result {
 	result := &Result{}
 
 	for name := range cfg.Applications {

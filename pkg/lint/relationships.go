@@ -5,10 +5,10 @@ import (
 	"strings"
 )
 
-// CheckRelationships checks that application, service and task names are unique,
+// checkRelationships checks that application, service and task names are unique,
 // and that application and task relationships correspond to existing services or
 // applications.
-func CheckRelationships(cfg *Config) *Result {
+func checkRelationships(cfg *config) *Result {
 	result := &Result{}
 
 	// Applications, services and tasks share a namespace.
@@ -82,7 +82,7 @@ func CheckRelationships(cfg *Config) *Result {
 	}
 
 	// A service can also be used through a mount (e.g. network storage).
-	linkMounts := func(mounts map[string]Mount) {
+	linkMounts := func(mounts map[string]mount) {
 		for _, m := range mounts {
 			if m.Source == "service" && m.Service != "" {
 				linkedServices[m.Service] = struct{}{}

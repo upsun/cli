@@ -8,20 +8,20 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// CheckYAMLSchema checks that YAML content matches a JSON schema.
-func CheckYAMLSchema(content string, schema *gojsonschema.Schema) *Result {
+// checkYAMLSchema checks that YAML content matches a JSON schema.
+func checkYAMLSchema(content string, schema *gojsonschema.Schema) *Result {
 	var data = make(map[string]any)
 	if err := yaml.Unmarshal([]byte(content), &data); err != nil {
 		result := &Result{}
 		result.AddError("", interpretYAMLError(err))
 		return result
 	}
-	return CheckSchemaAt(data, schema, "")
+	return checkSchemaAt(data, schema, "")
 }
 
-// CheckSchemaAt validates already-parsed data against a JSON schema, prefixing
+// checkSchemaAt validates already-parsed data against a JSON schema, prefixing
 // each issue's path with pathPrefix (e.g. "applications.app").
-func CheckSchemaAt(data any, schema *gojsonschema.Schema, pathPrefix string) *Result {
+func checkSchemaAt(data any, schema *gojsonschema.Schema, pathPrefix string) *Result {
 	result := &Result{}
 
 	schemaResult, err := schema.Validate(gojsonschema.NewGoLoader(data))
