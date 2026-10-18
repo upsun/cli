@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/upsun/cli/pkg/lint/registry"
+	"github.com/upsun/cli/pkg/registry"
 )
 
 // Basic test to ensure that the registry can be parsed.

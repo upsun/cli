@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/upsun/cli/pkg/lint/registry"
+	"github.com/upsun/cli/pkg/registry"
 )
 
 // CheckTypes checks that application, worker, task and service types are supported images and versions.

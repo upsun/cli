@@ -3,7 +3,7 @@
 // Command gen fetches the container image registry from meta.upsun.com and
 // writes registry.json in the format consumed by the registry package.
 //
-// Run it with: go run gen.go (or `go generate ./pkg/lint/registry`).
+// Run it with: go run gen.go (or `go generate ./pkg/registry`).
 package main
 
 import (
@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/upsun/cli/pkg/lint/registry"
+	"github.com/upsun/cli/pkg/registry"
 )
 
 const imagesURL = "https://meta.upsun.com/images"

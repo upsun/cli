@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/upsun/cli/pkg/lint"
-	"github.com/upsun/cli/pkg/lint/registry"
+	"github.com/upsun/cli/pkg/registry"
 )
 
 //go:embed testdata/registry.json

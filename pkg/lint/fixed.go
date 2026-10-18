@@ -11,7 +11,7 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
 
-	"github.com/upsun/cli/pkg/lint/schema"
+	"github.com/upsun/cli/pkg/schema"
 )
 
 // Configuration section keys.
