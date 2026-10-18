@@ -48,6 +48,19 @@ func newLintCommand(cnf *config.Config) *cobra.Command {
 	return cmd
 }
 
+// lintSupported reports whether the CLI uses the config names that lint looks
+// for (.upsun, or .platform with .platform.app.yaml).
+func lintSupported(cnf *config.Config) bool {
+	switch cnf.Service.ProjectConfigDir {
+	case ".upsun":
+		return true
+	case ".platform":
+		return cnf.Service.AppConfigFile == "" || cnf.Service.AppConfigFile == ".platform.app.yaml"
+	default:
+		return false
+	}
+}
+
 func runLint(cmd *cobra.Command, args []string) error {
 	result, format, err := lintInput(cmd, args)
 	if err != nil {

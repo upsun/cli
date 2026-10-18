@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/fatih/color"
+	"github.com/platformsh/platformify/vendorization"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -187,4 +188,29 @@ func TestFindProjectRoot(t *testing.T) {
 		gitInit(t, inner)
 		assert.Equal(t, inner, findProjectRoot(inner))
 	})
+}
+
+func TestLintCommand_Registration(t *testing.T) {
+	cases := []struct {
+		name      string
+		configDir string
+		appFile   string
+		want      bool
+	}{
+		{"upsun", ".upsun", "", true},
+		{"platform", ".platform", ".platform.app.yaml", true},
+		{"custom config dir", ".acme", "", false},
+		{"custom app file", ".platform", ".acme.app.yaml", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cnf := testConfig()
+			cnf.Service.ProjectConfigDir = c.configDir
+			cnf.Service.AppConfigFile = c.appFile
+			root := newRootCommand(cnf, &vendorization.VendorAssets{})
+			cmd, _, err := root.Find([]string{"lint"})
+			require.NoError(t, err)
+			assert.Equal(t, c.want, cmd != root)
+		})
+	}
 }
