@@ -104,3 +104,49 @@ func TestGenerateStrapiDatabaseScheme(t *testing.T) {
 		assert.Contains(t, string(files[".environment"]), `export DATABASE_SCHEME="$DB_SCHEME"`)
 	}
 }
+
+func TestExistingConfig(t *testing.T) {
+	cases := []struct {
+		name          string
+		flex          bool
+		files         map[string]string
+		wantOverwrite []string
+		wantConflicts []string
+	}{
+		{
+			name: "fixed app moved to a subdirectory",
+			files: map[string]string{
+				"app/composer.lock":           "{}",
+				".platform.app.yaml":          "name: app\n",
+				".platform/applications.yaml": "[]\n",
+			},
+			wantConflicts: []string{".platform.app.yaml", ".platform/applications.yaml"},
+		},
+		{
+			name:          "fixed app overwritten",
+			files:         map[string]string{"app/composer.lock": "{}", "app/.platform.app.yaml": "name: app\n"},
+			wantOverwrite: []string{"app/.platform.app.yaml"},
+		},
+		{
+			name:          "flex",
+			flex:          true,
+			files:         map[string]string{".upsun/config.yaml": "applications: {}\n", ".upsun/other.yml": "services: {}\n"},
+			wantOverwrite: []string{".upsun/config.yaml"},
+			wantConflicts: []string{".upsun/other.yml"},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			dir := writeTree(t, c.files)
+			in := testInputs()["generic"]
+			in.Assets = &assets{flex: c.flex}
+			in.ApplicationRoot = "/app"
+			files, err := generate(dir, in)
+			require.NoError(t, err)
+			w := &wizard{dir: dir, assets: in.Assets}
+			overwrite, conflicts := w.existingConfig(files)
+			assert.Equal(t, c.wantOverwrite, overwrite)
+			assert.Equal(t, c.wantConflicts, conflicts)
+		})
+	}
+}

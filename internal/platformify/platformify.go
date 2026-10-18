@@ -104,37 +104,77 @@ func writeFiles(dir string, files map[string][]byte) error {
 	return nil
 }
 
-// confirmOverwrite asks whether to continue, if files that would be generated exist.
+// confirmOverwrite asks whether to continue, if configuration files exist.
 func (w *wizard) confirmOverwrite() error {
 	files, err := generate(w.dir, w.templateInput())
 	if err != nil {
 		return err
 	}
-	var existing []string
-	for _, f := range slices.Sorted(maps.Keys(files)) {
-		current, err := os.ReadFile(filepath.Join(w.dir, filepath.FromSlash(f)))
-		// Files that are only appended to (Django's settings.py) are not overwritten.
-		if err == nil && !bytes.HasPrefix(files[f], current) {
-			existing = append(existing, f)
-		}
-	}
-	if len(existing) == 0 {
+	overwrite, conflicts := w.existingConfig(files)
+	if len(overwrite) == 0 && len(conflicts) == 0 {
 		return nil
 	}
 	fmt.Fprintln(w.stderr, colorize(warningCode, "You are reconfiguring the project at "+w.dir+"."))
-	fmt.Fprintln(w.stderr, colorize(warningCode,
-		fmt.Sprintf("The following %s files already exist in this directory:", w.assets.ServiceName)))
-	for _, f := range existing {
-		fmt.Fprintln(w.stderr, colorize(warningCode, "  - "+f))
+	if len(overwrite) > 0 {
+		fmt.Fprintln(w.stderr, colorize(warningCode, "These files exist, and will be overwritten:"))
+		for _, f := range overwrite {
+			fmt.Fprintln(w.stderr, colorize(warningCode, "  - "+f))
+		}
+	}
+	if len(conflicts) > 0 {
+		fmt.Fprintln(w.stderr, colorize(warningCode,
+			fmt.Sprintf("These %s configuration files exist, and will be kept (remove them if they conflict):",
+				w.assets.ServiceName)))
+		for _, f := range conflicts {
+			fmt.Fprintln(w.stderr, colorize(warningCode, "  - "+f))
+		}
 	}
 	proceed := false
-	if err := survey.AskOne(&survey.Confirm{Message: "Do you want to overwrite them?"}, &proceed); err != nil {
+	if err := survey.AskOne(&survey.Confirm{Message: "Do you want to continue?"}, &proceed); err != nil {
 		return err
 	}
 	if !proceed {
 		return errAborted
 	}
 	return nil
+}
+
+// existingConfig returns the generated files that exist and would be overwritten,
+// and other existing configuration files, which would be kept.
+func (w *wizard) existingConfig(files map[string][]byte) (overwrite, conflicts []string) {
+	for _, f := range slices.Sorted(maps.Keys(files)) {
+		current, err := os.ReadFile(filepath.Join(w.dir, filepath.FromSlash(f)))
+		// Files that are only appended to (Django's settings.py) are not overwritten.
+		if err == nil && !bytes.HasPrefix(files[f], current) {
+			overwrite = append(overwrite, f)
+		}
+	}
+
+	var candidates []string
+	if w.assets.flex {
+		for _, pattern := range []string{"*.yaml", "*.yml"} {
+			matches, _ := filepath.Glob(filepath.Join(w.dir, ".upsun", pattern))
+			candidates = append(candidates, matches...)
+		}
+	} else {
+		candidates = findAllFiles(w.dir, ".platform.app.yaml")
+		candidates = append(candidates, filepath.Join(w.dir, ".platform", "applications.yaml"))
+	}
+	for _, p := range candidates {
+		rel, err := filepath.Rel(w.dir, p)
+		if err != nil {
+			continue
+		}
+		rel = filepath.ToSlash(rel)
+		if _, generated := files[rel]; generated {
+			continue
+		}
+		if st, err := os.Stat(p); err == nil && !st.IsDir() {
+			conflicts = append(conflicts, rel)
+		}
+	}
+	slices.Sort(conflicts)
+	return overwrite, conflicts
 }
 
 // suggestSymfonyCLI offers to stop, to use the Symfony CLI instead.
