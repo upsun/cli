@@ -104,13 +104,35 @@ func lintInput(cmd *cobra.Command, args []string, vendor lint.Vendor) (*lint.Res
 		}
 		root = abs
 	} else {
-		root = lint.FindProjectRoot(".")
+		root = findProjectRoot(".")
 	}
 	if format == "text" {
 		fmt.Fprintln(cmd.ErrOrStderr(), "Validating configuration in directory: "+color.CyanString(root))
 	}
-	result, _, err := lint.CheckDir(root, vendor)
+	result, err := lint.CheckDir(root, vendor)
 	return result, format, err
+}
+
+// findProjectRoot resolves the project root for a path: the nearest ancestor
+// directory that contains a .git entry, or the path itself if none is found.
+// This lets the command be run from anywhere inside a repository. The nearest
+// (not topmost) .git is used so a stray repository higher up the tree (e.g. a
+// dotfiles repo in the home directory) cannot hijack the result.
+func findProjectRoot(path string) string {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return path
+	}
+	for dir := abs; ; {
+		if _, err := os.Lstat(filepath.Join(dir, ".git")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return abs
+		}
+		dir = parent
+	}
 }
 
 // capitalizeFirst upper-cases the first rune of s for user-facing display.

@@ -165,3 +165,26 @@ func TestPrintLintResult_ValidWithWarnings(t *testing.T) {
 ✓ The configuration is valid, with 1 warning.
 `, out.String())
 }
+
+func TestFindProjectRoot(t *testing.T) {
+	gitInit := func(t *testing.T, dir string) {
+		t.Helper()
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, ".git"), 0o755))
+	}
+
+	t.Run("ascends to the enclosing git root", func(t *testing.T) {
+		root := t.TempDir()
+		gitInit(t, root)
+		sub := filepath.Join(root, "services", "api")
+		require.NoError(t, os.MkdirAll(sub, 0o755))
+		assert.Equal(t, root, findProjectRoot(sub))
+	})
+
+	t.Run("nearest git root wins over an outer one", func(t *testing.T) {
+		outer := t.TempDir()
+		gitInit(t, outer)
+		inner := filepath.Join(outer, "vendor", "pkg")
+		gitInit(t, inner)
+		assert.Equal(t, inner, findProjectRoot(inner))
+	})
+}

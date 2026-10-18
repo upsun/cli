@@ -8,9 +8,12 @@ import (
 	"github.com/upsun/cli/pkg/registry"
 )
 
+// ErrEmptyContent is returned by CheckContent when the content is empty.
 var ErrEmptyContent = errors.New("empty content")
 
-// CheckContent checks merged Flex-style configuration content and returns a Result.
+// CheckContent lints Flex configuration given as a single YAML document, i.e.
+// the .upsun/*.yaml files merged. Configuration problems are reported in the
+// Result; the error is for content that cannot be checked at all.
 func CheckContent(content string) (*Result, error) {
 	if len(content) == 0 {
 		return nil, ErrEmptyContent
@@ -36,7 +39,7 @@ func CheckContent(content string) (*Result, error) {
 
 // runChecks runs the semantic checks over a decoded config.
 func runChecks(cfg *config) (*Result, error) {
-	reg, err := registry.Parsed()
+	reg, err := registry.Load()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load registry: %w", err)
 	}

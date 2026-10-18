@@ -10,7 +10,7 @@ import (
 
 // Basic test to ensure that the registry can be parsed.
 func TestRegistry(t *testing.T) {
-	reg, err := registry.Parsed()
+	reg, err := registry.Load()
 	assert.NoError(t, err)
 	assert.NotEmpty(t, reg)
 	assert.Contains(t, reg, "golang")
@@ -24,7 +24,7 @@ func TestRegistry(t *testing.T) {
 // The persistent variants are aliases added by clean(), tracking the versions
 // of the type they copy.
 func TestRegistry_PersistentAliases(t *testing.T) {
-	reg, err := registry.Parsed()
+	reg, err := registry.Load()
 	assert.NoError(t, err)
 
 	for _, c := range []struct{ base, alias string }{
@@ -42,7 +42,7 @@ func TestRegistry_PersistentAliases(t *testing.T) {
 // Replica images are listed upstream without versions of their own, so clean()
 // takes them from the base type. Without this they reject every version.
 func TestRegistry_ReplicaVersions(t *testing.T) {
-	reg, err := registry.Parsed()
+	reg, err := registry.Load()
 	assert.NoError(t, err)
 
 	for _, base := range []string{"mariadb", "postgresql"} {

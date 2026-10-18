@@ -9,15 +9,15 @@ import (
 	"strings"
 )
 
-// Style identifies which configuration style a project uses.
-type Style int
+// style identifies which configuration style a project uses.
+type style int
 
 const (
-	StyleUnknown Style = iota
-	// StyleFlex is the Upsun unified configuration (.upsun/*.yaml).
-	StyleFlex
-	// StyleFixed is the legacy Platform.sh configuration (.platform.app.yaml, .platform/*.yaml).
-	StyleFixed
+	styleUnknown style = iota
+	// styleFlex is the Upsun unified configuration (.upsun/*.yaml).
+	styleFlex
+	// styleFixed is the legacy Platform.sh configuration (.platform.app.yaml, .platform/*.yaml).
+	styleFixed
 )
 
 // First-party config conventions. The native format and directory of any CLI
@@ -72,10 +72,17 @@ func (v Vendor) candidates() (flexDirs []string, fixed []fixedNames) {
 	return flexDirs, fixed
 }
 
-// CheckDir detects the configuration style in dir and lints it, returning the
-// detected style. Detection uses the vendor's name conventions and the files
-// present: Flex wins when present, else Fixed, else the native format.
-func CheckDir(dir string, vendor Vendor) (*Result, Style, error) {
+// CheckDir detects the configuration style in dir and lints it. Detection uses
+// the vendor's name conventions and the files present: Flex wins when present,
+// else Fixed. Configuration problems are reported in the Result; the error is
+// for configuration that cannot be found, read or parsed.
+func CheckDir(dir string, vendor Vendor) (*Result, error) {
+	result, _, err := checkDir(dir, vendor)
+	return result, err
+}
+
+// checkDir is CheckDir, also returning the detected style.
+func checkDir(dir string, vendor Vendor) (*Result, style, error) {
 	flexDirs, fixedSet := vendor.candidates()
 	flexDir, flexOK := detectFlex(dir, flexDirs)
 	fixedCfg, fixedOK := detectFixed(dir, fixedSet)
@@ -84,7 +91,7 @@ func CheckDir(dir string, vendor Vendor) (*Result, Style, error) {
 	case flexOK:
 		root, err := os.OpenRoot(dir)
 		if err != nil {
-			return nil, StyleFlex, err
+			return nil, styleFlex, err
 		}
 		defer root.Close()
 		// The root keeps !include tags from following symbolic links out of the project.
@@ -95,10 +102,10 @@ func CheckDir(dir string, vendor Vendor) (*Result, Style, error) {
 		case errors.As(err, &srcErr):
 			result = &Result{Errors: []Issue{srcErr.issue()}}
 		case err != nil:
-			return nil, StyleFlex, err
+			return nil, styleFlex, err
 		default:
 			if result, err = CheckContent(content); err != nil {
-				return nil, StyleFlex, err
+				return nil, styleFlex, err
 			}
 			sources.locate(result)
 		}
@@ -108,16 +115,16 @@ func CheckDir(dir string, vendor Vendor) (*Result, Style, error) {
 				"both %s and %s configuration found; linting the %s (Flex) configuration",
 				flexDir, fixedCfg.dir, flexDir))
 		}
-		return result, StyleFlex, nil
+		return result, styleFlex, nil
 	case fixedOK:
 		result, err := lintFixed(dir, fixedCfg)
 		if err != nil {
-			return nil, StyleFixed, err
+			return nil, styleFixed, err
 		}
 		addStrayWarnings(result, dir, flexDirs, fixedSet)
-		return result, StyleFixed, nil
+		return result, styleFixed, nil
 	default:
-		return nil, StyleUnknown, fmt.Errorf(
+		return nil, styleUnknown, fmt.Errorf(
 			"no configuration found in %q (looked for %s)", dir, lookedFor(flexDirs, fixedSet))
 	}
 }
@@ -149,7 +156,7 @@ func detectFixed(root string, set []fixedNames) (fixedNames, bool) {
 	return fixedNames{}, false
 }
 
-// lookedFor builds the hint listing the locations CheckDir searched.
+// lookedFor builds the hint listing the locations checkDir searched.
 func lookedFor(flexDirs []string, fixed []fixedNames) string {
 	parts := make([]string, 0, len(flexDirs)+2*len(fixed))
 	for _, d := range flexDirs {
@@ -159,28 +166,6 @@ func lookedFor(flexDirs []string, fixed []fixedNames) string {
 		parts = append(parts, f.app, f.dir+"/")
 	}
 	return strings.Join(parts, ", ")
-}
-
-// FindProjectRoot resolves the project root for a path: the nearest ancestor
-// directory that contains a .git entry, or the path itself if none is found.
-// This lets the command be run from anywhere inside a repository. The nearest
-// (not topmost) .git is used so a stray repository higher up the tree (e.g. a
-// dotfiles repo in the home directory) cannot hijack the result.
-func FindProjectRoot(path string) string {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return path
-	}
-	for dir := abs; ; {
-		if _, err := os.Lstat(filepath.Join(dir, ".git")); err == nil {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return abs
-		}
-		dir = parent
-	}
 }
 
 // addStrayWarnings warns about nested copies of any config directory the vendor

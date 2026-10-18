@@ -35,7 +35,7 @@ applications:
   foo:
     relationships:
       database:`,
-			expectErrorMessage: "linter errors:\n  - applications.foo.relationships.database: relationship 'database' in application 'foo' " + //nolint:lll
+			expectErrorMessage: "Linter errors:\n  - applications.foo.relationships.database: relationship 'database' in application 'foo' " + //nolint:lll
 				"does not match any service (or app) (did you forget to define services?)",
 		},
 		{
@@ -46,7 +46,7 @@ applications:
     relationships:
       database:
         service: mydb`,
-			expectErrorMessage: "linter errors:\n  - applications.foo.relationships.database: relationship 'database' in application 'foo' " + //nolint:lll
+			expectErrorMessage: "Linter errors:\n  - applications.foo.relationships.database: relationship 'database' in application 'foo' " + //nolint:lll
 				"points to a service (or app) named 'mydb' which is not found (did you forget to define services?)",
 		},
 		{
@@ -57,9 +57,9 @@ applications:
   foo: {}
 services:
   foo: {}`,
-			expectErrorMessage: "linter errors:" +
+			expectErrorMessage: "Linter errors:" +
 				"\n  - services.foo: duplicate name found: 'foo' in 'services' (previous in 'applications')" +
-				"\nlinter warnings:" +
+				"\nLinter warnings:" +
 				"\n  - services.foo: no application or task has a relationship to service 'foo'",
 		},
 		{
@@ -98,7 +98,7 @@ services:
     type: mariadb:11.4
   kv:
     type: valkey:8.0`,
-			expectErrorMessage: "linter errors:\n  - applications.bar.relationships.postgres: relationship 'postgres' in application 'bar' " + //nolint:lll
+			expectErrorMessage: "Linter errors:\n  - applications.bar.relationships.postgres: relationship 'postgres' in application 'bar' " + //nolint:lll
 				"does not match any service (or app)",
 		},
 		{
@@ -212,7 +212,7 @@ services:
     type: mariadb:11.4
   files:
     type: network-storage:2.0`,
-			expectErrorMessage: `linter errors:
+			expectErrorMessage: `Linter errors:
   - applications.app.workers.queue.relationships.missing: relationship 'missing' in application 'app' does not match any service (or app)`, //nolint:lll
 		},
 		{
@@ -226,7 +226,7 @@ tasks:
     type: python:3.14
     relationships:
       cache:`,
-			expectErrorMessage: `linter errors:
+			expectErrorMessage: `Linter errors:
   - tasks.agent.relationships.cache: relationship 'cache' in task 'agent' does not match any service (or app) (did you forget to define services?)`, //nolint:lll
 		},
 		{
@@ -244,7 +244,7 @@ tasks:
     type: python:3.14
     relationships:
       agent:`,
-			expectErrorMessage: `linter errors:
+			expectErrorMessage: `Linter errors:
   - applications.app.relationships.agent: relationship 'agent' in application 'app' points to task 'agent', but a task cannot be a relationship target
   - tasks.other.relationships.agent: relationship 'agent' in task 'other' points to task 'agent', but a task cannot be a relationship target`, //nolint:lll
 		},
@@ -264,7 +264,7 @@ tasks:
     type: python:3.14
   db:
     type: python:3.14`,
-			expectErrorMessage: `linter errors:
+			expectErrorMessage: `Linter errors:
   - tasks.app: duplicate name found: 'app' in 'tasks' (previous in 'applications')
   - tasks.db: duplicate name found: 'db' in 'tasks' (previous in 'services')`,
 		},
@@ -280,7 +280,7 @@ tasks:
 			result := lint.CheckRelationships(cfg)
 			if c.expectErrorMessage != "" {
 				assert.True(t, result.HasErrors() || result.HasWarnings())
-				assert.Equal(t, c.expectErrorMessage, result.Error())
+				assert.Equal(t, c.expectErrorMessage, result.String())
 			} else {
 				assert.False(t, result.HasErrors())
 			}

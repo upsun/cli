@@ -29,7 +29,7 @@ applications:
 services: {}
 `,
 			wantErr: true,
-			wantErrMsg: `linter errors:
+			wantErrMsg: `Linter errors:
   - applications.Foo_.relationships.missing_service: relationship 'missing_service' in application 'Foo_' does not match any service (or app) (did you forget to define services?)
   - applications.Foo_.type: type not found: 'invalid'; it must be one of: composable, dotnet, elixir, frankenphp, golang, java, nodejs, php, python, ruby, rust (check the Registry for supported types, or make an application using a composable image)
   - applications.Foo_: "Foo_" is not a valid application name, it can only contain lowercase alphanumeric characters, dashes, or underscores.`, //nolint:lll
@@ -65,7 +65,7 @@ services:
   database: {}
 `,
 			wantErr:    true,
-			wantErrMsg: "linter errors:\n  - services.database: type is required",
+			wantErrMsg: "Linter errors:\n  - services.database: type is required",
 		},
 		{
 			name: "invalid worker name",
@@ -87,7 +87,7 @@ services:
     type: mariadb:11.4
 `,
 			wantErr: true,
-			wantErrMsg: `linter errors:
+			wantErrMsg: `Linter errors:
   - applications.foo.workers._badworker: "_badworker" is not a valid worker name, it should start and end with alphanumeric characters.`,
 		},
 	}
@@ -99,9 +99,9 @@ services:
 
 			if tc.wantErr {
 				assert.True(t, result.HasErrors(), "expected errors but got none")
-				assert.Equal(t, tc.wantErrMsg, result.Error())
+				assert.Equal(t, tc.wantErrMsg, result.String())
 			} else {
-				assert.False(t, result.HasErrors(), "expected no errors but got: %s", result.Error())
+				assert.False(t, result.HasErrors(), "expected no errors but got: %s", result.String())
 			}
 		})
 	}
@@ -208,7 +208,7 @@ tasks:
       commands:
         start: python agent.py
 `,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - applications.myapp.authorizations.0.type: must be one of the following: "env", "task"
   - applications.myapp.authorizations.0: Additional property scope is not allowed
   - tasks.myagent.run.timeout: Must be less than or equal to 86400
@@ -222,7 +222,7 @@ applications:
     type: php:8.4
 workers: {}
 `,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - Additional property workers is not allowed`,
 		},
 	}
@@ -236,7 +236,7 @@ workers: {}
 				assert.False(t, result.HasWarnings(), "unexpected warnings: %s", result)
 				return
 			}
-			assert.Equal(t, c.wantErrors, result.Error())
+			assert.Equal(t, c.wantErrors, result.String())
 		})
 	}
 }
@@ -393,7 +393,7 @@ applications:
         commands:
           start: php report.php
 `,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - applications.app.crons.report.timeout: Must be less than or equal to 86400
   - applications.app.egress.runtime.allowed_domains.0: host is required`,
 		},
@@ -405,7 +405,7 @@ applications:
     type: composable:25.11
     stack: ["php@8.4"]
 `,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - applications.app.stack: Array must have at most 0 items`,
 		},
 		{
@@ -422,7 +422,7 @@ services:
     type: postgresql:16
     disk: 1024
 `,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - applications.app: Additional property disk is not allowed
   - applications.app: Additional property firewall is not allowed
   - services.db: Additional property disk is not allowed`,
@@ -447,7 +447,7 @@ routes:
     type: upstream
     upstream: "classic:http"
 `,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - applications.both.image: either name or buildfile must be provided, not both
   - applications.classic.image: 'image' is only used with a docker: type
   - applications.none.image: either name or buildfile must be provided, both are missing`,
@@ -526,7 +526,7 @@ services:
     firewall:
       outbound: [{ips: ["192.0.2.0/24"]}]
 `,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - applications.app.web.additional_hosts.api.example.com: Invalid type. Expected: string, given: integer
   - applications.app.web.operations.warm: commands is required
   - applications.app.web: Additional property firewall is not allowed
@@ -545,7 +545,7 @@ applications:
       egress:
         build: {allowed_domains: [{host: repo.packagist.org}]}
 `,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - applications.app.web.egress: Additional property build is not allowed`,
 		},
 		{
@@ -557,7 +557,7 @@ applications:
     web:
       container_profile: 5
 `,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - applications.app.web.container_profile: Invalid type. Expected: [string,null], given: integer`,
 		},
 	}
@@ -571,7 +571,7 @@ applications:
 				assert.False(t, result.HasWarnings(), "unexpected warnings: %s", result)
 				return
 			}
-			assert.Equal(t, c.wantErrors, result.Error())
+			assert.Equal(t, c.wantErrors, result.String())
 		})
 	}
 }
@@ -656,7 +656,7 @@ applications:
       locations:
         /: {allow: null}
 `,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - applications.app.mounts: Invalid type. Expected: object, given: null
   - applications.app.web.locations./.allow: Invalid type. Expected: boolean, given: null`,
 		},
@@ -726,7 +726,7 @@ applications:
 tasks:
   .note: x
 `,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - applications.app.crons..note: Invalid type. Expected: object, given: string
   - tasks..note: Invalid type. Expected: object, given: string`,
 		},
@@ -780,7 +780,7 @@ services:
 				assert.False(t, result.HasWarnings(), "unexpected warnings: %s", result)
 				return
 			}
-			assert.Equal(t, c.wantErrors, result.Error())
+			assert.Equal(t, c.wantErrors, result.String())
 		})
 	}
 }

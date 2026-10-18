@@ -156,7 +156,7 @@ tasks:
 			if len(c.expectErrorValues) > 0 {
 				assert.True(t, result.HasErrors())
 				for _, v := range c.expectErrorValues {
-					assert.ErrorContains(t, result, v)
+					assert.Contains(t, result.String(), v)
 				}
 			} else {
 				assert.False(t, result.HasErrors())

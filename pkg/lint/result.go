@@ -12,11 +12,11 @@ type Result struct {
 	Warnings []Issue
 }
 
-// Issue represents a single linting problem with its location in the content.
+// Issue is a single linting problem and its location.
 type Issue struct {
 	File    string `json:"file,omitempty"` // The file, relative to the project root, if known.
 	Line    int    `json:"line,omitempty"` // The line in the file, if known.
-	Path    string `json:"path"`           // e.g., "applications.foo.type", "services.database"
+	Path    string `json:"path"`           // The config key, e.g. "applications.foo.type".
 	Message string `json:"message"`
 }
 
@@ -44,12 +44,12 @@ func (r *Result) AddWarning(path, message string) {
 	})
 }
 
-// HasErrors returns true if the validation result contains any errors.
+// HasErrors reports whether the result contains any errors.
 func (r *Result) HasErrors() bool {
 	return len(r.Errors) > 0
 }
 
-// HasWarnings returns true if the validation result contains any warnings.
+// HasWarnings reports whether the result contains any warnings.
 func (r *Result) HasWarnings() bool {
 	return len(r.Warnings) > 0
 }
@@ -92,36 +92,10 @@ func formatIssues(issues []Issue, prefix string) []string {
 	return append([]string{prefix}, lines...)
 }
 
-// formatResult formats all lint issues with appropriate capitalization.
-func (r *Result) formatResult(capitalize bool) string {
-	var messages []string
-
-	errorPrefix := "linter errors:"
-	warningPrefix := "linter warnings:"
-	if capitalize {
-		errorPrefix = "Linter errors:"
-		warningPrefix = "Linter warnings:"
-	}
-
-	if errorMessages := formatIssues(r.Errors, errorPrefix); errorMessages != nil {
-		messages = append(messages, errorMessages...)
-	}
-
-	if warningMessages := formatIssues(r.Warnings, warningPrefix); warningMessages != nil {
-		messages = append(messages, warningMessages...)
-	}
-
-	return strings.Join(messages, "\n")
-}
-
-// Error returns a formatted string representation of all validation issues.
-func (r *Result) Error() string {
-	return r.formatResult(false)
-}
-
-// String returns a formatted string representation of all validation issues.
+// String formats all issues: sorted errors, then sorted warnings, each under a heading.
 func (r *Result) String() string {
-	return r.formatResult(true)
+	messages := append(formatIssues(r.Errors, "Linter errors:"), formatIssues(r.Warnings, "Linter warnings:")...)
+	return strings.Join(messages, "\n")
 }
 
 // Merge appends another result's errors and warnings into this one.

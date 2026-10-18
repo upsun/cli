@@ -54,7 +54,7 @@ applications:
 services:
   database:
     type: mariadb:11.4`,
-			expectErrorMessage: "linter errors:\n  - applications.foo.type: version '5.3' is not supported for type 'php'; " + //nolint:lll
+			expectErrorMessage: "Linter errors:\n  - applications.foo.type: version '5.3' is not supported for type 'php'; " + //nolint:lll
 				"it must be exactly one of: 8.4, 8.3, 8.2, 8.1",
 		},
 		{
@@ -63,7 +63,7 @@ services:
 applications:
   foo:
     type: strapi:latest`,
-			expectErrorMessage: "linter errors:\n  - applications.foo.type: type not found: 'strapi'; it must be one of: " +
+			expectErrorMessage: "Linter errors:\n  - applications.foo.type: type not found: 'strapi'; it must be one of: " +
 				"composable, dotnet, elixir, golang, java, nodejs, php, python, ruby, rust " +
 				"(check the Registry for supported types, or make an application using a composable image)",
 		},
@@ -76,7 +76,7 @@ applications:
 services:
   myservice:
     type: nodejs:22`,
-			expectErrorMessage: "linter errors:\n  - services.myservice.type: type 'nodejs' is a runtime type, not a service type", //nolint:lll
+			expectErrorMessage: "Linter errors:\n  - services.myservice.type: type 'nodejs' is a runtime type, not a service type", //nolint:lll
 		},
 		{
 			name: "composable_without_stack",
@@ -84,7 +84,7 @@ services:
 applications:
   foo:
     type: composable:%s`, registry.ChannelStable),
-			expectErrorMessage: `linter warnings:
+			expectErrorMessage: `Linter warnings:
   - applications.foo: 'stack' should be specified when using a composable image`,
 		},
 		{
@@ -101,7 +101,7 @@ tasks:
     base: performance-agent
   bad:
     type: php:1.0`,
-			expectErrorMessage: `linter errors:
+			expectErrorMessage: `Linter errors:
   - tasks.bad.type: version '1.0' is not supported for type 'php'; it must be exactly one of: 8.4, 8.3, 8.2, 8.1`,
 		},
 		{
@@ -113,9 +113,9 @@ applications:
 tasks:
   bad:
     stack: {runtimes: ["php@8.4"]}`,
-			expectErrorMessage: `linter errors:
+			expectErrorMessage: `Linter errors:
   - tasks.bad.type: type cannot be empty
-linter warnings:
+Linter warnings:
   - tasks.bad.stack: 'stack' is only used with a composable image type`,
 		},
 		{
@@ -125,7 +125,7 @@ applications:
   foo:
     type: php:8.4
     stack: {runtimes: ["php@8.4"]}`,
-			expectErrorMessage: `linter warnings:
+			expectErrorMessage: `Linter warnings:
   - applications.foo.stack: 'stack' is only used with a composable image type`,
 		},
 	}
@@ -139,7 +139,7 @@ applications:
 			result := lint.CheckTypes(cfg, testRegistry)
 			if c.expectErrorMessage != "" {
 				assert.True(t, result.HasErrors() || result.HasWarnings())
-				assert.Equal(t, c.expectErrorMessage, result.Error())
+				assert.Equal(t, c.expectErrorMessage, result.String())
 			} else {
 				assert.False(t, result.HasErrors())
 			}
@@ -162,8 +162,8 @@ applications:
 
 	result := lint.CheckTypes(cfg, reg)
 	assert.False(t, result.HasErrors())
-	assert.Equal(t, `linter warnings:
-  - applications.foo.type: version '1.25' of type 'golang' is retired; use one of: 1.27, 1.26`, result.Error())
+	assert.Equal(t, `Linter warnings:
+  - applications.foo.type: version '1.25' of type 'golang' is retired; use one of: 1.27, 1.26`, result.String())
 }
 
 func TestCheckTypes_NoSupportedVersions(t *testing.T) {

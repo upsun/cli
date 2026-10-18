@@ -30,7 +30,7 @@ list:
 			name:     "valid YAML but not matching schema",
 			content:  `invalidKey: someValue`,
 			wantErr:  true,
-			errorMsg: "linter errors:",
+			errorMsg: "Linter errors:",
 		},
 		{
 			name: "invalid YAML malformed syntax",
@@ -46,7 +46,7 @@ list:
 		{
 			name:     "empty YAML content",
 			wantErr:  true,
-			errorMsg: "linter errors:",
+			errorMsg: "Linter errors:",
 		},
 		{
 			name: "YAML with invalid types against schema",
@@ -56,7 +56,7 @@ list:
   - item1
   - item2`,
 			wantErr:  true,
-			errorMsg: "linter errors:",
+			errorMsg: "Linter errors:",
 		},
 	}
 
@@ -68,7 +68,7 @@ list:
 			if c.wantErr {
 				assert.True(t, result.HasErrors())
 				if c.errorMsg != "" {
-					assert.Contains(t, result.Error(), c.errorMsg)
+					assert.Contains(t, result.String(), c.errorMsg)
 				}
 			} else {
 				assert.False(t, result.HasErrors())

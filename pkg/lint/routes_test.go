@@ -81,7 +81,7 @@ applications:
 routes:
   "https://{default}/":
     type: upstream`,
-			expectErrorMessage: "linter errors:\n  - routes[\"https://{default}/\"].upstream: upstream property is required for routes with type 'upstream'", //nolint:lll
+			expectErrorMessage: "Linter errors:\n  - routes[\"https://{default}/\"].upstream: upstream property is required for routes with type 'upstream'", //nolint:lll
 		},
 		{
 			name: "invalid_upstream_format",
@@ -93,7 +93,7 @@ routes:
   "https://{default}/":
     type: upstream
     upstream: myapp_without_protocol`,
-			expectErrorMessage: "linter errors:\n  - routes[\"https://{default}/\"].upstream: upstream 'myapp_without_protocol' must be in format 'name:protocol'", //nolint:lll
+			expectErrorMessage: "Linter errors:\n  - routes[\"https://{default}/\"].upstream: upstream 'myapp_without_protocol' must be in format 'name:protocol'", //nolint:lll
 		},
 		{
 			name: "nonexistent_upstream_target",
@@ -105,7 +105,7 @@ routes:
   "https://{default}/":
     type: upstream
     upstream: nonexistent:http`,
-			expectErrorMessage: "linter errors:\n  - routes[\"https://{default}/\"].upstream: upstream target 'nonexistent' does not exist, available targets: myapp", //nolint:lll
+			expectErrorMessage: "Linter errors:\n  - routes[\"https://{default}/\"].upstream: upstream target 'nonexistent' does not exist, available targets: myapp", //nolint:lll
 		},
 		{
 			name: "no_apps_or_services",
@@ -114,7 +114,7 @@ routes:
   "https://{default}/":
     type: upstream
     upstream: myapp:http`,
-			expectErrorMessage: "linter errors:\n  - routes[\"https://{default}/\"].upstream: upstream target 'myapp' does not exist (no applications or services defined)", //nolint:lll
+			expectErrorMessage: "Linter errors:\n  - routes[\"https://{default}/\"].upstream: upstream target 'myapp' does not exist (no applications or services defined)", //nolint:lll
 		},
 		{
 			name: "multiple_invalid_routes",
@@ -129,7 +129,7 @@ routes:
   "https://{default}/api":
     type: upstream
     upstream: nonexistent2:http`,
-			expectErrorMessage: "linter errors:\n  - routes[\"https://{default}/\"].upstream: upstream target 'nonexistent1' does not exist, available targets: myapp\n  - routes[\"https://{default}/api\"].upstream: upstream target 'nonexistent2' does not exist, available targets: myapp", //nolint:lll
+			expectErrorMessage: "Linter errors:\n  - routes[\"https://{default}/\"].upstream: upstream target 'nonexistent1' does not exist, available targets: myapp\n  - routes[\"https://{default}/api\"].upstream: upstream target 'nonexistent2' does not exist, available targets: myapp", //nolint:lll
 		},
 		{
 			name: "invalid_protocol_for_app",
@@ -141,7 +141,7 @@ routes:
   "https://{default}/":
     type: upstream
     upstream: myapp:fastcgi`,
-			expectErrorMessage: "linter errors:\n  - routes[\"https://{default}/\"].upstream: protocol 'fastcgi' is not valid for application 'myapp'; must be 'http'", //nolint:lll
+			expectErrorMessage: "Linter errors:\n  - routes[\"https://{default}/\"].upstream: protocol 'fastcgi' is not valid for application 'myapp'; must be 'http'", //nolint:lll
 		},
 		{
 			name: "any_protocol_valid_for_service",
@@ -165,7 +165,7 @@ routes:
   "https://{default}/":
     type: upstream
     upstream: myapp:custom_protocol`,
-			expectErrorMessage: "linter errors:\n  - routes[\"https://{default}/\"].upstream: protocol 'custom_protocol' is not valid for application 'myapp'; must be 'http'", //nolint:lll
+			expectErrorMessage: "Linter errors:\n  - routes[\"https://{default}/\"].upstream: protocol 'custom_protocol' is not valid for application 'myapp'; must be 'http'", //nolint:lll
 		},
 		{
 			name: "complex_route_urls",
@@ -198,7 +198,7 @@ applications:
     type: nodejs:22
   app2:
     type: php:8.4`,
-			expectErrorMessage: "linter errors:\n  - routes: at least 1 route must be defined when multiple applications are defined", //nolint:lll
+			expectErrorMessage: "Linter errors:\n  - routes: at least 1 route must be defined when multiple applications are defined", //nolint:lll
 		},
 		{
 			name: "multiple_apps_with_routes_valid",
@@ -224,7 +224,7 @@ routes:
 			result := lint.CheckRoutes(cfg)
 			if c.expectErrorMessage != "" {
 				assert.True(t, result.HasErrors() || result.HasWarnings())
-				assert.Equal(t, c.expectErrorMessage, result.Error())
+				assert.Equal(t, c.expectErrorMessage, result.String())
 			} else {
 				assert.False(t, result.HasErrors())
 				assert.False(t, result.HasWarnings())

@@ -42,7 +42,7 @@ applications:
           root: "public"
 `,
 			wantErr:  true,
-			errMatch: "linter errors:\n  - applications.app1.web.locations: location key \"api\" must start with a slash",
+			errMatch: "Linter errors:\n  - applications.app1.web.locations: location key \"api\" must start with a slash",
 		},
 		{
 			name: "location key with empty segment",
@@ -57,7 +57,7 @@ applications:
 `,
 			wantErr: true,
 			//nolint:lll
-			errMatch: "linter errors:\n  - applications.app1.web.locations: location key \"/api//v1\" cannot include empty parts, '.' or '..'",
+			errMatch: "Linter errors:\n  - applications.app1.web.locations: location key \"/api//v1\" cannot include empty parts, '.' or '..'",
 		},
 		{
 			name: "location key with dot segment",
@@ -72,7 +72,7 @@ applications:
 `,
 			wantErr: true,
 			//nolint:lll
-			errMatch: "linter errors:\n  - applications.app1.web.locations: location key \"/api/./v1\" cannot include empty parts, '.' or '..'",
+			errMatch: "Linter errors:\n  - applications.app1.web.locations: location key \"/api/./v1\" cannot include empty parts, '.' or '..'",
 		},
 		{
 			name: "location key with dotdot segment",
@@ -87,7 +87,7 @@ applications:
 `,
 			wantErr: true,
 			//nolint:lll
-			errMatch: "linter errors:\n  - applications.app1.web.locations: location key \"/api/../v1\" cannot include empty parts, '.' or '..'",
+			errMatch: "Linter errors:\n  - applications.app1.web.locations: location key \"/api/../v1\" cannot include empty parts, '.' or '..'",
 		},
 		{
 			name: "location key with regex pattern from issue AI-105",
@@ -104,7 +104,7 @@ applications:
 `,
 			wantErr: true,
 			//nolint:lll
-			errMatch: "linter errors:\n  - applications.testdemo.web.locations: location key \"^/(api|health)\" must start with a slash",
+			errMatch: "Linter errors:\n  - applications.testdemo.web.locations: location key \"^/(api|health)\" must start with a slash",
 		},
 		{
 			name: "location key with query string character",
@@ -119,7 +119,7 @@ applications:
 `,
 			wantErr: true,
 			//nolint:lll
-			errMatch: "linter errors:\n  - applications.app1.web.locations: location key \"/api?version=1\" contains invalid characters",
+			errMatch: "Linter errors:\n  - applications.app1.web.locations: location key \"/api?version=1\" contains invalid characters",
 		},
 		{
 			name: "location key with fragment character",
@@ -134,7 +134,7 @@ applications:
 `,
 			wantErr: true,
 			//nolint:lll
-			errMatch: "linter errors:\n  - applications.app1.web.locations: location key \"/page#section\" contains invalid characters",
+			errMatch: "Linter errors:\n  - applications.app1.web.locations: location key \"/page#section\" contains invalid characters",
 		},
 		{
 			name: "valid location keys",
@@ -182,7 +182,7 @@ applications:
           root: "/public"
 `,
 			wantErr:  true,
-			errMatch: "linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root cannot begin with a slash",
+			errMatch: "Linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root cannot begin with a slash",
 		},
 		{
 			name: "invalid root with leading slash and trailing slash",
@@ -196,7 +196,7 @@ applications:
           root: "/public/"
 `,
 			wantErr:  true,
-			errMatch: "linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root cannot begin with a slash",
+			errMatch: "Linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root cannot begin with a slash",
 		},
 		{
 			name: "empty root",
@@ -235,7 +235,7 @@ applications:
 `,
 			wantErr: true,
 			//nolint:lll
-			errMatch: "linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root cannot begin with a slash (use an empty string instead)",
+			errMatch: "Linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root cannot begin with a slash (use an empty string instead)",
 		},
 		{
 			name: "invalid root with leading slash and empty part",
@@ -249,7 +249,7 @@ applications:
           root: "/foo//bar"
 `,
 			wantErr:  true,
-			errMatch: "linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root cannot begin with a slash",
+			errMatch: "Linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root cannot begin with a slash",
 		},
 		{
 			name: "invalid root with empty part (no leading slash)",
@@ -264,7 +264,7 @@ applications:
 `,
 			wantErr: true,
 			//nolint:lll
-			errMatch: "linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root path cannot include empty parts, '.' or '..'",
+			errMatch: "Linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root path cannot include empty parts, '.' or '..'",
 		},
 		{
 			name: "invalid root with leading slash and dot",
@@ -278,7 +278,7 @@ applications:
           root: "/foo/./bar"
 `,
 			wantErr:  true,
-			errMatch: "linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root cannot begin with a slash",
+			errMatch: "Linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root cannot begin with a slash",
 		},
 		{
 			name: "invalid root with dot (no leading slash)",
@@ -293,7 +293,7 @@ applications:
 `,
 			wantErr: true,
 			//nolint:lll
-			errMatch: "linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root path cannot include empty parts, '.' or '..'",
+			errMatch: "Linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root path cannot include empty parts, '.' or '..'",
 		},
 		{
 			name: "invalid root with leading slash and dotdot",
@@ -307,7 +307,7 @@ applications:
           root: "/foo/../bar"
 `,
 			wantErr:  true,
-			errMatch: "linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root cannot begin with a slash",
+			errMatch: "Linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root cannot begin with a slash",
 		},
 		{
 			name: "invalid root with dotdot (no leading slash)",
@@ -322,7 +322,7 @@ applications:
 `,
 			wantErr: true,
 			//nolint:lll
-			errMatch: "linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root path cannot include empty parts, '.' or '..'",
+			errMatch: "Linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root path cannot include empty parts, '.' or '..'",
 		},
 		{
 			name: "multiple failing locations with leading slashes",
@@ -339,7 +339,7 @@ applications:
 `,
 			wantErr: true,
 			//nolint:lll
-			errMatch: "linter errors:\n  - applications.app1.web.locations[\"/bar\"].root: the root cannot begin with a slash\n" +
+			errMatch: "Linter errors:\n  - applications.app1.web.locations[\"/bar\"].root: the root cannot begin with a slash\n" +
 				"  - applications.app1.web.locations[\"/foo\"].root: the root cannot begin with a slash",
 		},
 		{
@@ -361,7 +361,7 @@ applications:
 `,
 			wantErr: true,
 			//nolint:lll
-			errMatch: "linter errors:\n  - applications.app1.web.locations[\"/foo\"].root: the root cannot begin with a slash\n" +
+			errMatch: "Linter errors:\n  - applications.app1.web.locations[\"/foo\"].root: the root cannot begin with a slash\n" +
 				"  - applications.app2.web.locations[\"/bar\"].root: the root cannot begin with a slash",
 		},
 		{
@@ -398,7 +398,7 @@ applications:
               allow: false
 `,
 			wantErr: true,
-			errMatch: "linter errors:\n  - applications.app1.web.locations[\"/\"].rules: " +
+			errMatch: "Linter errors:\n  - applications.app1.web.locations[\"/\"].rules: " +
 				"invalid regular expression: error parsing regexp: missing closing ) in `^/api/(unclosed`",
 		},
 		{
@@ -416,7 +416,7 @@ applications:
               allow: false
 `,
 			wantErr: true,
-			errMatch: "linter errors:\n  - applications.app1.web.locations[\"/\"].rules: " +
+			errMatch: "Linter errors:\n  - applications.app1.web.locations[\"/\"].rules: " +
 				"invalid regular expression: error parsing regexp: insufficient hexadecimal digits in `\\x`",
 		},
 		{
@@ -434,7 +434,7 @@ applications:
               allow: false
 `,
 			wantErr:  true,
-			errMatch: "linter errors:\n  - applications.app1.web.locations[\"/\"].rules: rule pattern cannot be empty",
+			errMatch: "Linter errors:\n  - applications.app1.web.locations[\"/\"].rules: rule pattern cannot be empty",
 		},
 		{
 			name: "multiple invalid regex rules",
@@ -453,7 +453,7 @@ applications:
               cache: true
 `,
 			wantErr: true,
-			errMatch: "linter errors:\n  - applications.app1.web.locations[\"/\"].rules: " +
+			errMatch: "Linter errors:\n  - applications.app1.web.locations[\"/\"].rules: " +
 				"invalid regular expression: error parsing regexp: missing closing ) in `^/api/(unclosed`\n" +
 				"  - applications.app1.web.locations[\"/\"].rules: " +
 				"invalid regular expression: error parsing regexp: unterminated [] set in `[invalid`",
@@ -473,7 +473,7 @@ applications:
               allow: false
 `,
 			wantErr:  true,
-			errMatch: "linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root cannot begin with a slash",
+			errMatch: "Linter errors:\n  - applications.app1.web.locations[\"/\"].root: the root cannot begin with a slash",
 		},
 	}
 
@@ -484,7 +484,7 @@ applications:
 			result := lint.CheckWebConfig(cfg)
 			if c.wantErr {
 				require.True(t, result.HasErrors())
-				assert.Equal(t, c.errMatch, result.Error())
+				assert.Equal(t, c.errMatch, result.String())
 			} else {
 				assert.False(t, result.HasErrors())
 			}

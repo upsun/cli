@@ -59,7 +59,7 @@ tasks:
     base: performance-agent
     run:
       command: ./run`,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - tasks.perf.base: when 'base' is set, no other property is allowed`,
 		},
 		{
@@ -71,7 +71,7 @@ applications:
 tasks:
   myagent:
     type: python:3.14`,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - tasks.myagent.run.command: a run command is required`,
 		},
 		{
@@ -92,7 +92,7 @@ tasks:
       - type: task
         resource: myagent
         action: view`,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - applications.myapp.authorizations.0.action: authorization type 'env' only allows the action 'view'
   - tasks.myagent.authorizations.0.action: authorization type 'task' only allows the action 'operate'`,
 		},
@@ -105,7 +105,7 @@ applications:
     authorizations:
       - type: task
         action: operate`,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - applications.myapp.authorizations.0.resource: a task authorization requires a resource (the task name)`,
 		},
 		{
@@ -142,7 +142,7 @@ tasks:
     type: python:3.14
     run:
       command: ./b`,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - applications.myapp.authorizations.0.resource: task 'missing' is not found (defined tasks: a, b)
   - applications.myapp.web.authorizations.0.resource: task 'missing' is not found (defined tasks: a, b)
   - applications.myapp.workers.queue.authorizations.1.resource: task 'missing' is not found (defined tasks: a, b)`,
@@ -157,7 +157,7 @@ applications:
       - type: task
         resource: myagent
         action: operate`,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - applications.myapp.authorizations.0.resource: task 'myagent' is not found (no tasks are defined)`,
 		},
 		{
@@ -191,7 +191,7 @@ tasks:
       wrong_service:
         source: service
         service: other`,
-			wantErrors: `linter errors:
+			wantErrors: `Linter errors:
   - tasks.myagent.mounts.own: a task has no storage of its own, so a 'storage' mount must name an application in 'service'
   - tasks.myagent.mounts.wrong_app.service: application 'other' is not found
   - tasks.myagent.mounts.wrong_service.service: service 'other' is not found`,
@@ -207,7 +207,7 @@ tasks:
 				assert.False(t, result.HasErrors(), "unexpected errors: %s", result)
 				return
 			}
-			assert.Equal(t, c.wantErrors, result.Error())
+			assert.Equal(t, c.wantErrors, result.String())
 		})
 	}
 }

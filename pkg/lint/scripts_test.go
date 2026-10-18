@@ -43,7 +43,7 @@ applications:
       commands:
         start: "node server.js"
 `,
-			expectErrorMessage: "linter errors:\n  - applications.app1.hooks.build: invalid syntax: 1:6: " +
+			expectErrorMessage: "Linter errors:\n  - applications.app1.hooks.build: invalid syntax: 1:6: " +
 				"reached EOF without closing quote `'`",
 		},
 		{
@@ -56,7 +56,7 @@ applications:
       build: "echo 'Building app1'"
       deploy: "if (true; then echo 'deployed'; fi"
 `,
-			expectErrorMessage: "linter errors:\n  - applications.app1.hooks.deploy: invalid syntax: 1:11: " +
+			expectErrorMessage: "Linter errors:\n  - applications.app1.hooks.deploy: invalid syntax: 1:11: " +
 				"`then` can only be used in an `if`",
 		},
 		{
@@ -71,7 +71,7 @@ applications:
         commands:
           start: "echo 'Missing quote"
 `,
-			expectErrorMessage: "linter errors:\n  - applications.app1.crons.backup.commands.start: invalid syntax: 1:6: " +
+			expectErrorMessage: "Linter errors:\n  - applications.app1.crons.backup.commands.start: invalid syntax: 1:6: " +
 				"reached EOF without closing quote `'`",
 		},
 		{
@@ -84,7 +84,7 @@ applications:
       commands:
         start: "node server.js | | grep output"
 `,
-			expectErrorMessage: "linter errors:\n  - applications.app1.web.commands.start: invalid syntax: 1:16: " +
+			expectErrorMessage: "Linter errors:\n  - applications.app1.web.commands.start: invalid syntax: 1:16: " +
 				"`|` must be followed by a statement",
 		},
 		{
@@ -106,7 +106,7 @@ applications:
       commands:
         start: "python app.py"
 `,
-			expectErrorMessage: "linter errors:\n  - applications.app2.hooks.build: invalid syntax: 1:5: " +
+			expectErrorMessage: "Linter errors:\n  - applications.app2.hooks.build: invalid syntax: 1:5: " +
 				"c-style fors are a bash/zsh feature; tried parsing as posix",
 		},
 		{
@@ -123,7 +123,7 @@ applications:
         commands:
           start: "node worker.js | | grep output"
 `,
-			expectErrorMessage: "linter errors:\n  - applications.app1.workers.queue.commands.start: " +
+			expectErrorMessage: "Linter errors:\n  - applications.app1.workers.queue.commands.start: " +
 				"invalid syntax: 1:16: `|` must be followed by a statement",
 		},
 		{
@@ -141,7 +141,7 @@ applications:
           pre_start: "echo 'unterminated"
           start: "node worker.js"
 `,
-			expectErrorMessage: "linter errors:\n  - applications.app1.workers.queue.commands.pre_start: " +
+			expectErrorMessage: "Linter errors:\n  - applications.app1.workers.queue.commands.pre_start: " +
 				"invalid syntax: 1:6: reached EOF without closing quote `'`",
 		},
 		{
@@ -159,7 +159,7 @@ tasks:
     run:
       command: "python agent.py && ("
 `,
-			expectErrorMessage: "linter errors:\n" +
+			expectErrorMessage: "Linter errors:\n" +
 				"  - tasks.agent.hooks.deploy: invalid syntax: 1:6: reached EOF without closing quote `'`\n" +
 				"  - tasks.agent.run.command: invalid syntax: 1:20: `(` must be followed by a statement list",
 		},
@@ -202,7 +202,7 @@ applications:
 
 			if tt.expectErrorMessage != "" {
 				assert.True(t, result.HasErrors())
-				assert.Equal(t, tt.expectErrorMessage, result.Error())
+				assert.Equal(t, tt.expectErrorMessage, result.String())
 			} else {
 				assert.False(t, result.HasErrors())
 			}

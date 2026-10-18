@@ -5,8 +5,10 @@ import (
 	"slices"
 )
 
+// Registry maps image types (e.g. "php", "postgresql") to their images.
 type Registry map[string]Image
 
+// AllTypes returns the sorted image types: runtimes if runtime is true, otherwise services.
 func (r Registry) AllTypes(runtime bool) []string {
 	types := make([]string, 0, len(r))
 	for k := range r {
@@ -75,7 +77,7 @@ type BuildConfig struct {
 	Flavor string `json:"flavor,omitempty" yaml:"flavor,omitempty"`
 }
 
-// Dependency version map under Docs.
+// Dependency maps package names to version constraints, for one package manager.
 type Dependency map[string]string
 
 // VersionInfo lists deprecated, supported, and optional legacy and retired versions.

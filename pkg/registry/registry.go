@@ -13,7 +13,7 @@ const ChannelStable = "25.11"
 //
 //go:generate go run gen.go
 //go:embed registry.json
-var Data []byte
+var data []byte
 
 var (
 	parsedRegistry Registry
@@ -21,6 +21,7 @@ var (
 	parsedOnce     sync.Once
 )
 
+// Parse decodes a registry from JSON in the format of registry.json.
 func Parse(b []byte) (reg Registry, err error) {
 	err = json.Unmarshal(b, &reg)
 	if err == nil {
@@ -29,9 +30,11 @@ func Parse(b []byte) (reg Registry, err error) {
 	return
 }
 
-func Parsed() (Registry, error) {
+// Load returns the embedded registry, parsed once and cached. The returned map
+// is shared between callers, so it must not be modified.
+func Load() (Registry, error) {
 	parsedOnce.Do(func() {
-		parsedRegistry, parsedErr = Parse(Data)
+		parsedRegistry, parsedErr = Parse(data)
 	})
 	return parsedRegistry, parsedErr
 }
