@@ -291,7 +291,7 @@ type: "php:999"`,
 				writeFile(t, filepath.Join(dir, name), content)
 			}
 
-			result, style, err := checkDir(dir, upsunVendor())
+			result, style, err := checkDir(dir)
 			require.NoError(t, err)
 			assert.Equal(t, styleFixed, style)
 
@@ -313,7 +313,7 @@ func TestLintFixed_DuplicateAppName(t *testing.T) {
 	writeFile(t, filepath.Join(dir, ".platform", "routes.yaml"), "{}")
 	writeFile(t, filepath.Join(dir, "a", ".platform.app.yaml"), "name: same\ntype: \"php:8.3\"")
 	writeFile(t, filepath.Join(dir, "b", ".platform.app.yaml"), "name: same\ntype: \"php:8.3\"")
-	result, _, err := checkDir(dir, upsunVendor())
+	result, _, err := checkDir(dir)
 	require.NoError(t, err)
 	// The error should name both source files so it is actionable.
 	assert.Contains(t, result.String(), `duplicate application name "same"`)

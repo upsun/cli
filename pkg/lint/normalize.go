@@ -20,75 +20,26 @@ const (
 	styleFixed
 )
 
-// First-party config conventions. The native format and directory of any CLI
-// come from its config (see Vendor); these constants are the cross-brand
-// counterpart that a first-party build also recognizes.
+// Configuration locations, relative to the project root.
 const (
-	flavorUpsun        = "upsun"  // project_config_flavor for the Flex format
-	firstPartyFlexDir  = ".upsun" // Upsun (Flex) project config directory
-	firstPartyFixedDir = ".platform"
-	firstPartyFixedApp = ".platform.app.yaml"
+	flexDir      = ".upsun"             // Flex: .upsun/*.yaml
+	fixedDir     = ".platform"          // Fixed: applications, routes and services
+	fixedAppFile = ".platform.app.yaml" // Fixed: per-app config file
 )
 
-// Vendor describes the running CLI's configuration conventions, taken from the
-// service section of its config (project_config_flavor, project_config_dir,
-// app_config_file). It determines the native format and directory names, and
-// whether a first-party cross-brand counterpart is also recognized.
-type Vendor struct {
-	Flavor    string // "upsun" (Flex) or "platform" (Fixed)
-	ConfigDir string // e.g. ".upsun", ".platform", ".acme"
-	AppFile   string // Fixed per-app config file, e.g. ".platform.app.yaml"
-}
-
-// fixedNames is the pair of names that identify a Fixed-style layout.
-type fixedNames struct {
-	dir string // config directory, e.g. ".platform"
-	app string // per-app config file, e.g. ".platform.app.yaml"
-}
-
-// candidates returns the Flex directories and Fixed name-sets to look for. The
-// native format comes from the vendor config; a first-party build (config dir
-// is .upsun or .platform) also recognizes the other first-party format.
-func (v Vendor) candidates() (flexDirs []string, fixed []fixedNames) {
-	cfgDir := v.ConfigDir
-	if cfgDir == "" {
-		cfgDir = firstPartyFlexDir
-	}
-	if v.Flavor == flavorUpsun {
-		flexDirs = []string{cfgDir}
-		if cfgDir == firstPartyFlexDir { // First-party Upsun: Platform.sh counterpart.
-			fixed = []fixedNames{{firstPartyFixedDir, firstPartyFixedApp}}
-		}
-		return flexDirs, fixed
-	}
-	app := v.AppFile
-	if app == "" {
-		app = firstPartyFixedApp
-	}
-	fixed = []fixedNames{{cfgDir, app}}
-	if cfgDir == firstPartyFixedDir { // First-party Platform.sh: Upsun counterpart.
-		flexDirs = []string{firstPartyFlexDir}
-	}
-	return flexDirs, fixed
-}
-
-// CheckDir detects the configuration style in dir and lints it. Detection uses
-// the vendor's name conventions and the files present: Flex wins when present,
-// else Fixed. Configuration problems are reported in the Result; the error is
-// for configuration that cannot be found, read or parsed.
-func CheckDir(dir string, vendor Vendor) (*Result, error) {
-	result, _, err := checkDir(dir, vendor)
+// CheckDir detects the configuration style in dir and lints it: Flex
+// (.upsun/*.yaml) when present, else Fixed (.platform/ or .platform.app.yaml).
+// Configuration problems are reported in the Result; the error is for
+// configuration that cannot be found, read or parsed.
+func CheckDir(dir string) (*Result, error) {
+	result, _, err := checkDir(dir)
 	return result, err
 }
 
 // checkDir is CheckDir, also returning the detected style.
-func checkDir(dir string, vendor Vendor) (*Result, style, error) {
-	flexDirs, fixedSet := vendor.candidates()
-	flexDir, flexOK := detectFlex(dir, flexDirs)
-	fixedCfg, fixedOK := detectFixed(dir, fixedSet)
-
+func checkDir(dir string) (*Result, style, error) {
 	switch {
-	case flexOK:
+	case isFlex(dir):
 		root, err := os.OpenRoot(dir)
 		if err != nil {
 			return nil, styleFlex, err
@@ -109,80 +60,52 @@ func checkDir(dir string, vendor Vendor) (*Result, style, error) {
 			}
 			sources.locate(result)
 		}
-		addStrayWarnings(result, dir, flexDirs, fixedSet)
-		if fixedOK {
+		addStrayWarnings(result, dir)
+		if isFixed(dir) {
 			result.AddWarning("", fmt.Sprintf(
 				"both %s and %s configuration found; linting the %s (Flex) configuration",
-				flexDir, fixedCfg.dir, flexDir))
+				flexDir, fixedDir, flexDir))
 		}
 		return result, styleFlex, nil
-	case fixedOK:
-		result, err := lintFixed(dir, fixedCfg)
+	case isFixed(dir):
+		result, err := lintFixed(dir)
 		if err != nil {
 			return nil, styleFixed, err
 		}
-		addStrayWarnings(result, dir, flexDirs, fixedSet)
+		addStrayWarnings(result, dir)
 		return result, styleFixed, nil
 	default:
-		return nil, styleUnknown, fmt.Errorf(
-			"no configuration found in %q (looked for %s)", dir, lookedFor(flexDirs, fixedSet))
+		return nil, styleUnknown, fmt.Errorf("no configuration found in %q (looked for %s/*.yaml, %s, %s/)",
+			dir, flexDir, fixedAppFile, fixedDir)
 	}
 }
 
-// detectFlex returns the first candidate Flex directory that contains YAML files.
-func detectFlex(root string, dirs []string) (string, bool) {
-	for _, d := range dirs {
-		if files, err := findFlexConfigFiles(os.DirFS(root), ".", d); err == nil && len(files) > 0 {
-			return d, true
-		}
-	}
-	return "", false
+// isFlex reports whether the Flex config directory under root contains YAML files.
+func isFlex(root string) bool {
+	files, err := findFlexConfigFiles(os.DirFS(root), ".", flexDir)
+	return err == nil && len(files) > 0
 }
 
-// detectFixed returns the first candidate Fixed layout anchored at the root: its
-// config directory exists, or a per-app config file sits at the top level. The
-// anchor is required so a stray nested config file (e.g. a test fixture) does not
-// turn an unrelated repository into a project; nested per-app files are still
-// collected once a project is confirmed (see loadFixedApplications).
-func detectFixed(root string, set []fixedNames) (fixedNames, bool) {
-	for _, f := range set {
-		if fi, err := os.Stat(filepath.Join(root, f.dir)); err == nil && fi.IsDir() {
-			return f, true
-		}
-		if _, ok := firstExistingYAML(root, "", f.app); ok {
-			return f, true
-		}
+// isFixed reports whether root has a Fixed layout: the config directory exists,
+// or a per-app config file sits at the top level. The anchor is required so a
+// stray nested config file (e.g. a test fixture) does not turn an unrelated
+// repository into a project; nested per-app files are still collected once a
+// project is confirmed (see loadApplications).
+func isFixed(root string) bool {
+	if fi, err := os.Stat(filepath.Join(root, fixedDir)); err == nil && fi.IsDir() {
+		return true
 	}
-	return fixedNames{}, false
+	_, ok := firstExistingYAML(root, "", fixedAppFile)
+	return ok
 }
 
-// lookedFor builds the hint listing the locations checkDir searched.
-func lookedFor(flexDirs []string, fixed []fixedNames) string {
-	parts := make([]string, 0, len(flexDirs)+2*len(fixed))
-	for _, d := range flexDirs {
-		parts = append(parts, d+"/*.yaml")
-	}
-	for _, f := range fixed {
-		parts = append(parts, f.app, f.dir+"/")
-	}
-	return strings.Join(parts, ", ")
-}
-
-// addStrayWarnings warns about nested copies of any config directory the vendor
-// knows about. The platform only reads a config directory at the project root,
-// so any below it are ignored.
-func addStrayWarnings(result *Result, root string, flexDirs []string, fixed []fixedNames) {
-	configDirs := map[string]bool{}
-	for _, d := range flexDirs {
-		configDirs[d] = true
-	}
-	for _, f := range fixed {
-		configDirs[f.dir] = true
-	}
+// addStrayWarnings warns about nested config directories. The platform only
+// reads a config directory at the project root, so any below it are ignored.
+func addStrayWarnings(result *Result, root string) {
 	walkProject(root, func(path string, d fs.DirEntry) {
-		// A known config directory below the root (not a root-level copy, which
+		// A config directory below the root (not a root-level copy, which
 		// detection already handles) is ignored by the platform.
-		if d.IsDir() && configDirs[d.Name()] && filepath.Dir(path) != root {
+		if d.IsDir() && (d.Name() == flexDir || d.Name() == fixedDir) && filepath.Dir(path) != root {
 			result.Warnings = append(result.Warnings, Issue{
 				File:    filepath.ToSlash(relTo(root, path)),
 				Message: fmt.Sprintf("this %s directory is not at the project root and will be ignored", d.Name()),

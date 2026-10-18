@@ -25,10 +25,10 @@ const (
 // flexTopKeys are the top-level keys of Flex-style configuration.
 var flexTopKeys = []string{keyApplications, keyServices, keyRoutes, keyTasks}
 
-// lintFixed lints Fixed-style configuration in dir using the resolved names in
-// cfg: per-app config files (cfg.app) and/or cfg.dir/applications.yaml, plus
-// optional cfg.dir/routes.yaml and cfg.dir/services.yaml.
-func lintFixed(dir string, cfg fixedNames) (*Result, error) {
+// lintFixed lints Fixed-style configuration in dir: per-app config files
+// (.platform.app.yaml) and/or .platform/applications.yaml, plus optional
+// .platform/routes.yaml and .platform/services.yaml.
+func lintFixed(dir string) (*Result, error) {
 	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return nil, err
@@ -36,15 +36,15 @@ func lintFixed(dir string, cfg fixedNames) (*Result, error) {
 	defer root.Close()
 	l := &fixedLoader{dir: dir, fsys: root.FS(), result: &Result{}, sources: sourceIndex{}}
 
-	apps, err := l.loadApplications(cfg)
+	apps, err := l.loadApplications()
 	if err != nil {
 		return nil, err
 	}
-	services, err := l.loadSection(cfg.dir, keyServices, schema.LoadServices)
+	services, err := l.loadSection(fixedDir, keyServices, schema.LoadServices)
 	if err != nil {
 		return nil, err
 	}
-	routes, err := l.loadSection(cfg.dir, keyRoutes, schema.LoadRoutes)
+	routes, err := l.loadSection(fixedDir, keyRoutes, schema.LoadRoutes)
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +118,8 @@ func (l *fixedLoader) check(data any, sch *gojsonschema.Schema, key string, src 
 }
 
 // loadApplications collects applications from per-app config files and
-// cfg.dir/applications.yaml, validating each against the application schema.
-func (l *fixedLoader) loadApplications(cfg fixedNames) (map[string]any, error) {
+// .platform/applications.yaml, validating each against the application schema.
+func (l *fixedLoader) loadApplications() (map[string]any, error) {
 	appSchema, err := schema.LoadApplication()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load application schema: %w", err)
@@ -151,7 +151,7 @@ func (l *fixedLoader) loadApplications(cfg fixedNames) (map[string]any, error) {
 	}
 
 	// Individual per-app config files (e.g. .platform.app.yaml).
-	for _, abs := range findFixedAppFiles(l.dir, cfg.app) {
+	for _, abs := range findFixedAppFiles(l.dir, fixedAppFile) {
 		file, node := l.load(abs)
 		if node == nil {
 			continue
@@ -168,8 +168,8 @@ func (l *fixedLoader) loadApplications(cfg fixedNames) (map[string]any, error) {
 		add(fixedAppName(data), data, source{file: file, node: node})
 	}
 
-	// cfg.dir/applications.yaml (a list of apps, or a map keyed by app name).
-	appsFile, ok := firstExistingYAML(l.dir, cfg.dir, keyApplications)
+	// .platform/applications.yaml (a list of apps, or a map keyed by app name).
+	appsFile, ok := firstExistingYAML(l.dir, fixedDir, keyApplications)
 	if !ok {
 		return apps, nil
 	}

@@ -15,11 +15,6 @@ func writeFile(t *testing.T, path, content string) {
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 }
 
-// upsunVendor is the first-party Upsun configuration used by most tests.
-func upsunVendor() Vendor {
-	return Vendor{Flavor: "upsun", ConfigDir: ".upsun"}
-}
-
 func TestDetectStyle(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -30,6 +25,8 @@ func TestDetectStyle(t *testing.T) {
 		{"flex", map[string]string{".upsun/config.yaml": "applications: {}"}, styleFlex, false},
 		{"fixed via app file", map[string]string{".platform.app.yaml": "name: app\ntype: \"php:8.3\""}, styleFixed, false},
 		{"fixed via .platform dir", map[string]string{".platform/routes.yaml": "{}"}, styleFixed, false},
+		{"flex wins over fixed", map[string]string{
+			".upsun/config.yaml": "applications: {}", ".platform.app.yaml": "name: app\ntype: \"php:8.3\""}, styleFlex, false},
 		{"none", nil, styleUnknown, true},
 		// A per-app file buried in a subdirectory (e.g. a test fixture) must not,
 		// on its own, mark the directory as a Fixed-style project.
@@ -42,53 +39,7 @@ func TestDetectStyle(t *testing.T) {
 			for p, c := range tc.files {
 				writeFile(t, filepath.Join(dir, p), c)
 			}
-			_, style, err := checkDir(dir, upsunVendor())
-			if tc.wantErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-			assert.Equal(t, tc.want, style)
-		})
-	}
-}
-
-func TestCheckDir_Vendors(t *testing.T) {
-	const app = "name: app\ntype: \"php:8.3\"\n"
-	platformVendor := Vendor{Flavor: "platform", ConfigDir: ".platform", AppFile: ".platform.app.yaml"}
-	acmeFixed := Vendor{Flavor: "platform", ConfigDir: ".acme", AppFile: "acme.app.yaml"}
-	acmeFlex := Vendor{Flavor: "upsun", ConfigDir: ".acme"}
-
-	cases := []struct {
-		name    string
-		vendor  Vendor
-		files   map[string]string
-		want    style
-		wantErr bool
-	}{
-		// Scenario B: Platform.sh CLI recognizes the Upsun Flex counterpart.
-		{"platform: .upsun present wins", platformVendor,
-			map[string]string{".upsun/config.yaml": "applications: {}", ".platform.app.yaml": app}, styleFlex, false},
-		{"platform: no .upsun is Fixed", platformVendor,
-			map[string]string{".platform.app.yaml": app}, styleFixed, false},
-		// Scenario C: white-label Fixed uses its own names, no counterpart.
-		{"white-label fixed via app file", acmeFixed,
-			map[string]string{"acme.app.yaml": app}, styleFixed, false},
-		{"white-label fixed ignores .upsun counterpart", acmeFixed,
-			map[string]string{".upsun/config.yaml": "applications: {}"}, styleUnknown, true},
-		// Scenario D: white-label Flex uses its own dir, no counterpart.
-		{"white-label flex via its dir", acmeFlex,
-			map[string]string{".acme/config.yaml": "applications: {}"}, styleFlex, false},
-		{"white-label flex ignores .platform counterpart", acmeFlex,
-			map[string]string{".platform.app.yaml": app}, styleUnknown, true},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			dir := t.TempDir()
-			for p, c := range tc.files {
-				writeFile(t, filepath.Join(dir, p), c)
-			}
-			_, style, err := checkDir(dir, tc.vendor)
+			_, style, err := checkDir(dir)
 			if tc.wantErr {
 				require.Error(t, err)
 			} else {
@@ -103,7 +54,7 @@ func TestLintFixed_StrayPlatformDir(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".platform.app.yaml"), "name: app\ntype: \"php:8.3\"")
 	writeFile(t, filepath.Join(dir, "legacy", ".platform", "routes.yaml"), "{}")
-	result, style, err := checkDir(dir, upsunVendor())
+	result, style, err := checkDir(dir)
 	require.NoError(t, err)
 	assert.Equal(t, styleFixed, style)
 	assert.Contains(t, result.String(), "legacy/.platform")
@@ -116,7 +67,7 @@ func TestLintFixed_StrayUpsunDir(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".platform.app.yaml"), "name: app\ntype: \"php:8.3\"")
 	writeFile(t, filepath.Join(dir, "sub", ".upsun", "config.yaml"), "applications: {}")
-	result, style, err := checkDir(dir, upsunVendor())
+	result, style, err := checkDir(dir)
 	require.NoError(t, err)
 	assert.Equal(t, styleFixed, style)
 	assert.Contains(t, result.String(), "sub/.upsun")
@@ -137,7 +88,7 @@ routes:
     type: upstream
     upstream: "app:http"
 `)
-	result, style, err := checkDir(dir, upsunVendor())
+	result, style, err := checkDir(dir)
 	require.NoError(t, err)
 	assert.Equal(t, styleFlex, style)
 	assert.False(t, result.HasErrors(), "expected no errors, got: %s", result)
@@ -145,7 +96,7 @@ routes:
 
 func TestLintDir_NoConfig(t *testing.T) {
 	dir := t.TempDir()
-	_, style, err := checkDir(dir, upsunVendor())
+	_, style, err := checkDir(dir)
 	require.Error(t, err)
 	assert.Equal(t, styleUnknown, style)
 	assert.Contains(t, err.Error(), "no configuration found")
@@ -158,7 +109,7 @@ func TestLintDir_BothPresentPrefersFlex(t *testing.T) {
     type: "php:8.3"
 `)
 	writeFile(t, filepath.Join(dir, ".platform.app.yaml"), "name: app")
-	result, style, err := checkDir(dir, upsunVendor())
+	result, style, err := checkDir(dir)
 	require.NoError(t, err)
 	assert.Equal(t, styleFlex, style)
 	assert.True(t, result.HasWarnings())
@@ -188,7 +139,7 @@ func TestLintDir_FlexSourceFiles(t *testing.T) {
     type: upstream
     upstream: "missing:http"
 `)
-	result, _, err := checkDir(dir, upsunVendor())
+	result, _, err := checkDir(dir)
 	require.NoError(t, err)
 	assert.Equal(t, `Linter errors:
   - .upsun/tasks.yaml:2: tasks.agent: Additional property extra is not allowed`, result.String())
@@ -200,7 +151,7 @@ func TestLintDir_FlexSourceFiles(t *testing.T) {
     run:
       command: ./run
 `)
-	result, _, err = checkDir(dir, upsunVendor())
+	result, _, err = checkDir(dir)
 	require.NoError(t, err)
 	assert.Contains(t, result.String(), ".upsun/apps.yaml:6: applications.app.authorizations.0.resource: task 'missing' is not found")
 	assert.Contains(t, result.String(), `.upsun/routes.yaml:4: routes["https://{default}/api"].upstream: upstream target 'missing' does not exist`)
@@ -218,7 +169,7 @@ func TestLintDir_SkipsSeparateCheckouts(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "sub", ".git"), "gitdir: ../.git/modules/sub\n")
 	writeFile(t, filepath.Join(dir, "sub", ".upsun", "config.yaml"), "applications: {}")
 
-	result, _, err := checkDir(dir, upsunVendor())
+	result, _, err := checkDir(dir)
 	require.NoError(t, err)
 	assert.Equal(t, []Issue{{
 		File:    "sub/.upsun",
@@ -234,7 +185,7 @@ func TestLintFixed_WorktreeAppFileIgnored(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "wt", ".git"), "gitdir: /elsewhere/.git/worktrees/wt\n")
 	writeFile(t, filepath.Join(dir, "wt", ".platform.app.yaml"), app)
 
-	result, style, err := checkDir(dir, upsunVendor())
+	result, style, err := checkDir(dir)
 	require.NoError(t, err)
 	assert.Equal(t, styleFixed, style)
 	assert.False(t, result.HasErrors(), "unexpected errors: %s", result)
@@ -253,7 +204,7 @@ hooks:
 `)
 		writeFile(t, filepath.Join(dir, ".upsun", "build.sh"), "set -e\ncomposer install\n")
 
-		result, _, err := checkDir(dir, upsunVendor())
+		result, _, err := checkDir(dir)
 		require.NoError(t, err)
 		assert.Equal(t, []Issue{{
 			File: ".upsun/config.yaml", Line: 3, Message: "'apps/missing.yaml' doesn't exist in the repository",
@@ -261,7 +212,7 @@ hooks:
 
 		writeFile(t, filepath.Join(dir, ".upsun", "config.yaml"), "applications:\n  app: !include apps/app.yaml\n")
 		writeFile(t, filepath.Join(dir, ".upsun", "build.sh"), "set -e\ncomposer install (\n")
-		result, _, err = checkDir(dir, upsunVendor())
+		result, _, err = checkDir(dir)
 		require.NoError(t, err)
 		require.Len(t, result.Errors, 1)
 		assert.Equal(t, ".upsun/config.yaml", result.Errors[0].File)
@@ -284,7 +235,7 @@ hooks:
   upstream: "missing:http"
 `)
 
-		result, _, err := checkDir(dir, upsunVendor())
+		result, _, err := checkDir(dir)
 		require.NoError(t, err)
 		assert.Equal(t, []Issue{{
 			File:    ".platform/routes.yaml",
@@ -302,7 +253,7 @@ func TestLintDir_Aliases(t *testing.T) {
     type: "php:1.0"
 applications: *apps
 `)
-	result, _, err := checkDir(dir, upsunVendor())
+	result, _, err := checkDir(dir)
 	require.NoError(t, err)
 	require.Len(t, result.Errors, 1)
 	assert.Equal(t, Issue{
@@ -320,7 +271,7 @@ func TestLintDir_IncludeSymlinkOutsideProject(t *testing.T) {
   app:
     type: !include {type: string, path: ../link/secret.txt}
 `)
-	result, _, err := checkDir(dir, upsunVendor())
+	result, _, err := checkDir(dir)
 	require.NoError(t, err)
 	require.Len(t, result.Errors, 1)
 	assert.Equal(t, Issue{

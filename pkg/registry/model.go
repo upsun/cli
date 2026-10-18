@@ -26,59 +26,7 @@ type Image struct {
 	Type      string      `json:"type" yaml:"type"`
 	IsRuntime bool        `json:"runtime" yaml:"is_runtime"`
 	Versions  VersionInfo `json:"versions,omitzero" yaml:"versions,omitempty"`
-
-	Description   string `json:"description,omitempty" yaml:"description,omitempty"`
-	Configuration string `json:"configuration,omitempty" yaml:"configuration,omitempty"`
-	Docs          Docs   `json:"docs,omitzero" yaml:"docs,omitempty"`
 }
-
-// Docs contains documentation for the image.
-type Docs struct {
-	RelationshipName *string               `json:"relationship_name,omitempty" yaml:"relationship_name,omitempty"`
-	ServiceName      *string               `json:"service_name,omitempty" yaml:"service_name,omitempty"`
-	URL              string                `json:"url,omitempty" yaml:"url,omitempty"`
-	Web              Web                   `json:"web,omitzero" yaml:"web,omitempty"`
-	Hooks            Hooks                 `json:"hooks,omitzero" yaml:"hooks,omitempty"`
-	Build            BuildConfig           `json:"build,omitzero" yaml:"build,omitempty"`
-	Dependencies     map[string]Dependency `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
-}
-
-// Web describes web server configuration for runtime images.
-type Web struct {
-	Commands struct {
-		Start string `json:"start,omitempty" yaml:"start,omitempty"`
-	} `json:"commands,omitzero" yaml:"commands,omitempty"`
-	Locations map[string]Location `json:"locations,omitempty" yaml:"locations,omitempty"`
-	Upstream  Upstream            `json:"upstream,omitzero" yaml:"upstream,omitempty"`
-}
-
-// Upstream config for protocols/sockets.
-type Upstream struct {
-	SocketFamily string `json:"socket_family,omitempty" yaml:"socket_family,omitempty"`
-	Protocol     string `json:"protocol,omitempty" yaml:"protocol,omitempty"`
-}
-
-// Location defines routing rules inside the Web configuration.
-type Location struct {
-	Root     string `json:"root,omitempty" yaml:"root,omitempty"`
-	Allow    bool   `json:"allow,omitempty" yaml:"allow,omitempty"`
-	Passthru any    `json:"passthru,omitempty" yaml:"passthru,omitempty"` // String or bool
-	Expires  any    `json:"expires,omitempty" yaml:"expires,omitempty"`   // String or int
-}
-
-// Hooks define build and deploy lifecycle commands.
-type Hooks struct {
-	Build  any `json:"build,omitempty" yaml:"build,omitempty"` // String or list?
-	Deploy any `json:"deploy,omitempty" yaml:"deploy,omitempty"`
-}
-
-// BuildConfig holds custom build settings.
-type BuildConfig struct {
-	Flavor string `json:"flavor,omitempty" yaml:"flavor,omitempty"`
-}
-
-// Dependency maps package names to version constraints, for one package manager.
-type Dependency map[string]string
 
 // VersionInfo lists deprecated, supported, and optional legacy and retired versions.
 type VersionInfo struct {

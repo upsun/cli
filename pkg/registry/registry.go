@@ -45,8 +45,6 @@ func clean(reg Registry) {
 		img := reg[k]
 		// Remove deprecated version info.
 		img.Versions.Deprecated = nil
-		// Remove descriptions.
-		img.Description = ""
 		reg[k] = img
 	}
 

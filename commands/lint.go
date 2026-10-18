@@ -41,26 +41,15 @@ func newLintCommand(cnf *config.Config) *cobra.Command {
 		Args:          cobra.MaximumNArgs(1),
 		SilenceErrors: true,
 		SilenceUsage:  true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runLint(cmd, args, vendorFromConfig(cnf))
-		},
+		RunE:          runLint,
 	}
 	cmd.Flags().Bool("stdin", false, "Read merged Flex configuration from standard input")
 	cmd.Flags().String("format", "text", `The output format: "text" or "json"`)
 	return cmd
 }
 
-// vendorFromConfig builds the linter's vendor conventions from the CLI config.
-func vendorFromConfig(cnf *config.Config) lint.Vendor {
-	return lint.Vendor{
-		Flavor:    cnf.Service.ProjectConfigFlavor,
-		ConfigDir: cnf.Service.ProjectConfigDir,
-		AppFile:   cnf.Service.AppConfigFile,
-	}
-}
-
-func runLint(cmd *cobra.Command, args []string, vendor lint.Vendor) error {
-	result, format, err := lintInput(cmd, args, vendor)
+func runLint(cmd *cobra.Command, args []string) error {
+	result, format, err := lintInput(cmd, args)
 	if err != nil {
 		// Report operational errors as lint errors in JSON, so there is always a document.
 		if format == "json" {
@@ -75,7 +64,7 @@ func runLint(cmd *cobra.Command, args []string, vendor lint.Vendor) error {
 	return printLintResult(cmd, result, format)
 }
 
-func lintInput(cmd *cobra.Command, args []string, vendor lint.Vendor) (*lint.Result, string, error) {
+func lintInput(cmd *cobra.Command, args []string) (*lint.Result, string, error) {
 	explicitStdin, _ := cmd.Flags().GetBool("stdin")
 	format, _ := cmd.Flags().GetString("format")
 	if format != "text" && format != "json" {
@@ -109,7 +98,7 @@ func lintInput(cmd *cobra.Command, args []string, vendor lint.Vendor) (*lint.Res
 	if format == "text" {
 		fmt.Fprintln(cmd.ErrOrStderr(), "Validating configuration in directory: "+color.CyanString(root))
 	}
-	result, err := lint.CheckDir(root, vendor)
+	result, err := lint.CheckDir(root)
 	return result, format, err
 }
 
