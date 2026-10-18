@@ -38,10 +38,6 @@ func testInputs() map[string]*templateInput {
 				"/.npm": {"source": "local", "source_path": "npm"},
 				"/.pip": {"source": "local", "source_path": "pip"},
 			},
-			Relationships: map[string]relationship{
-				"db":    {Service: "db", Endpoint: "postgresql"},
-				"mysql": {Service: "mysql", Endpoint: "mysql"},
-			},
 			Services: []service{
 				{
 					Name:         "db",
@@ -78,9 +74,6 @@ func testInputs() map[string]*templateInput {
 			Mounts: map[string]map[string]string{
 				"/.mvn": {"source": "local", "source_path": "maven"},
 			},
-			Relationships: map[string]relationship{
-				"mysql": {Service: "mysql", Endpoint: "mysql"},
-			},
 			Services: []service{
 				{
 					Name:         "mysql",
@@ -102,9 +95,8 @@ func testInputs() map[string]*templateInput {
 			Locations: map[string]map[string]any{
 				"/": {"root": "index.php"},
 			},
-			Dependencies:  map[string]map[string]string{},
-			Mounts:        map[string]map[string]string{},
-			Relationships: map[string]relationship{},
+			Dependencies: map[string]map[string]string{},
+			Mounts:       map[string]map[string]string{},
 		},
 		"nextjs":  {Name: "nextjs", Type: "nodejs:24", Runtime: "nodejs", Stack: nextJS},
 		"strapi":  {Name: "strapi", Type: "nodejs:24", Runtime: "nodejs", Stack: strapi},

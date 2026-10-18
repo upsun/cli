@@ -3,9 +3,11 @@
 package platformify
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -45,24 +47,11 @@ func Run(cnf *config.Config, opts Options) error {
 		assets:  newAssets(cnf),
 		answers: &answers{},
 	}
-	steps := []func() error{
-		w.confirmOverwrite,
-		w.welcome,
-		w.detectStack,
-		w.askRuntime,
-		w.detectDependencyManagers,
-		w.setLocations,
-		w.setMounts,
-		w.askName,
-		w.detectApplicationRoot,
-		w.setEnvironment,
-		w.setBuildSteps,
-		w.setDeployCommand,
-		w.setSocketFamily,
-		w.setWebCommand,
-		w.almostDone,
-		w.askServices,
-	}
+	steps := slices.Concat(
+		[]func() error{w.welcome, w.detectStack, w.askRuntime},
+		w.detectionSteps(),
+		[]func() error{w.confirmOverwrite, w.askName, w.almostDone, w.askServices},
+	)
 	for _, step := range steps {
 		if err := step(); err != nil {
 			if errors.Is(err, errAborted) {
@@ -82,8 +71,23 @@ func Run(cnf *config.Config, opts Options) error {
 	if w.answers.stack == laravel {
 		w.suggestLaravelBridge()
 	}
-	w.done()
+	w.done(slices.Sorted(maps.Keys(files)))
 	return nil
+}
+
+// detectionSteps returns the steps that configure the app from its files, after the stack and runtime are known.
+func (w *wizard) detectionSteps() []func() error {
+	return []func() error{
+		w.detectDependencyManagers,
+		w.detectApplicationRoot,
+		w.setLocations,
+		w.setMounts,
+		w.setEnvironment,
+		w.setBuildSteps,
+		w.setDeployCommand,
+		w.setSocketFamily,
+		w.setWebCommand,
+	}
 }
 
 // writeFiles writes files, keyed by slash-separated paths relative to dir.
@@ -100,11 +104,17 @@ func writeFiles(dir string, files map[string][]byte) error {
 	return nil
 }
 
-// confirmOverwrite asks whether to continue, if configuration files exist.
+// confirmOverwrite asks whether to continue, if files that would be generated exist.
 func (w *wizard) confirmOverwrite() error {
+	files, err := generate(w.dir, w.templateInput())
+	if err != nil {
+		return err
+	}
 	var existing []string
-	for _, f := range w.assets.configFiles() {
-		if st, err := os.Stat(filepath.Join(w.dir, f)); err == nil && !st.IsDir() {
+	for _, f := range slices.Sorted(maps.Keys(files)) {
+		current, err := os.ReadFile(filepath.Join(w.dir, filepath.FromSlash(f)))
+		// Files that are only appended to (Django's settings.py) are not overwritten.
+		if err == nil && !bytes.HasPrefix(files[f], current) {
 			existing = append(existing, f)
 		}
 	}

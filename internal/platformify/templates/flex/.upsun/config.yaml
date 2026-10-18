@@ -18,10 +18,10 @@ applications:
     # to the application in the {{ .Assets.EnvPrefix }}_RELATIONSHIPS variable. The right-hand
     # side is in the form `<service name>:<endpoint name>`.
     # More information: {{ .Assets.Docs.AppReference }}relationships/
-    {{ if .Relationships -}}
+    {{ if .Services -}}
     relationships:
-      {{ range $key, $value := .Relationships }}
-      {{- $key }}:
+      {{ range .ServiceNames }}
+      {{- . }}:
       {{ end -}}
     {{ else }}
     # relationships:

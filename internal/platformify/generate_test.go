@@ -1,6 +1,7 @@
 package platformify
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -23,9 +24,7 @@ func TestGenerate(t *testing.T) {
 				files, err := generate(dir, in)
 				require.NoError(t, err)
 
-				for f := range files {
-					assert.Contains(t, a.configFiles(), f)
-				}
+				assert.NotEmpty(t, files)
 				require.NoError(t, writeFiles(dir, files))
 				result, err := lint.CheckDir(dir)
 				require.NoError(t, err)
@@ -57,25 +56,51 @@ func TestGenerateDjango(t *testing.T) {
 	assert.NotContains(t, files, "app/mysite/settings.py")
 }
 
-func TestRelationships(t *testing.T) {
-	services := []service{
-		{Name: "mysql", Type: "mysql:5.7"},
-		{Name: "mariadb", Type: "mariadb:11.8"},
-		{Name: "oracle-mysql", Type: "oracle-mysql:8.4"},
-		{Name: "chrome-headless", Type: "chrome-headless:120"},
-		{Name: "redis-persistent", Type: "redis-persistent:8.0"},
-	}
-	assert.Equal(t, map[string]relationship{
-		"mysql":            {Service: "mysql", Endpoint: "mysql"},
-		"mariadb":          {Service: "mariadb", Endpoint: "mysql"},
-		"oracle-mysql":     {Service: "oracle-mysql", Endpoint: "mysql"},
-		"chrome-headless":  {Service: "chrome-headless", Endpoint: "http"},
-		"redis-persistent": {Service: "redis-persistent", Endpoint: "redis"},
-	}, relationships(services))
-}
-
 func TestVersions(t *testing.T) {
 	for _, c := range slices.Concat(runtimeChoices, serviceChoices) {
 		assert.NotEmpty(t, versions(c.typ), c.typ)
+	}
+}
+
+func TestGenerateSubdirectoryApp(t *testing.T) {
+	cases := []struct {
+		flex bool
+		want []string
+	}{
+		{true, []string{".upsun/config.yaml", "app/.environment"}},
+		{false, []string{".platform/routes.yaml", ".platform/services.yaml", "app/.environment", "app/.platform.app.yaml"}},
+	}
+	for _, c := range cases {
+		in := testInputs()["generic"]
+		in.Assets = &assets{flex: c.flex}
+		in.ApplicationRoot = "/app"
+		files, err := generate(t.TempDir(), in)
+		require.NoError(t, err)
+		assert.ElementsMatch(t, c.want, slices.Collect(maps.Keys(files)))
+	}
+}
+
+func TestGenerateRedisPersistent(t *testing.T) {
+	in := testInputs()["generic"]
+	in.Services = []service{{Name: "redis-persistent", Type: "redis-persistent:8.0"}}
+	for _, flex := range []bool{true, false} {
+		in.Assets = &assets{flex: flex}
+		files, err := generate(t.TempDir(), in)
+		require.NoError(t, err)
+		assert.Contains(t, string(files[".environment"]), `export REDIS_URL="$CACHE_URL"`)
+		if !flex {
+			assert.Contains(t, string(files[".environment"]), `jq -r '.["redis-persistent"][0].host'`)
+		}
+	}
+}
+
+func TestGenerateStrapiDatabaseScheme(t *testing.T) {
+	in := testInputs()["strapi"]
+	in.Services = []service{{Name: "postgresql", Type: "postgresql:18"}}
+	for _, flex := range []bool{true, false} {
+		in.Assets = &assets{flex: flex}
+		files, err := generate(t.TempDir(), in)
+		require.NoError(t, err)
+		assert.Contains(t, string(files[".environment"]), `export DATABASE_SCHEME="$DB_SCHEME"`)
 	}
 }

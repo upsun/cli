@@ -227,7 +227,7 @@ func (w *wizard) setBuildSteps() error {
 				a.environment["N_PREFIX"] = "/app/.global"
 				a.buildSteps = append(a.buildSteps, "n auto || n lts", "hash -r")
 			}
-			_, hasBuild := jsonValue(filepath.Join(w.dir, packageJSON), "scripts", "build")
+			_, hasBuild := jsonValue(filepath.Join(w.appDir(), packageJSON), "scripts", "build")
 			if dm == yarn {
 				a.buildSteps = append(a.buildSteps, "yarn")
 				if hasBuild {
@@ -332,7 +332,7 @@ func (w *wizard) setWebCommand() error {
 		listen, w.assets.Docs().AppReference,
 	)
 
-	packageJSONPath := filepath.Join(w.dir, packageJSON)
+	packageJSONPath := filepath.Join(w.appDir(), packageJSON)
 	npmStart := func() string {
 		if slices.Contains(a.dependencyManagers, yarn) {
 			return "NODE_ENV=production yarn start"
@@ -375,13 +375,13 @@ func (w *wizard) setWebCommand() error {
 			if s, ok := main.(string); ok {
 				a.webCommand = "node " + s
 			}
-		} else if index := findFile(w.dir, "index.js"); index != "" {
-			rel, _ := filepath.Rel(w.dir, index)
+		} else if index := findFile(w.appDir(), "index.js"); index != "" {
+			rel, _ := filepath.Rel(w.appDir(), index)
 			a.webCommand = "node " + filepath.ToSlash(rel)
 		}
 	case flask:
 		for _, name := range []string{"app.py", "server.py", "api.py"} {
-			if _, err := os.Stat(filepath.Join(w.dir, name)); err != nil {
+			if _, err := os.Stat(filepath.Join(w.appDir(), name)); err != nil {
 				continue
 			}
 			app := fmt.Sprintf("'%s:app'", strings.TrimSuffix(name, ".py"))
@@ -412,8 +412,8 @@ func (w *wizard) setLocations() error {
 			"passthru": "/index.php",
 			"root":     "",
 		}
-		if index := findFile(w.dir, "index.php"); index != "" {
-			if rel, _ := filepath.Rel(w.dir, filepath.Dir(index)); rel != "." {
+		if index := findFile(w.appDir(), "index.php"); index != "" {
+			if rel, _ := filepath.Rel(w.appDir(), filepath.Dir(index)); rel != "." {
 				location["root"] = filepath.ToSlash(rel)
 			}
 		}

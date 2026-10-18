@@ -23,7 +23,7 @@ export CACHE_PORT="${{ .CacheUpper }}_PORT"
 export CACHE_SCHEME="${{ .CacheUpper }}_SCHEME"
 export CACHE_URL="${CACHE_SCHEME}://${CACHE_HOST}:${CACHE_PORT}"
 {{- end -}}
-{{- if or (eq .Cache "redis") (eq .Cache "redis_persistent") }}
+{{- if or (eq .Cache "redis") (eq .Cache "redis-persistent") }}
 
 # Set Redis environment variables
 export REDIS_URL="$CACHE_URL"

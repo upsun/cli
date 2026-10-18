@@ -1,6 +1,7 @@
 package platformify
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -112,4 +113,61 @@ func TestSetWebCommandExpressMain(t *testing.T) {
 	w := &wizard{dir: dir, assets: &assets{}, answers: &answers{stack: express, runtime: nodejs, socketFamily: tcp}}
 	require.NoError(t, w.setWebCommand())
 	assert.Equal(t, "node src/Server.js", w.answers.webCommand)
+}
+
+func TestSubdirectoryApp(t *testing.T) {
+	cases := []struct {
+		name  string
+		files map[string]string
+		check func(t *testing.T, a *answers)
+	}{
+		{
+			name: "laravel",
+			files: map[string]string{
+				"app/composer.json":    `{"require": {"laravel/framework": "^11"}}`,
+				"app/composer.lock":    "{}",
+				"app/public/index.php": "",
+			},
+			check: func(t *testing.T, a *answers) {
+				assert.Equal(t, "app", a.applicationRoot)
+				assert.Equal(t, "public", a.locations["/"]["root"])
+			},
+		},
+		{
+			name: "express",
+			files: map[string]string{
+				"frontend/package.json":      `{"dependencies": {"express": "^5"}, "scripts": {"build": "tsc"}}`,
+				"frontend/package-lock.json": "{}",
+				"frontend/src/index.js":      "",
+			},
+			check: func(t *testing.T, a *answers) {
+				assert.Equal(t, "frontend", a.applicationRoot)
+				assert.Equal(t, []string{"npm i", "npm run build"}, a.buildSteps)
+				assert.Equal(t, "node src/index.js", a.webCommand)
+			},
+		},
+		{
+			name: "flask",
+			files: map[string]string{
+				"api/requirements.txt": "flask\n",
+				"api/app.py":           "",
+			},
+			check: func(t *testing.T, a *answers) {
+				assert.Equal(t, "api", a.applicationRoot)
+				assert.Equal(t, "gunicorn -b unix:$SOCKET 'app:app' --log-file -", a.webCommand)
+			},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			w := &wizard{dir: writeTree(t, c.files), stdout: io.Discard, stderr: io.Discard, assets: &assets{},
+				answers: &answers{}}
+			require.NoError(t, w.detectStack())
+			w.answers.runtime = w.answers.stack.runtime()
+			for _, step := range w.detectionSteps() {
+				require.NoError(t, step())
+			}
+			c.check(t, w.answers)
+		})
+	}
 }

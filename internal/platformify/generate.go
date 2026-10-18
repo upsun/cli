@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -51,12 +52,6 @@ type templateInput struct {
 	Disk            string
 	Mounts          map[string]map[string]string
 	Services        []service
-	Relationships   map[string]relationship
-}
-
-type relationship struct {
-	Service  string
-	Endpoint string
 }
 
 func (w *wizard) templateInput() *templateInput {
@@ -85,27 +80,17 @@ func (w *wizard) templateInput() *templateInput {
 		Disk:            a.disk,
 		Mounts:          a.mounts,
 		Services:        a.services,
-		Relationships:   relationships(a.services),
 	}
 }
 
-// relationships returns the relationship for each service, by service name.
-func relationships(services []service) map[string]relationship {
-	endpoints := map[string]string{
-		"mariadb":          "mysql",
-		"oracle-mysql":     "mysql",
-		"chrome-headless":  "http",
-		"redis-persistent": "redis",
+// ServiceNames returns the sorted names of the services.
+func (t *templateInput) ServiceNames() []string {
+	names := make([]string, len(t.Services))
+	for i, s := range t.Services {
+		names[i] = s.Name
 	}
-	r := make(map[string]relationship, len(services))
-	for _, s := range services {
-		endpoint, _, _ := strings.Cut(s.Type, ":")
-		if e, ok := endpoints[endpoint]; ok {
-			endpoint = e
-		}
-		r[s.Name] = relationship{Service: s.Name, Endpoint: endpoint}
-	}
-	return r
+	slices.Sort(names)
+	return names
 }
 
 // Database returns the name of the first database service.
@@ -160,7 +145,7 @@ func generate(dir string, input *templateInput) (map[string][]byte, error) {
 			return err
 		}
 		if len(bytes.TrimSpace(content)) > 0 {
-			files[strings.TrimPrefix(name, templatesDir+"/")] = content
+			files[outputPath(strings.TrimPrefix(name, templatesDir+"/"), input.ApplicationRoot)] = content
 		}
 		return nil
 	})
@@ -173,6 +158,17 @@ func generate(dir string, input *templateInput) (map[string][]byte, error) {
 		}
 	}
 	return files, nil
+}
+
+// appFiles are written in the application root, and the other files in the project root.
+var appFiles = []string{".environment", ".platform.app.yaml"}
+
+// outputPath returns the path for a template's output, relative to the project root.
+func outputPath(name, appRoot string) string {
+	if slices.Contains(appFiles, name) {
+		return strings.TrimPrefix(path.Join(appRoot, name), "/")
+	}
+	return name
 }
 
 // generateDjango adds a settings_psh.py file next to settings.py, and imports it there.

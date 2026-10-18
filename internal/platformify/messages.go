@@ -26,14 +26,14 @@ func (w *wizard) almostDone() error {
 	return nil
 }
 
-func (w *wizard) done() {
+func (w *wizard) done(files []string) {
 	out := w.stdout
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "┌───────────────────────────────────────────────────┐")
 	fmt.Fprintln(out, "│   CONGRATULATIONS!                                │")
 	fmt.Fprintln(out, "│                                                   │")
 	fmt.Fprintln(out, "│   We have created the following files for your:   │")
-	for _, f := range w.assets.configFiles() {
+	for _, f := range files {
 		fmt.Fprintf(out, "│     - %-44s│\n", f)
 	}
 	fmt.Fprintln(out, "│                                                   │")
@@ -104,19 +104,5 @@ func (a *assets) Docs() docs {
 		SymfonyCLI:   a.docsBaseURL + "/stacks/symfony/cli/tips/",
 		TimeZone:     a.docsBaseURL + "/app/timezone/",
 		Variables:    a.docsBaseURL + "/variables/use/provided/",
-	}
-}
-
-// configFiles returns the paths of the files that the wizard creates.
-func (a *assets) configFiles() []string {
-	if a.flex {
-		return []string{".environment", ".upsun/config.yaml"}
-	}
-	return []string{
-		".environment",
-		".platform.app.yaml",
-		".platform/services.yaml",
-		".platform/routes.yaml",
-		".platform/applications.yaml",
 	}
 }
