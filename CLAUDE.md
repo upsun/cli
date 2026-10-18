@@ -114,9 +114,9 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 - The `csv`, `tsv` and `plain` formats match the legacy output, with ANSI escape sequences removed
 - The `table` format wraps cells to the terminal width (a port of the legacy `AdaptiveTable`), and supports ANSI-styled cells
 
-**Project Initialization**: `internal/init/`
-- AI-powered project configuration generation
-- Integrates with whatsun library for codebase analysis
+**Project Initialization**: `internal/init/` and `internal/platformify/`
+- `init` generates a starter configuration with AI (`internal/init`, using the whatsun library for codebase analysis), or with a guided wizard (`internal/platformify`, formerly the Platformify project), which also supports Fixed configuration
+- The wizard detects the stack, asks a few questions, and renders `internal/platformify/templates` (`flex` or `fixed`, by `project_config_flavor`). Runtime and service versions come from `pkg/registry`, and tests check the output with `pkg/lint`
 
 ### Build System
 

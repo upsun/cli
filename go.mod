@@ -15,7 +15,6 @@ require (
 	github.com/go-playground/validator/v10 v10.30.5
 	github.com/godbus/dbus/v5 v5.2.3
 	github.com/gofrs/flock v0.13.1
-	github.com/golang/mock v1.6.0
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/oklog/ulid/v2 v2.1.2
 	github.com/pelletier/go-toml/v2 v2.3.0

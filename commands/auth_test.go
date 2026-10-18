@@ -9,8 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/upsun/cli/internal/platformify/vendorization"
 )
 
 func TestAuthCommands_Disabled(t *testing.T) {
@@ -27,7 +25,7 @@ func TestAuthCommands_Disabled(t *testing.T) {
 
 func TestAuthCommands_LegacyGlobalFlags(t *testing.T) {
 	t.Setenv("TEST_GO_AUTH", "1")
-	root := newRootCommand(testConfig(), &vendorization.VendorAssets{})
+	root := newRootCommand(testConfig())
 	for _, args := range [][]string{
 		{"logout", "-n"},
 		{"auth:token", "-W", "--no-ansi"},
@@ -42,7 +40,7 @@ func TestAuthCommands_LegacyGlobalFlags(t *testing.T) {
 func TestAuthCommands_GoAuthDisabled(t *testing.T) {
 	t.Setenv("TEST_GO_AUTH", "")
 	assert.Empty(t, authCommands(testConfig()))
-	root := newRootCommand(testConfig(), &vendorization.VendorAssets{})
+	root := newRootCommand(testConfig())
 	c, _, err := root.Find([]string{"auth:internal"})
 	require.NoError(t, err)
 	assert.Equal(t, root, c, "auth:internal must not be registered")

@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
-
-	"github.com/upsun/cli/internal/platformify/colors"
 )
 
 func init() {
@@ -15,7 +13,7 @@ func init() {
 	{{- color "%[2]s"}}[{{.Answer}}]{{color "reset"}}{{"\n"}}
 {{ else }}
 	{{- if .Default }}{{color "%[3]s"}}[{{.Default}}] {{color "reset"}}{{ end }}
-{{- end }}`, colors.Accent, colors.Brand, colors.Secondary, colors.Error, colors.Default)
+{{- end }}`, colorAccent, colorBrand, colorSecondary, colorError, colorDefault)
 
 	//nolint:lll
 	survey.SelectQuestionTemplate = fmt.Sprintf(`
@@ -31,7 +29,7 @@ func init() {
   {{- range $ix, $option := .PageEntries}}
     {{- template "option" $.IterateOption $ix $option}}
   {{- end}}
-{{- end }}`, colors.Accent, colors.Brand, colors.Secondary, colors.Error, colors.Default)
+{{- end }}`, colorAccent, colorBrand, colorSecondary, colorError, colorDefault)
 
 	survey.ConfirmQuestionTemplate = fmt.Sprintf(`
 {{- color "%[1]s"}}{{ .Message }} {{color "reset"}}
@@ -39,7 +37,7 @@ func init() {
   {{- color "%[2]s"}}[{{.Answer}}]{{color "reset"}}{{"\n"}}
 {{- else }}
   {{- color "%[3]s"}}{{if .Default}}(Y/n){{else}}(y/N){{end}}{{color "reset"}}{{"\n"}}
-{{- end }}`, colors.Accent, colors.Brand, colors.Secondary, colors.Error, colors.Default)
+{{- end }}`, colorAccent, colorBrand, colorSecondary, colorError, colorDefault)
 
 	//nolint:lll
 	survey.MultiSelectQuestionTemplate = fmt.Sprintf(`
@@ -56,5 +54,5 @@ func init() {
   {{- range $ix, $option := .PageEntries}}
     {{- template "option" $.IterateOption $ix $option}}
   {{- end}}
-{{- end }}`, colors.Accent, colors.Brand, colors.Secondary, colors.Error, colors.Default)
+{{- end }}`, colorAccent, colorBrand, colorSecondary, colorError, colorDefault)
 }

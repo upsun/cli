@@ -11,8 +11,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/upsun/cli/internal/platformify/vendorization"
 )
 
 // TestCompletionScriptShellOption checks that the generated completion scripts
@@ -78,7 +76,7 @@ func TestCompleteCommandPassesArgsThrough(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			cnf := testConfig()
-			root := newRootCommand(cnf, &vendorization.VendorAssets{Binary: cnf.Application.Executable})
+			root := newRootCommand(cnf)
 			root.SetOut(io.Discard)
 			root.SetErr(io.Discard)
 

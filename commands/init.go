@@ -21,7 +21,6 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/upsun/cli/internal/platformify"
-	"github.com/upsun/cli/internal/platformify/vendorization"
 
 	"github.com/upsun/cli/internal/legacy"
 
@@ -31,7 +30,7 @@ import (
 	_init "github.com/upsun/cli/internal/init"
 )
 
-func newInitCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cobra.Command {
+func newInitCommand(cnf *config.Config) *cobra.Command {
 	var (
 		useAI       bool
 		initOptions = &_init.Options{}
@@ -49,7 +48,7 @@ func newInitCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 			"  " + cnf.Application.Executable + " init --ai --context='Use PostgreSQL for the database'",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInitCommand(cmd, args, useAI, initOptions, assets)
+			return runInitCommand(cmd, args, useAI, initOptions)
 		},
 	}
 
@@ -82,7 +81,7 @@ func initCommandHelp(cnf *config.Config, short bool) string {
 
 // runInitCommand handles the main logic for the init command.
 func runInitCommand(
-	cmd *cobra.Command, args []string, useAI bool, initOptions *_init.Options, assets *vendorization.VendorAssets,
+	cmd *cobra.Command, args []string, useAI bool, initOptions *_init.Options,
 ) error {
 	var path = "."
 	if len(args) > 0 {
@@ -105,11 +104,11 @@ func runInitCommand(
 		return yaml.NewEncoder(cmd.OutOrStdout()).Encode(dg)
 	}
 
-	runNonAIConfig := func() error {
-		return platformify.Platformify(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), assets)
-	}
-
 	cnf := config.FromContext(cmd.Context())
+
+	runNonAIConfig := func() error {
+		return platformify.Run(cnf, platformify.Options{Dir: gitRoot, Stdout: cmd.OutOrStdout(), Stderr: cmd.ErrOrStderr()})
+	}
 
 	ia, err := newInitAuth(cmd, cnf)
 	if err != nil {

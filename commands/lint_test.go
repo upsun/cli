@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/upsun/cli/internal/platformify/vendorization"
-
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/pkg/lint"
 )
@@ -208,7 +206,7 @@ func TestLintCommand_Registration(t *testing.T) {
 			cnf := testConfig()
 			cnf.Service.ProjectConfigDir = c.configDir
 			cnf.Service.AppConfigFile = c.appFile
-			root := newRootCommand(cnf, &vendorization.VendorAssets{})
+			root := newRootCommand(cnf)
 			cmd, _, err := root.Find([]string{"lint"})
 			require.NoError(t, err)
 			assert.Equal(t, c.want, cmd != root)
