@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/upsun/cli/internal/config"
-	"github.com/upsun/cli/internal/lint"
+	"github.com/upsun/cli/pkg/lint"
 )
 
 // errLintFailed exits with code 1 when the configuration has errors, without another message.

@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/upsun/cli/internal/lint/registry"
+	"github.com/upsun/cli/pkg/lint/registry"
 )
 
 func TestVersionInfo_UnmarshalJSON(t *testing.T) {

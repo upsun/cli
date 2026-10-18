@@ -3,7 +3,7 @@ package lint_test
 import (
 	"testing"
 
-	"github.com/upsun/cli/internal/lint"
+	"github.com/upsun/cli/pkg/lint"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

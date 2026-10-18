@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/upsun/cli/internal/lint"
+	"github.com/upsun/cli/pkg/lint"
 )
 
 //nolint:lll

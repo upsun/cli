@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/upsun/cli/internal/config"
-	"github.com/upsun/cli/internal/lint"
+	"github.com/upsun/cli/pkg/lint"
 )
 
 // The JSON output documents "errors" and "warnings" as arrays, so a valid

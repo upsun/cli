@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xeipuuv/gojsonschema"
 
-	"github.com/upsun/cli/internal/lint"
+	"github.com/upsun/cli/pkg/lint"
 )
 
 func TestCheckYAMLSchema(t *testing.T) {

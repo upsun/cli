@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/upsun/cli/internal/lint"
-	"github.com/upsun/cli/internal/lint/registry"
+	"github.com/upsun/cli/pkg/lint"
+	"github.com/upsun/cli/pkg/lint/registry"
 )
 
 //go:embed testdata/registry.json

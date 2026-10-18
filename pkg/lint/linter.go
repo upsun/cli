@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/upsun/cli/internal/lint/registry"
-	"github.com/upsun/cli/internal/lint/schema"
+	"github.com/upsun/cli/pkg/lint/registry"
+	"github.com/upsun/cli/pkg/lint/schema"
 )
 
 var ErrEmptyContent = errors.New("empty content")
