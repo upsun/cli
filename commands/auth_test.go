@@ -7,9 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/platformsh/platformify/vendorization"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/upsun/cli/internal/platformify/vendorization"
 )
 
 func TestAuthCommands_Disabled(t *testing.T) {

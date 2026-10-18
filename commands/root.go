@@ -14,9 +14,10 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/platformsh/platformify/vendorization"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/upsun/cli/internal/platformify/vendorization"
 
 	"github.com/upsun/cli/internal"
 	"github.com/upsun/cli/internal/config"

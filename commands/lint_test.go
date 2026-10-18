@@ -10,10 +10,11 @@ import (
 	"testing"
 
 	"github.com/fatih/color"
-	"github.com/platformsh/platformify/vendorization"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/upsun/cli/internal/platformify/vendorization"
 
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/pkg/lint"

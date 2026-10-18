@@ -14,13 +14,14 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/fatih/color"
-	"github.com/platformsh/platformify/commands"
-	"github.com/platformsh/platformify/vendorization"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/upsun/whatsun/pkg/digest"
 	"github.com/upsun/whatsun/pkg/files"
 	"gopkg.in/yaml.v3"
+
+	"github.com/upsun/cli/internal/platformify"
+	"github.com/upsun/cli/internal/platformify/vendorization"
 
 	"github.com/upsun/cli/internal/legacy"
 
@@ -105,7 +106,7 @@ func runInitCommand(
 	}
 
 	runNonAIConfig := func() error {
-		return commands.Platformify(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), assets)
+		return platformify.Platformify(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), assets)
 	}
 
 	cnf := config.FromContext(cmd.Context())
