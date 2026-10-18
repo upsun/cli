@@ -13,7 +13,7 @@ func checkYAMLSchema(content string, schema *gojsonschema.Schema) *Result {
 	var data = make(map[string]any)
 	if err := yaml.Unmarshal([]byte(content), &data); err != nil {
 		result := &Result{}
-		result.AddError("", interpretYAMLError(err))
+		result.addError("", interpretYAMLError(err))
 		return result
 	}
 	return checkSchemaAt(data, schema, "")
@@ -26,7 +26,7 @@ func checkSchemaAt(data any, schema *gojsonschema.Schema, pathPrefix string) *Re
 
 	schemaResult, err := schema.Validate(gojsonschema.NewGoLoader(data))
 	if err != nil {
-		result.AddError(pathPrefix, err.Error())
+		result.addError(pathPrefix, err.Error())
 		return result
 	}
 	errs := schemaResult.Errors()
@@ -47,7 +47,7 @@ func checkSchemaAt(data any, schema *gojsonschema.Schema, pathPrefix string) *Re
 		default:
 			field = pathPrefix + "." + field
 		}
-		result.AddError(field, msg)
+		result.addError(field, msg)
 	}
 
 	return result

@@ -48,7 +48,7 @@ func checkScripts(cfg *config) *Result {
 		}
 		r := strings.NewReader(v)
 		if _, err := syntax.NewParser(syntax.Variant(syntax.LangPOSIX)).Parse(r, ""); err != nil {
-			result.AddError(k, fmt.Sprintf("invalid syntax: %s", err))
+			result.addError(k, fmt.Sprintf("invalid syntax: %s", err))
 		}
 	}
 

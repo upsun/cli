@@ -42,7 +42,7 @@ func checkWebConfig(cfg *config) *Result {
 			// Validate location key format.
 			locKeyPath := "applications." + appName + ".web.locations"
 			if errMsg := validateLocationPath(locName); errMsg != "" {
-				result.AddError(locKeyPath, fmt.Sprintf("location key %q %s", locName, errMsg))
+				result.addError(locKeyPath, fmt.Sprintf("location key %q %s", locName, errMsg))
 				continue
 			}
 
@@ -52,10 +52,10 @@ func checkWebConfig(cfg *config) *Result {
 			if loc.Root != "" {
 				// Check for leading slash (not allowed)
 				if loc.Root == "/" {
-					result.AddError(path, "the root cannot begin with a slash (use an empty string instead)")
+					result.addError(path, "the root cannot begin with a slash (use an empty string instead)")
 					continue
 				} else if strings.HasPrefix(loc.Root, "/") {
-					result.AddError(path, "the root cannot begin with a slash")
+					result.addError(path, "the root cannot begin with a slash")
 					continue
 				}
 
@@ -64,7 +64,7 @@ func checkWebConfig(cfg *config) *Result {
 				for part := range parts {
 					if part == "" || part == "." || part == ".." {
 						path := "applications." + appName + ".web.locations[\"" + locName + "\"].root"
-						result.AddError(path, "the root path cannot include empty parts, '.' or '..'")
+						result.addError(path, "the root path cannot include empty parts, '.' or '..'")
 						break
 					}
 				}
@@ -74,7 +74,7 @@ func checkWebConfig(cfg *config) *Result {
 			for rulePattern := range loc.Rules {
 				if rulePattern == "" {
 					path := "applications." + appName + ".web.locations[\"" + locName + "\"].rules"
-					result.AddError(path, "rule pattern cannot be empty")
+					result.addError(path, "rule pattern cannot be empty")
 					continue
 				}
 
@@ -83,7 +83,7 @@ func checkWebConfig(cfg *config) *Result {
 				_, err := regexp2.Compile(rulePattern, regexp2.RE2)
 				if err != nil {
 					path := "applications." + appName + ".web.locations[\"" + locName + "\"].rules"
-					result.AddError(path, "invalid regular expression: "+err.Error())
+					result.addError(path, "invalid regular expression: "+err.Error())
 				}
 			}
 		}

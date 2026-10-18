@@ -62,7 +62,7 @@ func checkDir(dir string) (*Result, style, error) {
 		}
 		addStrayWarnings(result, dir)
 		if isFixed(dir) {
-			result.AddWarning("", fmt.Sprintf(
+			result.addWarning("", fmt.Sprintf(
 				"both %s and %s configuration found; linting the %s (Flex) configuration",
 				flexDir, fixedDir, flexDir))
 		}

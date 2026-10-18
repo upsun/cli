@@ -21,7 +21,7 @@ func checkDependencies(cfg *config) *Result {
 			if !validTypes[depType] {
 				path := "applications." + appName + ".dependencies." + depType
 				msg := fmt.Sprintf("invalid dependency type '%s'; must be one of: nodejs, php, python, python3, ruby", depType)
-				result.AddError(path, msg)
+				result.addError(path, msg)
 				continue
 			}
 
@@ -29,11 +29,11 @@ func checkDependencies(cfg *config) *Result {
 			for pkgName, version := range packages {
 				if pkgName == "" {
 					path := "applications." + appName + ".dependencies." + depType
-					result.AddError(path, "package name cannot be empty")
+					result.addError(path, "package name cannot be empty")
 				}
 				if version == "" {
 					path := "applications." + appName + ".dependencies." + depType + "." + pkgName
-					result.AddError(path, "package version cannot be empty")
+					result.addError(path, "package version cannot be empty")
 				}
 			}
 		}

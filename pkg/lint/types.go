@@ -16,9 +16,9 @@ func checkTypes(cfg *config, reg registry.Registry) *Result {
 	check := func(path, t string, runtime bool) {
 		warning, err := checkType(t, reg, runtime)
 		if err != nil {
-			result.AddError(path, err.Error())
+			result.addError(path, err.Error())
 		} else if warning != "" {
-			result.AddWarning(path, warning)
+			result.addWarning(path, warning)
 		}
 	}
 
@@ -28,24 +28,24 @@ func checkTypes(cfg *config, reg registry.Registry) *Result {
 		if strings.HasPrefix(t, "docker:") {
 			switch {
 			case image == nil || image.Name == "" && image.Buildfile == "":
-				result.AddError(path+".image", "either name or buildfile must be provided, both are missing")
+				result.addError(path+".image", "either name or buildfile must be provided, both are missing")
 			case image.Name != "" && image.Buildfile != "":
-				result.AddError(path+".image", "either name or buildfile must be provided, not both")
+				result.addError(path+".image", "either name or buildfile must be provided, not both")
 			}
 			if !isStackEmpty(stack) {
-				result.AddWarning(path+".stack", "'stack' is only used with a composable image type")
+				result.addWarning(path+".stack", "'stack' is only used with a composable image type")
 			}
 			return
 		}
 		if image != nil {
-			result.AddError(path+".image", "'image' is only used with a docker: type")
+			result.addError(path+".image", "'image' is only used with a docker: type")
 		}
 		check(path+".type", t, true)
 		isComposable := strings.HasPrefix(t, "composable")
 		if isComposable && stack == nil {
-			result.AddWarning(path, "'stack' should be specified when using a composable image")
+			result.addWarning(path, "'stack' should be specified when using a composable image")
 		} else if !isComposable && !isStackEmpty(stack) {
-			result.AddWarning(path+".stack", "'stack' is only used with a composable image type")
+			result.addWarning(path+".stack", "'stack' is only used with a composable image type")
 		}
 	}
 

@@ -28,16 +28,16 @@ func (i Issue) Location() string {
 	return i.File
 }
 
-// AddError adds an error to the linter result.
-func (r *Result) AddError(path, message string) {
+// addError adds an error to the result.
+func (r *Result) addError(path, message string) {
 	r.Errors = append(r.Errors, Issue{
 		Path:    path,
 		Message: message,
 	})
 }
 
-// AddWarning adds a warning to the linter result.
-func (r *Result) AddWarning(path, message string) {
+// addWarning adds a warning to the result.
+func (r *Result) addWarning(path, message string) {
 	r.Warnings = append(r.Warnings, Issue{
 		Path:    path,
 		Message: message,
@@ -77,12 +77,6 @@ func issueLines(issues []Issue) []string {
 	return messages
 }
 
-// ErrorLines returns the formatted, sorted error lines without a heading.
-func (r *Result) ErrorLines() []string { return issueLines(r.Errors) }
-
-// WarningLines returns the formatted, sorted warning lines without a heading.
-func (r *Result) WarningLines() []string { return issueLines(r.Warnings) }
-
 // formatIssues formats a list of validation issues with a given prefix.
 func formatIssues(issues []Issue, prefix string) []string {
 	lines := issueLines(issues)
@@ -98,8 +92,8 @@ func (r *Result) String() string {
 	return strings.Join(messages, "\n")
 }
 
-// Merge appends another result's errors and warnings into this one.
-func (r *Result) Merge(other *Result) {
+// merge appends another result's errors and warnings into this one.
+func (r *Result) merge(other *Result) {
 	if other == nil {
 		return
 	}

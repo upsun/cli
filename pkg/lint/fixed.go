@@ -51,7 +51,7 @@ func lintFixed(dir string) (*Result, error) {
 	result := l.result
 
 	if len(apps) == 0 && !result.HasErrors() {
-		result.AddError("", "no application configuration found")
+		result.addError("", "no application configuration found")
 	}
 
 	// If the structure is invalid, don't run semantic checks over a broken config.
@@ -81,7 +81,7 @@ func lintFixed(dir string) (*Result, error) {
 		return nil, err
 	}
 	l.sources.locate(checks)
-	result.Merge(checks)
+	result.merge(checks)
 	return result, nil
 }
 
@@ -114,7 +114,7 @@ func (l *fixedLoader) load(abs string) (file string, node *yaml.Node) {
 func (l *fixedLoader) check(data any, sch *gojsonschema.Schema, key string, src source) {
 	checked := checkSchemaAt(data, sch, key)
 	sourceIndex{key: src}.locate(checked)
-	l.result.Merge(checked)
+	l.result.merge(checked)
 }
 
 // loadApplications collects applications from per-app config files and
@@ -243,7 +243,7 @@ func (l *fixedLoader) loadSection(
 	}
 	checked := checkSchemaAt(data, sch, section)
 	l.sources.locate(checked)
-	l.result.Merge(checked)
+	l.result.merge(checked)
 	return data, nil
 }
 

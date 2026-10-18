@@ -21,22 +21,22 @@ func checkNames(cfg *config) *Result {
 	for name := range cfg.Applications {
 		app := cfg.Applications[name]
 		if err := validateServiceName(name, "application"); err != "" {
-			result.AddError("applications."+name, err)
+			result.addError("applications."+name, err)
 		}
 		for workerName := range app.Workers {
 			if err := validateServiceName(workerName, "worker"); err != "" {
-				result.AddError("applications."+name+".workers."+workerName, err)
+				result.addError("applications."+name+".workers."+workerName, err)
 			}
 		}
 	}
 	for name := range cfg.Services {
 		if err := validateServiceName(name, "service"); err != "" {
-			result.AddError("services."+name, err)
+			result.addError("services."+name, err)
 		}
 	}
 	for name := range cfg.Tasks {
 		if err := validateServiceName(name, "task"); err != "" {
-			result.AddError("tasks."+name, err)
+			result.addError("tasks."+name, err)
 		}
 	}
 

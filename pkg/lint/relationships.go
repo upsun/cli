@@ -15,7 +15,7 @@ func checkRelationships(cfg *config) *Result {
 	sections := make(map[string]string)
 	addName := func(name, section string) {
 		if prev, exists := sections[name]; exists {
-			result.AddError(section+"."+name,
+			result.addError(section+"."+name,
 				fmt.Sprintf("duplicate name found: '%s' in '%s' (previous in '%s')", name, section, prev))
 			return
 		}
@@ -50,7 +50,7 @@ func checkRelationships(cfg *config) *Result {
 			_, isWorker := workerNames[target]
 			switch {
 			case section == keyTasks:
-				result.AddError(relPath, fmt.Sprintf(
+				result.addError(relPath, fmt.Sprintf(
 					"relationship '%s' in %s '%s' points to task '%s', but a task cannot be a relationship target",
 					relName, kind, name, target))
 			case isNamed || isWorker:
@@ -64,7 +64,7 @@ func checkRelationships(cfg *config) *Result {
 				if len(cfg.Services) == 0 {
 					msg += " (did you forget to define services?)"
 				}
-				result.AddError(relPath, msg)
+				result.addError(relPath, msg)
 			}
 		}
 	}
@@ -103,7 +103,7 @@ func checkRelationships(cfg *config) *Result {
 
 	for name := range cfg.Services {
 		if _, linked := linkedServices[name]; !linked {
-			result.AddWarning("services."+name, fmt.Sprintf("no application or task has a relationship to service '%s'", name))
+			result.addWarning("services."+name, fmt.Sprintf("no application or task has a relationship to service '%s'", name))
 		}
 	}
 

@@ -47,9 +47,10 @@ func TestPrintLintResult_JSONWithIssues(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(io.Discard)
 
-	result := &lint.Result{}
-	result.AddError("applications.app1.type", "invalid type")
-	result.AddWarning("applications.app1.web.commands.start", "a start command is needed")
+	result := &lint.Result{
+		Errors:   []lint.Issue{{Path: "applications.app1.type", Message: "invalid type"}},
+		Warnings: []lint.Issue{{Path: "applications.app1.web.commands.start", Message: "a start command is needed"}},
+	}
 
 	require.ErrorIs(t, printLintResult(cmd, result, "json"), errLintFailed)
 
@@ -158,8 +159,7 @@ func TestPrintLintResult_ValidWithWarnings(t *testing.T) {
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 
-	result := &lint.Result{}
-	result.AddWarning("", "both .upsun and .platform configuration found")
+	result := &lint.Result{Warnings: []lint.Issue{{Message: "both .upsun and .platform configuration found"}}}
 	require.NoError(t, printLintResult(cmd, result, "text"))
 	assert.Equal(t, `Warnings:
   both .upsun and .platform configuration found

@@ -24,26 +24,26 @@ func checkTasks(cfg *config) *Result {
 		path := "tasks." + name
 		if task.Base != "" {
 			if len(task.fields) > 1 {
-				result.AddError(path+".base", "when 'base' is set, no other property is allowed")
+				result.addError(path+".base", "when 'base' is set, no other property is allowed")
 			}
 			continue
 		}
 		if task.Run.Command == "" {
-			result.AddError(path+".run.command", "a run command is required")
+			result.addError(path+".run.command", "a run command is required")
 		}
 		for mountName, mount := range task.Mounts {
 			mountPath := path + ".mounts." + mountName
 			switch {
 			case mount.Source == "storage" && mount.Service == "":
-				result.AddError(mountPath, "a task has no storage of its own, so a 'storage' mount must "+
+				result.addError(mountPath, "a task has no storage of its own, so a 'storage' mount must "+
 					"name an application in 'service'")
 			case mount.Source == "storage":
 				if _, ok := cfg.Applications[mount.Service]; !ok {
-					result.AddError(mountPath+".service", fmt.Sprintf("application '%s' is not found", mount.Service))
+					result.addError(mountPath+".service", fmt.Sprintf("application '%s' is not found", mount.Service))
 				}
 			case mount.Source == "service":
 				if _, ok := cfg.Services[mount.Service]; !ok {
-					result.AddError(mountPath+".service", fmt.Sprintf("service '%s' is not found", mount.Service))
+					result.addError(mountPath+".service", fmt.Sprintf("service '%s' is not found", mount.Service))
 				}
 			}
 		}
@@ -53,16 +53,16 @@ func checkTasks(cfg *config) *Result {
 		for i, a := range authorizations {
 			itemPath := path + ".authorizations." + strconv.Itoa(i)
 			if want, ok := authorizationActions[a.Type]; ok && a.Action != want {
-				result.AddError(itemPath+".action",
+				result.addError(itemPath+".action",
 					fmt.Sprintf("authorization type '%s' only allows the action '%s'", a.Type, want))
 			}
 			if a.Type != "task" {
 				continue
 			}
 			if a.Resource == "" {
-				result.AddError(itemPath+".resource", "a task authorization requires a resource (the task name)")
+				result.addError(itemPath+".resource", "a task authorization requires a resource (the task name)")
 			} else if _, ok := cfg.Tasks[a.Resource]; !ok {
-				result.AddError(itemPath+".resource", fmt.Sprintf("task '%s' is not found%s",
+				result.addError(itemPath+".resource", fmt.Sprintf("task '%s' is not found%s",
 					a.Resource, availableHint(cfg.Tasks)))
 			}
 		}
