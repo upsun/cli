@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/upsun/cli/internal/config"
-	"github.com/upsun/cli/internal/lint"
+	"github.com/upsun/cli/pkg/lint"
 )
 
 // errLintFailed exits with code 1 when the configuration has errors, without another message.
@@ -41,26 +41,28 @@ func newLintCommand(cnf *config.Config) *cobra.Command {
 		Args:          cobra.MaximumNArgs(1),
 		SilenceErrors: true,
 		SilenceUsage:  true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runLint(cmd, args, vendorFromConfig(cnf))
-		},
+		RunE:          runLint,
 	}
 	cmd.Flags().Bool("stdin", false, "Read merged Flex configuration from standard input")
 	cmd.Flags().String("format", "text", `The output format: "text" or "json"`)
 	return cmd
 }
 
-// vendorFromConfig builds the linter's vendor conventions from the CLI config.
-func vendorFromConfig(cnf *config.Config) lint.Vendor {
-	return lint.Vendor{
-		Flavor:    cnf.Service.ProjectConfigFlavor,
-		ConfigDir: cnf.Service.ProjectConfigDir,
-		AppFile:   cnf.Service.AppConfigFile,
+// lintSupported reports whether the CLI uses the config names that lint looks
+// for (.upsun, or .platform with .platform.app.yaml).
+func lintSupported(cnf *config.Config) bool {
+	switch cnf.Service.ProjectConfigDir {
+	case ".upsun":
+		return true
+	case ".platform":
+		return cnf.Service.AppConfigFile == "" || cnf.Service.AppConfigFile == ".platform.app.yaml"
+	default:
+		return false
 	}
 }
 
-func runLint(cmd *cobra.Command, args []string, vendor lint.Vendor) error {
-	result, format, err := lintInput(cmd, args, vendor)
+func runLint(cmd *cobra.Command, args []string) error {
+	result, format, err := lintInput(cmd, args)
 	if err != nil {
 		// Report operational errors as lint errors in JSON, so there is always a document.
 		if format == "json" {
@@ -75,7 +77,7 @@ func runLint(cmd *cobra.Command, args []string, vendor lint.Vendor) error {
 	return printLintResult(cmd, result, format)
 }
 
-func lintInput(cmd *cobra.Command, args []string, vendor lint.Vendor) (*lint.Result, string, error) {
+func lintInput(cmd *cobra.Command, args []string) (*lint.Result, string, error) {
 	explicitStdin, _ := cmd.Flags().GetBool("stdin")
 	format, _ := cmd.Flags().GetString("format")
 	if format != "text" && format != "json" {
@@ -104,13 +106,35 @@ func lintInput(cmd *cobra.Command, args []string, vendor lint.Vendor) (*lint.Res
 		}
 		root = abs
 	} else {
-		root = lint.FindProjectRoot(".")
+		root = findProjectRoot(".")
 	}
 	if format == "text" {
 		fmt.Fprintln(cmd.ErrOrStderr(), "Validating configuration in directory: "+color.CyanString(root))
 	}
-	result, _, err := lint.CheckDir(root, vendor)
+	result, err := lint.CheckDir(root)
 	return result, format, err
+}
+
+// findProjectRoot resolves the project root for a path: the nearest ancestor
+// directory that contains a .git entry, or the path itself if none is found.
+// This lets the command be run from anywhere inside a repository. The nearest
+// (not topmost) .git is used so a stray repository higher up the tree (e.g. a
+// dotfiles repo in the home directory) cannot hijack the result.
+func findProjectRoot(path string) string {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return path
+	}
+	for dir := abs; ; {
+		if _, err := os.Lstat(filepath.Join(dir, ".git")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return abs
+		}
+		dir = parent
+	}
 }
 
 // capitalizeFirst upper-cases the first rune of s for user-facing display.

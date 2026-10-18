@@ -183,10 +183,12 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		newCompletionCommand(cnf),
 		newHelpCommand(cnf),
 		useLegacyStyleHelp(cnf, newInitCommand(cnf, assets)),
-		useLegacyStyleHelp(cnf, newLintCommand(cnf)),
 		newListCommand(cnf),
 		versionCommand,
 	)
+	if lintSupported(cnf) {
+		cmd.AddCommand(useLegacyStyleHelp(cnf, newLintCommand(cnf)))
+	}
 	if cnf.Service.ProjectConfigFlavor == "upsun" {
 		cmd.AddCommand(useLegacyStyleHelp(cnf, newProjectConvertCommand(cnf)))
 	}

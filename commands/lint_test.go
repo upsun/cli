@@ -10,12 +10,13 @@ import (
 	"testing"
 
 	"github.com/fatih/color"
+	"github.com/platformsh/platformify/vendorization"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/upsun/cli/internal/config"
-	"github.com/upsun/cli/internal/lint"
+	"github.com/upsun/cli/pkg/lint"
 )
 
 // The JSON output documents "errors" and "warnings" as arrays, so a valid
@@ -46,9 +47,10 @@ func TestPrintLintResult_JSONWithIssues(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(io.Discard)
 
-	result := &lint.Result{}
-	result.AddError("applications.app1.type", "invalid type")
-	result.AddWarning("applications.app1.web.commands.start", "a start command is needed")
+	result := &lint.Result{
+		Errors:   []lint.Issue{{Path: "applications.app1.type", Message: "invalid type"}},
+		Warnings: []lint.Issue{{Path: "applications.app1.web.commands.start", Message: "a start command is needed"}},
+	}
 
 	require.ErrorIs(t, printLintResult(cmd, result, "json"), errLintFailed)
 
@@ -157,11 +159,58 @@ func TestPrintLintResult_ValidWithWarnings(t *testing.T) {
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 
-	result := &lint.Result{}
-	result.AddWarning("", "both .upsun and .platform configuration found")
+	result := &lint.Result{Warnings: []lint.Issue{{Message: "both .upsun and .platform configuration found"}}}
 	require.NoError(t, printLintResult(cmd, result, "text"))
 	assert.Equal(t, `Warnings:
   both .upsun and .platform configuration found
 ✓ The configuration is valid, with 1 warning.
 `, out.String())
+}
+
+func TestFindProjectRoot(t *testing.T) {
+	gitInit := func(t *testing.T, dir string) {
+		t.Helper()
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, ".git"), 0o755))
+	}
+
+	t.Run("ascends to the enclosing git root", func(t *testing.T) {
+		root := t.TempDir()
+		gitInit(t, root)
+		sub := filepath.Join(root, "services", "api")
+		require.NoError(t, os.MkdirAll(sub, 0o755))
+		assert.Equal(t, root, findProjectRoot(sub))
+	})
+
+	t.Run("nearest git root wins over an outer one", func(t *testing.T) {
+		outer := t.TempDir()
+		gitInit(t, outer)
+		inner := filepath.Join(outer, "vendor", "pkg")
+		gitInit(t, inner)
+		assert.Equal(t, inner, findProjectRoot(inner))
+	})
+}
+
+func TestLintCommand_Registration(t *testing.T) {
+	cases := []struct {
+		name      string
+		configDir string
+		appFile   string
+		want      bool
+	}{
+		{"upsun", ".upsun", "", true},
+		{"platform", ".platform", ".platform.app.yaml", true},
+		{"custom config dir", ".acme", "", false},
+		{"custom app file", ".platform", ".acme.app.yaml", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cnf := testConfig()
+			cnf.Service.ProjectConfigDir = c.configDir
+			cnf.Service.AppConfigFile = c.appFile
+			root := newRootCommand(cnf, &vendorization.VendorAssets{})
+			cmd, _, err := root.Find([]string{"lint"})
+			require.NoError(t, err)
+			assert.Equal(t, c.want, cmd != root)
+		})
+	}
 }
