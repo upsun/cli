@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/platformsh/platformify/vendorization"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -77,7 +76,7 @@ func TestCompleteCommandPassesArgsThrough(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			cnf := testConfig()
-			root := newRootCommand(cnf, &vendorization.VendorAssets{Binary: cnf.Application.Executable})
+			root := newRootCommand(cnf)
 			root.SetOut(io.Discard)
 			root.SetErr(io.Discard)
 

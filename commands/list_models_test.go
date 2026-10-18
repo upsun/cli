@@ -38,7 +38,7 @@ func TestHelpPageExamples(t *testing.T) {
 		},
 		{
 			name: "init",
-			cmd:  commandFromCobra(cnf, newInitCommand(cnf, nil)),
+			cmd:  commandFromCobra(cnf, newInitCommand(cnf)),
 			expected: `Examples:
  Create the starter YAML file(s) for your project:
    upsun init

@@ -1,0 +1,21 @@
+# The services of the project.
+#
+# Each service listed will be deployed
+# to power your {{ .Assets.ServiceName }} project.
+# More information: {{ .Assets.Docs.Services }}
+# Full list of available services: {{ .Assets.Docs.Services }}available/
+{{- if .Services -}}
+{{- range $value := .Services }}
+{{ $value.Name }}:
+  type: {{ $value.Type }} # All available versions are: {{ $value.TypeVersions | join ", "}}
+  {{- if $value.Disk }}
+  disk: {{ $value.Disk }} # All available sizes are: {{ $value.DiskSizes | join ", "}}
+  {{- end }}
+
+{{- end -}}
+{{ else }}
+# relationships
+# db:
+#   type: postgresql:17
+#   disk: 1024
+{{ end -}}

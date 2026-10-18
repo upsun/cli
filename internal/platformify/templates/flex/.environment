@@ -1,0 +1,55 @@
+{{- if .Database }}# Set database environment variables
+export DB_HOST="${{ .DatabaseUpper }}_HOST"
+export DB_PORT="${{ .DatabaseUpper }}_PORT"
+export DB_PATH="${{ .DatabaseUpper }}_PATH"
+export DB_DATABASE="$DB_PATH"
+export DB_USERNAME="${{ .DatabaseUpper }}_USERNAME"
+export DB_PASSWORD="${{ .DatabaseUpper }}_PASSWORD"
+{{ if eq .Database "postgresql" }}export DB_SCHEME="postgresql"
+{{- else if and (eq .Stack.Name "rails") (or (eq .Database "mariadb") (eq .Database "mysql")) }}export DB_SCHEME="mysql2" # mysql/mariadb rails adapter
+{{- else }}export DB_SCHEME="${{ .DatabaseUpper }}_SCHEME"{{ end }}
+{{- end -}}
+{{- if eq .Stack.Name "laravel" }}
+
+# Set Laravel-specific environment variables
+export DB_CONNECTION="$DB_SCHEME"
+{{- end }}
+export DATABASE_URL="${DB_SCHEME}://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_PATH}"
+{{- if .Cache }}
+
+# Set Cache environment variables
+export CACHE_HOST="${{ .CacheUpper }}_HOST"
+export CACHE_PORT="${{ .CacheUpper }}_PORT"
+export CACHE_SCHEME="${{ .CacheUpper }}_SCHEME"
+export CACHE_URL="${CACHE_SCHEME}://${CACHE_HOST}:${CACHE_PORT}"
+{{- end -}}
+{{- if or (eq .Cache "redis") (eq .Cache "redis-persistent") }}
+
+# Set Redis environment variables
+export REDIS_URL="$CACHE_URL"
+{{- end -}}
+{{- if eq .Stack.Name "strapi" }}
+
+# Set Strapi-specific environment variables
+export DATABASE_HOST="$DB_HOST"
+export DATABASE_PORT="$DB_PORT"
+export DATABASE_NAME="$DB_PATH"
+export DATABASE_USERNAME="$DB_USERNAME"
+export DATABASE_PASSWORD="$DB_PASSWORD"
+export DATABASE_SCHEME="$DB_SCHEME"
+
+# Set secrets needed by Strapi, if they are not set
+# Prefer setting these as project secret variables with {{ .Assets.Binary }} variable:create env:SECRET_NAME --sensitive=true
+if [ -z "$ADMIN_JWT_SECRET" ]; then
+  export ADMIN_JWT_SECRET="${{ .Assets.EnvPrefix }}_PROJECT_ENTROPY"
+fi
+if [ -z "$JWT_SECRET" ]; then
+  export JWT_SECRET="${{ .Assets.EnvPrefix }}_PROJECT_ENTROPY"
+fi
+if [ -z "$API_TOKEN_SALT" ]; then
+    export API_TOKEN_SALT="${{ .Assets.EnvPrefix }}_PROJECT_ENTROPY"
+fi
+if [ -z "$APP_KEYS" ]; then
+    export APP_KEYS="${{ .Assets.EnvPrefix }}_PROJECT_ENTROPY"
+fi
+{{- end -}}

@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/platformsh/platformify/vendorization"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -26,17 +25,8 @@ import (
 
 // Execute is the main entrypoint to run the CLI.
 func Execute(cnf *config.Config) error {
-	assets := &vendorization.VendorAssets{
-		Use:          "project:init",
-		Binary:       cnf.Application.Executable,
-		ConfigFlavor: cnf.Service.ProjectConfigFlavor,
-		EnvPrefix:    strings.TrimSuffix(cnf.Service.EnvPrefix, "_"),
-		ServiceName:  cnf.Service.Name,
-		DocsBaseURL:  cnf.Service.DocsURL,
-	}
-
-	ctx := vendorization.WithVendorAssets(config.ToContext(context.Background(), cnf), assets)
-	cmd := newRootCommand(cnf, assets)
+	ctx := config.ToContext(context.Background(), cnf)
+	cmd := newRootCommand(cnf)
 	if args, ok, err := expandAbbreviation(cmd, enabledLegacyCommands(cnf, legacy.Commands), os.Args[1:]); err != nil {
 		debugLogf("Failed to load the legacy command index: %s", err)
 	} else if ok {
@@ -71,7 +61,7 @@ func waitForUpdateCheck() {
 	updateCheck.Wait(updateCheckWait)
 }
 
-func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cobra.Command {
+func newRootCommand(cnf *config.Config) *cobra.Command {
 	versionCommand := newVersionCommand(cnf)
 	cmd := &cobra.Command{
 		Use:                cnf.Application.Executable,
@@ -182,7 +172,7 @@ func newRootCommand(cnf *config.Config, assets *vendorization.VendorAssets) *cob
 		newConfigInstallCommand(),
 		newCompletionCommand(cnf),
 		newHelpCommand(cnf),
-		useLegacyStyleHelp(cnf, newInitCommand(cnf, assets)),
+		useLegacyStyleHelp(cnf, newInitCommand(cnf)),
 		newListCommand(cnf),
 		versionCommand,
 	)
