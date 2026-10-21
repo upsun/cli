@@ -790,20 +790,37 @@ class Api
     }
 
     /**
-     * Constructs a stream context for using the API with stream functions.
+     * Returns cURL options for an authenticated API request, with the same TLS and proxy settings as the API client.
      *
-     * @param int|float $timeout
-     *
-     * @return resource
+     * @return array<int, mixed>
      */
-    public function getStreamContext(int|float $timeout = 15)
+    public function getCurlOptions(string $url, int $connectTimeout): array
     {
-        $opts = $this->config->getStreamContextOptions($timeout);
-        $opts['http']['header'] = [
-            'Authorization: Bearer ' . $this->getAccessToken(),
+        $options = [
+            CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $this->getAccessToken()],
+            CURLOPT_USERAGENT => $this->config->getUserAgent(),
+            CURLOPT_CONNECTTIMEOUT => $connectTimeout,
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP,
         ];
 
-        return \stream_context_create($opts);
+        if ($this->config->getBool('api.skip_ssl')) {
+            $options[CURLOPT_SSL_VERIFYPEER] = false;
+            $options[CURLOPT_SSL_VERIFYHOST] = 0;
+        } else {
+            $caBundlePath = $this->caBundlePath();
+            $options[\is_dir($caBundlePath) ? CURLOPT_CAPATH : CURLOPT_CAINFO] = $caBundlePath;
+        }
+
+        $proxies = $this->config->getProxies();
+        $scheme = \parse_url($url, PHP_URL_SCHEME);
+        if (\is_string($scheme) && isset($proxies[$scheme])) {
+            $options[CURLOPT_PROXY] = $proxies[$scheme];
+        }
+        if ($noProxy = $this->config->getNoProxy()) {
+            $options[CURLOPT_NOPROXY] = \implode(',', $noProxy);
+        }
+
+        return $options;
     }
 
     /**
