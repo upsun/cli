@@ -3,9 +3,11 @@ package legacy
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"encoding/hex"
 	"encoding/pem"
 	"math/big"
 	"testing"
@@ -48,6 +50,35 @@ func TestWindowsCABundle(t *testing.T) {
 		}
 		_, err := x509.ParseCertificate(block.Bytes)
 		require.NoError(t, err, "expected every certificate in the bundle to be readable")
+	}
+}
+
+// TestWindowsCABundleDistrustedRoots checks that the roots of the compromised
+// eMudhra intermediates are left out even when Windows trusts them. Windows
+// installs them on demand, so the store may not hold them yet.
+func TestWindowsCABundleDistrustedRoots(t *testing.T) {
+	roots := map[string]string{
+		"AAA Certificate Services": "d7a7a0fb5d7e2731d771e9484ebcdef71d5f0c3e0a2948782bc83ee0ea699ef4",
+		"emSign Root TLS CA - G3":  "7dd78d5f4f13459a83dff9abbba62edbaf6f2d102bf257fd712f4d9f2746ed8d",
+		"emSign ECC Root CA - G3":  "86a1ecba089c4a8d3bbe2734c612ba341d813e043cf9e8a862cd5c57a36bbe6b",
+	}
+
+	inStore := make(map[[32]byte]bool)
+	require.NoError(t, eachStoreCert("ROOT", func(_ *windows.CertContext, der []byte) error {
+		inStore[sha256.Sum256(der)] = true
+		return nil
+	}))
+	bundle, err := caBundle()
+	require.NoError(t, err)
+	held, err := certFingerprints(bundle)
+	require.NoError(t, err)
+
+	for name, fingerprintHex := range roots {
+		var fingerprint [32]byte
+		_, err := hex.Decode(fingerprint[:], []byte(fingerprintHex))
+		require.NoError(t, err)
+		t.Logf("%s: in the store: %t", name, inStore[fingerprint])
+		assert.False(t, held[fingerprint], "expected %s not to be in the bundle", name)
 	}
 }
 
