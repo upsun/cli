@@ -94,8 +94,9 @@ func systemRootsPEM() ([]byte, error) {
 
 // usableTLSRoot reports whether a certificate from the store belongs in the
 // bundle: one which is not distrusted, which Windows allows to authenticate a
-// TLS server, which is currently valid, and which Go can read. It returns an error for a certificate it cannot
-// judge, which the caller has to leave out rather than trust.
+// TLS server, which is currently valid, and which Go can read. It returns an
+// error for a certificate it cannot judge, which the caller has to leave out
+// rather than trust.
 func usableTLSRoot(certContext *windows.CertContext, der []byte) (bool, error) {
 	fingerprint := sha256.Sum256(der)
 	if distrustedRoots[hex.EncodeToString(fingerprint[:])] {
