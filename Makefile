@@ -1,7 +1,7 @@
 # The PHP version, and the cli-php-builds build number (rebuilt when a library is updated).
 # Checksums of the binaries are pinned in PHP_SHA256SUMS. Updated by the update-php workflow.
 PHP_VERSION = 8.5.12
-PHP_BUILD = 1
+PHP_BUILD = 2
 
 .DEFAULT_GOAL := help
 
