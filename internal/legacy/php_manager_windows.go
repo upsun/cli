@@ -4,7 +4,6 @@ import (
 	_ "embed"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/upsun/cli/internal/file"
 )
@@ -26,20 +25,11 @@ func (m *phpManagerPerOS) binPath() string {
 // settings passes SSL_CERT_FILE to PHP as openssl.cafile, which PHP gives to
 // curl. Schannel then verifies certificates against that file instead of the
 // Windows certificate store, as Go does for the rest of the CLI.
+//
+// PHP reads the path from the environment itself, so it needs no escaping.
 func (m *phpManagerPerOS) settings() []string {
-	if f := os.Getenv("SSL_CERT_FILE"); f != "" {
-		return []string{iniSetting("openssl.cafile", f)}
+	if os.Getenv("SSL_CERT_FILE") != "" {
+		return []string{`openssl.cafile="${SSL_CERT_FILE}"`}
 	}
 	return nil
-}
-
-// iniSetting formats a PHP setting for the -d option.
-//
-// PHP reads ini values as expressions, in which characters such as "~" are
-// operators, so a value has to be quoted. Windows short paths contain them,
-// for example C:\Users\RUNNER~1\AppData. Inside quotes a backslash escapes the
-// next character, so the backslashes have to be doubled.
-func iniSetting(key, value string) string {
-	escaped := strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(value)
-	return key + `="` + escaped + `"`
 }

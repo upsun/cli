@@ -16,30 +16,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestWindowsIniSetting checks that PHP reads a path back unchanged.
-//
-// PHP parses ini values as expressions, so an unquoted path is truncated at a
-// character such as "~", which Windows short paths contain, and inside quotes a
-// backslash escapes the next character.
-func TestWindowsIniSetting(t *testing.T) {
+// TestWindowsSSLCertFileSetting checks that PHP reads SSL_CERT_FILE back unchanged, whatever characters the path has.
+func TestWindowsSSLCertFileSetting(t *testing.T) {
 	manager := newPHPManager(t.TempDir())
 	require.NoError(t, manager.copy())
 
-	cases := []struct {
-		name string
-		path string
-	}{
-		{"a long path", `C:\Users\runneradmin\AppData\Local\cacert.pem`},
-		{"a short path", `C:\Users\RUNNER~1\AppData\Local\cacert.pem`},
-		{"a network path", `\\server\share\cacert.pem`},
-		{"a relative path", `certs\ca.pem`},
+	paths := []string{
+		`C:\Users\runneradmin\AppData\Local\cacert.pem`,
+		`C:\Users\RUNNER~1\AppData\Local\cacert.pem`,
+		`\\server\share\cacert.pem`,
+		`certs\ca.pem`,
+		`C:\certs\${NOT_A_VAR}\$HOME;"x"\ca.pem`,
 	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			args := []string{"-n", "-d", iniSetting("openssl.cafile", c.path), "-r", `echo ini_get("openssl.cafile");`}
+	for _, path := range paths {
+		t.Run(path, func(t *testing.T) {
+			t.Setenv("SSL_CERT_FILE", path)
+			args := []string{"-n"}
+			for _, s := range manager.settings() {
+				args = append(args, "-d", s)
+			}
+			args = append(args, "-r", `echo ini_get("openssl.cafile");`)
 			output, err := exec.Command(manager.binPath(), args...).CombinedOutput() //nolint:gosec
 			require.NoError(t, err, "PHP exited with an error: %s", output)
-			assert.Equal(t, c.path, strings.TrimSpace(string(output)))
+			assert.Equal(t, path, string(output))
 		})
 	}
 }
