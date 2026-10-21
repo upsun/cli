@@ -159,10 +159,16 @@ class ConfigTest extends TestCase
         if (Config::curlUsesSchannel()) {
             // Schannel verifies with Windows when it is not given a CA file.
             $this->assertTrue($options['verify']);
-            $this->assertEquals([
+            $expected = [
                 CURLOPT_SSL_OPTIONS => CURLSSLOPT_REVOKE_BEST_EFFORT,
                 CURLOPT_PROXY_SSL_OPTIONS => CURLSSLOPT_REVOKE_BEST_EFFORT,
-            ], $options['curl'] ?? null);
+            ];
+            // The wrapper sets openssl.cafile from SSL_CERT_FILE, and the proxy is verified with it too.
+            $caFile = ini_get('openssl.cafile');
+            if (is_string($caFile) && $caFile !== '') {
+                $expected[CURLOPT_PROXY_CAINFO] = $caFile;
+            }
+            $this->assertEquals($expected, $options['curl'] ?? null);
         } else {
             $this->assertIsString($options['verify']);
             $this->assertFileExists($options['verify']);

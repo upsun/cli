@@ -3,6 +3,8 @@ package legacy
 import (
 	"crypto/tls"
 	"encoding/pem"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -54,6 +56,12 @@ func TestWindowsSSLCertFile(t *testing.T) {
 	server.StartTLS()
 	defer server.Close()
 
+	// An HTTPS proxy, with a certificate from the same CA.
+	proxy := httptest.NewUnstartedServer(http.HandlerFunc(serveConnect))
+	proxy.TLS = &tls.Config{Certificates: []tls.Certificate{ca.serverCert}} //nolint:gosec // test server; Go picks the minimum version.
+	proxy.StartTLS()
+	defer proxy.Close()
+
 	cacheDir := t.TempDir()
 	manager := newPHPManager(cacheDir)
 	require.NoError(t, manager.copy())
@@ -69,11 +77,25 @@ func TestWindowsSSLCertFile(t *testing.T) {
 	cases := []struct {
 		name     string
 		certFile string
+		env      []string
 		want     string
 	}{
-		{"a file with the server's root", serverCAFile, "OK:hello"},
-		{"a file without the server's root", otherCAFile, curlPeerFailedVerification},
-		{"a missing file", filepath.Join(cacheDir, "missing.pem"), "ERR:77:"}, // CURLE_SSL_CACERT_BADFILE
+		{"a file with the server's root", serverCAFile, nil, "OK:hello"},
+		{"a file without the server's root", otherCAFile, nil, curlPeerFailedVerification},
+		{"a missing file", filepath.Join(cacheDir, "missing.pem"), nil, "ERR:77:"}, // CURLE_SSL_CACERT_BADFILE
+		{
+			// So the legacy CLI sets CURLOPT_PROXY_CAINFO from openssl.cafile.
+			name:     "an HTTPS proxy is not verified with the file by default",
+			certFile: serverCAFile,
+			env:      []string{"TEST_PROXY=" + proxy.URL},
+			want:     curlPeerFailedVerification,
+		},
+		{
+			name:     "an HTTPS proxy verified with the file",
+			certFile: serverCAFile,
+			env:      []string{"TEST_PROXY=" + proxy.URL, "TEST_PROXY_CAINFO_FROM_INI=1"},
+			want:     "OK:hello",
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -87,6 +109,7 @@ func TestWindowsSSLCertFile(t *testing.T) {
 			args = append(args, "-r", phpRequestScript)
 			cmd := exec.Command(manager.binPath(), args...) //nolint:gosec
 			cmd.Env = append(os.Environ(), "TEST_URL="+server.URL, "TEST_SSL_OPTIONS="+strconv.Itoa(curlSSLOptRevokeBestEffort))
+			cmd.Env = append(cmd.Env, c.env...)
 			output, err := cmd.CombinedOutput()
 			require.NoError(t, err, "PHP exited with an error: %s", output)
 
@@ -98,4 +121,33 @@ func TestWindowsSSLCertFile(t *testing.T) {
 		t.Setenv("SSL_CERT_FILE", "")
 		assert.Empty(t, manager.settings())
 	})
+}
+
+// serveConnect is a minimal HTTPS proxy handler: it tunnels CONNECT requests.
+func serveConnect(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodConnect {
+		http.Error(w, "CONNECT only", http.StatusMethodNotAllowed)
+		return
+	}
+	upstream, err := net.Dial("tcp", r.Host)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	defer upstream.Close()
+	conn, buf, err := http.NewResponseController(w).Hijack()
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+	if _, err := conn.Write([]byte("HTTP/1.1 200 Connection established\r\n\r\n")); err != nil {
+		return
+	}
+	done := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(upstream, buf)
+		close(done)
+	}()
+	_, _ = io.Copy(conn, upstream)
+	<-done
 }

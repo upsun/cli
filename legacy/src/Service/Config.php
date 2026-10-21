@@ -625,7 +625,7 @@ class Config
     /**
      * Returns Guzzle request options for HTTP requests: TLS verification, proxies and the user agent.
      *
-     * @return array{headers: array<string, string>, proxy: array<string, mixed>, verify: bool|string, curl?: array<int, int>}
+     * @return array{headers: array<string, string>, proxy: array<string, mixed>, verify: bool|string, curl?: array<int, int|string>}
      */
     public function getGuzzleOptions(): array
     {
@@ -646,6 +646,11 @@ class Config
                 \CURLOPT_SSL_OPTIONS => \CURLSSLOPT_REVOKE_BEST_EFFORT,
                 \CURLOPT_PROXY_SSL_OPTIONS => \CURLSSLOPT_REVOKE_BEST_EFFORT,
             ];
+            // PHP passes openssl.cafile to curl for servers only, so an HTTPS proxy is verified with it too, as in Go.
+            $caFile = \ini_get('openssl.cafile');
+            if (\is_string($caFile) && $caFile !== '') {
+                $options['curl'][\CURLOPT_PROXY_CAINFO] = $caFile;
+            }
         } else {
             $options['verify'] = $this->caBundlePath();
         }
