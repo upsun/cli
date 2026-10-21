@@ -105,7 +105,7 @@ func TestWindowsCertStoreTrust(t *testing.T) {
 			want: curlSSLConnectError,
 		},
 		{
-			// So the CLI must not set openssl.cafile, which PHP passes to curl.
+			// So the CLI only sets openssl.cafile, which PHP passes to curl, when SSL_CERT_FILE is set.
 			name:       "a CA file replaces the store",
 			sslOptions: curlSSLOptRevokeBestEffort,
 			caFile:     otherCAFile,

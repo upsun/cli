@@ -637,7 +637,8 @@ class Config
             $options['verify'] = false;
         } elseif (self::curlUsesSchannel()) {
             // Schannel (on Windows) verifies certificates with Windows: its certificate store, distrust list and
-            // revocation. Given a CA file it would use that instead of the store, so none is set. Revocation is
+            // revocation. Given a CA file it would use that instead of the store, so none is set here: the wrapper
+            // sets openssl.cafile, which PHP passes to curl, only when SSL_CERT_FILE is set. Revocation is
             // checked where possible, as roots installed to inspect TLS traffic often have no revocation information:
             // for the server, and for an HTTPS proxy.
             $options['verify'] = true;
