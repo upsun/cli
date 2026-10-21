@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -36,6 +37,21 @@ func caBundle() ([]byte, error) {
 	bundle = append(bundle, bytes.TrimRight(caCert, "\n")...)
 	bundle = append(bundle, '\n')
 	return append(bundle, roots...), err
+}
+
+// distrustedRoots are SHA-256 fingerprints of roots left out of the bundle
+// although Windows trusts them.
+//
+// Windows distrusts some intermediates without distrusting their roots, and
+// OpenSSL cannot see that, so it would still trust the intermediates through
+// the roots. The shipped bundle must not have them either, which a test checks.
+var distrustedRoots = map[string]bool{
+	// The roots of the compromised eMudhra intermediates. emSign ECC Root CA - G3
+	// cross-signs emSign Root TLS CA - G3.
+	// See: https://emudhra.we-have-a-problem.com/
+	"d7a7a0fb5d7e2731d771e9484ebcdef71d5f0c3e0a2948782bc83ee0ea699ef4": true, // AAA Certificate Services.
+	"7dd78d5f4f13459a83dff9abbba62edbaf6f2d102bf257fd712f4d9f2746ed8d": true, // emSign Root TLS CA - G3.
+	"86a1ecba089c4a8d3bbe2734c612ba341d813e043cf9e8a862cd5c57a36bbe6b": true, // emSign ECC Root CA - G3.
 }
 
 // systemRootsPEM returns the trusted roots from the Windows certificate store
@@ -77,10 +93,15 @@ func systemRootsPEM() ([]byte, error) {
 }
 
 // usableTLSRoot reports whether a certificate from the store belongs in the
-// bundle: one Windows allows to authenticate a TLS server, which is currently
-// valid, and which Go can read. It returns an error for a certificate it cannot
-// judge, which the caller has to leave out rather than trust.
+// bundle: one which is not distrusted, which Windows allows to authenticate a
+// TLS server, which is currently valid, and which Go can read. It returns an
+// error for a certificate it cannot judge, which the caller has to leave out
+// rather than trust.
 func usableTLSRoot(certContext *windows.CertContext, der []byte) (bool, error) {
+	fingerprint := sha256.Sum256(der)
+	if distrustedRoots[hex.EncodeToString(fingerprint[:])] {
+		return false, nil
+	}
 	allowed, err := certAllowsServerAuth(certContext)
 	if err != nil {
 		return false, err
