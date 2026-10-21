@@ -24,6 +24,13 @@ path=${dir#"$root"/} # e.g. manifests/u/Upsun/CLI/5.14.0
 version=$(basename "$dir")
 id=$(basename "$installer" .installer.yaml)
 branch="$id-$version"
+# GoReleaser sets the moniker to the package name, which cannot be changed separately.
+locale="$dir/$id.locale.en-US.yaml"
+sed -i 's/^Moniker: .*/Moniker: upsun/' "$locale"
+if ! grep -qx 'Moniker: upsun' "$locale"; then
+  echo "Could not set the moniker in $locale" >&2
+  exit 1
+fi
 # Title formats from the winget-pkgs pull request template.
 if gh api "repos/$upstream/contents/${path%/*}" >/dev/null 2>&1; then
   title="Update: $id to $version"
@@ -47,9 +54,6 @@ if ! gh api "repos/$fork/git/ref/heads/$branch" >/dev/null 2>&1; then
   sha=$(gh api "repos/$fork/git/ref/heads/master" --jq .object.sha)
   gh api "repos/$fork/git/refs" -f ref="refs/heads/$branch" -f sha="$sha" >/dev/null
 fi
-
-# GoReleaser sets the moniker to the package name, which cannot be changed separately.
-sed -i 's/^Moniker: .*/Moniker: upsun/' "$dir/$id.locale.en-US.yaml"
 
 for f in "$dir"/*.yaml; do
   file="$path/$(basename "$f")"
