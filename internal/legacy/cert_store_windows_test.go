@@ -2,12 +2,10 @@ package legacy
 
 // This file covers which certificates the embedded PHP trusts on Windows.
 //
-// It matters because an organization that inspects TLS traffic installs an
-// extra root certificate in the Windows certificate store. The embedded PHP
-// layer uses curl and OpenSSL streams, and the wrapper's CA-file settings
-// determine whether the PHP layer trusts only the shipped bundle or also the
-// certificates trusted by Windows (e.g. corporate TLS inspection roots). See
-// https://github.com/upsun/cli/issues/110.
+// Its curl is built with Schannel, which verifies certificates with Windows:
+// the certificate store, including a root installed by an organization which
+// inspects TLS traffic (https://github.com/upsun/cli/issues/110), and the
+// distrust and revocation lists.
 //
 // The test installs a throwaway CA in the machine's root store, so it needs
 // administrator rights and only runs when CLI_TEST_MODIFY_CERT_STORE is set.
@@ -18,10 +16,10 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
 	"math/big"
 	"net"
@@ -30,6 +28,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -41,19 +40,21 @@ import (
 )
 
 // phpRequestScript makes one HTTPS request and reports the curl result.
-//
-// Revocation checks are turned off because the test CA publishes no
-// revocation list, which Schannel otherwise treats as a failure. This test is
-// about which certificates are trusted, not about revocation.
 const phpRequestScript = `$ch = curl_init(getenv('TEST_URL'));
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NO_REVOKE);
+curl_setopt($ch, CURLOPT_SSL_OPTIONS, (int) getenv('TEST_SSL_OPTIONS'));
+if (getenv('TEST_CAINFO') !== false) {
+    curl_setopt($ch, CURLOPT_CAINFO, getenv('TEST_CAINFO'));
+}
 $body = curl_exec($ch);
 echo curl_errno($ch) === 0 ? 'OK:' . $body : 'ERR:' . curl_errno($ch) . ':' . curl_error($ch);`
 
-// curlPeerFailedVerification is CURLE_PEER_FAILED_VERIFICATION, reported as
-// "cURL error 60" by the CLI.
-const curlPeerFailedVerification = "ERR:60:"
+// curl error codes, reported as "cURL error N" by the CLI.
+const (
+	curlSSLConnectError        = "ERR:35:"
+	curlPeerFailedVerification = "ERR:60:"
+	curlSSLOptRevokeBestEffort = 8 // CURLSSLOPT_REVOKE_BEST_EFFORT
+)
 
 func TestWindowsCertStoreTrust(t *testing.T) {
 	if os.Getenv("CLI_TEST_MODIFY_CERT_STORE") != "1" {
@@ -71,62 +72,62 @@ func TestWindowsCertStoreTrust(t *testing.T) {
 
 	installCAInRootStore(t, ca.certDER)
 
-	// Lay out the PHP binary and its CA file the way the CLI does. The CA file
-	// is written after the certificate is installed, so it includes it.
 	cacheDir := t.TempDir()
 	manager := newPHPManager(cacheDir)
 	require.NoError(t, manager.copy())
 	phpBin := manager.binPath()
 
-	// The certificates shipped with the CLI, without those from the store.
-	shippedCAFile := filepath.Join(cacheDir, "shipped.pem")
-	require.NoError(t, os.WriteFile(shippedCAFile, caCert, 0o600))
+	t.Run("curl is built with Schannel", func(t *testing.T) {
+		assert.Equal(t, "Schannel", runPHP(t, phpBin, nil, `echo curl_version()['ssl_version'];`))
+	})
+
+	// A CA file which does not hold the installed root.
+	otherCAFile := filepath.Join(cacheDir, "other.pem")
+	require.NoError(t, os.WriteFile(otherCAFile, pem.EncodeToMemory(&pem.Block{
+		Type: "CERTIFICATE", Bytes: generateTestCA(t).certDER,
+	}), 0o600))
 
 	cases := []struct {
-		name      string
-		args      []string
-		wantTrust bool
+		name       string
+		sslOptions int
+		caFile     string
+		want       string
 	}{
 		{
-			name:      "no CA file, so the store is used",
-			args:      nil,
-			wantTrust: true,
+			name:       "the store is used, with revocation checked where possible, as the legacy CLI does",
+			sslOptions: curlSSLOptRevokeBestEffort,
+			want:       "OK:hello",
 		},
 		{
-			name:      "the settings the wrapper passes",
-			args:      settingArgs(manager.settings()),
-			wantTrust: true,
+			// The test CA publishes no revocation list or OCSP responder, like
+			// many roots installed for TLS inspection.
+			name: "strict revocation checking rejects a root without revocation information",
+			want: curlSSLConnectError,
 		},
 		{
-			// Setting a CA file stops curl reading the store, so this is what
-			// the wrapper used to do, and what issue #110 reported.
-			name:      "only the shipped certificates",
-			args:      []string{"-d", iniSetting("openssl.cafile", shippedCAFile)},
-			wantTrust: false,
+			// So the CLI must not set openssl.cafile, which PHP passes to curl.
+			name:       "a CA file replaces the store",
+			sslOptions: curlSSLOptRevokeBestEffort,
+			caFile:     otherCAFile,
+			want:       curlPeerFailedVerification,
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			output := runPHPRequest(t, phpBin, server.URL, c.args...)
-			t.Logf("php %v -> %s", c.args, output)
-			if c.wantTrust {
-				assert.Equal(t, "OK:hello", output)
+			env := []string{"TEST_URL=" + server.URL, "TEST_SSL_OPTIONS=" + strconv.Itoa(c.sslOptions)}
+			if c.caFile != "" {
+				env = append(env, "TEST_CAINFO="+c.caFile)
+			}
+			output := runPHP(t, phpBin, env, phpRequestScript)
+			t.Logf("%v -> %s", env, output)
+			if strings.HasPrefix(c.want, "ERR:") {
+				assert.True(t, strings.HasPrefix(output, c.want), "expected %q to start with %q", output, c.want)
 			} else {
-				assert.Contains(t, output, curlPeerFailedVerification)
+				assert.Equal(t, c.want, output)
 			}
 		})
 	}
-
-	t.Run("the installed certificate is in the bundle", func(t *testing.T) {
-		bundle, err := caBundle()
-		require.NoError(t, err)
-		fingerprints, err := certFingerprints(bundle)
-		require.NoError(t, err)
-		assert.True(t, fingerprints[sha256.Sum256(ca.certDER)],
-			"expected the installed certificate to be added to the bundle")
-		t.Logf("%d certificates in the bundle, %d bytes", len(fingerprints), len(bundle))
-	})
 }
 
 type testCA struct {
@@ -293,25 +294,14 @@ func eachCertInStore(t *testing.T, store windows.Handle, fn func(certContext *wi
 	}
 }
 
-// settingArgs turns PHP settings into options, as makeCmd does.
-func settingArgs(settings []string) []string {
-	args := make([]string, 0, len(settings)*2)
-	for _, s := range settings {
-		args = append(args, "-d", s)
-	}
-	return args
-}
-
-func runPHPRequest(t *testing.T, phpBin, url string, extraArgs ...string) string {
+// runPHP runs PHP code with the embedded binary, as the wrapper does.
+func runPHP(t *testing.T, phpBin string, env []string, code string) string {
 	t.Helper()
-
-	args := append([]string{"-n"}, extraArgs...)
-	args = append(args, "-r", phpRequestScript)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, phpBin, args...)
-	cmd.Env = append(os.Environ(), "TEST_URL="+url)
+	cmd := exec.CommandContext(ctx, phpBin, "-n", "-r", code)
+	cmd.Env = append(os.Environ(), env...)
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "PHP exited with an error: %s", output)
 

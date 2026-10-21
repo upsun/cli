@@ -1,5 +1,5 @@
 # Opens or updates a pull request when there is a new build of the embedded PHP
-# (from upsun/cli-php-builds) or a new CA bundle. See scripts/update-php.sh.
+# (from upsun/cli-php-builds). See scripts/update-php.sh.
 name: Update PHP
 
 on:

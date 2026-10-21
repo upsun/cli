@@ -3,10 +3,6 @@
 PHP_VERSION = 8.5.12
 PHP_BUILD = 1
 
-# The CA bundle embedded for PHP on Windows, from https://curl.se/docs/caextract.html.
-CACERT_DATE = 2026-10-20
-CACERT_SHA256 = 796f1389bfea13c0ed78f663b765baaff54a508e5483786bd6ece73c5e3e3cbe
-
 .DEFAULT_GOAL := help
 
 # Delete a target if its recipe fails, e.g. a partial download.
@@ -76,7 +72,7 @@ single: goreleaser $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php ## Build a si
 	PHP_VERSION=$(PHP_VERSION) goreleaser build --single-target --id=$(GORELEASER_ID) --snapshot --clean
 
 .PHONY: snapshot
-snapshot: goreleaser $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php $(ARCHIVES)/cacert.pem ## Build all release artifacts in dist/ without publishing (needs signing keys)
+snapshot: goreleaser $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php ## Build all release artifacts in dist/ without publishing (needs signing keys)
 ifndef RSA_SIGNING_KEY_FILE
 	$(error RSA_SIGNING_KEY_FILE is not set. Set it to the path of your RSA private key for APK signing, or use 'make snapshot-no-nfpm' to skip packaging.)
 endif
@@ -101,7 +97,7 @@ php: $(ARCHIVES)/php_$(GOOS)_$(GOARCH) ## Download the PHP binary for the curren
 
 # Download PHP binaries for all platforms.
 .PHONY: download-php
-download-php: $(PHP_UNIX_BINARIES) $(ARCHIVES)/php_windows.exe $(ARCHIVES)/cacert.pem
+download-php: $(PHP_UNIX_BINARIES) $(ARCHIVES)/php_windows.exe
 
 # Build the legacy CLI phar from the legacy/ subdirectory.
 # The self:build command handles composer --no-dev rebuild, Box installation, and cache warming.
@@ -147,13 +143,7 @@ $(ARCHIVES)/php_windows.exe: $(ARCHIVES)/php-version
 	$(call verify-sha256,$@,$(call php-sha256,php-$(PHP_VERSION)-windows-amd64.exe))
 
 .PHONY: $(ARCHIVES)/php_windows_amd64
-$(ARCHIVES)/php_windows_amd64: $(ARCHIVES)/php_windows.exe $(ARCHIVES)/cacert.pem
-
-.PHONY: $(ARCHIVES)/cacert.pem
-$(ARCHIVES)/cacert.pem:
-	mkdir -p $(ARCHIVES)
-	curl -fSL https://curl.se/ca/cacert-$(CACERT_DATE).pem -o $@
-	$(call verify-sha256,$@,$(CACERT_SHA256))
+$(ARCHIVES)/php_windows_amd64: $(ARCHIVES)/php_windows.exe
 
 .PHONY: FORCE
 FORCE:
@@ -162,7 +152,7 @@ FORCE:
 
 # Create and publish a release.
 .PHONY: release
-release: goreleaser clean $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php $(ARCHIVES)/cacert.pem
+release: goreleaser clean $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php
 ifndef RSA_SIGNING_KEY_FILE
 	$(error RSA_SIGNING_KEY_FILE is not set. Set it to the path of your RSA private key for APK signing.)
 endif
