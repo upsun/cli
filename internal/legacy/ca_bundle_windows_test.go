@@ -54,8 +54,9 @@ func TestWindowsCABundle(t *testing.T) {
 }
 
 // TestWindowsCABundleDistrustedRoots checks that the roots of the compromised
-// eMudhra intermediates are left out even when Windows trusts them. Windows
-// installs them on demand, so the store may not hold them yet.
+// eMudhra intermediates are in neither the shipped certificates nor the bundle.
+// Windows installs them on demand, so the store may not hold them yet: then
+// only the shipped certificates are really checked.
 func TestWindowsCABundleDistrustedRoots(t *testing.T) {
 	roots := map[string]string{
 		"AAA Certificate Services": "d7a7a0fb5d7e2731d771e9484ebcdef71d5f0c3e0a2948782bc83ee0ea699ef4",
@@ -68,16 +69,20 @@ func TestWindowsCABundleDistrustedRoots(t *testing.T) {
 		inStore[sha256.Sum256(der)] = true
 		return nil
 	}))
+	shipped, err := certFingerprints(caCert)
+	require.NoError(t, err)
 	bundle, err := caBundle()
 	require.NoError(t, err)
 	held, err := certFingerprints(bundle)
 	require.NoError(t, err)
 
 	for name, fingerprintHex := range roots {
+		require.True(t, distrustedRoots[fingerprintHex], "expected %s to be distrusted", name)
 		var fingerprint [32]byte
 		_, err := hex.Decode(fingerprint[:], []byte(fingerprintHex))
 		require.NoError(t, err)
 		t.Logf("%s: in the store: %t", name, inStore[fingerprint])
+		assert.False(t, shipped[fingerprint], "expected %s not to be shipped", name)
 		assert.False(t, held[fingerprint], "expected %s not to be in the bundle", name)
 	}
 }
@@ -164,6 +169,13 @@ func TestWindowsUsableTLSRoot(t *testing.T) {
 	usable, err := usableTLSRoot(certContext, der)
 	require.NoError(t, err)
 	assert.True(t, usable, "expected a valid certificate with no restriction to be a usable root")
+
+	fingerprint := sha256.Sum256(der)
+	distrustedRoots[hex.EncodeToString(fingerprint[:])] = true
+	t.Cleanup(func() { delete(distrustedRoots, hex.EncodeToString(fingerprint[:])) })
+	usable, err = usableTLSRoot(certContext, der)
+	require.NoError(t, err)
+	assert.False(t, usable, "expected a distrusted root not to be usable")
 
 	// An EKU extension which cannot be decoded. Windows tolerates it, reporting
 	// the purposes it could read rather than an error, so what keeps such a
