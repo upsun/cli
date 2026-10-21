@@ -15,3 +15,8 @@ func (m *phpManagerPerOS) copy() error {
 func (m *phpManagerPerOS) binPath() string {
 	return filepath.Join(m.cacheDir, "php")
 }
+
+// settings returns no settings: the legacy CLI reads SSL_CERT_FILE itself, through Composer\CaBundle.
+func (m *phpManagerPerOS) settings() []string {
+	return nil
+}

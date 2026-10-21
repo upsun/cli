@@ -168,12 +168,16 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 // makeCmd makes a legacy CLI command with the given context and arguments.
 func (c *CLIWrapper) makeCmd(ctx context.Context, args []string, cacheDir string) *exec.Cmd {
 	phpMgr := newPHPManager(cacheDir)
+	settings := phpMgr.settings()
 	// "-n" tells PHP to ignore any php.ini and scan directory on the host.
 	// The embedded PHP binary is statically built with all extensions it
 	// needs compiled in, and cannot load shared extensions referenced by a
 	// system php.ini (e.g. inside Lando containers).
-	var cmdArgs = make([]string, 0, len(args)+2)
+	var cmdArgs = make([]string, 0, len(args)+2+len(settings)*2)
 	cmdArgs = append(cmdArgs, "-n")
+	for _, s := range settings {
+		cmdArgs = append(cmdArgs, "-d", s)
+	}
 	cmdArgs = append(cmdArgs, c.pharPath(cacheDir))
 	cmdArgs = append(cmdArgs, args...)
 	return exec.CommandContext(ctx, phpMgr.binPath(), cmdArgs...) //nolint:gosec

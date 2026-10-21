@@ -46,6 +46,13 @@ curl_setopt($ch, CURLOPT_SSL_OPTIONS, (int) getenv('TEST_SSL_OPTIONS'));
 if (getenv('TEST_CAINFO') !== false) {
     curl_setopt($ch, CURLOPT_CAINFO, getenv('TEST_CAINFO'));
 }
+if (getenv('TEST_PROXY') !== false) {
+    curl_setopt($ch, CURLOPT_PROXY, getenv('TEST_PROXY'));
+    curl_setopt($ch, CURLOPT_PROXY_SSL_OPTIONS, (int) getenv('TEST_SSL_OPTIONS'));
+    if (getenv('TEST_PROXY_CAINFO_FROM_INI') !== false) {
+        curl_setopt($ch, CURLOPT_PROXY_CAINFO, ini_get('openssl.cafile'));
+    }
+}
 $body = curl_exec($ch);
 echo curl_errno($ch) === 0 ? 'OK:' . $body : 'ERR:' . curl_errno($ch) . ':' . curl_error($ch);`
 
@@ -105,7 +112,7 @@ func TestWindowsCertStoreTrust(t *testing.T) {
 			want: curlSSLConnectError,
 		},
 		{
-			// So the CLI must not set openssl.cafile, which PHP passes to curl.
+			// So the CLI only sets openssl.cafile, which PHP passes to curl, when SSL_CERT_FILE is set.
 			name:       "a CA file replaces the store",
 			sslOptions: curlSSLOptRevokeBestEffort,
 			caFile:     otherCAFile,

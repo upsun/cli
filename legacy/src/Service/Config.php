@@ -625,7 +625,7 @@ class Config
     /**
      * Returns Guzzle request options for HTTP requests: TLS verification, proxies and the user agent.
      *
-     * @return array{headers: array<string, string>, proxy: array<string, mixed>, verify: bool|string, curl?: array<int, int>}
+     * @return array{headers: array<string, string>, proxy: array<string, mixed>, verify: bool|string, curl?: array<int, int|string>}
      */
     public function getGuzzleOptions(): array
     {
@@ -637,7 +637,8 @@ class Config
             $options['verify'] = false;
         } elseif (self::curlUsesSchannel()) {
             // Schannel (on Windows) verifies certificates with Windows: its certificate store, distrust list and
-            // revocation. Given a CA file it would use that instead of the store, so none is set. Revocation is
+            // revocation. Given a CA file it would use that instead of the store, so none is set here: the wrapper
+            // sets openssl.cafile, which PHP passes to curl, only when SSL_CERT_FILE is set. Revocation is
             // checked where possible, as roots installed to inspect TLS traffic often have no revocation information:
             // for the server, and for an HTTPS proxy.
             $options['verify'] = true;
@@ -645,6 +646,11 @@ class Config
                 \CURLOPT_SSL_OPTIONS => \CURLSSLOPT_REVOKE_BEST_EFFORT,
                 \CURLOPT_PROXY_SSL_OPTIONS => \CURLSSLOPT_REVOKE_BEST_EFFORT,
             ];
+            // PHP passes openssl.cafile to curl for servers only, so an HTTPS proxy is verified with it too, as in Go.
+            $caFile = \ini_get('openssl.cafile');
+            if (\is_string($caFile) && $caFile !== '') {
+                $options['curl'][\CURLOPT_PROXY_CAINFO] = $caFile;
+            }
         } else {
             $options['verify'] = $this->caBundlePath();
         }

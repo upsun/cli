@@ -135,7 +135,7 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 - All platforms use static binaries built with [static-php-cli](https://github.com/crazywhalecc/static-php-cli)
 - Supported platforms: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64
 - Extensions included: curl, filter, openssl, pcntl (Unix), phar, posix (Unix), zlib
-- On Windows, curl is built with Schannel, which verifies certificates with Windows (its certificate store, distrust list and revocation). No CA file is set, as Schannel would use it instead of the store, so the legacy CLI must make HTTPS requests with curl (Guzzle), not PHP streams (OpenSSL), and uses `CURLSSLOPT_REVOKE_BEST_EFFORT`, as roots installed for TLS inspection often have no revocation information
+- On Windows, curl is built with Schannel, which verifies certificates with Windows (its certificate store, distrust list and revocation). No CA file is set, as Schannel would use it instead of the store, unless `SSL_CERT_FILE` is set (the wrapper sets `openssl.cafile` to it, and the legacy CLI also sets `CURLOPT_PROXY_CAINFO`, as PHP only passes it to curl for servers: this matches Go). So the legacy CLI must make HTTPS requests with curl (Guzzle), not PHP streams (OpenSSL), and uses `CURLSSLOPT_REVOKE_BEST_EFFORT`, as roots installed for TLS inspection often have no revocation information
 
 **Downloading PHP Binaries**:
 ```bash
