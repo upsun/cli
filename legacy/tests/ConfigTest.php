@@ -159,7 +159,10 @@ class ConfigTest extends TestCase
         if (Config::curlUsesSchannel()) {
             // Schannel verifies with Windows when it is not given a CA file.
             $this->assertTrue($options['verify']);
-            $this->assertEquals([CURLOPT_SSL_OPTIONS => CURLSSLOPT_REVOKE_BEST_EFFORT], $options['curl'] ?? null);
+            $this->assertEquals([
+                CURLOPT_SSL_OPTIONS => CURLSSLOPT_REVOKE_BEST_EFFORT,
+                CURLOPT_PROXY_SSL_OPTIONS => CURLSSLOPT_REVOKE_BEST_EFFORT,
+            ], $options['curl'] ?? null);
         } else {
             $this->assertIsString($options['verify']);
             $this->assertFileExists($options['verify']);

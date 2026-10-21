@@ -638,9 +638,13 @@ class Config
         } elseif (self::curlUsesSchannel()) {
             // Schannel (on Windows) verifies certificates with Windows: its certificate store, distrust list and
             // revocation. Given a CA file it would use that instead of the store, so none is set. Revocation is
-            // checked where possible, as roots installed to inspect TLS traffic often have no revocation information.
+            // checked where possible, as roots installed to inspect TLS traffic often have no revocation information:
+            // for the server, and for an HTTPS proxy.
             $options['verify'] = true;
-            $options['curl'] = [\CURLOPT_SSL_OPTIONS => \CURLSSLOPT_REVOKE_BEST_EFFORT];
+            $options['curl'] = [
+                \CURLOPT_SSL_OPTIONS => \CURLSSLOPT_REVOKE_BEST_EFFORT,
+                \CURLOPT_PROXY_SSL_OPTIONS => \CURLSSLOPT_REVOKE_BEST_EFFORT,
+            ];
         } else {
             $options['verify'] = $this->caBundlePath();
         }
