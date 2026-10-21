@@ -48,6 +48,9 @@ if ! gh api "repos/$fork/git/ref/heads/$branch" >/dev/null 2>&1; then
   gh api "repos/$fork/git/refs" -f ref="refs/heads/$branch" -f sha="$sha" >/dev/null
 fi
 
+# GoReleaser sets the moniker to the package name, which cannot be changed separately.
+sed -i 's/^Moniker: .*/Moniker: upsun/' "$dir/$id.locale.en-US.yaml"
+
 for f in "$dir"/*.yaml; do
   file="$path/$(basename "$f")"
   # Replacing a file needs its current blob SHA.
