@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Service;
 
 use Platformsh\Cli\Console\Option;
+use Platformsh\Cli\Util\CurlStream;
 use Platformsh\Client\Model\Activity;
 use Platformsh\Client\Model\ActivityLog\LogItem;
 use Platformsh\Client\Model\Project;
@@ -170,32 +171,26 @@ class ActivityMonitor
 
             // Re-fetch the log if it reached EOF or errored before receiving
             // the "seal".
-            if (\feof($logStream)) {
+            if ($logStream->eof()) {
                 $buffer = '';
                 // Limit the frequency of re-fetching the log.
                 if (microtime(true) - $lastLogFetch < .3) {
                     \usleep(300000);
                     $bar->advance();
                 }
+                $logStream->close();
                 $logStream = $this->getLogStream($activity, $bar);
                 $lastLogFetch = microtime(true);
                 $bar->advance();
                 continue;
             }
 
-            // Read up to 8 KiB of new content from the stream.
-            // This will return a string when a packet is available, or false
-            // when the stream timeout is reached, or on EOF.
-            $content = \fread($logStream, 8192);
+            // Read new content from the stream, waiting briefly if there is none.
+            $content = $logStream->read(self::STREAM_WAIT / 1000000);
             if ($content === '') {
-                \usleep(self::STREAM_WAIT);
                 continue;
-            } elseif ($content === false) {
-                // This indicates a stream timeout or EOF.
-                continue;
-            } else {
-                $buffer .= $content;
             }
+            $buffer .= $content;
 
             // Parse the log.
             $data = $this->parseLog($buffer);
@@ -241,6 +236,7 @@ class ActivityMonitor
             // Display the progress bar again.
             $bar->advance();
         }
+        $logStream->close();
 
         if ($activity->result === Activity::RESULT_FAILURE) {
             if ($activity->state === Activity::STATE_CANCELLED) {
@@ -682,15 +678,13 @@ class ActivityMonitor
     }
 
     /**
-     * Returns the activity log as a PHP stream resource.
+     * Opens the activity log stream.
      *
      * @param Activity $activity
      * @param ProgressBar $bar
      *   Progress bar, updated when we retry.
-     *
-     * @return resource
      */
-    private function getLogStream(Activity $activity, ProgressBar $bar)
+    private function getLogStream(Activity $activity, ProgressBar $bar): CurlStream
     {
         $url = $activity->getLink('log');
 
@@ -703,7 +697,7 @@ class ActivityMonitor
 
         // Try fetching the stream with a 10 second timeout per call, and a .5
         // second interval between calls, for up to 2 minutes.
-        $readTimeout = 10;
+        $timeout = 10;
         $interval = .5;
 
         if ($this->config->getBool('api.debug')) {
@@ -714,24 +708,19 @@ class ActivityMonitor
             $bar->display();
         }
 
-        $stream = \fopen($url, 'r', false, $this->api->getStreamContext($readTimeout));
         $start = \microtime(true);
-        while ($stream === false) {
+        while (true) {
+            $stream = new CurlStream($url, $this->api->getCurlOptions($url, $timeout));
+            if ($stream->waitForHeaders($timeout)) {
+                return $stream;
+            }
+            $stream->close();
             if (\microtime(true) - $start > 120) {
-                throw new \RuntimeException('Failed to open activity log stream: ' . $url);
+                throw new \RuntimeException('Failed to open activity log stream: ' . $url . ': ' . $stream->getError());
             }
             $bar->advance();
             \usleep((int) ($interval * 1000000));
             $bar->advance();
-            $stream = \fopen($url, 'r', false, $this->api->getStreamContext($readTimeout));
         }
-        if (!\stream_set_blocking($stream, false)) {
-            \trigger_error('Failed to set stream to non-blocking', E_USER_WARNING);
-        }
-        if (!\stream_set_timeout($stream, 0, self::STREAM_WAIT)) {
-            \trigger_error('Failed to set stream timeout', E_USER_WARNING);
-        }
-
-        return $stream;
     }
 }
