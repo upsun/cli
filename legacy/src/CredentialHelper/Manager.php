@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\CredentialHelper;
 
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 use Platformsh\Cli\Exception\ProcessFailedException;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\Shell;
@@ -164,10 +166,12 @@ class Manager
         }
 
         // Download from the URL.
-        $contextOptions = $this->config->getStreamContextOptions(60);
-        $contextOptions['http']['follow_location'] = 1;
-        $contents = file_get_contents($helper['url'], false, \stream_context_create($contextOptions));
-        if (!$contents) {
+        try {
+            $contents = (string) (new Client())->request('GET', $helper['url'], ['timeout' => 60] + $this->config->getGuzzleOptions())->getBody();
+        } catch (GuzzleException $e) {
+            throw new \RuntimeException('Failed to download credentials helper from URL: ' . $helper['url'], 0, $e);
+        }
+        if ($contents === '') {
             throw new \RuntimeException('Failed to download credentials helper from URL: ' . $helper['url']);
         }
 

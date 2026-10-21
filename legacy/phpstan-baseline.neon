@@ -5665,12 +5665,6 @@ parameters:
 			path: src/Service/Api.php
 
 		-
-			message: '#^Method Platformsh\\Cli\\Service\\Api\:\:caBundlePath\(\) should return string but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/Api.php
-
-		-
 			message: '#^Method Platformsh\\Cli\\Service\\Api\:\:checkCanCreate\(\) should return array\{can_create\: bool, message\: string, required_action\: array\{action\: string, type\: string\}\|null\} but returns array\.$#'
 			identifier: return.type
 			count: 1
@@ -5971,18 +5965,6 @@ parameters:
 			path: src/Service/Config.php
 
 		-
-			message: '#^Cannot access offset ''cafile'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''capath'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
 			message: '#^Cannot access offset ''certifier_url''\|''oauth2_auth_url''\|''oauth2_revoke_url''\|''oauth2_token_url'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 2
@@ -6094,12 +6076,6 @@ parameters:
 			message: '#^Cannot access offset ''tmp_sub_dir'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''verify_peer'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
 			path: src/Service/Config.php
 
 		-
