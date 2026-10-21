@@ -3,15 +3,6 @@
 // A router for the PHP built-in server, used by HTTP client tests.
 $uri = $_SERVER['REQUEST_URI'] ?? '';
 switch (is_string($uri) ? parse_url($uri, PHP_URL_PATH) : null) {
-    case '/stream':
-        echo 'one';
-        flush();
-        usleep(500000);
-        echo 'two';
-        break;
-    case '/slow':
-        sleep(5);
-        break;
     case '/cookie':
         $cookie = $_SERVER['HTTP_COOKIE'] ?? '';
         echo is_string($cookie) ? $cookie : '';

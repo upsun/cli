@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Service;
 
 use Platformsh\Cli\Console\Option;
-use Platformsh\Cli\Util\HttpStream;
+use Platformsh\Cli\Util\CurlStream;
 use Platformsh\Client\Model\Activity;
 use Platformsh\Client\Model\ActivityLog\LogItem;
 use Platformsh\Client\Model\Project;
@@ -178,14 +178,15 @@ class ActivityMonitor
                     \usleep(300000);
                     $bar->advance();
                 }
+                $logStream->close();
                 $logStream = $this->getLogStream($activity, $bar);
                 $lastLogFetch = microtime(true);
                 $bar->advance();
                 continue;
             }
 
-            // Read new content from the stream, waiting for up to STREAM_WAIT.
-            $content = $logStream->read();
+            // Read new content from the stream, waiting briefly if there is none.
+            $content = $logStream->read(self::STREAM_WAIT / 1000000);
             if ($content === '') {
                 continue;
             }
@@ -235,6 +236,7 @@ class ActivityMonitor
             // Display the progress bar again.
             $bar->advance();
         }
+        $logStream->close();
 
         if ($activity->result === Activity::RESULT_FAILURE) {
             if ($activity->state === Activity::STATE_CANCELLED) {
@@ -676,13 +678,13 @@ class ActivityMonitor
     }
 
     /**
-     * Returns the activity log as a stream.
+     * Opens the activity log stream.
      *
      * @param Activity $activity
      * @param ProgressBar $bar
      *   Progress bar, updated when we retry.
      */
-    private function getLogStream(Activity $activity, ProgressBar $bar): HttpStream
+    private function getLogStream(Activity $activity, ProgressBar $bar): CurlStream
     {
         $url = $activity->getLink('log');
 
@@ -708,20 +710,17 @@ class ActivityMonitor
 
         $start = \microtime(true);
         while (true) {
-            $options = $this->config->getGuzzleOptions();
-            $options['headers']['Authorization'] = 'Bearer ' . $this->api->getAccessToken();
-            $options['connect_timeout'] = $timeout;
-            $stream = new HttpStream($url, $options, self::STREAM_WAIT / 1000000);
-            if ($stream->start($timeout)) {
+            $stream = new CurlStream($url, $this->api->getCurlOptions($url, $timeout));
+            if ($stream->waitForHeaders($timeout)) {
                 return $stream;
             }
+            $stream->close();
             if (\microtime(true) - $start > 120) {
-                throw new \RuntimeException('Failed to open activity log stream: ' . $url);
+                throw new \RuntimeException('Failed to open activity log stream: ' . $url . ': ' . $stream->getError());
             }
             $bar->advance();
             \usleep((int) ($interval * 1000000));
             $bar->advance();
         }
     }
-
 }

@@ -747,6 +747,41 @@ class Api
     }
 
     /**
+     * Returns cURL options for an authenticated API request, with the same TLS and proxy settings as the API client.
+     *
+     * @return array<int, mixed>
+     */
+    public function getCurlOptions(string $url, int $connectTimeout): array
+    {
+        $options = [
+            CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $this->getAccessToken()],
+            CURLOPT_USERAGENT => $this->config->getUserAgent(),
+            CURLOPT_CONNECTTIMEOUT => $connectTimeout,
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP,
+        ];
+
+        $guzzleOptions = $this->config->getGuzzleOptions();
+        if ($guzzleOptions['verify'] === false) {
+            $options[CURLOPT_SSL_VERIFYPEER] = false;
+            $options[CURLOPT_SSL_VERIFYHOST] = 0;
+        } elseif (\is_string($guzzleOptions['verify'])) {
+            $options[\is_dir($guzzleOptions['verify']) ? CURLOPT_CAPATH : CURLOPT_CAINFO] = $guzzleOptions['verify'];
+        }
+        $options += $guzzleOptions['curl'] ?? [];
+
+        $proxies = $this->config->getProxies();
+        $scheme = \parse_url($url, PHP_URL_SCHEME);
+        if (\is_string($scheme) && isset($proxies[$scheme])) {
+            $options[CURLOPT_PROXY] = $proxies[$scheme];
+        }
+        if ($noProxy = $this->config->getNoProxy()) {
+            $options[CURLOPT_NOPROXY] = \implode(',', $noProxy);
+        }
+
+        return $options;
+    }
+
+    /**
      * Checks whether a project matches a configured vendor filter.
      *
      * @param string|string[]|null $filters
