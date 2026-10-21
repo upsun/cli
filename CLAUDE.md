@@ -135,7 +135,7 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 - All platforms use static binaries built with [static-php-cli](https://github.com/crazywhalecc/static-php-cli)
 - Supported platforms: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64
 - Extensions included: curl, filter, openssl, pcntl (Unix), phar, posix (Unix), zlib
-- Windows requires `cacert.pem` for OpenSSL (embedded separately), pinned by date and checksum (`CACERT_DATE`, `CACERT_SHA256`)
+- On Windows, curl is built with Schannel, which verifies certificates with Windows (its certificate store, distrust list and revocation). No CA file is set, as Schannel would use it instead of the store, so the legacy CLI must make HTTPS requests with curl (Guzzle), not PHP streams (OpenSSL), and uses `CURLSSLOPT_REVOKE_BEST_EFFORT`, as roots installed for TLS inspection often have no revocation information
 
 **Downloading PHP Binaries**:
 ```bash
@@ -147,7 +147,7 @@ make download-php
 ```
 
 **Upgrading PHP Version**:
-- The `update-php` workflow runs daily: it finds the latest cli-php-builds release for the current PHP minor version, and the latest CA bundle, and opens or updates a pull request that updates `PHP_VERSION`, `PHP_BUILD`, the checksums and the CA bundle (with `scripts/update-php.sh`). The pull request lists the changed source archives (from the releases' `sources.json`)
+- The `update-php` workflow runs daily: it finds the latest cli-php-builds release for the current PHP minor version, and opens or updates a pull request that updates `PHP_VERSION`, `PHP_BUILD` and the checksums (with `scripts/update-php.sh`). The pull request lists the changed source archives (from the releases' `sources.json`)
 - For a new PHP minor version: trigger the build workflow at [upsun/cli-php-builds](https://github.com/upsun/cli-php-builds/actions) with the new version, then set `PHP_VERSION` to it and `PHP_BUILD` to `0` (builds are numbered from 1), run `scripts/update-php.sh <title-file> <body-file>`, and `make download-php` to check the downloads
 
 ## Development Notes

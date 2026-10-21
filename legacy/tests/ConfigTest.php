@@ -150,4 +150,27 @@ class ConfigTest extends TestCase
             }
         }
     }
+
+    public function testGetGuzzleOptions(): void
+    {
+        $config = new Config([], $this->configFile);
+        $options = $config->getGuzzleOptions();
+        $this->assertEquals($config->getUserAgent(), $options['headers']['User-Agent']);
+        if (Config::curlUsesSchannel()) {
+            // Schannel verifies with Windows when it is not given a CA file.
+            $this->assertTrue($options['verify']);
+            $this->assertEquals([
+                CURLOPT_SSL_OPTIONS => CURLSSLOPT_REVOKE_BEST_EFFORT,
+                CURLOPT_PROXY_SSL_OPTIONS => CURLSSLOPT_REVOKE_BEST_EFFORT,
+            ], $options['curl'] ?? null);
+        } else {
+            $this->assertIsString($options['verify']);
+            $this->assertFileExists($options['verify']);
+            $this->assertArrayNotHasKey('curl', $options);
+        }
+
+        $options = (new Config(['MOCK_CLI_SKIP_SSL' => '1'], $this->configFile))->getGuzzleOptions();
+        $this->assertFalse($options['verify']);
+        $this->assertArrayNotHasKey('curl', $options);
+    }
 }

@@ -20,6 +20,8 @@ class Config
     /** @var array<string, string> */
     private array $env;
 
+    private static ?string $caBundlePath = null;
+
     private ?Filesystem $fs = null;
     private ?string $version = null;
     private ?string $homeDir = null;
@@ -621,42 +623,78 @@ class Config
     }
 
     /**
-     * Returns an array of context options for HTTP/HTTPS streams.
+     * Returns Guzzle request options for HTTP requests: TLS verification, proxies and the user agent.
      *
-     * @return array{http: array<string, mixed>, ssl?: array<string, mixed>}
+     * @return array{headers: array<string, string>, proxy: array<string, mixed>, verify: bool|string, curl?: array<int, int>}
      */
-    public function getStreamContextOptions(int|float|null $timeout = null): array
+    public function getGuzzleOptions(): array
     {
-        $opts = [
-            // See https://www.php.net/manual/en/context.http.php
-            'http' => [
-                'method' => 'GET',
-                'timeout' => $timeout !== null ? $timeout : $this->getInt('api.default_timeout'),
-                'user_agent' => $this->getUserAgent(),
-            ],
+        $options = [
+            'headers' => ['User-Agent' => $this->getUserAgent()],
+            'proxy' => $this->getGuzzleProxies(),
         ];
-
-        // The PHP stream context only accepts a single proxy option, under the schemes 'tcp' or 'ssl'.
-        $proxies = $this->getProxies();
-        foreach ($proxies as $proxyUrl) {
-            $opts['http']['proxy'] = \str_replace(['http://', 'https://'], ['tcp://', 'ssl://'], $proxyUrl);
-            break;
-        }
-
-        // Set up SSL options.
         if ($this->getBool('api.skip_ssl')) {
-            $opts['ssl']['verify_peer'] = false;
-            $opts['ssl']['verify_peer_name'] = false;
+            $options['verify'] = false;
+        } elseif (self::curlUsesSchannel()) {
+            // Schannel (on Windows) verifies certificates with Windows: its certificate store, distrust list and
+            // revocation. Given a CA file it would use that instead of the store, so none is set. Revocation is
+            // checked where possible, as roots installed to inspect TLS traffic often have no revocation information:
+            // for the server, and for an HTTPS proxy.
+            $options['verify'] = true;
+            $options['curl'] = [
+                \CURLOPT_SSL_OPTIONS => \CURLSSLOPT_REVOKE_BEST_EFFORT,
+                \CURLOPT_PROXY_SSL_OPTIONS => \CURLSSLOPT_REVOKE_BEST_EFFORT,
+            ];
         } else {
-            $caBundlePath = CaBundle::getSystemCaRootBundlePath();
-            if (\is_dir($caBundlePath)) {
-                $opts['ssl']['capath'] = $caBundlePath;
-            } else {
-                $opts['ssl']['cafile'] = $caBundlePath;
+            $options['verify'] = $this->caBundlePath();
+        }
+        return $options;
+    }
+
+    /**
+     * Checks whether curl is built with Schannel, the Windows TLS library.
+     */
+    public static function curlUsesSchannel(): bool
+    {
+        $version = \extension_loaded('curl') ? \curl_version() : false;
+        return \is_array($version) && \is_string($version['ssl_version'] ?? null) && \str_starts_with($version['ssl_version'], 'Schannel');
+    }
+
+    /**
+     * Returns the path to the CA bundle or file detected by Composer.
+     *
+     * If a system CA bundle cannot be detected, Composer will use its bundled
+     * file. It will copy the file to a temporary directory if necessary (when
+     * running inside a Phar).
+     */
+    private function caBundlePath(): string
+    {
+        return self::$caBundlePath ??= CaBundle::getSystemCaRootBundlePath();
+    }
+
+    /**
+     * Returns proxy settings for Guzzle.
+     *
+     * @return array<string, mixed>
+     */
+    private function getGuzzleProxies(): array
+    {
+        $config = array_map(function ($proxyUrl) {
+            // If Guzzle is going to use PHP's built-in HTTP streams,
+            // rather than curl, then transform the proxy scheme.
+            if (!\extension_loaded('curl') && \ini_get('allow_url_fopen')) {
+                return \str_replace(['http://', 'https://'], ['tcp://', 'tcp://'], $proxyUrl);
             }
+            return $proxyUrl;
+        }, $this->getProxies());
+
+        // Guzzle only reads the no_proxy environment variable itself when no
+        // proxy has been configured explicitly, so pass the hosts on.
+        if ($noProxy = $this->getNoProxy()) {
+            $config['no'] = $noProxy;
         }
 
-        return $opts;
+        return $config;
     }
 
     /**

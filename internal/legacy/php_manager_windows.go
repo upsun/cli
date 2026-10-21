@@ -3,7 +3,6 @@ package legacy
 import (
 	_ "embed"
 	"path/filepath"
-	"strings"
 
 	"github.com/upsun/cli/internal/file"
 )
@@ -11,50 +10,13 @@ import (
 //go:embed archives/php_windows.exe
 var phpCLI []byte
 
-//go:embed archives/cacert.pem
-var caCert []byte
-
+// copy writes the PHP binary. Its curl is built with Schannel, which verifies
+// certificates with Windows (its certificate store, and its distrust and
+// revocation lists) unless given a CA file, so none is written.
 func (m *phpManagerPerOS) copy() error {
-	if err := file.WriteIfNeeded(m.binPath(), phpCLI, 0o755); err != nil {
-		return err
-	}
-	return m.writeCAFile()
+	return file.WriteIfNeeded(m.binPath(), phpCLI, 0o755)
 }
 
 func (m *phpManagerPerOS) binPath() string {
 	return filepath.Join(m.cacheDir, "php.exe")
-}
-
-// writeCAFile writes the CA bundle, which Windows needs to be given
-// explicitly, and which depends on the machine's certificate store.
-func (m *phpManagerPerOS) writeCAFile() error {
-	bundle, err := caBundle()
-	if err != nil {
-		// Whatever could be read is still written, and the shipped certificates
-		// always are, so the CLI keeps at least the trust it had before it read
-		// the store. That is better than running nothing.
-		m.copyWarnings = append(m.copyWarnings, err.Error())
-	}
-	return file.WriteIfChanged(m.caFilePath(), bundle, 0o644)
-}
-
-func (m *phpManagerPerOS) caFilePath() string {
-	return filepath.Join(m.cacheDir, "cacert.pem")
-}
-
-func (m *phpManagerPerOS) settings() []string {
-	return []string{
-		iniSetting("openssl.cafile", m.caFilePath()),
-	}
-}
-
-// iniSetting formats a PHP setting for the -d option.
-//
-// PHP reads ini values as expressions, in which characters such as "~" are
-// operators, so a value has to be quoted. Windows short paths contain them,
-// for example C:\Users\RUNNER~1\AppData. Inside quotes a backslash escapes the
-// next character, so the backslashes have to be doubled.
-func iniSetting(key, value string) string {
-	escaped := strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(value)
-	return key + `="` + escaped + `"`
 }

@@ -12,7 +12,6 @@ use GuzzleHttp\HandlerStack;
 use Symfony\Component\Filesystem\Filesystem;
 use GuzzleHttp\Exception\RequestException;
 use Platformsh\Client\Model\Integration;
-use Composer\CaBundle\CaBundle;
 use Doctrine\Common\Cache\CacheProvider;
 use Doctrine\Common\Cache\VoidCache;
 use GuzzleHttp\Client;
@@ -37,7 +36,7 @@ use Platformsh\Cli\Util\Jwt;
 use Platformsh\Cli\Util\NamespacedCache;
 use Platformsh\Cli\Util\NestedArrayUtil;
 use Platformsh\Cli\Util\Sort;
-use Platformsh\Client\Connection\Connector;
+use Platformsh\Cli\Connector;
 use Platformsh\Client\Exception\ApiResponseException;
 use Platformsh\Client\Exception\EnvironmentStateException;
 use Platformsh\Client\Model\AutoscalingSettings;
@@ -324,14 +323,16 @@ class Api
             $connectorOptions['accounts'] = $this->config->get('api.accounts_api_url');
         }
         $connectorOptions['certifier_url'] = $this->config->get('api.certifier_url');
-        $connectorOptions['verify'] = $this->config->getBool('api.skip_ssl') ? false : $this->caBundlePath();
+        $guzzleOptions = $this->config->getGuzzleOptions();
+        $connectorOptions['verify'] = $guzzleOptions['verify'];
+        $connectorOptions['curl'] = $guzzleOptions['curl'] ?? [];
 
         $connectorOptions['debug'] = false;
         $connectorOptions['client_id'] = $this->config->get('api.oauth2_client_id');
         $connectorOptions['user_agent'] = $this->config->getUserAgent();
         $connectorOptions['timeout'] = $this->config->getInt('api.default_timeout');
 
-        $connectorOptions['proxy'] = $this->guzzleProxyConfig();
+        $connectorOptions['proxy'] = $guzzleOptions['proxy'];
 
         $connectorOptions['token_url'] = $this->config->get('api.oauth2_token_url');
         $connectorOptions['revoke_url'] = $this->config->get('api.oauth2_revoke_url');
@@ -410,25 +411,6 @@ class Api
         };
 
         $connectorOptions['on_refresh_error'] = fn(IdentityProviderException $e): ?AccessToken => $this->onRefreshError($e);
-    }
-
-    /**
-     * Returns the path to the CA bundle or file detected by Composer.
-     *
-     * If a system CA bundle cannot be detected, Composer will use its bundled
-     * file. It will copy the file to a temporary directory if necessary (when
-     * running inside a Phar).
-     *
-     * @return string
-     */
-    private function caBundlePath(): string
-    {
-        static $path;
-        if ($path === null) {
-            $path = CaBundle::getSystemCaRootBundlePath();
-            $this->io->debug('Determined CA bundle path: ' . $path);
-        }
-        return $path;
     }
 
     private function onStepUpAuthResponse(ResponseInterface $response): ?AccessToken
@@ -627,31 +609,6 @@ class Api
     }
 
     /**
-     * Returns proxy config in the format expected by Guzzle.
-     *
-     * @return array<string, string|string[]>
-     */
-    private function guzzleProxyConfig(): array
-    {
-        $config = array_map(function ($proxyUrl) {
-            // If Guzzle is going to use PHP's built-in HTTP streams,
-            // rather than curl, then transform the proxy scheme.
-            if (!\extension_loaded('curl') && \ini_get('allow_url_fopen')) {
-                return \str_replace(['http://', 'https://'], ['tcp://', 'tcp://'], $proxyUrl);
-            }
-            return $proxyUrl;
-        }, $this->config->getProxies());
-
-        // Guzzle only reads the no_proxy environment variable itself when no
-        // proxy has been configured explicitly, so pass the hosts on.
-        if ($noProxy = $this->config->getNoProxy()) {
-            $config['no'] = $noProxy;
-        }
-
-        return $config;
-    }
-
-    /**
      * Returns the API client object.
      *
      * @param bool $autoLogin Whether to log in, if the client is not already
@@ -803,13 +760,14 @@ class Api
             CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP,
         ];
 
-        if ($this->config->getBool('api.skip_ssl')) {
+        $guzzleOptions = $this->config->getGuzzleOptions();
+        if ($guzzleOptions['verify'] === false) {
             $options[CURLOPT_SSL_VERIFYPEER] = false;
             $options[CURLOPT_SSL_VERIFYHOST] = 0;
-        } else {
-            $caBundlePath = $this->caBundlePath();
-            $options[\is_dir($caBundlePath) ? CURLOPT_CAPATH : CURLOPT_CAINFO] = $caBundlePath;
+        } elseif (\is_string($guzzleOptions['verify'])) {
+            $options[\is_dir($guzzleOptions['verify']) ? CURLOPT_CAPATH : CURLOPT_CAINFO] = $guzzleOptions['verify'];
         }
+        $options += $guzzleOptions['curl'] ?? [];
 
         $proxies = $this->config->getProxies();
         $scheme = \parse_url($url, PHP_URL_SCHEME);
@@ -1687,11 +1645,8 @@ class Api
      */
     public function getExternalHttpClient(): ClientInterface
     {
-        $options = [
-            'headers' => ['User-Agent' => $this->config->getUserAgent()],
+        $options = $this->config->getGuzzleOptions() + [
             'debug' => false,
-            'verify' => $this->config->getBool('api.skip_ssl') ? false : $this->caBundlePath(),
-            'proxy' => $this->guzzleProxyConfig(),
             'timeout' => $this->config->getInt('api.default_timeout'),
         ];
 
