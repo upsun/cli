@@ -43,10 +43,10 @@ func (h *Handler) handleUserExtendedAccess(w http.ResponseWriter, req *http.Requ
 	}
 	ret := struct {
 		Items []*UserGrant `json:"items"`
-		Links HalLinks     `json:"_links"`
+		Links HalLinks     `json:"_links,omitempty"`
 	}{Items: projectGrants, Links: MakeHALLinks(
-		"ref:projects:0=/ref/projects?in="+strings.Join(projectIDs.keys(), ","),
-		"ref:organizations:0=/ref/organizations?in="+strings.Join(orgIDs.keys(), ","),
+		"ref:projects:0=/ref/projects?in="+strings.Join(projectIDs.keys(), ",")+refSig,
+		"ref:organizations:0=/ref/organizations?in="+strings.Join(orgIDs.keys(), ",")+refSig,
 	)}
 	_ = json.NewEncoder(w).Encode(ret)
 }

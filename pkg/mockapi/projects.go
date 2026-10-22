@@ -104,10 +104,10 @@ func (h *Handler) handleProjectUserAccess(w http.ResponseWriter, req *http.Reque
 	}
 	ret := struct {
 		Items []*projectUserAccess `json:"items"`
-		Links HalLinks             `json:"_links"`
+		Links HalLinks             `json:"_links,omitempty"`
 	}{Items: projectGrants, Links: MakeHALLinks(
 		"self=/projects/"+url.PathEscape(projectID)+"/user-access",
-		"ref:users:0=/ref/users?in="+strings.Join(userIDs.keys(), ","),
+		"ref:users:0=/ref/users?in="+strings.Join(userIDs.keys(), ",")+refSig,
 	)}
 	_ = json.NewEncoder(w).Encode(ret)
 }

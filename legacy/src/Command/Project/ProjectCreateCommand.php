@@ -213,7 +213,6 @@ class ProjectCreateCommand extends CommandBase
                 'storage' => (int) $options['storage'] * 1024,
                 'environments' => (int) $options['environments'],
                 'options_custom' => $options_custom,
-                'options_url' => null,
             ]));
 
         $this->api->clearProjectsCache();

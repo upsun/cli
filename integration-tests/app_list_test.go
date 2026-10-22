@@ -38,7 +38,7 @@ func TestAppList(t *testing.T) {
 		WebApps: map[string]mockapi.App{
 			"app": {Name: "app", Type: "golang:1.23", Size: "AUTO"},
 		},
-		Services: map[string]mockapi.App{},
+		Services: map[string]mockapi.Service{},
 		Routes:   map[string]any{},
 		Workers: map[string]mockapi.Worker{
 			"app--worker1": {
@@ -98,7 +98,7 @@ func TestAppListEmptyLocalConfig(t *testing.T) {
 	main := makeEnv(layoutProjectID, "main", "production", "active", nil)
 	main.SetCurrentDeployment(&mockapi.Deployment{
 		WebApps:  map[string]mockapi.App{"app": {Name: "app", Type: "golang:1.23", Size: "AUTO"}},
-		Services: map[string]mockapi.App{},
+		Services: map[string]mockapi.Service{},
 		Routes:   map[string]any{},
 		Workers:  map[string]mockapi.Worker{},
 		Links:    mockapi.MakeHALLinks("self=/projects/" + layoutProjectID + "/environments/main/deployment/current"),

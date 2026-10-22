@@ -35,7 +35,7 @@ func TestMetricsLatest(t *testing.T) {
 	main := makeEnv(projectID, "main", "production", "active", nil)
 	main.SetCurrentDeployment(&mockapi.Deployment{
 		WebApps:  map[string]mockapi.App{"app": {Name: "app", Type: "golang:1.23", Size: "AUTO"}},
-		Services: map[string]mockapi.App{"db": {Name: "db", Type: "mariadb:11.4", Size: "AUTO"}},
+		Services: map[string]mockapi.Service{"db": {Type: "mariadb:11.4", Size: "AUTO"}},
 		Workers:  map[string]mockapi.Worker{},
 		Routes:   map[string]any{},
 		Links:    mockapi.MakeHALLinks("self=" + envPath + "/deployment/current"),
@@ -155,7 +155,7 @@ func TestMetricsMemory(t *testing.T) {
 	main := makeEnv(projectID, "main", "production", "active", nil)
 	main.SetCurrentDeployment(&mockapi.Deployment{
 		WebApps:  map[string]mockapi.App{"app": {Name: "app", Type: "golang:1.23", Size: "AUTO"}},
-		Services: map[string]mockapi.App{},
+		Services: map[string]mockapi.Service{},
 		Workers:  map[string]mockapi.Worker{},
 		Routes:   map[string]any{},
 		Links:    mockapi.MakeHALLinks("self=" + envPath + "/deployment/current"),

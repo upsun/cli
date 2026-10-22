@@ -9,6 +9,9 @@ import (
 	"time"
 )
 
+// refSig is the signature that the API adds to reference links.
+const refSig = "&sig=mock-signature"
+
 type HALLink struct {
 	HREF string `json:"href"`
 }
@@ -27,7 +30,7 @@ func MakeHALLinks(nameAndPath ...string) HalLinks {
 
 type Subscription struct {
 	ID            string   `json:"id"`
-	Links         HalLinks `json:"_links"`
+	Links         HalLinks `json:"_links,omitempty"`
 	ProjectID     string   `json:"project_id"`
 	ProjectRegion string   `json:"project_region"`
 	ProjectTitle  string   `json:"project_title"`
@@ -60,7 +63,7 @@ type Project struct {
 	Vendor        string            `json:"vendor"`
 	Repository    ProjectRepository `json:"repository"`
 	DefaultBranch string            `json:"default_branch"`
-	Links         HalLinks          `json:"_links"`
+	Links         HalLinks          `json:"_links,omitempty"`
 	CreatedAt     time.Time         `json:"created_at"`
 	UpdatedAt     time.Time         `json:"updated_at"`
 
@@ -112,7 +115,7 @@ type Environment struct {
 	Project     string    `json:"project"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
-	Links       HalLinks  `json:"_links"`
+	Links       HalLinks  `json:"_links,omitempty"`
 
 	HTTPAccess       map[string]any `json:"http_access,omitempty"`
 	HeadCommit       string         `json:"head_commit,omitempty"`
@@ -145,7 +148,7 @@ func (e *Environment) SetAutoscalingSettings(s map[string]any) {
 	if e.Links == nil {
 		e.Links = make(HalLinks)
 	}
-	path := "/projects/" + url.PathEscape(e.Project) + "/environments/" + url.PathEscape(e.ID) + "/autoscaling"
+	path := "/projects/" + url.PathEscape(e.Project) + "/environments/" + url.PathEscape(e.ID) + "/autoscaling/settings"
 	e.Links["#autoscaling"] = HALLink{HREF: path}
 	e.Links["#manage-autoscaling"] = HALLink{HREF: path}
 }
@@ -165,13 +168,21 @@ type Mount struct {
 type App struct {
 	Name string `json:"name"`
 	Type string `json:"type"`
-	Size string `json:"size"`
+	Size string `json:"size,omitempty"`
 	Disk int    `json:"disk"`
 
 	Mounts map[string]Mount `json:"mounts"`
 
 	Runtime map[string]any `json:"runtime,omitempty"`
 	Stack   any            `json:"stack,omitempty"`
+}
+
+// withMounts returns a copy of the app with an empty mounts object instead of null.
+func (a App) withMounts() App { //nolint:gocritic // A copy is returned.
+	if a.Mounts == nil {
+		a.Mounts = map[string]Mount{}
+	}
+	return a
 }
 
 type Commands struct {
@@ -187,15 +198,44 @@ type Worker struct {
 	Worker WorkerInfo `json:"worker"`
 }
 
+// Service is a service in a deployment.
+type Service struct {
+	Type string `json:"type"`
+	Size string `json:"size,omitempty"`
+	Disk int    `json:"disk,omitempty"`
+}
+
 type Deployment struct {
-	WebApps  map[string]App    `json:"webapps"`
-	Services map[string]App    `json:"services"`
-	Workers  map[string]Worker `json:"workers"`
-	Tasks    map[string]App    `json:"tasks,omitempty"`
+	WebApps  map[string]App     `json:"webapps"`
+	Services map[string]Service `json:"services"`
+	Workers  map[string]Worker  `json:"workers"`
+	Tasks    map[string]App     `json:"tasks,omitempty"`
 
 	Routes map[string]any `json:"routes"`
 
-	Links HalLinks `json:"_links"`
+	Links HalLinks `json:"_links,omitempty"`
+}
+
+// MarshalJSON outputs empty objects instead of null, as the API does.
+func (d Deployment) MarshalJSON() ([]byte, error) {
+	type deployment Deployment
+	c := deployment(d)
+	c.WebApps = make(map[string]App, len(d.WebApps))
+	for name, a := range d.WebApps {
+		c.WebApps[name] = a.withMounts()
+	}
+	c.Workers = make(map[string]Worker, len(d.Workers))
+	for name, w := range d.Workers {
+		w.App = w.withMounts()
+		c.Workers[name] = w
+	}
+	if c.Services == nil {
+		c.Services = map[string]Service{}
+	}
+	if c.Routes == nil {
+		c.Routes = map[string]any{}
+	}
+	return json.Marshal(c)
 }
 
 type Org struct {
@@ -205,10 +245,20 @@ type Org struct {
 	Label        string   `json:"label"`
 	Owner        string   `json:"owner_id"`
 	Capabilities []string `json:"capabilities"`
-	Links        HalLinks `json:"_links"`
+	Links        HalLinks `json:"_links,omitempty"`
 
 	BillingLegacy    *bool  `json:"billing_legacy,omitempty"`
 	BillingProfileID string `json:"billing_profile_id,omitempty"`
+}
+
+// MarshalJSON outputs an empty list of capabilities instead of null.
+func (o Org) MarshalJSON() ([]byte, error) { //nolint:gocritic // So that it applies to values too.
+	type org Org
+	c := org(o)
+	if c.Capabilities == nil {
+		c.Capabilities = []string{}
+	}
+	return json.Marshal(c)
 }
 
 func (o *Org) AsRef() *OrgRef {
@@ -281,14 +331,14 @@ type User struct {
 	Email         string `json:"email"`
 	EmailVerified bool   `json:"email_verified"`
 	Picture       string `json:"picture"`
-	Country       string `json:"country"`
+	Country       string `json:"country,omitempty"`
 
 	PhoneNumberVerified bool `json:"phone_number_verified"`
 
 	MFAEnabled bool `json:"mfa_enabled"`
 	SSOEnabled bool `json:"sso_enabled"`
 
-	ConsentMethod string    `json:"consent_method"`
+	ConsentMethod string    `json:"consent_method,omitempty"`
 	ConsentedAt   time.Time `json:"consented_at"`
 
 	CreatedAt time.Time `json:"created_at"`
@@ -305,7 +355,7 @@ type Backup struct {
 	CommitID      string    `json:"commit_id"`
 	ExpiresAt     time.Time `json:"expires_at"`
 
-	Links HalLinks `json:"_links"`
+	Links HalLinks `json:"_links,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -343,6 +393,9 @@ type Activity struct {
 func (a Activity) MarshalJSON() ([]byte, error) { //nolint:gocritic // See above.
 	type activity Activity
 	c := activity(a)
+	if c.Payload == nil {
+		c.Payload = map[string]any{}
+	}
 	if c.Links == nil {
 		path := "/projects/" + url.PathEscape(a.Project) + "/activities/" + url.PathEscape(a.ID)
 		c.Links = MakeHALLinks("self="+path, "log="+path+"/log")
@@ -350,7 +403,15 @@ func (a Activity) MarshalJSON() ([]byte, error) { //nolint:gocritic // See above
 			c.Links["#cancel"] = HALLink{HREF: path + "/cancel"}
 		}
 	}
-	return json.Marshal(c)
+	// An activity has no result until it completes.
+	var result *string
+	if c.Result != "" {
+		result = &c.Result
+	}
+	return json.Marshal(struct {
+		activity
+		Result *string `json:"result"`
+	}{c, result})
 }
 
 func (a *Activity) cancellable() bool {
@@ -369,7 +430,22 @@ type Domain struct {
 
 	SSL *DomainSSL `json:"ssl"`
 
-	Links HalLinks `json:"_links"`
+	Links HalLinks `json:"_links,omitempty"`
+}
+
+// MarshalJSON leaves out is_default from replacement domains, as the API does.
+func (d Domain) MarshalJSON() ([]byte, error) { //nolint:gocritic // So that it applies to values too.
+	type domain Domain
+	b, err := json.Marshal(domain(d))
+	if err != nil || d.ReplacementFor == "" {
+		return b, err
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+	delete(m, "is_default")
+	return json.Marshal(m)
 }
 
 // DomainSSL is computed from the project's certificates, as the API does.
@@ -393,7 +469,7 @@ type Integration struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 
-	Links HalLinks `json:"_links"`
+	Links HalLinks `json:"_links,omitempty"`
 }
 
 type Certificate struct {
@@ -411,7 +487,26 @@ type Certificate struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 
-	Links HalLinks `json:"_links"`
+	Links HalLinks `json:"_links,omitempty"`
+}
+
+// MarshalJSON outputs empty lists instead of null.
+func (c Certificate) MarshalJSON() ([]byte, error) { //nolint:gocritic // So that it applies to values too.
+	type certificate Certificate
+	v := certificate(c)
+	if v.AuthType == nil {
+		v.AuthType = []string{}
+	}
+	if v.Chain == nil {
+		v.Chain = []string{}
+	}
+	if v.Domains == nil {
+		v.Domains = []string{}
+	}
+	if v.Issuer == nil {
+		v.Issuer = []NameAttr{}
+	}
+	return json.Marshal(v)
 }
 
 // NameAttr is an attribute of an X.509 name, such as the certificate issuer.
@@ -422,25 +517,30 @@ type NameAttr struct {
 }
 
 type Variable struct {
-	Name             string   `json:"name"`
-	Value            string   `json:"value,omitempty"`
-	IsSensitive      bool     `json:"is_sensitive"`
-	VisibleBuild     bool     `json:"visible_build"`
-	VisibleRuntime   bool     `json:"visible_runtime"`
-	ApplicationScope []string `json:"application_scope,omitempty"`
+	ID               string            `json:"id"`
+	Name             string            `json:"name"`
+	Value            string            `json:"value,omitempty"`
+	Attributes       map[string]string `json:"attributes"`
+	IsJSON           bool              `json:"is_json"`
+	IsSensitive      bool              `json:"is_sensitive"`
+	VisibleBuild     bool              `json:"visible_build"`
+	VisibleRuntime   bool              `json:"visible_runtime"`
+	ApplicationScope []string          `json:"application_scope"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 
-	Links HalLinks `json:"_links"`
+	Links HalLinks `json:"_links,omitempty"`
 }
 
 type EnvLevelVariable struct {
 	Variable
 
-	IsEnabled     bool `json:"is_enabled"`
-	Inherited     bool `json:"inherited"`
-	IsInheritable bool `json:"is_inheritable"`
+	Project       string `json:"project"`
+	Environment   string `json:"environment"`
+	IsEnabled     bool   `json:"is_enabled"`
+	Inherited     bool   `json:"inherited"`
+	IsInheritable bool   `json:"is_inheritable"`
 }
 
 // BillingProfile is a billing profile on the new billing system.

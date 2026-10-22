@@ -111,7 +111,7 @@ func (h *Handler) handlePatchProjectVariable(w http.ResponseWriter, req *http.Re
 	}
 	patched.UpdatedAt = time.Now()
 	h.projectVariables[projectID][key] = &patched
-	_ = json.NewEncoder(w).Encode(redactVariable(&patched))
+	_ = json.NewEncoder(w).Encode(embedded("entity", redactVariable(&patched)))
 }
 
 func (h *Handler) handleListEnvLevelVariables(w http.ResponseWriter, req *http.Request) {
@@ -156,6 +156,8 @@ func (h *Handler) handleCreateEnvLevelVariable(w http.ResponseWriter, req *http.
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	newVar.Project = projectID
+	newVar.Environment = environmentID
 	newVar.CreatedAt = time.Now()
 	newVar.UpdatedAt = time.Now()
 	newVar.Links = MakeHALLinks(
@@ -209,7 +211,7 @@ func (h *Handler) handlePatchEnvLevelVariable(w http.ResponseWriter, req *http.R
 	}
 	patched.UpdatedAt = time.Now()
 	h.envLevelVariables[projectID][environmentID][key] = &patched
-	_ = json.NewEncoder(w).Encode(redactEnvLevelVariable(&patched))
+	_ = json.NewEncoder(w).Encode(embedded("entity", redactEnvLevelVariable(&patched)))
 }
 
 func (h *Handler) handleDeleteEnvLevelVariable(w http.ResponseWriter, req *http.Request) {
@@ -230,22 +232,35 @@ func (h *Handler) handleDeleteEnvLevelVariable(w http.ResponseWriter, req *http.
 	w.WriteHeader(http.StatusNotFound)
 }
 
-// redactVariable returns a copy of a variable without its value if it is sensitive, as in the API.
+// redactVariable returns a copy of a variable for output, without its value if it is sensitive, as in the API.
 func redactVariable(v *Variable) *Variable {
-	if !v.IsSensitive {
-		return v
-	}
 	c := *v
-	c.Value = ""
+	c.fill()
+	if c.IsSensitive {
+		c.Value = ""
+	}
 	return &c
 }
 
-// redactEnvLevelVariable returns a copy of a variable without its value if it is sensitive, as in the API.
-func redactEnvLevelVariable(v *EnvLevelVariable) *EnvLevelVariable {
-	if !v.IsSensitive {
-		return v
+// fill sets the required properties that tests may leave empty.
+func (v *Variable) fill() {
+	if v.ID == "" {
+		v.ID = v.Name
 	}
+	if v.Attributes == nil {
+		v.Attributes = map[string]string{}
+	}
+	if v.ApplicationScope == nil {
+		v.ApplicationScope = []string{}
+	}
+}
+
+// redactEnvLevelVariable returns a copy of a variable for output, without its value if it is sensitive, as in the API.
+func redactEnvLevelVariable(v *EnvLevelVariable) *EnvLevelVariable {
 	c := *v
-	c.Value = ""
+	c.fill()
+	if c.IsSensitive {
+		c.Value = ""
+	}
 	return &c
 }

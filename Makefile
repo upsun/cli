@@ -272,6 +272,16 @@ update-schema: ## Refresh the embedded Flex config schema from meta.upsun.com
 check-schema: update-schema
 	git diff --exit-code -- internal/schema/upsun-config-schema.json
 
+# The API's OpenAPI spec, used to validate the mock API in tests, is from https://meta.upsun.com/openapi-spec.
+.PHONY: update-openapi-spec
+update-openapi-spec: ## Refresh the OpenAPI spec used by the mock API
+	cd pkg/mockapi && go run gen.go
+
+# Fail if the OpenAPI spec is stale. Only a summary is printed, as the diff can be large.
+.PHONY: check-openapi-spec
+check-openapi-spec: update-openapi-spec
+	git diff --exit-code --stat -- pkg/mockapi/openapi.json
+
 # Installs dev dependencies, which a phar build removes. PHPStan's binary marks that they are installed.
 .PHONY: composer-dev
 composer-dev: legacy/vendor/bin/phpstan

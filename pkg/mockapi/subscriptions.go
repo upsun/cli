@@ -51,6 +51,7 @@ func (h *Handler) handleCreateSubscription(w http.ResponseWriter, req *http.Requ
 	}
 	h.Unlock()
 
+	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(sub)
 
 	// Imitate "provisioning": wait a little and then activate.

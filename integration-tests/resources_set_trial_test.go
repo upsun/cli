@@ -30,11 +30,11 @@ func setUpResourcesSetOrgWithSize(apiHandler *mockapi.Handler, orgID, currentSiz
 		},
 	}, map[string]any{
 		"BALANCED": map[string]any{
-			"0.1": map[string]any{"cpu": "0.1", "memory": "64", "cpu_type": "shared"},
-			"0.5": map[string]any{"cpu": "0.5", "memory": "128", "cpu_type": "shared"},
-			"1":   map[string]any{"cpu": "1", "memory": "256", "cpu_type": "shared"},
+			"0.1": map[string]any{"cpu": 0.1, "memory": 64, "cpu_type": "shared"},
+			"0.5": map[string]any{"cpu": 0.5, "memory": 128, "cpu_type": "shared"},
+			"1":   map[string]any{"cpu": 1, "memory": 256, "cpu_type": "shared"},
 			// Filtered out: the project does not support guaranteed CPU.
-			"2": map[string]any{"cpu": "2", "memory": "512", "cpu_type": "guaranteed"},
+			"2": map[string]any{"cpu": 2, "memory": 512, "cpu_type": "guaranteed"},
 		},
 	}))
 	return projectID

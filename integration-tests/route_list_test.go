@@ -87,12 +87,6 @@ func mockRoutes() map[string]any {
 			"attributes":     map[string]any{},
 			"type":           "upstream",
 			"original_url":   "https://{default}",
-			"http_access": map[string]any{
-				"is_enabled": true,
-				"addresses":  []string{},
-				"basic_auth": map[string]any{},
-			},
-			"restrict_robots": true,
 			"cache": map[string]any{
 				"enabled":     true,
 				"default_ttl": 0,
@@ -111,13 +105,7 @@ func mockRoutes() map[string]any {
 			"attributes":     map[string]any{},
 			"type":           "redirect",
 			"original_url":   "http://{default}",
-			"http_access": map[string]any{
-				"is_enabled": true,
-				"addresses":  []string{},
-				"basic_auth": map[string]any{},
-			},
-			"restrict_robots": true,
-			"to":              "https://main.example.com/",
+			"to":             "https://main.example.com/",
 		},
 	}
 }

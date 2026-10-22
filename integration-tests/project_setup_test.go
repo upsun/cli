@@ -133,7 +133,7 @@ func remoteEnv(t *testing.T, scripts map[string]string, relationships map[string
 func sshEnv(d *mockapi.Deployment) *mockapi.Environment {
 	env := makeEnv(layoutProjectID, "main", "production", "active", nil)
 	if d.Services == nil {
-		d.Services = map[string]mockapi.App{}
+		d.Services = map[string]mockapi.Service{}
 	}
 	if d.Workers == nil {
 		d.Workers = map[string]mockapi.Worker{}

@@ -55,6 +55,8 @@ func TestDomainUpdateProjectScope(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"id":         "example.com",
 			"name":       "example.com",
+			"type":       "production",
+			"is_default": false,
 			"created_at": "2024-01-01T00:00:00Z",
 			"updated_at": "2024-01-01T00:00:00Z",
 			"ssl": map[string]any{
@@ -111,6 +113,8 @@ func TestDomainGetProjectScope(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"id":         "example.com",
 			"name":       "example.com",
+			"type":       "production",
+			"is_default": false,
 			"created_at": "2024-01-01T00:00:00Z",
 			"updated_at": "2024-01-01T00:00:00Z",
 			"ssl": map[string]any{

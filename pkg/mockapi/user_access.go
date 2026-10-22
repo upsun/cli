@@ -130,7 +130,7 @@ func (h *Handler) handleListEnvironmentTypes(w http.ResponseWriter, req *http.Re
 type projectUserAccess struct {
 	*ProjectUserGrant
 	ProjectTitle string   `json:"project_title"`
-	Links        HalLinks `json:"_links"`
+	Links        HalLinks `json:"_links,omitempty"`
 }
 
 // newProjectUserAccess returns a project user grant as returned by the API. The caller must hold a lock.
@@ -170,7 +170,7 @@ func (h *Handler) handleGetProjectUserAccess(w http.ResponseWriter, req *http.Re
 		return
 	}
 	a := h.newProjectUserAccess(h.userGrants[i])
-	a.Links["ref:users:0"] = HALLink{HREF: "/ref/users?in=" + url.QueryEscape(a.UserID)}
+	a.Links["ref:users:0"] = HALLink{HREF: "/ref/users?in=" + url.QueryEscape(a.UserID) + refSig}
 	_ = json.NewEncoder(w).Encode(a)
 }
 
@@ -309,7 +309,7 @@ func (h *Handler) handleCreateProjectInvitation(w http.ResponseWriter, req *http
 type orgMember struct {
 	*OrgMember
 	ID    string   `json:"id"`
-	Links HalLinks `json:"_links"`
+	Links HalLinks `json:"_links,omitempty"`
 }
 
 func newOrgMember(m *OrgMember) *orgMember {
@@ -339,13 +339,13 @@ func (h *Handler) handleListOrgMembers(w http.ResponseWriter, req *http.Request)
 	_ = json.NewEncoder(w).Encode(struct {
 		Count int          `json:"count"`
 		Items []*orgMember `json:"items"`
-		Links HalLinks     `json:"_links"`
+		Links HalLinks     `json:"_links,omitempty"`
 	}{
 		Count: len(items),
 		Items: items,
 		Links: MakeHALLinks(
 			"self=/organizations/"+url.PathEscape(orgID)+"/members",
-			"ref:users:0=/ref/users?in="+strings.Join(userIDs, ","),
+			"ref:users:0=/ref/users?in="+strings.Join(userIDs, ",")+refSig,
 		),
 	})
 }
@@ -360,7 +360,7 @@ func (h *Handler) handleGetOrgMember(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	m := newOrgMember(h.orgMembers[orgID][i])
-	m.Links["ref:users:0"] = HALLink{HREF: "/ref/users?in=" + url.QueryEscape(m.UserID)}
+	m.Links["ref:users:0"] = HALLink{HREF: "/ref/users?in=" + url.QueryEscape(m.UserID) + refSig}
 	_ = json.NewEncoder(w).Encode(m)
 }
 

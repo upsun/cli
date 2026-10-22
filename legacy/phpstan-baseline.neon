@@ -2695,7 +2695,7 @@ parameters:
 			path: src/Command/Project/ProjectCreateCommand.php
 
 		-
-			message: '#^Parameter \#1 \$options of static method Platformsh\\Client\\Model\\Subscription\\SubscriptionOptions\:\:fromArray\(\) expects array\{project_region\: string\|null, project_title\: string\|null, default_branch\: string\|null, options_url\: string\|null, options_custom\: array\|null, plan\: string\|null, environments\: int\|null, storage\: int\|null, \.\.\.\}, array\{organization_id\: string\|null, project_title\: mixed, project_region\: mixed, default_branch\: mixed, plan\: mixed, storage\: int, environments\: int, options_custom\: array\{initialize\: array\{repository\: mixed\}\}\|null, \.\.\.\} given\.$#'
+			message: '#^Parameter \#1 \$options of static method Platformsh\\Client\\Model\\Subscription\\SubscriptionOptions\:\:fromArray\(\) expects array\{project_region\: string\|null, project_title\: string\|null, default_branch\: string\|null, options_url\: string\|null, options_custom\: array\|null, plan\: string\|null, environments\: int\|null, storage\: int\|null, \.\.\.\}, array\{organization_id\: string\|null, project_title\: mixed, project_region\: mixed, default_branch\: mixed, plan\: mixed, storage\: int, environments\: int, options_custom\: array\{initialize\: array\{repository\: mixed\}\}\|null\} given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Project/ProjectCreateCommand.php

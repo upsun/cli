@@ -39,7 +39,7 @@ func TestResourcesSet_DiskKeywords(t *testing.T) {
 				},
 			}, map[string]any{
 				"HIGH_CPU": map[string]any{
-					"1": map[string]any{"cpu": "1", "memory": "384", "cpu_type": "shared"},
+					"1": map[string]any{"cpu": 1, "memory": 384, "cpu_type": "shared"},
 				},
 			}))
 			f := serveAPI(t, apiHandler)
@@ -75,9 +75,9 @@ func TestResourcesSet_InteractiveIntegerProfileSizes(t *testing.T) {
 		},
 	}, map[string]any{
 		"HIGH_CPU": map[string]any{
-			"0.5": map[string]any{"cpu": "0.5", "memory": "224", "cpu_type": "shared"},
-			"1":   map[string]any{"cpu": "1", "memory": "384", "cpu_type": "shared"},
-			"2":   map[string]any{"cpu": "2", "memory": "768", "cpu_type": "shared"},
+			"0.5": map[string]any{"cpu": 0.5, "memory": 224, "cpu_type": "shared"},
+			"1":   map[string]any{"cpu": 1, "memory": 384, "cpu_type": "shared"},
+			"2":   map[string]any{"cpu": 2, "memory": 768, "cpu_type": "shared"},
 		},
 	}))
 	f := serveAPI(t, apiHandler)

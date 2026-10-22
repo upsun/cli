@@ -40,7 +40,7 @@ func TestMountList(t *testing.T) {
 					"/public/sites/default/files": {Source: "local", SourcePath: "files"},
 				}},
 		},
-		Services: map[string]mockapi.App{},
+		Services: map[string]mockapi.Service{},
 		Routes:   map[string]any{},
 		Workers:  map[string]mockapi.Worker{},
 		Links:    mockapi.MakeHALLinks("self=/projects/" + projectID + "/environments/main/deployment/current"),

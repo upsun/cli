@@ -77,7 +77,7 @@ func TestEnvironmentXdebug(t *testing.T) {
 		env := makeEnv(projectID, name, "development", "active", nil)
 		env.SetCurrentDeployment(&mockapi.Deployment{
 			WebApps:  map[string]mockapi.App{"app": app},
-			Services: map[string]mockapi.App{},
+			Services: map[string]mockapi.Service{},
 			Workers: map[string]mockapi.Worker{
 				"app--queue": {App: mockapi.App{Name: "app--queue", Type: app.Type, Runtime: app.Runtime, Stack: app.Stack}},
 			},

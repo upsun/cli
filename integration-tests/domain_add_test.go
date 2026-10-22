@@ -50,7 +50,10 @@ func TestDomainAdd(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, json.Unmarshal(body, &captured))
 		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(map[string]any{"name": captured["name"]})
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status": "created", "code": http.StatusCreated,
+			"_embedded": map[string]any{"entity": map[string]any{"name": captured["name"]}},
+		})
 	})
 
 	apiServer := httptest.NewServer(apiHandler)

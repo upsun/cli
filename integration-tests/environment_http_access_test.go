@@ -41,7 +41,7 @@ func TestEnvironmentHTTPAccess(t *testing.T) {
 	assert.Contains(t, stdOut, "is_enabled: false")
 	httpAccess := p.env("main").HTTPAccess
 	assert.Equal(t, false, httpAccess["is_enabled"])
-	assert.Nil(t, httpAccess["basic_auth"])
+	assert.Equal(t, map[string]any{}, httpAccess["basic_auth"])
 	assert.Len(t, httpAccess["addresses"], 2)
 
 	_, stdErr, err = p.f.RunCombinedOutput("httpaccess", "-p", layoutProjectID, "-e", "main", "--auth", "user1:short")

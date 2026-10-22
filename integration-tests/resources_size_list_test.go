@@ -54,8 +54,8 @@ func TestResourcesSizeListGuaranteedCPU(t *testing.T) {
 				},
 			}, map[string]any{
 				"BALANCED": map[string]any{
-					"0.5": map[string]any{"cpu": "0.5", "memory": "128", "cpu_type": "shared"},
-					"2":   map[string]any{"cpu": "2", "memory": "512", "cpu_type": "guaranteed"},
+					"0.5": map[string]any{"cpu": 0.5, "memory": 128, "cpu_type": "shared"},
+					"2":   map[string]any{"cpu": 2, "memory": 512, "cpu_type": "guaranteed"},
 				},
 			})
 			next["project_info"] = map[string]any{"settings": c.settings, "capabilities": c.capabilities}

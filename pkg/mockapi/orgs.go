@@ -44,10 +44,10 @@ func (h *Handler) handleListOrgs(w http.ResponseWriter, _ *http.Request) {
 	slices.SortFunc(orgs, func(a, b *Org) int { return strings.Compare(a.Name, b.Name) })
 	_ = json.NewEncoder(w).Encode(struct {
 		Items []*Org   `json:"items"`
-		Links HalLinks `json:"_links"`
+		Links HalLinks `json:"_links,omitempty"`
 	}{
 		Items: orgs,
-		Links: MakeHALLinks("ref:users:0=/ref/users?in=" + strings.Join(ownerIDs.keys(), ",")),
+		Links: MakeHALLinks("ref:users:0=/ref/users?in=" + strings.Join(ownerIDs.keys(), ",") + refSig),
 	})
 }
 
@@ -97,6 +97,7 @@ func (h *Handler) handleCreateOrg(w http.ResponseWriter, req *http.Request) {
 	org.Capabilities = []string{}
 	org.Links = MakeHALLinks("self=/organizations/" + url.PathEscape(org.ID))
 	h.orgs[org.ID] = &org
+	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(&org)
 }
 

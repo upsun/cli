@@ -72,6 +72,8 @@ func NewHandler(t *testing.T) *Handler {
 		})
 	})
 
+	h.Use(validateOpenAPI(t))
+
 	h.Get("/users/me", h.handleUsersMe)
 	h.Get("/me", h.handleUsersMe)
 	h.Get("/users/{user_id}/extended-access", h.handleUserExtendedAccess)
@@ -167,7 +169,7 @@ func NewHandler(t *testing.T) *Handler {
 	h.Get("/projects/{project_id}/environments/{environment_id}/deployments/current", h.handleGetCurrentDeployment)
 	h.Get("/projects/{project_id}/environments/{environment_id}/deployments/next", h.handleGetNextDeployment)
 	h.Patch("/projects/{project_id}/environments/{environment_id}/deployments/next", h.handlePatchNextDeployment)
-	h.Get("/projects/{project_id}/environments/{environment_id}/autoscaling", h.handleGetAutoscalingSettings)
+	h.Get("/projects/{project_id}/environments/{environment_id}/autoscaling/settings", h.handleGetAutoscalingSettings)
 	h.Get("/projects/{project_id}/domains", h.handleListProjectDomains)
 	h.Get("/projects/{project_id}/domains/{name}", h.handleGetProjectDomain)
 	h.Get("/projects/{project_id}/integrations", h.handleListProjectIntegrations)
