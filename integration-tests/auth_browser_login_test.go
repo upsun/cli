@@ -45,10 +45,12 @@ func TestAuthBrowserLogin_Success(t *testing.T) {
 
 	// Do not open a real browser: the test acts as the browser.
 	cmd := f.buildCommand("auth:browser-login", "--browser=0")
-	// Override any stderr set by buildCommand (e.g. in verbose mode) so we can pipe it.
-	cmd.Stderr = nil
-	stderrPipe, err := cmd.StderrPipe()
-	require.NoError(t, err)
+	// Keep stderr for failure messages, and pipe it to find the local server port. Wait returns after stderr is
+	// copied, or after WaitDelay if a child process keeps it open.
+	var stderr syncBuffer
+	stderrReader, stderrWriter := io.Pipe()
+	cmd.Stderr = io.MultiWriter(&stderr, stderrWriter)
+	cmd.WaitDelay = 5 * time.Second
 	require.NoError(t, cmd.Start())
 
 	// If the test fails early, stop the command, which would otherwise wait for 30 minutes.
@@ -60,6 +62,7 @@ func TestAuthBrowserLogin_Success(t *testing.T) {
 		done := make(chan struct{})
 		go func() {
 			_ = cmd.Wait()
+			_ = stderrWriter.Close()
 			close(done)
 		}()
 		if localURL != "" {
@@ -76,21 +79,18 @@ func TestAuthBrowserLogin_Success(t *testing.T) {
 		}
 	})
 
-	// Read stderr lines until we find the local server port, and keep them for failure messages.
-	var stderr syncBuffer
+	// Read stderr lines until we find the local server port, then drain the rest.
 	portCh := make(chan string, 1)
 	go func() {
 		re := regexp.MustCompile(`127\.0\.0\.1:(\d+)`)
-		scanner := bufio.NewScanner(stderrPipe)
-		sent := false
+		scanner := bufio.NewScanner(stderrReader)
 		for scanner.Scan() {
-			line := scanner.Text()
-			stderr.Write([]byte(line + "\n"))
-			if m := re.FindStringSubmatch(line); m != nil && !sent {
+			if m := re.FindStringSubmatch(scanner.Text()); m != nil {
 				portCh <- m[1]
-				sent = true
+				break
 			}
 		}
+		_, _ = io.Copy(io.Discard, stderrReader)
 	}()
 
 	select {
@@ -131,7 +131,11 @@ func TestAuthBrowserLogin_Success(t *testing.T) {
 	}
 
 	done := make(chan error, 1)
-	go func() { done <- cmd.Wait() }()
+	go func() {
+		err := cmd.Wait()
+		_ = stderrWriter.Close()
+		done <- err
+	}()
 	select {
 	case err := <-done:
 		require.NoError(t, err, "stderr:\n%s", stderr.String())
