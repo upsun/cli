@@ -59,6 +59,7 @@ func (h *Handler) handlePatchEnvironment(w http.ResponseWriter, req *http.Reques
 		return
 	}
 	patched := *env
+	patched.HTTPAccess = nil // Merged below.
 	patched.MergeInfo = maps.Clone(env.MergeInfo)
 	var patch struct {
 		HTTPAccess map[string]any `json:"http_access"`
