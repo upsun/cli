@@ -58,6 +58,13 @@ func TestValidateOpenAPI(t *testing.T) {
 			wantErr: "invalid request",
 		},
 		{
+			name: "undocumented status", method: "POST", path: "/organizations",
+			body:    `{"label": "Org"}`,
+			status:  http.StatusAccepted,
+			resp:    `{}`,
+			wantErr: "status is not supported",
+		},
+		{
 			name: "error responses are not checked", method: "GET", path: "/projects/p/variables/v",
 			status: http.StatusNotFound, resp: `{"name": 1}`,
 		},

@@ -97,6 +97,7 @@ func (h *Handler) handleCreateOrg(w http.ResponseWriter, req *http.Request) {
 	org.Capabilities = []string{}
 	org.Links = MakeHALLinks("self=/organizations/" + url.PathEscape(org.ID))
 	h.orgs[org.ID] = &org
+	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(&org)
 }
 

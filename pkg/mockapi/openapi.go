@@ -232,6 +232,8 @@ func patchSpec(doc *openapi3.T) error { //nolint:funlen // A list of patches.
 
 var validationOptions = &openapi3filter.Options{
 	MultiError: true,
+	// Check that the status is in the spec, otherwise the response isn't validated.
+	IncludeResponseStatus: true,
 	// Authentication is checked by the mock itself.
 	AuthenticationFunc: openapi3filter.NoopAuthenticationFunc,
 	// Don't modify the request.
