@@ -31,6 +31,7 @@ func TestValidateOpenAPI(t *testing.T) {
 	cases := []struct {
 		name    string
 		method  string
+		route   string // Defaults to the path.
 		path    string
 		body    string
 		status  int
@@ -73,6 +74,11 @@ func TestValidateOpenAPI(t *testing.T) {
 			resp: `{"anything": true}`,
 		},
 		{
+			name: "not in the spec, with an encoded slash", method: "GET",
+			route: "/projects/{p}/environments/{e}/settings", path: "/projects/p/environments/feature%2Fx/settings",
+			resp: `{"anything": true}`,
+		},
+		{
 			name: "unknown route", method: "GET", path: "/unknown",
 			resp:    `{}`,
 			wantErr: "no matching operation",
@@ -83,7 +89,11 @@ func TestValidateOpenAPI(t *testing.T) {
 			rec := &errorRecorder{TB: t}
 			r := chi.NewRouter()
 			r.Use(validateOpenAPI(rec))
-			r.MethodFunc(c.method, c.path, func(w http.ResponseWriter, req *http.Request) {
+			route := c.route
+			if route == "" {
+				route = c.path
+			}
+			r.MethodFunc(c.method, route, func(w http.ResponseWriter, req *http.Request) {
 				_, _ = io.ReadAll(req.Body)
 				if c.status != 0 {
 					w.WriteHeader(c.status)

@@ -53,7 +53,8 @@ var notInSpec = []string{
 
 func isInSpec(req *http.Request) bool {
 	for _, p := range notInSpec {
-		if ok, _ := path.Match(p, req.Method+" "+req.URL.Path); ok {
+		// Match the escaped path, as the router does, so that "*" also matches IDs with an encoded slash.
+		if ok, _ := path.Match(p, req.Method+" "+req.URL.EscapedPath()); ok {
 			return false
 		}
 	}
@@ -257,6 +258,7 @@ func validateOpenAPI(t testing.TB) func(http.Handler) http.Handler {
 			reqBody, err := io.ReadAll(req.Body)
 			if err != nil {
 				t.Errorf("failed to read request body: %v", err)
+				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 			req.Body = io.NopCloser(bytes.NewReader(reqBody))

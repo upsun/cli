@@ -62,16 +62,22 @@ func (h *Handler) handlePatchEnvironment(w http.ResponseWriter, req *http.Reques
 	patched.HTTPAccess = nil // Merged below.
 	patched.MergeInfo = maps.Clone(env.MergeInfo)
 	var patch struct {
-		HTTPAccess map[string]any `json:"http_access"`
+		HTTPAccess json.RawMessage `json:"http_access"`
 	}
 	if json.Unmarshal(body, &patched) != nil || json.Unmarshal(body, &patch) != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	// Like the API, http_access is a JSON merge patch, and basic_auth defaults to an empty object.
+	// Like the API, http_access is a JSON merge patch, and basic_auth defaults to an empty object. As http_access
+	// has no default, the API rejects null.
 	patched.HTTPAccess = env.HTTPAccess
 	if patch.HTTPAccess != nil {
-		patched.HTTPAccess = mergePatch(env.HTTPAccess, patch.HTTPAccess)
+		var httpAccess map[string]any
+		if err := json.Unmarshal(patch.HTTPAccess, &httpAccess); err != nil || httpAccess == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		patched.HTTPAccess = mergePatch(env.HTTPAccess, httpAccess)
 		if patched.HTTPAccess["basic_auth"] == nil {
 			patched.HTTPAccess["basic_auth"] = map[string]any{}
 		}
