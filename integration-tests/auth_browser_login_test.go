@@ -73,19 +73,19 @@ func TestAuthBrowserLogin_Success(t *testing.T) {
 		}
 	})
 
-	// Read stderr lines until we find the local server port.
+	// Read stderr lines until we find the local server port, and keep them for failure messages.
+	var stderr syncBuffer
 	portCh := make(chan string, 1)
 	go func() {
 		re := regexp.MustCompile(`127\.0\.0\.1:(\d+)`)
 		scanner := bufio.NewScanner(stderrPipe)
+		sent := false
 		for scanner.Scan() {
 			line := scanner.Text()
-			if m := re.FindStringSubmatch(line); m != nil {
+			stderr.Write([]byte(line + "\n"))
+			if m := re.FindStringSubmatch(line); m != nil && !sent {
 				portCh <- m[1]
-				// Drain remaining stderr.
-				for scanner.Scan() {
-				}
-				return
+				sent = true
 			}
 		}
 	}()
@@ -127,8 +127,16 @@ func TestAuthBrowserLogin_Success(t *testing.T) {
 		t.Fatal("timed out waiting for local server to start")
 	}
 
-	err = cmd.Wait()
-	require.NoError(t, err)
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case err := <-done:
+		require.NoError(t, err, "stderr:\n%s", stderr.String())
+	case <-time.After(30 * time.Second):
+		_ = cmd.Process.Kill()
+		<-done
+		t.Fatalf("the command did not exit after the login; stderr:\n%s", stderr.String())
+	}
 }
 
 // writeOAuthSession writes an OAuth session in the legacy CLI's file format, for a given homeDir and
