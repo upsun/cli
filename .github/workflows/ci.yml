@@ -176,7 +176,108 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: make -s coverage-report >> "$GITHUB_STEP_SUMMARY"
 
-  # The only Windows coverage: which certificates the embedded PHP trusts.
+  # Builds the CLI for macOS and Windows, for integration tests on those platforms.
+  build-cross:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: ./go.mod
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: curl, openssl, phar, zlib
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config --global cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('legacy/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Build platform.phar
+        run: make phar
+
+      - name: Build CLIs
+        run: |
+          php_version=$(sed -n 's/^PHP_VERSION = //p' Makefile)
+          for target in darwin/arm64 windows/amd64; do
+            goos=${target%/*} goarch=${target#*/}
+            make php GOOS=$goos GOARCH=$goarch
+            ext=; [ $goos = windows ] && ext=.exe
+            CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build \
+              -ldflags "-X github.com/upsun/cli/internal/legacy.PHPVersion=$php_version" \
+              -o dist/cross/$goos/upsun$ext ./cmd/platform
+          done
+
+      - name: Upload macOS CLI
+        uses: actions/upload-artifact@v7
+        with:
+          name: cli-darwin
+          path: dist/cross/darwin/
+          retention-days: 1
+
+      - name: Upload Windows CLI
+        uses: actions/upload-artifact@v7
+        with:
+          name: cli-windows
+          path: dist/cross/windows/
+          retention-days: 1
+
+  integration-test-cross:
+    needs: build-cross
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artifact: cli-darwin
+            executable: upsun
+          - os: windows-latest
+            artifact: cli-windows
+            executable: upsun.exe
+    runs-on: ${{ matrix.os }}
+
+    env:
+      TEST_CLI_PATH: ${{ github.workspace }}/dist/cross/${{ matrix.executable }}
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: ./go.mod
+
+      - name: Download CLI
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/cross
+
+      # Artifacts do not keep file permissions.
+      - name: Make the CLI executable
+        if: runner.os != 'Windows'
+        run: chmod +x "$TEST_CLI_PATH"
+
+      - name: Run integration tests
+        shell: bash
+        run: cd integration-tests && go test -count=1 -timeout 30m ./...
+
+  # Checks which certificates the embedded PHP trusts on Windows.
   windows-cert-store:
     runs-on: windows-latest
 
