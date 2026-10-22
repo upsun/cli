@@ -40,6 +40,9 @@ func TestAuthBrowserLogin_Success(t *testing.T) {
 		"SHELL_INTERACTIVE=1",
 	)
 
+	// Accept the default answer to the SSH configuration question: without stdin, the command waits on Windows.
+	f.stdin = strings.NewReader("\n")
+
 	// Do not open a real browser: the test acts as the browser.
 	cmd := f.buildCommand("auth:browser-login", "--browser=0")
 	// Override any stderr set by buildCommand (e.g. in verbose mode) so we can pipe it.

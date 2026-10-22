@@ -42,7 +42,7 @@ func TestSSHCerts(t *testing.T) {
 			f.extraEnv = []string{EnvPrefix + "SSH_CERT_KEY_ALGORITHM=" + c.algorithm}
 
 			output := f.Run("ssh-cert:info")
-			assert.Regexp(t, `(?m)^filename: .+?`+c.filename+`-cert\.pub$`, output)
+			assert.Regexp(t, `(?m)^filename: .+?`+c.filename+`-cert\.pub'?$`, output)
 			assert.Contains(t, output, "key_id: test-key-id\n")
 			assert.Contains(t, output, "key_type: "+c.keyType+"\n")
 		})

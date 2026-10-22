@@ -206,6 +206,10 @@ func TestTunnelSingle(t *testing.T) {
 	})
 
 	assert.Equal(t, "redis", readTunnel(t, port))
+	// The tunnel is saved after SSH starts listening, and before this message.
+	require.Eventually(t, func() bool {
+		return strings.Contains(stdErr.String(), "SSH tunnel opened")
+	}, 10*time.Second, 50*time.Millisecond)
 	assertTrimmed(t, strconv.Itoa(port), f.Run("tunnel:info", "-p", layoutProjectID, "-e", "main",
 		"-P", "redis.0.port"))
 
