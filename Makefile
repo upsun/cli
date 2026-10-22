@@ -218,16 +218,18 @@ COVERAGE_ENV = TEST_CLI_PATH=$(COVERAGE_DIR)/bin/upsun GOCOVERDIR=$(COVERAGE_DIR
 # Build the CLI with coverage instrumentation, and clear previous coverage data.
 .PHONY: coverage-cli
 coverage-cli: $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php
-	go build -cover -coverpkg=./... -ldflags "-X github.com/upsun/cli/internal/legacy.PHPVersion=$(PHP_VERSION)" \
+	CGO_ENABLED=0 go build -cover -coverpkg=./... -ldflags "-X github.com/upsun/cli/internal/legacy.PHPVersion=$(PHP_VERSION)" \
 		-o $(COVERAGE_DIR)/bin/upsun ./cmd/platform
 	rm -rf $(COVERAGE_DIR)/data $(COVERAGE_DIR)/args.log
 	mkdir -p $(COVERAGE_DIR)/data
 
-# Print a Markdown report of integration test coverage, from the data written by the tests.
+# Print a Markdown report of integration test coverage, from the data written by the tests. Commands are listed with the
+# tests' config, which affects which are visible.
 .PHONY: coverage-report
 coverage-report:
 	@tmp=$$(mktemp -d) && \
-	HOME=$$tmp GOCOVERDIR=$$tmp UPSUN_CLI_UPDATES_CHECK=0 $(COVERAGE_DIR)/bin/upsun list --all --format=json < /dev/null > $$tmp/commands.json && \
+	HOME=$$tmp GOCOVERDIR=$$tmp CLI_CONFIG_FILE=$(abspath integration-tests/config.yaml) \
+		$(COVERAGE_DIR)/bin/upsun list --all --format=json < /dev/null > $$tmp/commands.json && \
 	go run ./scripts/coverage-report -commands=$$tmp/commands.json -args=$(COVERAGE_DIR)/args.log -coverdir=$(COVERAGE_DIR)/data; \
 	status=$$?; rm -rf $$tmp; exit $$status
 

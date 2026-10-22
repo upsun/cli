@@ -261,8 +261,8 @@ func analyze(cmds []command, invocations [][]string) analysis {
 	return a
 }
 
-// resolve finds a command by its name, an alias, or an abbreviation, as Symfony Console does. It returns -1 if none
-// or several match.
+// resolve finds a command by its name, an alias, or an abbreviation, with the same rules as the CLI
+// (resolveAbbreviation in commands/abbreviation.go). It returns -1 if none or several match.
 func resolve(cmds []command, name string) int {
 	for i, c := range cmds {
 		if c.Name == name || slices.Contains(c.Aliases, name) || slices.Contains(c.HiddenAliases, name) {
@@ -274,23 +274,31 @@ func resolve(cmds []command, name string) int {
 	for i, p := range parts {
 		parts[i] = regexp.QuoteMeta(p)
 	}
-	re := regexp.MustCompile("^" + strings.Join(parts, "[^:]*:") + "[^:]*$")
-	var matched, visible []int
-	for i, c := range cmds {
-		if slices.ContainsFunc(append([]string{c.Name}, c.Aliases...), re.MatchString) {
-			matched = append(matched, i)
-			if !c.Hidden {
-				visible = append(visible, i)
+	expr := "^" + strings.Join(parts, "[^:]*:") + "[^:]*"
+	matchAll := func(re *regexp.Regexp) (matched []int, fullMatch bool) {
+		for i, c := range cmds {
+			isMatch := false
+			for _, n := range append([]string{c.Name}, c.Aliases...) {
+				if loc := re.FindStringIndex(n); loc != nil {
+					isMatch = true
+					fullMatch = fullMatch || loc[1] == len(n)
+				}
+			}
+			if isMatch {
+				matched = append(matched, i)
 			}
 		}
+		return matched, fullMatch
 	}
-	switch {
-	case len(matched) == 1:
-		return matched[0]
-	case len(visible) == 1:
-		return visible[0]
+	matched, fullMatch := matchAll(regexp.MustCompile(expr))
+	if len(matched) == 0 {
+		matched, fullMatch = matchAll(regexp.MustCompile("(?i)" + expr))
 	}
-	return -1
+	// Prefix-only matches count toward ambiguity, and hidden commands are not resolved.
+	if !fullMatch || len(matched) != 1 || cmds[matched[0]].Hidden {
+		return -1
+	}
+	return matched[0]
 }
 
 // usedOptions returns the names of the options in a command's arguments.

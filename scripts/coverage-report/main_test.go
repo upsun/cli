@@ -37,10 +37,13 @@ func TestResolve(t *testing.T) {
 		{name: "pro", expected: "project:list"},
 		{name: "e:l", expected: "environment:list"},
 		{name: "env:i", expected: "environment:info"},
-		{name: "p:int", expected: "project:internal"},
-		// A unique visible match is preferred.
-		{name: "p:in", expected: "project:info"},
-		{name: "e", expected: "environment:list"}, // The alias "env".
+		{name: "p:inf", expected: "project:info"},
+		{name: "P:INF", expected: "project:info"},
+		// Hidden commands are not resolved, but count toward ambiguity.
+		{name: "p:int", expected: ""},
+		{name: "p:in", expected: ""},
+		// Prefix-only matches count toward ambiguity.
+		{name: "e", expected: ""},
 		{name: "en:", expected: ""},
 		{name: "foo", expected: ""},
 	}
