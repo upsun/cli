@@ -111,6 +111,9 @@ func TestShellCompletion(t *testing.T) {
 	exe := getCommandName(t)
 	name := filepath.Base(exe)
 	env := []string{"HOME=" + t.TempDir(), "PATH=" + filepath.Dir(exe) + string(os.PathListSeparator) + os.Getenv("PATH")}
+	if d := os.Getenv("GOCOVERDIR"); d != "" {
+		env = append(env, "GOCOVERDIR="+d)
+	}
 
 	cases := []struct {
 		args     string
@@ -129,6 +132,7 @@ func TestShellCompletion(t *testing.T) {
 			if _, err := os.Stat("/usr/share/bash-completion/bash_completion"); shell == "bash" && err != nil {
 				t.Skip("bash-completion is not installed")
 			}
+			logArgs(t, []string{"completion", shell})
 			gen := exec.Command(exe, "completion", shell)
 			gen.Env = env
 			b, err := gen.Output()

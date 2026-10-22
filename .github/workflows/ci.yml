@@ -113,6 +113,12 @@ jobs:
   integration-test:
     runs-on: ubuntu-latest
 
+    # The tests run a CLI built for coverage, and record coverage data and command arguments.
+    env:
+      TEST_CLI_PATH: ${{ github.workspace }}/dist/coverage/bin/upsun
+      GOCOVERDIR: ${{ github.workspace }}/dist/coverage/data
+      INTEGRATION_TESTS_ARGS_LOG: ${{ github.workspace }}/dist/coverage/args.log
+
     steps:
       - name: Check out repository code
         uses: actions/checkout@v7
@@ -147,12 +153,13 @@ jobs:
         run: make phar
 
       - name: Build CLI
-        run: make single
+        id: build
+        run: make coverage-cli
 
       - name: Install shells for completion tests
         run: sudo apt-get update && sudo apt-get install -y bash-completion zsh fish
 
-      # Not `make test-integration`, which would build the CLI again.
+      # Not `make test-integration-coverage`, which runs the tests once.
       - name: Run integration tests
         run: cd integration-tests && go test -count=1 ./...
 
@@ -160,6 +167,10 @@ jobs:
         run: cd integration-tests && go test -count=1 ./...
         env:
           TEST_CLI_GO_AUTH: '1'
+
+      - name: Report coverage
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: make -s coverage-report >> "$GITHUB_STEP_SUMMARY"
 
   # The only Windows coverage: which certificates the embedded PHP trusts.
   windows-cert-store:

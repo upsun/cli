@@ -160,6 +160,8 @@ Integration tests (`integration-tests/`) call `t.Parallel()`, so they must not s
 
 The mock API (`pkg/mockapi`) validates each successful request and response against the API's OpenAPI spec (`pkg/mockapi/openapi.json`, refreshed with `make update-openapi-spec`), and reports failures through the test. Responses may leave out required properties. Routes that are not in the spec are listed in `notInSpec`, and differences between the spec and the API are patched in `patchSpec`.
 
+`make test-integration-coverage` runs the integration tests with a CLI built with `-cover`, and prints a report (`scripts/coverage-report`): Go statement coverage per package, and the commands and command-specific options that the tests run (logged by `buildCommand` when `INTEGRATION_TESTS_ARGS_LOG` is set). CI runs both integration test runs this way, and writes the report to the job summary.
+
 ### Configuration
 
 The CLI uses Viper for configuration. Environment variables use the prefix defined in the config (UPSUN_CLI_ or PLATFORM_CLI_). The prefix is set in the config YAML.
