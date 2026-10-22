@@ -158,6 +158,8 @@ Tests use github.com/stretchr/testify for assertions. Table-driven tests are pre
 
 Integration tests (`integration-tests/`) call `t.Parallel()`, so they must not share state: no `t.Setenv` or unsynchronized package variables, and use `cmdFactory.useConfig` to change the CLI config file. Write output with `t.Log` (e.g. `mockapi.RequestLogger`), not to stdout or stderr: it is then attributed to its test, and shown only on failure or with `-v`. Tests of environment operations use `setUpProject`, and tests of Git commands (push, clone, fetch) use `setUpGitProject`, which also serves a bare repository over the mock SSH server. Tests of other SSH commands use `serveSSH` with an app from `sshEnv`, and fake remote executables from `remoteEnv`. The mock SSH server can also serve SFTP (`SFTPDir`) and forward connections (`DialTCP`, `ListenUnix`); tests of commands that start background processes (tunnels) must make sure they exit.
 
+`make test-integration-coverage` runs the integration tests with a CLI built with `-cover`, and prints a report (`scripts/coverage-report`): Go statement coverage per package, and the commands and command-specific options that the tests run (logged by `buildCommand` when `INTEGRATION_TESTS_ARGS_LOG` is set). CI runs both integration test runs this way, and writes the report to the job summary.
+
 ### Configuration
 
 The CLI uses Viper for configuration. Environment variables use the prefix defined in the config (UPSUN_CLI_ or PLATFORM_CLI_). The prefix is set in the config YAML.

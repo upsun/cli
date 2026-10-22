@@ -5,10 +5,14 @@
 //
 // Tests run in directories under INTEGRATION_TESTS_TMPDIR, which defaults to a
 // subdirectory of the user cache directory. It must not be inside a Git repository.
+//
+// If INTEGRATION_TESTS_ARGS_LOG is set, the arguments of each command are appended to that file, as a JSON array per
+// line, for the command coverage report (scripts/coverage-report).
 package tests
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"os"
@@ -154,6 +158,7 @@ func (f *cmdFactory) RunInteractive(stdinInput string, args ...string) (stdOut, 
 
 func (f *cmdFactory) buildCommand(args ...string) *exec.Cmd {
 	cmd := exec.Command(getCommandName(f.t), args...)
+	logArgs(f.t, args)
 	if f.dir == "" {
 		f.dir = f.t.TempDir()
 	}
@@ -173,6 +178,25 @@ func (f *cmdFactory) buildCommand(args ...string) *exec.Cmd {
 		cmd.Stdin = f.stdin
 	}
 	return cmd
+}
+
+var argsLogMu sync.Mutex
+
+// logArgs appends a command's arguments to the file named by INTEGRATION_TESTS_ARGS_LOG, if set.
+func logArgs(t *testing.T, args []string) {
+	path := os.Getenv("INTEGRATION_TESTS_ARGS_LOG")
+	if path == "" {
+		return
+	}
+	b, err := json.Marshal(args)
+	require.NoError(t, err)
+	argsLogMu.Lock()
+	defer argsLogMu.Unlock()
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	require.NoError(t, err)
+	defer f.Close()
+	_, err = f.Write(append(b, '\n'))
+	require.NoError(t, err)
 }
 
 // logStderr logs a command's stderr to the test log, which is shown if the test fails or runs with -v.
