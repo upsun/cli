@@ -356,10 +356,10 @@
     "runtime": true,
     "versions": {
       "supported": [
-        "26",
-        "24"
+        "26"
       ],
       "legacy": [
+        "24",
         "22"
       ],
       "retired": [
