@@ -60,15 +60,15 @@ readonly class CurlCli implements InputConfiguringInterface
             return str_replace($token, '[token]', $str);
         };
 
-        $commandline = $this->buildCurlCommand($url, $token, $input);
+        $args = $this->buildCurlCommand($url, $token, $input);
 
         // Add --verbose if -vv is provided, or if retrying on 401 errors.
         // In the latter case the verbose output will be intercepted and hidden.
         if ($stdErr->isVeryVerbose() || $retryOn401) {
-            $commandline .= ' --verbose';
+            $args[] = '--verbose';
         }
 
-        $process = Process::fromShellCommandline($commandline);
+        $process = new Process($args);
         $shouldRetry = false;
         $newToken = '';
         $stdoutBuffer = '';
@@ -93,7 +93,7 @@ readonly class CurlCli implements InputConfiguringInterface
             }
         };
 
-        $stdErr->writeln(sprintf('Running command: <info>%s</info>', $censor($commandline)), OutputInterface::VERBOSITY_VERBOSE);
+        $stdErr->writeln(sprintf('Running command: <info>%s</info>', $censor($process->getCommandLine())), OutputInterface::VERBOSITY_VERBOSE);
 
         $process->run($onOutput);
 
@@ -109,8 +109,7 @@ readonly class CurlCli implements InputConfiguringInterface
 
         if ($shouldRetry) {
             // Create a new curl process, replacing the access token.
-            $commandline = $this->buildCurlCommand($url, $newToken, $input);
-            $process = Process::fromShellCommandline($commandline);
+            $process = new Process($this->buildCurlCommand($url, $newToken, $input));
             $stdoutBuffer = '';  // Reset the buffers for the retry.
             $stderrBuffer = '';
             $shouldRetry = false;
@@ -118,7 +117,7 @@ readonly class CurlCli implements InputConfiguringInterface
             // Update the $token variable in the $censor closure.
             $token = $newToken;
 
-            $stdErr->writeln(sprintf('Running command: <info>%s</info>', $censor($commandline)), OutputInterface::VERBOSITY_VERBOSE);
+            $stdErr->writeln(sprintf('Running command: <info>%s</info>', $censor($process->getCommandLine())), OutputInterface::VERBOSITY_VERBOSE);
             $process->run($onOutput);
         }
 
@@ -131,66 +130,62 @@ readonly class CurlCli implements InputConfiguringInterface
     }
 
     /**
-     * Builds a curl command with a URL and access token.
+     * Builds the arguments of a curl command with a URL and access token.
+     *
+     * Arguments are not escaped for a shell: escapeshellarg() replaces quotes with spaces on Windows.
      *
      * @param string $url
      * @param string $token
      * @param InputInterface $input
      *
-     * @return string
+     * @return string[]
      */
-    private function buildCurlCommand(string $url, string $token, InputInterface $input): string
+    private function buildCurlCommand(string $url, string $token, InputInterface $input): array
     {
-        $commandline = sprintf(
-            'curl -H %s %s',
-            escapeshellarg('Authorization: Bearer ' . $token),
-            escapeshellarg($url),
-        );
+        $args = ['curl', '-H', 'Authorization: Bearer ' . $token, $url];
 
         $passThroughFlags = ['head', 'include', 'fail'];
         foreach ($passThroughFlags as $flag) {
             if (Option::bool($input, $flag)) {
-                $commandline .= ' --' . $flag;
+                $args[] = '--' . $flag;
             }
         }
 
         // Set --fail-with-body by default.
         if (!Option::bool($input, 'fail')) {
-            $commandline .= ' --fail-with-body';
+            $args[] = '--fail-with-body';
         }
 
         if ($requestMethod = Option::stringOrNull($input, 'request')) {
-            $commandline .= ' --request ' . escapeshellarg($requestMethod);
+            array_push($args, '--request', $requestMethod);
         }
 
         if ($data = Option::stringOrNull($input, 'json')) {
             if (\json_decode($data) === null && \json_last_error() !== JSON_ERROR_NONE) {
                 throw new InvalidArgumentException('The value of --json contains invalid JSON.');
             }
-            $commandline .= ' --data ' . escapeshellarg($data);
-            $commandline .= ' --header ' . escapeshellarg('Content-Type: application/json');
-            $commandline .= ' --header ' . escapeshellarg('Accept: application/json');
+            array_push($args, '--data', $data, '--header', 'Content-Type: application/json', '--header', 'Accept: application/json');
         }
 
         if ($data = Option::stringOrNull($input, 'data')) {
-            $commandline .= ' --data ' . escapeshellarg($data);
+            array_push($args, '--data', $data);
         }
 
         if (!Option::bool($input, 'disable-compression')) {
-            $commandline .= ' --compressed';
+            $args[] = '--compressed';
         }
 
         if (!Option::bool($input, 'enable-glob')) {
-            $commandline .= ' --globoff';
+            $args[] = '--globoff';
         }
 
         foreach (Option::stringArray($input, 'header') as $header) {
-            $commandline .= ' --header ' . escapeshellarg($header);
+            array_push($args, '--header', $header);
         }
 
-        $commandline .= ' --no-progress-meter';
+        $args[] = '--no-progress-meter';
 
-        return $commandline;
+        return $args;
     }
 
     /**
