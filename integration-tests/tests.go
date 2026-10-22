@@ -89,19 +89,6 @@ func newCommandFactory(t *testing.T, apiURL, authURL string) *cmdFactory {
 	return &cmdFactory{t: t, apiURL: apiURL, authURL: authURL, home: t.TempDir()}
 }
 
-// newGoAuthCommandFactory returns a factory for commands that use Go auth, whichever mode the tests run in.
-func newGoAuthCommandFactory(t *testing.T, apiURL, authURL string) *cmdFactory {
-	f := newCommandFactory(t, apiURL, authURL)
-	f.extraEnv = append(f.extraEnv, EnvPrefix+"GO_AUTH=1")
-	return f
-}
-
-// goAuthMode reports whether the tests run with Go auth, set by TEST_CLI_GO_AUTH=1. Otherwise legacy auth is used.
-func goAuthMode() bool {
-	v := os.Getenv(EnvPrefix + "GO_AUTH")
-	return v != "" && v != "0"
-}
-
 // Run runs a command, asserts that it did not error, and returns its normal (stdout) output.
 func (f *cmdFactory) Run(args ...string) string {
 	cmd := f.buildCommand(args...)
@@ -236,6 +223,7 @@ func testEnv(home string) []string {
 		"COLUMNS=120",
 		"CLI_CONFIG_FILE="+configPath,
 		EnvPrefix+"NO_INTERACTION=1",
+		EnvPrefix+"GO_AUTH=1",
 		EnvPrefix+"VERSION=1.0.0",
 		EnvPrefix+"HOME="+home,
 		"TZ=UTC",

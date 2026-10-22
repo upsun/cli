@@ -156,14 +156,9 @@ func TestAuthLogout_Other(t *testing.T) {
 	assert.NoFileExists(t, filepath.Join(sessDir, "sess-other", "sess-other.json"))
 	assert.NoDirExists(t, filepath.Join(sessDir, "sess-cli-other"))
 
-	if goAuthMode() {
-		// The sessions were migrated from the legacy CLI's storage, which was then deleted.
-		assert.NoFileExists(t, filepath.Join(sessDir, "sess-default", "sess-default.json"))
-		authDir := filepath.Join(f.home, ".platform-test-cli", "auth")
-		assert.FileExists(t, filepath.Join(authDir, "default.json"))
-		assert.NoFileExists(t, filepath.Join(authDir, "other.json"))
-	} else {
-		// "default" session file must still exist. An empty sess-other directory may be left behind.
-		assert.FileExists(t, filepath.Join(sessDir, "sess-default", "sess-default.json"))
-	}
+	// The sessions were migrated from the legacy CLI's storage, which was then deleted.
+	assert.NoFileExists(t, filepath.Join(sessDir, "sess-default", "sess-default.json"))
+	authDir := filepath.Join(f.home, ".platform-test-cli", "auth")
+	assert.FileExists(t, filepath.Join(authDir, "default.json"))
+	assert.NoFileExists(t, filepath.Join(authDir, "other.json"))
 }

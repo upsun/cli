@@ -107,7 +107,7 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 - `internal/auth/store`: one entry per session ID, in the system keychain (go-keyring) or in `<writable dir>/auth/<id>.json`
 - Auth settings are read by `config.Auth()` with the legacy CLI's precedence: embedded config, the user's `config.yaml`, env vars
 - The legacy CLI gets tokens and auth state by running the hidden `auth:internal token|status` command (via `<PREFIX>WRAPPER_EXECUTABLE`), and Go runs the hidden PHP commands `auth:post-login` (SSH certificates and config) and `auth:export-sessions` (a one-time migration of the legacy storage, recorded in `auth/.migrated`)
-- Integration tests run with legacy auth by default, and with Go auth if `TEST_CLI_GO_AUTH=1` is set. Tests of Go-only behavior use `newGoAuthCommandFactory`
+- Integration tests run with Go auth (`TEST_CLI_GO_AUTH=1` in `testEnv`). Tests of legacy auth set `TEST_CLI_GO_AUTH=0`
 
 **Table Output**: `internal/table/`
 - Renders tables with the same `--format`, `--columns` and `--no-header` options as the legacy CLI's `Table` service
@@ -160,9 +160,9 @@ Integration tests (`integration-tests/`) call `t.Parallel()`, so they must not s
 
 The mock API (`pkg/mockapi`) validates each successful request and response against the API's OpenAPI spec (`pkg/mockapi/openapi.json`, refreshed with `make update-openapi-spec`; CI's non-blocking `lint-upstream` job checks that it is up to date), and reports failures through the test. Responses may leave out required properties. Routes that are not in the spec are listed in `notInSpec`, and differences between the spec and the API are patched in `patchSpec`.
 
-`make test-integration-coverage` runs the integration tests with a CLI built with `-cover`, and prints a report (`scripts/coverage-report`): Go statement coverage per package, and the commands and command-specific options that the tests run (logged by `buildCommand` when `INTEGRATION_TESTS_ARGS_LOG` is set). CI runs both integration test runs this way, and writes the report to the job summary.
+`make test-integration-coverage` runs the integration tests with a CLI built with `-cover`, and prints a report (`scripts/coverage-report`): Go statement coverage per package, and the commands and command-specific options that the tests run (logged by `buildCommand` when `INTEGRATION_TESTS_ARGS_LOG` is set). CI runs the integration tests this way, and writes the report to the job summary.
 
-CI also runs the integration tests on macOS and Windows (with legacy auth), using CLIs cross-compiled on Linux (`build-cross`). Skip tests that cannot work on a platform with `t.Skip` and a reason. The legacy CLI writes CRLF line endings on Windows: the `cmdFactory` run helpers convert them to LF.
+CI also runs the integration tests on macOS and Windows, using CLIs cross-compiled on Linux (`build-cross`). Skip tests that cannot work on a platform with `t.Skip` and a reason. The legacy CLI writes CRLF line endings on Windows: the `cmdFactory` run helpers convert them to LF.
 
 ### Configuration
 

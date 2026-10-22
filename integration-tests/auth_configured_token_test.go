@@ -62,9 +62,7 @@ func TestAuthLoginRequired_ConfiguredToken(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			f := newCommandFactory(t, c.apiURL, authServer.URL)
-			if c.goAuth {
-				f = newGoAuthCommandFactory(t, c.apiURL, authServer.URL)
-			} else {
+			if !c.goAuth {
 				f.extraEnv = append(f.extraEnv, EnvPrefix+"GO_AUTH=0")
 			}
 			f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN="+c.token)
@@ -97,9 +95,7 @@ func TestAuthLoginRequired_StoredToken(t *testing.T) {
 			defer apiServer.Close()
 
 			f := newCommandFactory(t, apiServer.URL, authServer.URL)
-			if goAuth {
-				f = newGoAuthCommandFactory(t, apiServer.URL, authServer.URL)
-			} else {
+			if !goAuth {
 				f.extraEnv = append(f.extraEnv, EnvPrefix+"GO_AUTH=0")
 			}
 			f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
@@ -122,7 +118,7 @@ func TestAuthLoginRequired_UnreadableTokenFile(t *testing.T) {
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
-	f := newGoAuthCommandFactory(t, "", authServer.URL)
+	f := newCommandFactory(t, "", authServer.URL)
 	f.extraEnv = append(f.extraEnv,
 		EnvPrefix+"TOKEN=",
 		EnvPrefix+"API_TOKEN_FILE="+filepath.Join(t.TempDir(), "missing"),
