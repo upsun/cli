@@ -3,6 +3,7 @@ package tests
 import (
 	"net/http/httptest"
 	"net/url"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -97,6 +98,7 @@ func TestAuthAPITokenLogin_NonInteractive(t *testing.T) {
 // should succeed on the second attempt (retry up to 5 times on invalid token).
 func TestAuthAPITokenLogin_RetryOnInvalid(t *testing.T) {
 	t.Parallel()
+	skipMultilineHiddenInput(t)
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiHandler := mockapi.NewHandler(t)
@@ -125,6 +127,7 @@ func TestAuthAPITokenLogin_RetryOnInvalid(t *testing.T) {
 // TestAuthAPITokenLogin_ExhaustsRetries: 5 consecutive invalid tokens should fail.
 func TestAuthAPITokenLogin_ExhaustsRetries(t *testing.T) {
 	t.Parallel()
+	skipMultilineHiddenInput(t)
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiServer := httptest.NewServer(mockapi.NewHandler(t))
@@ -142,4 +145,12 @@ func TestAuthAPITokenLogin_ExhaustsRetries(t *testing.T) {
 	_, stderr, err := f.RunCombinedOutput("auth:api-token-login")
 	require.Error(t, err, "expected failure after 5 invalid tokens")
 	assert.Equal(t, 5, strings.Count(stderr, "The request could not be authorized."))
+}
+
+// skipMultilineHiddenInput skips tests that answer several hidden questions from a pipe: on Windows, Symfony reads
+// hidden input with hiddeninput.exe, which buffers stdin, so later lines are lost.
+func skipMultilineHiddenInput(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("hidden input on Windows reads only one line from a pipe")
+	}
 }

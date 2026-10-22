@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -74,7 +75,8 @@ func TestSSH(t *testing.T) {
 
 	f.Run("cc")
 	wd, _ := os.Getwd()
-	assert.Equal(t, wd+"\n", f.Run("ssh", "-p", projectID, "-e", ".", "pwd"))
+	// The mock server runs commands with bash, which may print mixed separators on Windows.
+	assert.Equal(t, wd, filepath.Clean(strings.TrimSuffix(f.Run("ssh", "-p", projectID, "-e", ".", "pwd"), "\n")))
 
 	_, stdErr, err := f.RunCombinedOutput("ssh", "-p", projectID, "-e", "main", "--instance", "2", "pwd")
 	assert.Error(t, err)
