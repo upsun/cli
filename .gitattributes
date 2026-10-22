@@ -1,0 +1,2 @@
+# Tests edit this config as text, matching LF line endings.
+integration-tests/config.yaml text eol=lf

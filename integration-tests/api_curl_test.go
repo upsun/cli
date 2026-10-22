@@ -216,7 +216,7 @@ func TestApiCurl_CensorsToken(t *testing.T) {
 		stdout, stderr, err := f.RunCombinedOutput("api:curl", "/curl-test", verbosity)
 		require.NoError(t, err)
 		assert.Equal(t, "success", stdout)
-		assert.Contains(t, stderr, "Running command: curl -H 'Authorization: Bearer [token]'")
+		assert.Regexp(t, `Running command: .*curl\S* \S*-H\S* \S*Authorization: Bearer \[token\]`, stderr)
 		assert.NotContains(t, stderr, "access-token-1")
 		if verbosity == "-vv" {
 			// The curl --verbose output.

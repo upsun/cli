@@ -40,12 +40,17 @@ func TestAuthBrowserLogin_Success(t *testing.T) {
 		"SHELL_INTERACTIVE=1",
 	)
 
+	// Accept the default answer to the SSH configuration question: without stdin, the command waits on Windows.
+	f.stdin = strings.NewReader("\n")
+
 	// Do not open a real browser: the test acts as the browser.
 	cmd := f.buildCommand("auth:browser-login", "--browser=0")
-	// Override any stderr set by buildCommand (e.g. in verbose mode) so we can pipe it.
-	cmd.Stderr = nil
-	stderrPipe, err := cmd.StderrPipe()
-	require.NoError(t, err)
+	// Keep stderr for failure messages, and pipe it to find the local server port. Wait returns after stderr is
+	// copied, or after WaitDelay if a child process keeps it open.
+	var stderr syncBuffer
+	stderrReader, stderrWriter := io.Pipe()
+	cmd.Stderr = io.MultiWriter(&stderr, stderrWriter)
+	cmd.WaitDelay = 5 * time.Second
 	require.NoError(t, cmd.Start())
 
 	// If the test fails early, stop the command, which would otherwise wait for 30 minutes.
@@ -57,6 +62,7 @@ func TestAuthBrowserLogin_Success(t *testing.T) {
 		done := make(chan struct{})
 		go func() {
 			_ = cmd.Wait()
+			_ = stderrWriter.Close()
 			close(done)
 		}()
 		if localURL != "" {
@@ -73,21 +79,18 @@ func TestAuthBrowserLogin_Success(t *testing.T) {
 		}
 	})
 
-	// Read stderr lines until we find the local server port.
+	// Read stderr lines until we find the local server port, then drain the rest.
 	portCh := make(chan string, 1)
 	go func() {
 		re := regexp.MustCompile(`127\.0\.0\.1:(\d+)`)
-		scanner := bufio.NewScanner(stderrPipe)
+		scanner := bufio.NewScanner(stderrReader)
 		for scanner.Scan() {
-			line := scanner.Text()
-			if m := re.FindStringSubmatch(line); m != nil {
+			if m := re.FindStringSubmatch(scanner.Text()); m != nil {
 				portCh <- m[1]
-				// Drain remaining stderr.
-				for scanner.Scan() {
-				}
-				return
+				break
 			}
 		}
+		_, _ = io.Copy(io.Discard, stderrReader)
 	}()
 
 	select {
@@ -127,8 +130,20 @@ func TestAuthBrowserLogin_Success(t *testing.T) {
 		t.Fatal("timed out waiting for local server to start")
 	}
 
-	err = cmd.Wait()
-	require.NoError(t, err)
+	done := make(chan error, 1)
+	go func() {
+		err := cmd.Wait()
+		_ = stderrWriter.Close()
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		require.NoError(t, err, "stderr:\n%s", stderr.String())
+	case <-time.After(30 * time.Second):
+		_ = cmd.Process.Kill()
+		<-done
+		t.Fatalf("the command did not exit after the login; stderr:\n%s", stderr.String())
+	}
 }
 
 // writeOAuthSession writes an OAuth session in the legacy CLI's file format, for a given homeDir and

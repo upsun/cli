@@ -111,7 +111,7 @@ func (f *cmdFactory) Run(args ...string) string {
 	b, err := cmd.Output()
 	f.logStderr(stdErrBuffer.String())
 	require.NoError(f.t, err)
-	return string(b)
+	return normalizeNewlines(string(b))
 }
 
 // RunCombinedOutput runs a command and returns its stdout, stderr and the error.
@@ -128,7 +128,7 @@ func (f *cmdFactory) RunCombinedOutput(args ...string) (stdOut, stdErr string, e
 	if !f.quiet {
 		f.logStderr(stdErrBuffer.String())
 	}
-	return stdOutBuffer.String(), stdErrBuffer.String(), err
+	return normalizeNewlines(stdOutBuffer.String()), normalizeNewlines(stdErrBuffer.String()), err
 }
 
 // RunInteractive runs a command with stdin piped from stdinInput. It keeps
@@ -153,7 +153,15 @@ func (f *cmdFactory) RunInteractive(stdinInput string, args ...string) (stdOut, 
 	f.t.Log("Running (interactive):", cmd)
 	err = cmd.Run()
 	f.logStderr(stdErrBuffer.String())
-	return stdOutBuffer.String(), stdErrBuffer.String(), err
+	return normalizeNewlines(stdOutBuffer.String()), normalizeNewlines(stdErrBuffer.String()), err
+}
+
+// normalizeNewlines converts CRLF line endings to LF: the legacy CLI writes CRLF on Windows (PHP_EOL).
+func normalizeNewlines(s string) string {
+	if runtime.GOOS != "windows" {
+		return s
+	}
+	return strings.ReplaceAll(s, "\r\n", "\n")
 }
 
 func (f *cmdFactory) buildCommand(args ...string) *exec.Cmd {
