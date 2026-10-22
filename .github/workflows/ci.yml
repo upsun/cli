@@ -73,6 +73,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: make check-schema
 
+      - name: Check the mock API's OpenAPI spec is up to date
+        if: ${{ !cancelled() }}
+        run: make check-openapi-spec
+
   legacy-php:
     runs-on: ubuntu-latest
 

@@ -277,6 +277,11 @@ check-schema: update-schema
 update-openapi-spec: ## Refresh the OpenAPI spec used by the mock API
 	cd pkg/mockapi && go run gen.go
 
+# Fail if the OpenAPI spec is stale. Only a summary is printed, as the diff can be large.
+.PHONY: check-openapi-spec
+check-openapi-spec: update-openapi-spec
+	git diff --exit-code --stat -- pkg/mockapi/openapi.json
+
 # Installs dev dependencies, which a phar build removes. PHPStan's binary marks that they are installed.
 .PHONY: composer-dev
 composer-dev: legacy/vendor/bin/phpstan
