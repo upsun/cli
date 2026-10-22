@@ -162,6 +162,8 @@ The mock API (`pkg/mockapi`) validates each successful request and response agai
 
 `make test-integration-coverage` runs the integration tests with a CLI built with `-cover`, and prints a report (`scripts/coverage-report`): Go statement coverage per package, and the commands and command-specific options that the tests run (logged by `buildCommand` when `INTEGRATION_TESTS_ARGS_LOG` is set). CI runs both integration test runs this way, and writes the report to the job summary.
 
+CI also runs the integration tests on macOS and Windows (with legacy auth), using CLIs cross-compiled on Linux (`build-cross`). Skip tests that cannot work on a platform with `t.Skip` and a reason. The legacy CLI writes CRLF line endings on Windows: the `cmdFactory` run helpers convert them to LF.
+
 ### Configuration
 
 The CLI uses Viper for configuration. Environment variables use the prefix defined in the config (UPSUN_CLI_ or PLATFORM_CLI_). The prefix is set in the config YAML.
