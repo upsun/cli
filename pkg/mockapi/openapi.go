@@ -180,11 +180,6 @@ func patchSpec(doc *openapi3.T) error { //nolint:funlen // A list of patches.
 		ref.Value.Required = nil
 	}
 	integrationPatch.AnyOf, integrationPatch.OneOf = integrationPatch.OneOf, nil
-	// The API accepts operations without a body.
-	envPath := "/projects/{projectId}/environments/{environmentId}/"
-	for _, op := range []string{"activate", "merge"} {
-		doc.Paths.Value(envPath + op).Post.RequestBody.Value.Required = false
-	}
 	// The API returns an app's stack as configured, which the CLI supports in several forms (see TestEnvironmentXdebug).
 	for _, kind := range []string{"webapps", "workers"} {
 		app := schemas["Deployment"].Value.Properties[kind].Value.AdditionalProperties.Schema.Value
