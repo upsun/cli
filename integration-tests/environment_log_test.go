@@ -47,8 +47,8 @@ func TestEnvironmentLogAPI(t *testing.T) {
 	}
 	mainEnv.SetCurrentDeployment(&mockapi.Deployment{
 		WebApps: map[string]mockapi.App{"app": webApp("app"), "admin": webApp("admin")},
-		Services: map[string]mockapi.App{
-			"db": {Name: "db", Type: "mariadb:11.4", Size: "S", Disk: 1024},
+		Services: map[string]mockapi.Service{
+			"db": {Type: "mariadb:11.4", Size: "S", Disk: 1024},
 		},
 		Workers: map[string]mockapi.Worker{
 			"app--queue":   worker("app--queue"),
@@ -321,7 +321,7 @@ func TestEnvironmentLogSSHFallback(t *testing.T) {
 		WebApps: map[string]mockapi.App{
 			"app": {Name: "app", Type: "golang:1.23", Size: "M", Disk: 2048, Mounts: map[string]mockapi.Mount{}},
 		},
-		Services: map[string]mockapi.App{},
+		Services: map[string]mockapi.Service{},
 		Workers:  map[string]mockapi.Worker{},
 		Routes:   mockRoutes(),
 		Links:    mockapi.MakeHALLinks("self=/projects/" + projectID + "/environments/main/deployment/current"),

@@ -58,7 +58,7 @@ func TestRuntimeOperationRun(t *testing.T) {
 					"type": "golang:1.23",
 					"operations": map[string]any{
 						"migrate": map[string]any{
-							"role": "app",
+							"role": "viewer",
 							"commands": map[string]any{
 								"start": "php migrate.php",
 								"stop":  nil,
@@ -72,13 +72,13 @@ func TestRuntimeOperationRun(t *testing.T) {
 			"routes":   map[string]any{},
 			"_links": map[string]any{
 				"self":        map[string]any{"href": base + deploymentPath},
-				"#operations": map[string]any{"href": base + envPath + "/runtime-operations"},
+				"#operations": map[string]any{"href": base + deploymentPath + "/operations"},
 			},
 		})
 	})
 
 	var receivedBody atomic.Value // map[string]any
-	apiHandler.Post(envPath+"/runtime-operations", func(w http.ResponseWriter, r *http.Request) {
+	apiHandler.Post(deploymentPath+"/operations", func(w http.ResponseWriter, r *http.Request) {
 		b, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 		var body map[string]any

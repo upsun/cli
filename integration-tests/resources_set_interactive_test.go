@@ -31,8 +31,8 @@ func TestResourcesSet_Interactive(t *testing.T) {
 		},
 	}, map[string]any{
 		"HIGH_CPU": map[string]any{
-			"0.5": map[string]any{"cpu": "0.5", "memory": "224", "cpu_type": "shared"},
-			"1":   map[string]any{"cpu": "1", "memory": "384", "cpu_type": "shared"},
+			"0.5": map[string]any{"cpu": 0.5, "memory": 224, "cpu_type": "shared"},
+			"1":   map[string]any{"cpu": 1, "memory": 384, "cpu_type": "shared"},
 		},
 	}))
 	f := serveAPI(t, apiHandler)

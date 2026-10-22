@@ -27,7 +27,7 @@ type Team struct {
 	Counts             TeamCounts `json:"counts"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
-	Links              HalLinks   `json:"_links"`
+	Links              HalLinks   `json:"_links,omitempty"`
 }
 
 // TeamCounts is calculated from the team's members and projects.
@@ -41,7 +41,7 @@ type TeamMember struct {
 	UserID    string    `json:"user_id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
-	Links     HalLinks  `json:"_links"`
+	Links     HalLinks  `json:"_links,omitempty"`
 }
 
 type TeamProjectAccess struct {
@@ -51,7 +51,7 @@ type TeamProjectAccess struct {
 	ProjectTitle   string    `json:"project_title"`
 	GrantedAt      time.Time `json:"granted_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
-	Links          HalLinks  `json:"_links"`
+	Links          HalLinks  `json:"_links,omitempty"`
 }
 
 // initTeams initializes the maps. The caller must hold the write lock.
@@ -119,7 +119,7 @@ func (h *Handler) teamResponse(t *Team, withinCollection bool) *Team {
 	c.Counts = TeamCounts{MemberCount: len(h.teamMembers[t.ID]), ProjectCount: len(h.teamProjects[t.ID])}
 	c.Links = MakeHALLinks("self=/teams/" + url.PathEscape(t.ID))
 	if !withinCollection {
-		c.Links["ref:organizations:0"] = HALLink{HREF: "/ref/organizations?in=" + url.QueryEscape(t.OrganizationID)}
+		c.Links["ref:organizations:0"] = HALLink{HREF: "/ref/organizations?in=" + url.QueryEscape(t.OrganizationID) + refSig}
 	}
 	return &c
 }
@@ -160,10 +160,10 @@ func (h *Handler) handleListTeams(w http.ResponseWriter, req *http.Request) {
 	_ = json.NewEncoder(w).Encode(struct {
 		Items []*Team  `json:"items"`
 		Count int      `json:"count"`
-		Links HalLinks `json:"_links"`
+		Links HalLinks `json:"_links,omitempty"`
 	}{Items: items, Count: len(items), Links: MakeHALLinks(
 		"self=/teams",
-		"ref:organizations:0=/ref/organizations?in="+strings.Join(orgIDs.keys(), ","),
+		"ref:organizations:0=/ref/organizations?in="+strings.Join(orgIDs.keys(), ",")+refSig,
 	)})
 }
 
@@ -250,7 +250,7 @@ func teamMemberResponse(m *TeamMember, withinCollection bool) *TeamMember {
 	c := *m
 	c.Links = MakeHALLinks("self=/teams/" + url.PathEscape(m.TeamID) + "/members/" + url.PathEscape(m.UserID))
 	if !withinCollection {
-		c.Links["ref:users:0"] = HALLink{HREF: "/ref/users?in=" + url.QueryEscape(m.UserID)}
+		c.Links["ref:users:0"] = HALLink{HREF: "/ref/users?in=" + url.QueryEscape(m.UserID) + refSig}
 	}
 	return &c
 }
@@ -271,12 +271,12 @@ func (h *Handler) handleListTeamMembers(w http.ResponseWriter, req *http.Request
 	}
 	_ = json.NewEncoder(w).Encode(struct {
 		Items []*TeamMember `json:"items"`
-		Links HalLinks      `json:"_links"`
+		Links HalLinks      `json:"_links,omitempty"`
 	}{
 		Items: items,
 		Links: MakeHALLinks(
 			"self=/teams/"+url.PathEscape(teamID)+"/members",
-			"ref:users:0=/ref/users?in="+strings.Join(userIDs, ","),
+			"ref:users:0=/ref/users?in="+strings.Join(userIDs, ",")+refSig,
 		),
 	})
 }
@@ -377,11 +377,11 @@ func (h *Handler) handleListTeamProjects(w http.ResponseWriter, req *http.Reques
 	}
 	_ = json.NewEncoder(w).Encode(struct {
 		Items []*TeamProjectAccess `json:"items"`
-		Links HalLinks             `json:"_links"`
+		Links HalLinks             `json:"_links,omitempty"`
 	}{Items: items, Links: MakeHALLinks(
 		"self=/teams/"+url.PathEscape(teamID)+"/project-access",
-		"ref:projects:0=/ref/projects?in="+strings.Join(projectIDs, ","),
-		"ref:organizations:0=/ref/organizations?in="+url.QueryEscape(t.OrganizationID),
+		"ref:projects:0=/ref/projects?in="+strings.Join(projectIDs, ",")+refSig,
+		"ref:organizations:0=/ref/organizations?in="+url.QueryEscape(t.OrganizationID)+refSig,
 	)})
 }
 
@@ -465,6 +465,6 @@ func (h *Handler) handleListProjectTeamAccess(w http.ResponseWriter, req *http.R
 	slices.SortFunc(items, func(a, b *TeamProjectAccess) int { return strings.Compare(a.TeamID, b.TeamID) })
 	_ = json.NewEncoder(w).Encode(struct {
 		Items []*TeamProjectAccess `json:"items"`
-		Links HalLinks             `json:"_links"`
+		Links HalLinks             `json:"_links,omitempty"`
 	}{Items: items, Links: MakeHALLinks("self=" + projectPath + "/team-access")})
 }

@@ -38,7 +38,7 @@ func (h *Handler) handleGetEnvironment(w http.ResponseWriter, req *http.Request)
 	for id, e := range h.environments {
 		if e.Project == projectID && id == environmentID {
 			_ = json.NewEncoder(w).Encode(e)
-			break
+			return
 		}
 	}
 	w.WriteHeader(http.StatusNotFound)
@@ -53,13 +53,27 @@ func (h *Handler) handlePatchEnvironment(w http.ResponseWriter, req *http.Reques
 	h.Lock()
 	defer h.Unlock()
 
-	patched := *env
-	patched.HTTPAccess = maps.Clone(env.HTTPAccess)
-	patched.MergeInfo = maps.Clone(env.MergeInfo)
-	err := json.NewDecoder(req.Body).Decode(&patched)
+	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
+	}
+	patched := *env
+	patched.MergeInfo = maps.Clone(env.MergeInfo)
+	var patch struct {
+		HTTPAccess map[string]any `json:"http_access"`
+	}
+	if json.Unmarshal(body, &patched) != nil || json.Unmarshal(body, &patch) != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	// Like the API, http_access is a JSON merge patch, and basic_auth defaults to an empty object.
+	patched.HTTPAccess = env.HTTPAccess
+	if patch.HTTPAccess != nil {
+		patched.HTTPAccess = mergePatch(env.HTTPAccess, patch.HTTPAccess)
+		if patched.HTTPAccess["basic_auth"] == nil {
+			patched.HTTPAccess["basic_auth"] = map[string]any{}
+		}
 	}
 
 	patched.UpdatedAt = time.Now()
@@ -133,13 +147,13 @@ func (h *Handler) handleEnvironmentAction(activityType string) http.HandlerFunc 
 }
 
 // activityResponse returns a response with an empty list of embedded activities.
-func activityResponse() map[string]any {
+func activityResponse() apiResponse {
 	return embedded("activities", []Activity{})
 }
 
-// embedded returns a response that embeds a value under a key.
-func embedded(key string, value any) map[string]any {
-	return map[string]any{"_embedded": map[string]any{key: value}}
+// embedded returns an accepted response that embeds a value under a key.
+func embedded(key string, value any) apiResponse {
+	return apiResponse{Status: "OK", Code: http.StatusOK, Embedded: map[string]any{key: value}}
 }
 
 func (h *Handler) handleGetCurrentDeployment(w http.ResponseWriter, req *http.Request) {
@@ -259,7 +273,7 @@ func (h *Handler) handleListBackups(w http.ResponseWriter, req *http.Request) {
 	defer h.RUnlock()
 	projectID := chi.URLParam(req, "project_id")
 	environmentID := chi.URLParam(req, "environment_id")
-	var backups []*Backup
+	backups := []*Backup{}
 	if projectBackups, ok := h.projectBackups[projectID]; ok {
 		for _, b := range projectBackups {
 			if b.EnvironmentID == environmentID {

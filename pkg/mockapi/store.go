@@ -150,6 +150,10 @@ func (s *store) SetEnvLevelVariables(projectID, environmentID string, vars []*En
 	if s.envLevelVariables[projectID] == nil {
 		s.envLevelVariables[projectID] = make(map[string][]*EnvLevelVariable)
 	}
+	for _, v := range vars {
+		v.Project = projectID
+		v.Environment = environmentID
+	}
 	s.envLevelVariables[projectID][environmentID] = vars
 }
 

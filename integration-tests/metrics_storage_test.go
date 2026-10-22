@@ -68,8 +68,8 @@ func setupMetricsTest(t *testing.T, withStorage, withStorageMount bool) (f *cmdF
 		WebApps: map[string]mockapi.App{
 			"app": app,
 		},
-		Services: map[string]mockapi.App{
-			"db": {Name: "db", Type: "mariadb:11.4", Size: "AUTO"},
+		Services: map[string]mockapi.Service{
+			"db": {Type: "mariadb:11.4", Size: "AUTO"},
 		},
 		Workers: map[string]mockapi.Worker{},
 		Routes:  map[string]any{},

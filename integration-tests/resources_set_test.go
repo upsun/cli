@@ -43,7 +43,7 @@ func TestResourcesSet_CurrentSizeMissingFromContainerProfiles(t *testing.T) {
 		},
 	}, map[string]any{
 		"BALANCED": map[string]any{
-			"0.1": map[string]any{"cpu": "0.1", "memory": "256", "cpu_type": "guaranteed"},
+			"0.1": map[string]any{"cpu": 0.1, "memory": 256, "cpu_type": "guaranteed"},
 		},
 	}))
 	f := serveAPI(t, apiHandler)

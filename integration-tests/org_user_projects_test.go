@@ -67,7 +67,7 @@ func TestOrgUserProjects(t *testing.T) {
 					"id":              "member-1",
 					"organization_id": orgID,
 					"user_id":         targetUserID,
-					"permissions":     []string{"members:viewer"},
+					"permissions":     []string{"members"},
 					"owner":           false,
 					"created_at":      "2024-01-01T00:00:00+00:00",
 					"updated_at":      "2024-01-01T00:00:00+00:00",
@@ -76,7 +76,7 @@ func TestOrgUserProjects(t *testing.T) {
 					"id":              "member-2",
 					"organization_id": orgID,
 					"user_id":         missingUserID,
-					"permissions":     []string{"members:viewer"},
+					"permissions":     []string{"members"},
 					"owner":           false,
 					"created_at":      "2024-01-01T00:00:00+00:00",
 					"updated_at":      "2024-01-01T00:00:00+00:00",
@@ -84,7 +84,7 @@ func TestOrgUserProjects(t *testing.T) {
 			},
 			"_links": map[string]any{
 				"self":        map[string]string{"href": "/organizations/" + orgID + "/members"},
-				"ref:users:0": map[string]string{"href": "/ref/users?in=" + targetUserID},
+				"ref:users:0": map[string]string{"href": "/ref/users?in=" + targetUserID + "&sig=mock-signature"},
 				// Deliberately omit missingUserID from the ref:users lookup.
 			},
 		}

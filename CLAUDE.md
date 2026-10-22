@@ -158,6 +158,8 @@ Tests use github.com/stretchr/testify for assertions. Table-driven tests are pre
 
 Integration tests (`integration-tests/`) call `t.Parallel()`, so they must not share state: no `t.Setenv` or unsynchronized package variables, and use `cmdFactory.useConfig` to change the CLI config file. Write output with `t.Log` (e.g. `mockapi.RequestLogger`), not to stdout or stderr: it is then attributed to its test, and shown only on failure or with `-v`. Tests of environment operations use `setUpProject`, and tests of Git commands (push, clone, fetch) use `setUpGitProject`, which also serves a bare repository over the mock SSH server. Tests of other SSH commands use `serveSSH` with an app from `sshEnv`, and fake remote executables from `remoteEnv`. The mock SSH server can also serve SFTP (`SFTPDir`) and forward connections (`DialTCP`, `ListenUnix`); tests of commands that start background processes (tunnels) must make sure they exit.
 
+The mock API (`pkg/mockapi`) validates each successful request and response against the API's OpenAPI spec (`pkg/mockapi/openapi.json`, refreshed with `make update-openapi-spec`), and reports failures through the test. Responses may leave out required properties. Routes that are not in the spec are listed in `notInSpec`, and differences between the spec and the API are patched in `patchSpec`.
+
 ### Configuration
 
 The CLI uses Viper for configuration. Environment variables use the prefix defined in the config (UPSUN_CLI_ or PLATFORM_CLI_). The prefix is set in the config YAML.

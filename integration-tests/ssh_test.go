@@ -52,7 +52,7 @@ func TestSSH(t *testing.T) {
 		WebApps: map[string]mockapi.App{
 			"app": {Name: "app", Type: "golang:1.23", Size: "M", Disk: 2048, Mounts: map[string]mockapi.Mount{}},
 		},
-		Services: map[string]mockapi.App{},
+		Services: map[string]mockapi.Service{},
 		Workers:  map[string]mockapi.Worker{},
 		Routes:   mockRoutes(),
 		Links:    mockapi.MakeHALLinks("self=/projects/" + projectID + "/environments/main/deployment/current"),

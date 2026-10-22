@@ -26,5 +26,5 @@ func (h *Handler) routeProjectResources() {
 	h.Post("/projects/{project_id}/integrations/{integration_id}/validate", h.handleValidateProjectIntegration)
 
 	h.Patch("/projects/{project_id}/settings", h.handlePatchProjectSettings)
-	h.Patch("/projects/{project_id}/environments/{environment_id}/autoscaling", h.handlePatchAutoscalingSettings)
+	h.Patch("/projects/{project_id}/environments/{environment_id}/autoscaling/settings", h.handlePatchAutoscalingSettings)
 }

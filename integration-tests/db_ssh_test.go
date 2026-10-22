@@ -44,9 +44,9 @@ func setUpDBProject(t *testing.T, clients map[string]string) *testProject {
 		WebApps: map[string]mockapi.App{
 			"app": {Name: "app", Type: "golang:1.23", Size: "M", Mounts: map[string]mockapi.Mount{}},
 		},
-		Services: map[string]mockapi.App{
-			"db": {Name: "db", Type: "mariadb:11.4", Size: "M", Disk: 1024},
-			"pg": {Name: "pg", Type: "postgresql:16", Size: "M", Disk: 2048},
+		Services: map[string]mockapi.Service{
+			"db": {Type: "mariadb:11.4", Size: "M", Disk: 1024},
+			"pg": {Type: "postgresql:16", Size: "M", Disk: 2048},
 		},
 	}))
 	p.serveSSH(t, mockssh.ExecHandler(t.TempDir(), remoteEnv(t, clients, dbRelationships())))
