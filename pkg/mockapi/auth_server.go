@@ -20,8 +20,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var ValidAPITokens = []string{"api-token-1"}
-var accessTokens = []string{"access-token-1"}
+// ValidAPITokens are the API tokens that the server accepts. Each is exchanged for the access token at the same index
+// in accessTokens, unless SetUniqueAccessTokens is used.
+var ValidAPITokens = []string{"api-token-1", "api-token-2"}
+var accessTokens = []string{"access-token-1", "access-token-2"}
 
 // AuthServer is a mock authentication server for testing.
 //
@@ -38,6 +40,7 @@ type AuthServer struct {
 	refreshCount    int
 	refreshRequests int
 	refreshFailures int
+	exchanges       int
 	tokenLifetime   time.Duration
 	uniqueTokens    bool
 	accessCount     int
@@ -96,10 +99,14 @@ func (s *AuthServer) SetUniqueAccessTokens(unique bool) {
 }
 
 func (s *AuthServer) newAccessToken() string {
+	return s.newAccessTokenAt(0)
+}
+
+func (s *AuthServer) newAccessTokenAt(i int) string {
 	s.refreshMu.Lock()
 	defer s.refreshMu.Unlock()
 	if !s.uniqueTokens {
-		return accessTokens[0]
+		return accessTokens[i]
 	}
 	s.accessCount++
 	return fmt.Sprintf("access-token-%d", s.accessCount)
@@ -110,6 +117,13 @@ func (s *AuthServer) SetRefreshFailures(n int) {
 	s.refreshMu.Lock()
 	defer s.refreshMu.Unlock()
 	s.refreshFailures = n
+}
+
+// APITokenExchanges returns the number of api_token grant requests received.
+func (s *AuthServer) APITokenExchanges() int {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	return s.exchanges
 }
 
 // RefreshRequests returns the number of refresh_token grant requests received.
@@ -236,10 +250,12 @@ func NewAuthServer(t *testing.T) *AuthServer {
 		require.NoError(t, req.ParseForm())
 		switch req.Form.Get("grant_type") {
 		case "api_token":
-			apiToken := req.Form.Get("api_token")
-			if slices.Contains(ValidAPITokens, apiToken) {
+			srv.refreshMu.Lock()
+			srv.exchanges++
+			srv.refreshMu.Unlock()
+			if i := slices.Index(ValidAPITokens, req.Form.Get("api_token")); i >= 0 {
 				_ = json.NewEncoder(w).Encode(map[string]any{
-					"access_token":  srv.newAccessToken(),
+					"access_token":  srv.newAccessTokenAt(i),
 					"expires_in":    srv.expiresIn(),
 					"token_type":    "bearer",
 					"refresh_token": srv.newRefreshToken(),
