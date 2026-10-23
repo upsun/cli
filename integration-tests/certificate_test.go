@@ -102,6 +102,88 @@ func TestCertificateListEmpty(t *testing.T) {
 	assert.Contains(t, stdErr, "No certificates found")
 }
 
+func TestCertificateListFilters(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+
+	apiHandler := mockapi.NewHandler(t)
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	projectID := mockapi.ProjectID()
+	apiHandler.SetProjects([]*mockapi.Project{{
+		ID: projectID,
+		Links: mockapi.MakeHALLinks(
+			"self=/projects/"+projectID,
+			"environments=/projects/"+projectID+"/environments",
+		),
+		DefaultBranch: "main",
+	}})
+	apiHandler.SetEnvironments([]*mockapi.Environment{makeEnv(projectID, "main", "production", "active", nil)})
+
+	created, _ := time.Parse(time.RFC3339, "2024-01-01T00:00:00Z")
+	valid, _ := time.Parse(time.RFC3339, "2099-01-01T00:00:00Z")
+	expired, _ := time.Parse(time.RFC3339, "2025-01-01T00:00:00Z")
+	cert := func(id, issuer string, provisioned bool, expires time.Time, domains ...string) *mockapi.Certificate {
+		return &mockapi.Certificate{
+			ID:            id,
+			Domains:       domains,
+			Issuer:        []mockapi.NameAttr{{OID: "2.5.4.3", Alias: "commonName", Value: issuer}},
+			IsProvisioned: provisioned,
+			ExpiresAt:     expires,
+			CreatedAt:     created,
+			UpdatedAt:     created,
+			Links:         mockapi.MakeHALLinks("self=/projects/" + projectID + "/certificates/" + id),
+		}
+	}
+	apiHandler.SetProjectCertificates(projectID, []*mockapi.Certificate{
+		cert("custom", "Custom CA", false, valid, "example.com", "www.example.com"),
+		cert("auto", "R3", true, valid, "api.example.org"),
+		cert("expired", "Custom CA", false, expired, "old.example.com"),
+	})
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+
+	cases := []struct {
+		name       string
+		args       []string
+		wantOut    string
+		wantStdErr string
+	}{
+		{name: "default", wantOut: "custom\nauto", wantStdErr: "Filters in use: --no-expired"},
+		{name: "domain", args: []string{"--domain", "EXAMPLE.ORG"}, wantOut: "auto"},
+		{name: "exclude domain", args: []string{"--exclude-domain", "example.org"}, wantOut: "custom"},
+		{name: "issuer", args: []string{"--issuer", "R3"}, wantOut: "auto"},
+		{name: "only auto", args: []string{"--only-auto"}, wantOut: "auto"},
+		{name: "no auto", args: []string{"--no-auto"}, wantOut: "custom"},
+		{name: "ignore expiry", args: []string{"--ignore-expiry"}, wantOut: "custom\nauto\nexpired"},
+		{name: "only expired", args: []string{"--only-expired"}, wantOut: "expired"},
+		{name: "no expired", args: []string{"--no-expired"}, wantOut: "custom\nauto"},
+		{
+			name:       "no match",
+			args:       []string{"--only-expired", "--issuer", "R3"},
+			wantStdErr: "No certificates found",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			args := append([]string{"certificates", "-p", projectID, "--format", "plain", "--no-header", "--columns", "id"},
+				c.args...)
+			stdout, stderr, err := f.RunCombinedOutput(args...)
+			require.NoError(t, err, stderr)
+			assertTrimmed(t, c.wantOut, stdout)
+			assert.Contains(t, stderr, c.wantStdErr)
+		})
+	}
+
+	// Only domains are listed, with no other output.
+	stdout, stderr, err := f.RunCombinedOutput("certificates", "-p", projectID, "--pipe-domains", "--no-auto")
+	require.NoError(t, err, stderr)
+	assertTrimmed(t, "example.com\nwww.example.com", stdout)
+	assert.NotContains(t, stderr, "Filters in use")
+}
+
 // writeSelfSignedCert writes a self-signed certificate for the domains, and its private key, to temporary files.
 func writeSelfSignedCert(t *testing.T, domains ...string) (certPath, keyPath string) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
