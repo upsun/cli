@@ -173,6 +173,7 @@ type App struct {
 
 	Mounts map[string]Mount `json:"mounts"`
 
+	Web     map[string]any `json:"web,omitempty"`
 	Runtime map[string]any `json:"runtime,omitempty"`
 	Stack   any            `json:"stack,omitempty"`
 }
