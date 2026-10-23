@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -129,31 +128,20 @@ func (h *Handler) handleValidateProjectIntegration(w http.ResponseWriter, req *h
 	h.respond(w, "OK", http.StatusOK, nil, nil)
 }
 
-// handleListIntegrationActivities lists an integration's activities, newest first, with the API's filters.
+// handleListIntegrationActivities lists an integration's activities.
 func (h *Handler) handleListIntegrationActivities(w http.ResponseWriter, req *http.Request) {
 	h.Lock()
 	defer h.Unlock()
 	projectID := chi.URLParam(req, "project_id")
 	integrationID := chi.URLParam(req, "integration_id")
-	query := req.URL.Query()
-	matches := func(key, value string) bool {
-		return len(query[key]) == 0 || slices.Contains(query[key], value)
-	}
 	activities := make([]*Activity, 0, len(h.activities[projectID]))
 	for _, a := range h.activities[projectID] {
-		if a.Integration != integrationID {
-			continue
-		}
-		a.complete()
-		if matches("type", a.Type) && matches("state", a.State) && matches("result", a.Result) {
+		if a.Integration == integrationID {
+			a.complete()
 			activities = append(activities, a)
 		}
 	}
-	slices.SortFunc(activities, func(a, b *Activity) int { return -timeCompare(a.CreatedAt, b.CreatedAt) })
-	if count, err := strconv.Atoi(query.Get("count")); err == nil && count > 0 && count < len(activities) {
-		activities = activities[:count]
-	}
-	_ = json.NewEncoder(w).Encode(activities)
+	writeActivities(w, req, activities)
 }
 
 func copyIntegration(i *Integration) *Integration {

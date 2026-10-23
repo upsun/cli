@@ -6,6 +6,7 @@ import (
 	"maps"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -143,7 +144,7 @@ func (h *Handler) handleListProjectActivities(w http.ResponseWriter, req *http.R
 	writeActivities(w, req, activities)
 }
 
-// writeActivities writes activities newest first, filtered by the query's type, state, result and starts_at
+// writeActivities writes activities newest first, filtered by the query's type, state, result, starts_at and count
 // parameters, like the API.
 func writeActivities(w http.ResponseWriter, req *http.Request, activities []*Activity) {
 	query := req.URL.Query()
@@ -165,6 +166,9 @@ func writeActivities(w http.ResponseWriter, req *http.Request, activities []*Act
 			(!startsAt.IsZero() && a.CreatedAt.After(startsAt))
 	})
 	slices.SortFunc(activities, func(a, b *Activity) int { return -timeCompare(a.CreatedAt, b.CreatedAt) })
+	if count, err := strconv.Atoi(query.Get("count")); err == nil && count > 0 && count < len(activities) {
+		activities = activities[:count]
+	}
 	_ = json.NewEncoder(w).Encode(activities)
 }
 
