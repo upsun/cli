@@ -160,7 +160,14 @@ func (h *Handler) handleCreateSSHKey(source string) http.HandlerFunc {
 			k.ID = lowercaseAlphanumericID(26)
 			k.Label = body.Label
 		} else {
-			k.ID = strconv.Itoa(len(h.sshKeys) + 1)
+			// Like the API, IDs are sequential and not reused.
+			maxID := 0
+			for _, existing := range h.sshKeys {
+				if id, err := strconv.Atoi(existing.ID); err == nil {
+					maxID = max(maxID, id)
+				}
+			}
+			k.ID = strconv.Itoa(maxID + 1)
 		}
 		h.sshKeys = append(h.sshKeys, k)
 		w.WriteHeader(http.StatusCreated)
