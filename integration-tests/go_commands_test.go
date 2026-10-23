@@ -81,9 +81,6 @@ func TestConfigInstall(t *testing.T) {
 
 func TestProjectConvert(t *testing.T) {
 	t.Parallel()
-	if runtime.GOOS == "windows" {
-		t.Skip("lib-sun writes source.root with a Windows path separator, and drops or moves comments")
-	}
 	// The command is only available in CLIs for Upsun (Flex) configuration.
 	baseConfig, err := os.ReadFile("config.yaml")
 	require.NoError(t, err)

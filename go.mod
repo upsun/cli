@@ -25,7 +25,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.12.1
 	github.com/symfony-cli/terminal v1.0.9
-	github.com/upsun/lib-sun v0.3.16
+	github.com/upsun/lib-sun v0.3.17
 	github.com/upsun/whatsun v0.2.2
 	github.com/xeipuuv/gojsonschema v1.2.0
 	github.com/zalando/go-keyring v0.2.8
