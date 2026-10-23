@@ -39,3 +39,61 @@ func TestResourcesGet(t *testing.T) {
 	assert.NotContains(t, stderr, "Worker not found")
 	assert.Contains(t, stdout, "app")
 }
+
+// TestResourcesGet_Filters checks the options that select the containers to show.
+func TestResourcesGet_Filters(t *testing.T) {
+	t.Parallel()
+	apiHandler := mockapi.NewHandler(t)
+	projectID := setUpResourcesSetContainers(apiHandler)
+	f := serveAPI(t, apiHandler)
+
+	cases := []struct {
+		name       string
+		args       []string
+		wantOut    string
+		wantErr    bool
+		wantStdErr string
+	}{
+		{name: "no filter", wantOut: "app\napp--mail\napp--queue\ncache\ndb\nreplica\ncleanup"},
+		{name: "service", args: []string{"--service", "db", "--service", "app"}, wantOut: "app\ndb"},
+		{name: "service wildcard", args: []string{"-s", "app*"}, wantOut: "app\napp--mail\napp--queue"},
+		{name: "app", args: []string{"--app", "app"}, wantOut: "app"},
+		{name: "worker", args: []string{"--worker", "app--queue"}, wantOut: "app--queue"},
+		{name: "task", args: []string{"--task", "cleanup"}, wantOut: "cleanup"},
+		{name: "type", args: []string{"--type", "mariadb"}, wantOut: "db"},
+		{name: "full type", args: []string{"--type", "mariadb-replica:11.4"}, wantOut: "replica"},
+		{
+			name:    "service and type",
+			args:    []string{"--service", "app*", "--type", "golang"},
+			wantOut: "app\napp--mail\napp--queue",
+		},
+		{name: "cpu type", args: []string{"--cpu-type", "guaranteed"}},
+		{
+			name:       "unknown worker",
+			args:       []string{"--worker", "app"},
+			wantErr:    true,
+			wantStdErr: "No workers were found matching the name(s): app",
+		},
+		{
+			name:       "unknown type",
+			args:       []string{"--type", "postgresql"},
+			wantErr:    true,
+			wantStdErr: "No services were found matching the type(s): postgresql",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			args := append([]string{
+				"resources:get", "-p", projectID, "-e", "main", "--format", "plain", "--no-header", "--columns", "service",
+			}, c.args...)
+			stdout, stderr, err := f.RunCombinedOutput(args...)
+			if c.wantErr {
+				assertExitCode(t, 1, err)
+			} else {
+				require.NoError(t, err, stderr)
+			}
+			assertTrimmed(t, c.wantOut, stdout)
+			assert.Contains(t, stderr, c.wantStdErr)
+		})
+	}
+}
