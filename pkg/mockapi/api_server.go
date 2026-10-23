@@ -75,7 +75,7 @@ func NewHandler(t *testing.T) *Handler {
 	h.Use(validateOpenAPI(t))
 
 	h.Get("/users/me", h.handleUsersMe)
-	h.Get("/me", h.handleUsersMe)
+	h.Get("/me", h.handleMe)
 	h.Get("/users/{user_id}/extended-access", h.handleUserExtendedAccess)
 	h.Get("/ref/users", h.handleUserRefs)
 	h.Post("/me/verification", func(w http.ResponseWriter, _ *http.Request) {
@@ -202,6 +202,7 @@ func NewHandler(t *testing.T) *Handler {
 	h.Delete("/projects/{project_id}/environments/{environment_id}/variables/{name}", h.handleDeleteEnvLevelVariable)
 
 	h.routeProjectResources()
+	h.routeSSHKeys()
 
 	return h
 }

@@ -33,6 +33,9 @@ type store struct {
 	backupRestores         map[string][]map[string]any
 	projectSettingsPatches map[string][]map[string]any
 	autoscalingPatches     map[string][]map[string]any
+
+	sshKeySource string
+	sshKeys      []*SSHKey
 }
 
 func (s *store) SetEnvironments(envs []*Environment) {
