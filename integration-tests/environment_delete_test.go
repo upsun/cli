@@ -92,7 +92,8 @@ func TestEnvironmentDelete(t *testing.T) {
 	}
 }
 
-// TestEnvironmentDeleteConfirmed checks deactivating environments and deleting their branches.
+// TestEnvironmentDeleteConfirmed checks deactivating environments and deleting their branches, and the options that
+// select environments.
 func TestEnvironmentDeleteConfirmed(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -160,6 +161,61 @@ func TestEnvironmentDeleteConfirmed(t *testing.T) {
 			wantStatus: map[string]string{"dev-child": "active"},
 		},
 		{
+			name:       "status, deleting branches without confirmation",
+			args:       []string{"--status", "inactive", "--delete-branch"},
+			wantStdErr: []string{"1 environment found with the status(es): inactive", "Deleting inactive environment test-2"},
+			wantGone:   []string{"test-2"},
+		},
+		{
+			name:       "active, deleting the branch without confirmation",
+			args:       []string{"test-1", "--delete-branch"},
+			stdin:      "y\n",
+			wantStdErr: []string{"Deleting environment test-1", "Deleting inactive environment test-1"},
+			wantGone:   []string{"test-1"},
+		},
+		{
+			name:       "active, without deleting the branch",
+			args:       []string{"test-1", "--no-delete-branch"},
+			stdin:      "y\n",
+			wantStdErr: []string{"Deleting environment test-1"},
+			wantStatus: map[string]string{"test-1": "inactive"},
+		},
+		{
+			name:       "inactive, without deleting the branch",
+			args:       []string{"test-2", "--no-delete-branch"},
+			wantStdErr: []string{"--no-delete-branch was specified, so it will not be deleted.", "No environments to delete."},
+			wantStatus: map[string]string{"test-2": "inactive"},
+		},
+		{
+			name:       "type, only type",
+			args:       []string{"--type", "development,staging", "--only-type", "staging"},
+			stdin:      "y\nn\n",
+			wantStdErr: []string{"7 environments excluded by type.", "Selected environment: stage"},
+			wantStatus: map[string]string{"stage": "inactive", "test-1": "active"},
+		},
+		{
+			name:       "exclude type",
+			args:       []string{"test-1", "stage", "--exclude-type", "development"},
+			stdin:      "y\nn\n",
+			wantStdErr: []string{"1 environment excluded by type.", "Selected environment: stage"},
+			wantStatus: map[string]string{"stage": "inactive", "test-1": "active"},
+		},
+		{
+			name:       "only status",
+			args:       []string{"test-*", "--only-status", "inactive"},
+			stdin:      "y\n",
+			wantStdErr: []string{"1 environment excluded by status.", "Selected environment: test-2"},
+			wantGone:   []string{"test-2"},
+			wantStatus: map[string]string{"test-1": "active"},
+		},
+		{
+			name:       "exclude status",
+			args:       []string{"test-*", "--exclude-status", "inactive"},
+			stdin:      "y\nn\n",
+			wantStdErr: []string{"1 environment excluded by status.", "Selected environment: test-1"},
+			wantStatus: map[string]string{"test-1": "inactive", "test-2": "inactive"},
+		},
+		{
 			name:       "already being deleted",
 			args:       []string{"deleting"},
 			wantStdErr: []string{"is already being deleted.", "No environments to delete."},
@@ -208,12 +264,15 @@ func setUpDeleteProject(t *testing.T) *testProject {
 		e.AddOperations("deactivate")
 		return e
 	}
+	staging := makeEnv(layoutProjectID, "stage", "staging", "active", "main")
+	staging.AddOperations("deactivate")
 	merged := env("merged", "active", "main")
 	merged.MergeInfo = map[string]any{"commits_ahead": 0, "parent_ref": "abc123"}
 	return setUpProject(t,
 		makeEnv(layoutProjectID, "main", "production", "active", nil),
 		env("test-1", "active", "main"),
 		env("test-2", "inactive", "main"),
+		staging,
 		merged,
 		env("dev", "active", "main"),
 		env("dev-child", "active", "dev"),
