@@ -6,6 +6,7 @@ import (
 	"maps"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -139,7 +140,30 @@ func (h *Handler) handleListProjectActivities(w http.ResponseWriter, req *http.R
 		a.complete()
 		activities = append(activities, a)
 	}
-	// Sort activities in descending order by created date.
+	writeActivities(w, req, activities)
+}
+
+// writeActivities writes activities newest first, filtered by the query's type, state, result and starts_at
+// parameters, like the API.
+func writeActivities(w http.ResponseWriter, req *http.Request, activities []*Activity) {
+	query := req.URL.Query()
+	matches := func(key, value string) bool {
+		return !query.Has(key) || slices.Contains(query[key], value)
+	}
+	var startsAt time.Time
+	if v := query.Get("starts_at"); v != "" {
+		var err error
+		// The client does not encode the "+" of the time zone offset, so it is decoded as a space.
+		if startsAt, err = time.Parse(time.RFC3339, strings.ReplaceAll(v, " ", "+")); err != nil {
+			writeError(w, http.StatusBadRequest, "Invalid starts_at", nil)
+			return
+		}
+	}
+	activities = slices.DeleteFunc(activities, func(a *Activity) bool {
+		// The activity at starts_at is included: the CLI pages by the oldest activity's creation time.
+		return !matches("type", a.Type) || !matches("state", a.State) || !matches("result", a.Result) ||
+			(!startsAt.IsZero() && a.CreatedAt.After(startsAt))
+	})
 	slices.SortFunc(activities, func(a, b *Activity) int { return -timeCompare(a.CreatedAt, b.CreatedAt) })
 	_ = json.NewEncoder(w).Encode(activities)
 }
@@ -212,9 +236,7 @@ func (h *Handler) handleListEnvironmentActivities(w http.ResponseWriter, req *ht
 			activities = append(activities, a)
 		}
 	}
-	// Sort activities in descending order by created date.
-	slices.SortFunc(activities, func(a, b *Activity) int { return -timeCompare(a.CreatedAt, b.CreatedAt) })
-	_ = json.NewEncoder(w).Encode(activities)
+	writeActivities(w, req, activities)
 }
 
 func (h *Handler) handleGetEnvironmentActivity(w http.ResponseWriter, req *http.Request) {
