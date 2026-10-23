@@ -124,7 +124,7 @@ func TestEnvironmentPushOptions(t *testing.T) {
 		args     []string
 		noRemote bool                            // Build the repository without the project's Git remote.
 		setup    func(t *testing.T, repo string) // Runs before the push, after main is pushed to the served repository.
-		wantErr  bool
+		wantErr  bool                            // Rejections are checked by ref, as Git's output varies.
 		// wantStdErr is checked in the push log, which includes the push options printed by a hook.
 		wantStdErr []string
 		check      func(t *testing.T, p *gitProject, repo string)
@@ -138,10 +138,9 @@ func TestEnvironmentPushOptions(t *testing.T) {
 			},
 		},
 		{
-			name:       "non-fast-forward",
-			setup:      amendHead,
-			wantErr:    true,
-			wantStdErr: []string{"[rejected]        HEAD -> main (non-fast-forward)"},
+			name:    "non-fast-forward",
+			setup:   amendHead,
+			wantErr: true,
 			check: func(t *testing.T, p *gitProject, repo string) {
 				assert.NotEqual(t, gitRef(t, repo, "HEAD"), gitRef(t, p.repo, "refs/heads/main"))
 			},
@@ -166,11 +165,10 @@ func TestEnvironmentPushOptions(t *testing.T) {
 			},
 		},
 		{
-			name:       "force with lease, without a remote-tracking branch",
-			args:       []string{"--force-with-lease"},
-			setup:      amendHead,
-			wantErr:    true,
-			wantStdErr: []string{"[rejected]        HEAD -> main (stale info)"},
+			name:    "force with lease, without a remote-tracking branch",
+			args:    []string{"--force-with-lease"},
+			setup:   amendHead,
+			wantErr: true,
 			check: func(t *testing.T, p *gitProject, repo string) {
 				assert.NotEqual(t, gitRef(t, repo, "HEAD"), gitRef(t, p.repo, "refs/heads/main"))
 			},
