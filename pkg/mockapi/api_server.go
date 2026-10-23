@@ -174,6 +174,7 @@ func NewHandler(t *testing.T) *Handler {
 	h.Get("/projects/{project_id}/domains/{name}", h.handleGetProjectDomain)
 	h.Get("/projects/{project_id}/integrations", h.handleListProjectIntegrations)
 	h.Get("/projects/{project_id}/integrations/{integration_id}", h.handleGetProjectIntegration)
+	h.Get("/projects/{project_id}/integrations/{integration_id}/activities", h.handleListIntegrationActivities)
 	h.Get("/projects/{project_id}/certificates", h.handleListProjectCertificates)
 	h.Get("/projects/{project_id}/certificates/{certificate_id}", h.handleGetProjectCertificate)
 	h.Get("/projects/{project_id}/user-access", h.handleProjectUserAccess)

@@ -374,6 +374,7 @@ type Activity struct {
 
 	Project      string   `json:"project"`
 	Environments []string `json:"environments"`
+	Integration  string   `json:"integration,omitempty"`
 
 	Description string `json:"description"`
 	Text        string `json:"text"`
