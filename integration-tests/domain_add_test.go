@@ -2,7 +2,6 @@ package tests
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -44,18 +43,6 @@ func TestDomainAdd(t *testing.T) {
 		})
 	})
 
-	var captured map[string]any
-	apiHandler.Post("/projects/"+projectID+"/environments/main/domains", func(w http.ResponseWriter, req *http.Request) {
-		body, err := io.ReadAll(req.Body)
-		require.NoError(t, err)
-		require.NoError(t, json.Unmarshal(body, &captured))
-		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"status": "created", "code": http.StatusCreated,
-			"_embedded": map[string]any{"entity": map[string]any{"name": captured["name"]}},
-		})
-	})
-
 	apiServer := httptest.NewServer(apiHandler)
 	defer apiServer.Close()
 
@@ -64,8 +51,9 @@ func TestDomainAdd(t *testing.T) {
 	stdout, stderr, err := f.RunCombinedOutput("domain:add", "-p", projectID, "-e", ".", "--no-wait", "example.com")
 	require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
 	assert.Contains(t, stderr, "Adding the domain: example.com")
-	assert.Equal(t, "example.com", captured["name"])
-	assert.NotContains(t, captured, "replacement_for", "request body must omit replacement_for when --attach is not given")
+	body := jsonObject(t, lastRequest(t, apiHandler, "POST", "/projects/*/environments/main/domains").Body)
+	assert.Equal(t, "example.com", body["name"])
+	assert.NotContains(t, body, "replacement_for", "request body must omit replacement_for when --attach is not given")
 }
 
 func TestDomainAddNonProduction(t *testing.T) {

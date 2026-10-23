@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http/httptest"
-	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,7 +17,6 @@ type variableTestSetup struct {
 	authServer *mockapi.AuthServer
 	apiServer  *httptest.Server
 	apiHandler *mockapi.Handler
-	recorder   *requestRecorder
 	projectID  string
 	mainEnv    *mockapi.Environment
 	factory    *cmdFactory
@@ -30,8 +28,7 @@ func setupVariableTest(t *testing.T) *variableTestSetup {
 	t.Cleanup(authServer.Close)
 
 	apiHandler := mockapi.NewHandler(t)
-	recorder := &requestRecorder{next: apiHandler}
-	apiServer := httptest.NewServer(recorder)
+	apiServer := httptest.NewServer(apiHandler)
 	t.Cleanup(apiServer.Close)
 
 	projectID := mockapi.ProjectID()
@@ -53,7 +50,6 @@ func setupVariableTest(t *testing.T) *variableTestSetup {
 		authServer: authServer,
 		apiServer:  apiServer,
 		apiHandler: apiHandler,
-		recorder:   recorder,
 		projectID:  projectID,
 		mainEnv:    mainEnv,
 		factory:    newCommandFactory(t, apiServer.URL, authServer.URL),
@@ -283,7 +279,7 @@ func TestVariableSensitive(t *testing.T) {
 				"--value", "secret-value-1", "--sensitive", "true"}, args...)...)
 			require.NoError(t, err, "stderr: %s", stderr)
 			assert.NotContains(t, stdout+stderr, "secret-value-1")
-			reqs := slices.DeleteFunc(s.recorder.requestsTo(path), func(r recordedRequest) bool { return r.Method != "POST" })
+			reqs := s.apiHandler.Requests("POST", path)
 			require.Len(t, reqs, 1)
 			assert.JSONEq(t, `true`, jsonField(t, reqs[0].Body, "is_sensitive"))
 			assert.JSONEq(t, `"secret-value-1"`, jsonField(t, reqs[0].Body, "value"))
@@ -292,8 +288,7 @@ func TestVariableSensitive(t *testing.T) {
 				"--value", "secret-value-2"}, args...)...)
 			require.NoError(t, err, "stderr: %s", stderr)
 			assert.NotContains(t, stdout+stderr, "secret-value")
-			reqs = slices.DeleteFunc(s.recorder.requestsTo(path+"/env:SECRET"),
-				func(r recordedRequest) bool { return r.Method != "PATCH" })
+			reqs = s.apiHandler.Requests("PATCH", path+"/env:SECRET")
 			require.Len(t, reqs, 1)
 			assert.JSONEq(t, `"secret-value-2"`, jsonField(t, reqs[0].Body, "value"))
 

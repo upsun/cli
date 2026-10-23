@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -41,14 +40,7 @@ func TestSourceOperation(t *testing.T) {
 			{"operation": "reset", "app": "worker", "command": "git reset --hard"},
 		})
 	})
-	var receivedBody atomic.Value // map[string]any
-	apiHandler.Post(envPath+"/source-operation", func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]any
-		if !assert.NoError(t, json.NewDecoder(r.Body).Decode(&body)) {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		receivedBody.Store(body)
+	apiHandler.Post(envPath+"/source-operation", func(w http.ResponseWriter, _ *http.Request) {
 		apiHandler.RespondWithActivity(w, projectID, "main", "environment.source-operation")
 	})
 
@@ -77,12 +69,8 @@ reset,worker,git reset --hard
 		assert.Contains(t, stderr, "Running source operation update")
 		assert.Contains(t, stderr, "The activity succeeded")
 
-		body, ok := receivedBody.Load().(map[string]any)
-		require.True(t, ok, "source operation POST was not received")
-		assert.Equal(t, map[string]any{
-			"operation": "update",
-			"variables": map[string]any{"env": map[string]any{"FOO": "bar", "BAZ": "qux"}},
-		}, body)
+		assert.JSONEq(t, `{"operation": "update", "variables": {"env": {"FOO": "bar", "BAZ": "qux"}}}`,
+			lastRequest(t, apiHandler, "POST", envPath+"/source-operation").Body)
 	})
 
 	t.Run("choose", func(t *testing.T) {
@@ -91,10 +79,8 @@ reset,worker,git reset --hard
 		require.NoError(t, err, stderr)
 		assert.Contains(t, stderr, "Running source operation reset")
 
-		body, ok := receivedBody.Load().(map[string]any)
-		require.True(t, ok)
-		assert.Equal(t, "reset", body["operation"])
-		assert.Equal(t, map[string]any{}, body["variables"])
+		assert.JSONEq(t, `{"operation": "reset", "variables": {}}`,
+			lastRequest(t, apiHandler, "POST", envPath+"/source-operation").Body)
 	})
 
 	t.Run("errors", func(t *testing.T) {

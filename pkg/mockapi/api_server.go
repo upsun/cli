@@ -24,6 +24,7 @@ type Handler struct {
 
 	stepUpAMR      []string
 	rejectedTokens []string
+	requests       []Request
 }
 
 // RejectAccessToken makes requests with an access token fail with a 401 error, as if it were revoked.
@@ -47,6 +48,7 @@ func NewHandler(t *testing.T) *Handler {
 	h.Mux = chi.NewRouter()
 
 	h.Use(RequestLogger(t))
+	h.Use(h.recordRequests)
 
 	h.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

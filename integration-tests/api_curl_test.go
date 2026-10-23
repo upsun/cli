@@ -2,11 +2,9 @@ package tests
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
-	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -110,50 +108,14 @@ func TestApiCurlCommand(t *testing.T) {
 	assert.Equal(t, 2, state.getFetches())
 }
 
-type recordedRequest struct {
-	Method string
-	Path   string
-	Header http.Header
-	Body   string
-}
-
-// requestRecorder records the requests a handler receives.
-type requestRecorder struct {
-	mu   sync.Mutex
-	reqs []recordedRequest
-	next http.Handler
-}
-
-func (r *requestRecorder) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	body, _ := io.ReadAll(req.Body)
-	req.Body = io.NopCloser(strings.NewReader(string(body)))
-	r.mu.Lock()
-	r.reqs = append(r.reqs, recordedRequest{
-		Method: req.Method, Path: req.URL.Path, Header: req.Header.Clone(), Body: string(body),
-	})
-	r.mu.Unlock()
-	r.next.ServeHTTP(w, req)
-}
-
-func (r *requestRecorder) requests() []recordedRequest {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return slices.Clone(r.reqs)
-}
-
-// requestsTo returns the recorded requests to a path.
-func (r *requestRecorder) requestsTo(path string) []recordedRequest {
-	return slices.DeleteFunc(r.requests(), func(req recordedRequest) bool { return req.Path != path })
-}
-
 // TestApiCurl_RejectsHost checks that a path with a host is refused without sending a request.
 // The path is appended to the API URL, so the host check is a second safeguard against sending the token elsewhere.
 func TestApiCurl_RejectsHost(t *testing.T) {
 	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
-	apiRecorder := &requestRecorder{next: mockapi.NewHandler(t)}
-	apiServer := httptest.NewServer(apiRecorder)
+	apiHandler := mockapi.NewHandler(t)
+	apiServer := httptest.NewServer(apiHandler)
 	defer apiServer.Close()
 
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
@@ -163,7 +125,7 @@ func TestApiCurl_RejectsHost(t *testing.T) {
 		assert.Empty(t, stdout)
 		assert.Contains(t, stderr, "Invalid path: "+path)
 	}
-	assert.Empty(t, apiRecorder.requests())
+	assert.Empty(t, apiHandler.AllRequests())
 }
 
 func TestApiCurl_Options(t *testing.T) {
@@ -174,17 +136,15 @@ func TestApiCurl_Options(t *testing.T) {
 	apiHandler.HandleFunc("/curl-test", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("success"))
 	})
-	apiRecorder := &requestRecorder{next: apiHandler}
-	apiServer := httptest.NewServer(apiRecorder)
+	apiServer := httptest.NewServer(apiHandler)
 	defer apiServer.Close()
 
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
 
 	assert.Equal(t, "success", f.Run("api:curl", "/curl-test", "-X", "PATCH",
 		"--json", `{"foo":"bar"}`, "-H", "X-Test: one", "-H", "X-Other: two"))
-	reqs := apiRecorder.requestsTo("/curl-test")
+	reqs := apiHandler.Requests("PATCH", "/curl-test")
 	require.Len(t, reqs, 1)
-	assert.Equal(t, "PATCH", reqs[0].Method)
 	assert.JSONEq(t, `{"foo":"bar"}`, reqs[0].Body)
 	assert.Equal(t, "application/json", reqs[0].Header.Get("Content-Type"))
 	assert.Equal(t, "application/json", reqs[0].Header.Get("Accept"))
@@ -192,10 +152,11 @@ func TestApiCurl_Options(t *testing.T) {
 	assert.Equal(t, "two", reqs[0].Header.Get("X-Other"))
 	assert.Equal(t, "Bearer access-token-1", reqs[0].Header.Get("Authorization"))
 
+	sent := len(apiHandler.AllRequests())
 	_, stderr, err := f.RunCombinedOutput("api:curl", "/curl-test", "--json", "{invalid")
 	assert.Error(t, err)
 	assert.Contains(t, stderr, "The value of --json contains invalid JSON.")
-	assert.Len(t, apiRecorder.requestsTo("/curl-test"), 1)
+	assert.Len(t, apiHandler.AllRequests(), sent)
 }
 
 // TestApiCurl_CensorsToken checks that the access token is replaced by "[token]" in verbose output.
@@ -231,8 +192,7 @@ func TestCurlCommands_BasePath(t *testing.T) {
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiHandler := mockapi.NewHandler(t)
-	apiRecorder := &requestRecorder{next: apiHandler}
-	apiServer := httptest.NewServer(apiRecorder)
+	apiServer := httptest.NewServer(apiHandler)
 	defer apiServer.Close()
 
 	projectID := mockapi.ProjectID()
@@ -266,6 +226,6 @@ func TestCurlCommands_BasePath(t *testing.T) {
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
 	for _, c := range cases {
 		assert.Equal(t, "success", f.Run(append(c.args, "/curl-test")...), c.args[0])
-		assert.Len(t, apiRecorder.requestsTo(c.path), 1, c.args[0])
+		assert.Len(t, apiHandler.Requests("GET", c.path), 1, c.args[0])
 	}
 }

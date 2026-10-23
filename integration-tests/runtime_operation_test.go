@@ -2,10 +2,8 @@ package tests
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -77,13 +75,7 @@ func TestRuntimeOperationRun(t *testing.T) {
 		})
 	})
 
-	var receivedBody atomic.Value // map[string]any
-	apiHandler.Post(deploymentPath+"/operations", func(w http.ResponseWriter, r *http.Request) {
-		b, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
-		var body map[string]any
-		require.NoError(t, json.Unmarshal(b, &body))
-		receivedBody.Store(body)
+	apiHandler.Post(deploymentPath+"/operations", func(w http.ResponseWriter, _ *http.Request) {
 		apiHandler.RespondWithActivity(w, projectID, "main", "environment.operation")
 	})
 
@@ -115,8 +107,7 @@ func TestRuntimeOperationRun(t *testing.T) {
 		assert.Contains(t, stderr, "migrate")
 		assert.Contains(t, stderr, "app")
 
-		body, ok := receivedBody.Load().(map[string]any)
-		require.True(t, ok, "operations POST was not received")
+		body := jsonObject(t, lastRequest(t, apiHandler, "POST", deploymentPath+"/operations").Body)
 		assert.Equal(t, "migrate", body["operation"])
 		assert.Equal(t, "app", body["service"], "service (app name) must be a non-null string")
 		assert.NotContains(t, body, "parameters")
@@ -131,8 +122,7 @@ func TestRuntimeOperationRun(t *testing.T) {
 		)
 		require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
 
-		body, ok := receivedBody.Load().(map[string]any)
-		require.True(t, ok, "operations POST was not received")
+		body := jsonObject(t, lastRequest(t, apiHandler, "POST", deploymentPath+"/operations").Body)
 		assert.Equal(t, []any{"--force", "my value,other"}, body["parameters"])
 	})
 
