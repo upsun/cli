@@ -115,9 +115,7 @@ func TestAuthAPITokenLogin_RetryOnInvalid(t *testing.T) {
 
 	_, stderr, err := f.RunCombinedOutput("auth:api-token-login")
 	require.NoError(t, err, "expected success after retry; stderr: %s", stderr)
-	// The auth server's error_description is shown. The CLI's own "Invalid API token" message is
-	// unreachable: the OAuth2 provider converts error responses to IdentityProviderException before
-	// ApiTokenLoginCommand::exceptionMeansInvalidToken() could see them.
+	// The auth server's error_description is shown.
 	assert.Contains(t, stderr, "The request could not be authorized.")
 	assert.Contains(t, stderr, "The API token is valid.")
 }
