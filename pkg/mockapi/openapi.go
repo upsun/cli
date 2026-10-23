@@ -40,6 +40,11 @@ var notInSpec = []string{
 	"GET /projects/*/environments/*/settings",
 	"PATCH /projects/*/environments/*/settings",
 	"POST /projects/*/integrations/*/validate",
+	"GET /projects/*/integrations/*/activities",
+	// The Auth API's SSH keys, and the endpoint that says which API owns them.
+	"GET /ssh-key-source",
+	"* /users/*/ssh-keys",
+	"* /users/*/ssh-keys/*",
 	// The CLI follows an entrypoint link to /observability/, with a trailing slash, and to logs/query.
 	"GET /projects/*/environments/*/observability/",
 	"GET /projects/*/environments/*/observability/logs/query",

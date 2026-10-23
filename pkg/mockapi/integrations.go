@@ -128,6 +128,22 @@ func (h *Handler) handleValidateProjectIntegration(w http.ResponseWriter, req *h
 	h.respond(w, "OK", http.StatusOK, nil, nil)
 }
 
+// handleListIntegrationActivities lists an integration's activities.
+func (h *Handler) handleListIntegrationActivities(w http.ResponseWriter, req *http.Request) {
+	h.Lock()
+	defer h.Unlock()
+	projectID := chi.URLParam(req, "project_id")
+	integrationID := chi.URLParam(req, "integration_id")
+	activities := make([]*Activity, 0, len(h.activities[projectID]))
+	for _, a := range h.activities[projectID] {
+		if a.Integration == integrationID {
+			a.complete()
+			activities = append(activities, a)
+		}
+	}
+	writeActivities(w, req, activities)
+}
+
 func copyIntegration(i *Integration) *Integration {
 	c := *i
 	c.Events = slices.Clone(i.Events)

@@ -154,6 +154,22 @@ func TestResourcesSet_TrialLimitExceeded(t *testing.T) {
 	assert.Contains(t, stderr, "trial CPU limit")
 }
 
+// TestResourcesSet_TrialLimitForced checks that --force skips the trial limit check.
+func TestResourcesSet_TrialLimitForced(t *testing.T) {
+	t.Parallel()
+	apiHandler := mockapi.NewHandler(t)
+	orgID := "org-trial-forced"
+	projectID := setUpResourcesSetOrg(apiHandler, orgID)
+	setTrial(apiHandler, orgID, activeTrial(0.5, 10, 10))
+	usageRequests := setUsage(apiHandler, orgID, 0.5, 0.125, 0.5)
+
+	stdout, stderr, err := runResourcesSetArgs(t, apiHandler, projectID, "--size", "app:1", "--force")
+
+	require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
+	assert.NotContains(t, stderr, "trial CPU limit")
+	assert.Equal(t, 0, *usageRequests, "the limit check must be skipped")
+}
+
 // TestResourcesSet_TrialWithinLimits checks that changes within an active
 // trial's resource limits are allowed.
 func TestResourcesSet_TrialWithinLimits(t *testing.T) {

@@ -24,6 +24,7 @@ type Handler struct {
 
 	stepUpAMR      []string
 	rejectedTokens []string
+	requests       []Request
 }
 
 // RejectAccessToken makes requests with an access token fail with a 401 error, as if it were revoked.
@@ -47,6 +48,7 @@ func NewHandler(t *testing.T) *Handler {
 	h.Mux = chi.NewRouter()
 
 	h.Use(RequestLogger(t))
+	h.Use(h.recordRequests)
 
 	h.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -75,7 +77,7 @@ func NewHandler(t *testing.T) *Handler {
 	h.Use(validateOpenAPI(t))
 
 	h.Get("/users/me", h.handleUsersMe)
-	h.Get("/me", h.handleUsersMe)
+	h.Get("/me", h.handleMe)
 	h.Get("/users/{user_id}/extended-access", h.handleUserExtendedAccess)
 	h.Get("/ref/users", h.handleUserRefs)
 	h.Post("/me/verification", func(w http.ResponseWriter, _ *http.Request) {
@@ -174,6 +176,7 @@ func NewHandler(t *testing.T) *Handler {
 	h.Get("/projects/{project_id}/domains/{name}", h.handleGetProjectDomain)
 	h.Get("/projects/{project_id}/integrations", h.handleListProjectIntegrations)
 	h.Get("/projects/{project_id}/integrations/{integration_id}", h.handleGetProjectIntegration)
+	h.Get("/projects/{project_id}/integrations/{integration_id}/activities", h.handleListIntegrationActivities)
 	h.Get("/projects/{project_id}/certificates", h.handleListProjectCertificates)
 	h.Get("/projects/{project_id}/certificates/{certificate_id}", h.handleGetProjectCertificate)
 	h.Get("/projects/{project_id}/user-access", h.handleProjectUserAccess)
@@ -202,6 +205,7 @@ func NewHandler(t *testing.T) *Handler {
 	h.Delete("/projects/{project_id}/environments/{environment_id}/variables/{name}", h.handleDeleteEnvLevelVariable)
 
 	h.routeProjectResources()
+	h.routeSSHKeys()
 
 	return h
 }

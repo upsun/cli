@@ -207,6 +207,39 @@ func TestResourcesSet_Containers(t *testing.T) {
 			wantOut: []string{"Container app not found."},
 		},
 		{
+			name:      "limited by --worker",
+			args:      []string{"--worker", "app--queue", "--count", "app--queue:2"},
+			wantPatch: patch{"workers": {"app--queue": {"instance_count": 2}}},
+		},
+		{
+			name:    "filtered out by --worker",
+			args:    []string{"--worker", "app--q*", "--count", "app--mail:2"},
+			wantErr: true,
+			wantOut: []string{"Container app--mail not found."},
+		},
+		{
+			name:    "unknown worker",
+			args:    []string{"--worker", "db", "--count", "db:2"},
+			wantErr: true,
+			wantOut: []string{"No workers were found matching the name(s): db"},
+		},
+		{
+			name:      "limited by --task",
+			args:      []string{"--task", "cleanup", "--size", "cleanup:1"},
+			wantPatch: patch{"tasks": {"cleanup": {"resources": map[string]any{"profile_size": "1"}}}},
+		},
+		{
+			name:    "filtered out by --task",
+			args:    []string{"--task", "cleanup", "--size", "app:1"},
+			wantErr: true,
+			wantOut: []string{"Container app not found."},
+		},
+		{
+			name:      "limited by --app",
+			args:      []string{"--app", "app", "--size", "app:1"},
+			wantPatch: patch{"webapps": {"app": {"resources": map[string]any{"profile_size": "1"}}}},
+		},
+		{
 			name:    "dry run",
 			args:    []string{"--count", "replica:2", "--dry-run"},
 			wantOut: []string{"Summary of changes", "Instance count"},

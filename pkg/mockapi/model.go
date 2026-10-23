@@ -173,6 +173,7 @@ type App struct {
 
 	Mounts map[string]Mount `json:"mounts"`
 
+	Web     map[string]any `json:"web,omitempty"`
 	Runtime map[string]any `json:"runtime,omitempty"`
 	Stack   any            `json:"stack,omitempty"`
 }
@@ -373,6 +374,7 @@ type Activity struct {
 
 	Project      string   `json:"project"`
 	Environments []string `json:"environments"`
+	Integration  string   `json:"integration,omitempty"`
 
 	Description string `json:"description"`
 	Text        string `json:"text"`
@@ -462,6 +464,8 @@ type Integration struct {
 	BaseURL    string `json:"base_url,omitempty"`
 	Token      string `json:"-"` // Write-only in the API.
 	Repository string `json:"repository,omitempty"`
+
+	BuildPullRequests bool `json:"build_pull_requests,omitempty"`
 
 	URL    string   `json:"url,omitempty"`
 	Events []string `json:"events,omitempty"`

@@ -115,3 +115,139 @@ func TestEnvironmentPushDeployError(t *testing.T) {
 		})
 	}
 }
+
+// TestEnvironmentPushOptions checks the options that choose what is pushed where.
+func TestEnvironmentPushOptions(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name     string
+		args     []string
+		noRemote bool                            // Build the repository without the project's Git remote.
+		setup    func(t *testing.T, repo string) // Runs before the push, after main is pushed to the served repository.
+		wantErr  bool                            // Git's rejection reason is not checked, as its output varies.
+		// wantStdErr is checked in the push log, which includes the push options printed by a hook.
+		wantStdErr []string
+		check      func(t *testing.T, p *gitProject, repo string)
+	}{
+		{
+			name:       "target",
+			args:       []string{"--target", "other"},
+			wantStdErr: []string{"Pushing HEAD to the branch other of project"},
+			check: func(t *testing.T, p *gitProject, repo string) {
+				assert.Equal(t, gitRef(t, repo, "HEAD"), gitRef(t, p.repo, "refs/heads/other"))
+			},
+		},
+		{
+			name:       "non-fast-forward",
+			setup:      amendHead,
+			wantErr:    true,
+			wantStdErr: []string{"Pushing HEAD to the environment main", "[rejected]"},
+			check: func(t *testing.T, p *gitProject, repo string) {
+				assert.NotEqual(t, gitRef(t, repo, "HEAD"), gitRef(t, p.repo, "refs/heads/main"))
+			},
+		},
+		{
+			name:  "force",
+			args:  []string{"--force"},
+			setup: amendHead,
+			check: func(t *testing.T, p *gitProject, repo string) {
+				assert.Equal(t, gitRef(t, repo, "HEAD"), gitRef(t, p.repo, "refs/heads/main"))
+			},
+		},
+		{
+			name: "force with lease",
+			args: []string{"--force-with-lease"},
+			setup: func(t *testing.T, repo string) {
+				runGit(t, repo, "update-ref", "refs/remotes/platform-test/main", "HEAD")
+				amendHead(t, repo)
+			},
+			check: func(t *testing.T, p *gitProject, repo string) {
+				assert.Equal(t, gitRef(t, repo, "HEAD"), gitRef(t, p.repo, "refs/heads/main"))
+			},
+		},
+		{
+			name:       "force with lease, without a remote-tracking branch",
+			args:       []string{"--force-with-lease"},
+			setup:      amendHead,
+			wantErr:    true,
+			wantStdErr: []string{"Pushing HEAD to the environment main", "[rejected]"},
+			check: func(t *testing.T, p *gitProject, repo string) {
+				assert.NotEqual(t, gitRef(t, repo, "HEAD"), gitRef(t, p.repo, "refs/heads/main"))
+			},
+		},
+		{
+			name: "activate with parent and type",
+			args: []string{"--target", "feature", "--activate", "--parent", "dev", "--type", "staging"},
+			wantStdErr: []string{
+				"The environment will be activated.",
+				"GIT_PUSH_OPTION_1=environment.parent=dev",
+				"GIT_PUSH_OPTION_2=environment.type=staging",
+			},
+			check: func(t *testing.T, p *gitProject, repo string) {
+				assert.Equal(t, gitRef(t, repo, "HEAD"), gitRef(t, p.repo, "refs/heads/feature"))
+				if e := p.env("feature"); assert.NotNil(t, e) {
+					assert.Equal(t, "dev", e.Parent)
+					assert.Equal(t, "staging", e.Type)
+				}
+				actions := p.actions("feature")
+				if assert.Len(t, actions, 1) {
+					assert.Equal(t, "environment.activate", actions[0].Type)
+				}
+			},
+		},
+		{
+			name:       "set upstream",
+			args:       []string{"-p", layoutProjectID, "--target", "main", "--set-upstream"},
+			noRemote:   true,
+			wantStdErr: []string{"Mapping the directory"},
+			check: func(t *testing.T, p *gitProject, repo string) {
+				assert.Equal(t, gitRef(t, repo, "HEAD"), gitRef(t, p.repo, "refs/heads/main"))
+				assertTrimmed(t, layoutGitURL, gitConfig(t, repo, "remote.platform-test.url"))
+				assertTrimmed(t, "platform-test", gitConfig(t, repo, "branch.main.remote"))
+				assertTrimmed(t, "refs/heads/main", gitConfig(t, repo, "branch.main.merge"))
+			},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			feature := makeEnv(layoutProjectID, "feature", "development", "inactive", "main")
+			feature.AddOperations("activate")
+			p := setUpGitProject(t,
+				makeEnv(layoutProjectID, "main", "production", "active", nil),
+				makeEnv(layoutProjectID, "dev", "development", "active", "main"),
+				feature,
+			)
+			// Print push options to the push log.
+			p.setHook(t, "pre-receive", "env | grep ^GIT_PUSH_OPTION_ >&2\n")
+
+			layout := repoLayout{git: true, branch: "main", remoteName: "platform-test"}
+			if c.noRemote {
+				layout.remoteName = ""
+			}
+			repo := layout.build(t)
+			p.seed(t, repo, "main")
+			if c.setup != nil {
+				c.setup(t, repo)
+			}
+			p.f.dir = repo
+
+			_, stdErr, err := p.f.RunCombinedOutput(append([]string{"push", "-y"}, c.args...)...)
+			if c.wantErr {
+				assertExitCode(t, 1, err)
+			} else {
+				require.NoError(t, err)
+			}
+			for _, s := range c.wantStdErr {
+				assert.Contains(t, stdErr, s)
+			}
+			c.check(t, p, repo)
+		})
+	}
+}
+
+// amendHead replaces the HEAD commit, so that pushing it is not a fast-forward.
+func amendHead(t *testing.T, repo string) {
+	t.Helper()
+	runGit(t, repo, "commit", "--quiet", "--amend", "--allow-empty", "-m", "Amended")
+}
