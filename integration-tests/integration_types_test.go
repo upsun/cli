@@ -1,15 +1,11 @@
 package tests
 
 import (
-	"bytes"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -174,8 +170,7 @@ func TestIntegrationAddUpdateTypes(t *testing.T) {
 			defer authServer.Close()
 
 			apiHandler := mockapi.NewHandler(t)
-			bodies := &requestBodies{}
-			apiServer := httptest.NewServer(bodies.record("/integrations", apiHandler))
+			apiServer := httptest.NewServer(apiHandler)
 			defer apiServer.Close()
 
 			projectID := mockapi.ProjectID()
@@ -216,42 +211,16 @@ func TestIntegrationAddUpdateTypes(t *testing.T) {
 				require.Len(t, integrations, 1)
 				id = integrations[0].ID
 				assert.Contains(t, stderr, "Created integration "+id+" (type: "+c.typ+")")
-				assert.JSONEq(t, c.wantAdd, bodies.last(t), "add request body")
+				assert.JSONEq(t, c.wantAdd, lastRequest(t, apiHandler, "POST", "/projects/*/integrations").Body,
+					"add request body")
 			}
 
 			args := append([]string{"integration:update", "-p", projectID, id}, c.update...)
 			_, stderr, err := f.RunCombinedOutput(args...)
 			require.NoError(t, err, stderr)
 			assert.Contains(t, stderr, "Integration "+id+" ("+c.typ+") updated")
-			assert.JSONEq(t, c.wantUpdate, bodies.last(t), "update request body")
+			assert.JSONEq(t, c.wantUpdate, lastRequest(t, apiHandler, "PATCH", "/projects/*/integrations/*").Body,
+				"update request body")
 		})
 	}
-}
-
-// requestBodies records the bodies of POST and PATCH requests.
-type requestBodies struct {
-	mu     sync.Mutex
-	bodies []string
-}
-
-// record wraps a handler, recording requests to paths that contain pathPart.
-func (r *requestBodies) record(pathPart string, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if (req.Method == http.MethodPost || req.Method == http.MethodPatch) && strings.Contains(req.URL.Path, pathPart) {
-			b, _ := io.ReadAll(req.Body)
-			req.Body = io.NopCloser(bytes.NewReader(b))
-			r.mu.Lock()
-			r.bodies = append(r.bodies, string(b))
-			r.mu.Unlock()
-		}
-		next.ServeHTTP(w, req)
-	})
-}
-
-// last returns the last recorded body.
-func (r *requestBodies) last(t *testing.T) string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	require.NotEmpty(t, r.bodies)
-	return r.bodies[len(r.bodies)-1]
 }
