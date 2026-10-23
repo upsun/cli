@@ -66,25 +66,30 @@ class ProcessManager
      */
     public static function fork(): void
     {
+        // The parent process exits with success on SIGCHLD and with an error
+        // on SIGTERM. The handlers are set before forking, as the child may
+        // signal before the parent would otherwise have set them.
+        pcntl_async_signals(true);
+        pcntl_signal(SIGCHLD, function (): void {
+            exit;
+        });
+        pcntl_signal(SIGTERM, function (): void {
+            exit(1);
+        });
+
         $pid = pcntl_fork();
         if ($pid === -1) {
             throw new \RuntimeException('Failed to fork PHP process');
         } elseif ($pid > 0) {
-            // This is the parent process. If the child process succeeds, this
-            // receives SIGCHLD. If it fails, this receives SIGTERM.
-            declare (ticks=1);
-            pcntl_signal(SIGCHLD, function (): void {
-                exit;
-            });
-            pcntl_signal(SIGTERM, function (): void {
-                exit(1);
-            });
-
             // Wait a reasonable amount of time for the child processes to
             // finish.
             sleep(60);
             throw new \RuntimeException('Timeout in parent process');
-        } elseif (posix_setsid() === -1) {
+        }
+
+        pcntl_signal(SIGCHLD, SIG_DFL);
+        pcntl_signal(SIGTERM, SIG_DFL);
+        if (posix_setsid() === -1) {
             throw new \RuntimeException('Child process failed to become session leader');
         }
     }

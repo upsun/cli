@@ -96,9 +96,9 @@ func newGoAuthCommandFactory(t *testing.T, apiURL, authURL string) *cmdFactory {
 	return f
 }
 
-// goAuthMode reports whether the tests run with Go auth, set by TEST_CLI_GO_AUTH=1. Otherwise legacy auth is used.
+// goAuthMode reports whether the tests run with Go auth.
 func goAuthMode() bool {
-	v := os.Getenv(EnvPrefix + "GO_AUTH")
+	v := goAuthEnv()
 	return v != "" && v != "0"
 }
 
@@ -226,6 +226,16 @@ func assertTrimmed(t *testing.T, expected, actual string) {
 
 const EnvPrefix = "TEST_CLI_"
 
+// goAuthEnv returns the value of TEST_CLI_GO_AUTH for commands: "1" (Go auth), unless it is set, e.g. to "0" to run
+// the tests with legacy auth.
+// TODO: remove legacy auth runs once legacy auth is no longer used.
+func goAuthEnv() string {
+	if v, ok := os.LookupEnv(EnvPrefix + "GO_AUTH"); ok {
+		return v
+	}
+	return "1"
+}
+
 func testEnv(home string) []string {
 	configPath, err := filepath.Abs("config.yaml")
 	if err != nil {
@@ -236,6 +246,7 @@ func testEnv(home string) []string {
 		"COLUMNS=120",
 		"CLI_CONFIG_FILE="+configPath,
 		EnvPrefix+"NO_INTERACTION=1",
+		EnvPrefix+"GO_AUTH="+goAuthEnv(),
 		EnvPrefix+"VERSION=1.0.0",
 		EnvPrefix+"HOME="+home,
 		"TZ=UTC",

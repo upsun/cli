@@ -163,18 +163,45 @@ jobs:
       - name: Install shells for completion tests
         run: sudo apt-get update && sudo apt-get install -y bash-completion zsh fish
 
-      # Not `make test-integration-coverage`, which runs the tests once.
       - name: Run integration tests
         run: cd integration-tests && go test -count=1 ./...
-
-      - name: Run integration tests with Go auth
-        run: cd integration-tests && go test -count=1 ./...
-        env:
-          TEST_CLI_GO_AUTH: '1'
 
       - name: Report coverage
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: make -s coverage-report >> "$GITHUB_STEP_SUMMARY"
+
+  # Runs the integration tests with legacy auth, the default for users.
+  # TODO: remove once legacy auth is no longer used.
+  integration-test-legacy-auth:
+    runs-on: ubuntu-latest
+
+    env:
+      TEST_CLI_PATH: ${{ github.workspace }}/dist/legacy-auth/upsun
+      TEST_CLI_GO_AUTH: '0'
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: ./go.mod
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: curl, openssl, phar, zlib
+          tools: composer:v2
+
+      - name: Build CLI
+        run: |
+          make php phar
+          CGO_ENABLED=0 go build -o "$TEST_CLI_PATH" ./cmd/platform
+
+      - name: Run integration tests
+        run: cd integration-tests && go test -count=1 ./...
 
   # Builds the CLI for macOS and Windows, for integration tests on those platforms.
   build-cross:
