@@ -124,7 +124,7 @@ func TestEnvironmentPushOptions(t *testing.T) {
 		args     []string
 		noRemote bool                            // Build the repository without the project's Git remote.
 		setup    func(t *testing.T, repo string) // Runs before the push, after main is pushed to the served repository.
-		wantErr  bool                            // Rejections are checked by ref, as Git's output varies.
+		wantErr  bool                            // Git's rejection reason is not checked, as its output varies.
 		// wantStdErr is checked in the push log, which includes the push options printed by a hook.
 		wantStdErr []string
 		check      func(t *testing.T, p *gitProject, repo string)
@@ -138,9 +138,10 @@ func TestEnvironmentPushOptions(t *testing.T) {
 			},
 		},
 		{
-			name:    "non-fast-forward",
-			setup:   amendHead,
-			wantErr: true,
+			name:       "non-fast-forward",
+			setup:      amendHead,
+			wantErr:    true,
+			wantStdErr: []string{"Pushing HEAD to the environment main", "[rejected]"},
 			check: func(t *testing.T, p *gitProject, repo string) {
 				assert.NotEqual(t, gitRef(t, repo, "HEAD"), gitRef(t, p.repo, "refs/heads/main"))
 			},
@@ -165,10 +166,11 @@ func TestEnvironmentPushOptions(t *testing.T) {
 			},
 		},
 		{
-			name:    "force with lease, without a remote-tracking branch",
-			args:    []string{"--force-with-lease"},
-			setup:   amendHead,
-			wantErr: true,
+			name:       "force with lease, without a remote-tracking branch",
+			args:       []string{"--force-with-lease"},
+			setup:      amendHead,
+			wantErr:    true,
+			wantStdErr: []string{"Pushing HEAD to the environment main", "[rejected]"},
 			check: func(t *testing.T, p *gitProject, repo string) {
 				assert.NotEqual(t, gitRef(t, repo, "HEAD"), gitRef(t, p.repo, "refs/heads/main"))
 			},
@@ -232,7 +234,7 @@ func TestEnvironmentPushOptions(t *testing.T) {
 
 			_, stdErr, err := p.f.RunCombinedOutput(append([]string{"push", "-y"}, c.args...)...)
 			if c.wantErr {
-				assert.Error(t, err)
+				assertExitCode(t, 1, err)
 			} else {
 				require.NoError(t, err)
 			}
