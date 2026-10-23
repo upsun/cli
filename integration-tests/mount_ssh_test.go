@@ -132,7 +132,12 @@ func TestMountTransferTargets(t *testing.T) {
 		handlers[user] = mockssh.ExecHandler(dirs[user], os.Environ())
 	}
 	p.serveSSH(t, func(conn ssh.ConnMetadata, command string, cio mockssh.CommandIO) int {
-		return handlers[conn.User()](conn, command, cio)
+		handler, ok := handlers[conn.User()]
+		if !ok {
+			t.Errorf("unexpected SSH user: %s", conn.User())
+			return 1
+		}
+		return handler(conn, command, cio)
 	})
 	f := p.f
 
