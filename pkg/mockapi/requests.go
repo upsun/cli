@@ -51,6 +51,10 @@ func (h *Handler) AllRequests() []Request {
 // Requests returns the requests received with a method and a path matching a pattern, in order.
 // The pattern is for path.Match, where "*" matches one path segment.
 func (h *Handler) Requests(method, pattern string) []Request {
+	if _, err := path.Match(pattern, ""); err != nil {
+		h.t.Errorf("invalid request path pattern %q: %v", pattern, err)
+		return nil
+	}
 	return slices.DeleteFunc(h.AllRequests(), func(r Request) bool {
 		ok, _ := path.Match(pattern, r.Path)
 		return r.Method != method || !ok

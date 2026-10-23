@@ -253,7 +253,6 @@ func testEnv(home string) []string {
 	)
 }
 
-// assertExitCode asserts that a command failed with the given exit code.
 // lastRequest returns the last request that the mock API received with a method and a path matching a pattern.
 func lastRequest(t *testing.T, h *mockapi.Handler, method, pattern string) mockapi.Request {
 	t.Helper()
@@ -270,6 +269,7 @@ func jsonObject(t *testing.T, data string) map[string]any {
 	return m
 }
 
+// assertExitCode asserts that a command failed with the given exit code.
 func assertExitCode(t *testing.T, expected int, err error) {
 	t.Helper()
 	var exitErr *exec.ExitError

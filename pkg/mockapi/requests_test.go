@@ -44,4 +44,8 @@ func TestRequests(t *testing.T) {
 
 	assert.Empty(t, h.Requests("PATCH", "/projects/*/integrations"))
 	assert.Empty(t, h.Requests("POST", "/projects/*"))
+
+	mockT := &testing.T{}
+	(&Handler{t: mockT}).Requests("GET", "/projects/[")
+	assert.True(t, mockT.Failed(), "an invalid pattern fails the test")
 }
