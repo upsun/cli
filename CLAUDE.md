@@ -107,7 +107,7 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 - `internal/auth/store`: one entry per session ID, in the system keychain (go-keyring) or in `<writable dir>/auth/<id>.json`
 - Auth settings are read by `config.Auth()` with the legacy CLI's precedence: embedded config, the user's `config.yaml`, env vars
 - The legacy CLI gets tokens and auth state by running the hidden `auth:internal token|status` command (via `<PREFIX>WRAPPER_EXECUTABLE`), and Go runs the hidden PHP commands `auth:post-login` (SSH certificates and config) and `auth:export-sessions` (a one-time migration of the legacy storage, recorded in `auth/.migrated`)
-- Integration tests run with Go auth (`TEST_CLI_GO_AUTH=1` in `testEnv`). Tests of legacy auth set `TEST_CLI_GO_AUTH=0`
+- Integration tests run with Go auth by default. Until legacy auth is no longer used, CI also runs them on Linux with legacy auth (`TEST_CLI_GO_AUTH=0`). Tests of Go-only behavior use `newGoAuthCommandFactory`
 
 **Table Output**: `internal/table/`
 - Renders tables with the same `--format`, `--columns` and `--no-header` options as the legacy CLI's `Table` service

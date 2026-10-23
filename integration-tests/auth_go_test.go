@@ -28,7 +28,7 @@ func TestAuthMigration(t *testing.T) {
 	apiServer := httptest.NewServer(apiHandler)
 	defer apiServer.Close()
 
-	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f := newGoAuthCommandFactory(t, apiServer.URL, authServer.URL)
 	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
 
 	writeOAuthSession(t, f.home, "default", map[string]any{
@@ -86,7 +86,7 @@ func TestAuthRefresh_ManyExpiries(t *testing.T) {
 	apiServer := httptest.NewServer(apiHandler)
 	defer apiServer.Close()
 
-	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f := newGoAuthCommandFactory(t, apiServer.URL, authServer.URL)
 	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
 	f.dir = t.TempDir()
 	getCommandName(t)
@@ -154,7 +154,7 @@ func TestAuthRefresh_KilledWhileRefreshing(t *testing.T) {
 	apiServer := httptest.NewServer(mockapi.NewHandler(t))
 	defer apiServer.Close()
 
-	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f := newGoAuthCommandFactory(t, apiServer.URL, authServer.URL)
 	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
 	writeOAuthSession(t, f.home, "default", map[string]any{
 		"accessToken":  "expired-token",
@@ -184,7 +184,7 @@ func TestAuthRefresh_TransientError(t *testing.T) {
 	apiServer := httptest.NewServer(mockapi.NewHandler(t))
 	defer apiServer.Close()
 
-	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f := newGoAuthCommandFactory(t, apiServer.URL, authServer.URL)
 	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
 	writeOAuthSession(t, f.home, "default", map[string]any{
 		"accessToken":  "expired-token",
@@ -211,7 +211,7 @@ func TestAuthRefresh_InvalidGrantClearsSessionFiles(t *testing.T) {
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
-	f := newCommandFactory(t, "", authServer.URL)
+	f := newGoAuthCommandFactory(t, "", authServer.URL)
 	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
 	writeOAuthSession(t, f.home, "default", map[string]any{
 		"accessToken":  "expired-token",
@@ -243,7 +243,7 @@ func TestAuthStepUp(t *testing.T) {
 	apiServer := httptest.NewServer(apiHandler)
 	defer apiServer.Close()
 
-	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f := newGoAuthCommandFactory(t, apiServer.URL, authServer.URL)
 	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
 	writeOAuthSession(t, f.home, "default", map[string]any{
 		"accessToken": "valid-token",
@@ -262,7 +262,7 @@ func TestAuthInternal(t *testing.T) {
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
-	f := newCommandFactory(t, "", authServer.URL)
+	f := newGoAuthCommandFactory(t, "", authServer.URL)
 	out := f.Run("auth:internal", "status")
 	assert.JSONEq(t, `{"logged_in": true, "session_ids": [], "has_stored_api_token": false}`, out)
 
@@ -279,7 +279,7 @@ func TestAuthInternal(t *testing.T) {
 // TestAuthInternalCommandsHidden checks that the internal legacy commands are hidden, and not run via abbreviations.
 func TestAuthInternalCommandsHidden(t *testing.T) {
 	t.Parallel()
-	f := newCommandFactory(t, "", "")
+	f := newGoAuthCommandFactory(t, "", "")
 
 	var list struct {
 		Commands []struct {
@@ -305,7 +305,7 @@ func TestAuthInternalCommandsHidden(t *testing.T) {
 // TestErrorOutput_QuietOverride checks that --verbose and --debug override --quiet for errors.
 func TestErrorOutput_QuietOverride(t *testing.T) {
 	t.Parallel()
-	f := newCommandFactory(t, "", "")
+	f := newGoAuthCommandFactory(t, "", "")
 	cases := []struct {
 		args      []string
 		wantError bool

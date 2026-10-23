@@ -17,7 +17,7 @@ import (
 // newInteractiveLoginFactory returns a command factory for a user who is not logged in, in an interactive terminal
 // with a browser that completes the login.
 func newInteractiveLoginFactory(t *testing.T, apiURL, authURL string) *cmdFactory {
-	f := newCommandFactory(t, apiURL, authURL)
+	f := newGoAuthCommandFactory(t, apiURL, authURL)
 	f.extraEnv = append(f.extraEnv,
 		EnvPrefix+"TOKEN=",
 		EnvPrefix+"NO_INTERACTION=",
@@ -115,7 +115,7 @@ func TestAuthRefresh_RejectedToken(t *testing.T) {
 	apiServer := httptest.NewServer(apiHandler)
 	defer apiServer.Close()
 
-	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f := newGoAuthCommandFactory(t, apiServer.URL, authServer.URL)
 	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
 	writeOAuthSession(t, f.home, "default", map[string]any{
 		"accessToken":  "revoked-token",
@@ -135,7 +135,7 @@ func TestAuthLogout_AllRevokesEverySession(t *testing.T) {
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
-	f := newCommandFactory(t, "", authServer.URL)
+	f := newGoAuthCommandFactory(t, "", authServer.URL)
 	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
 	future := time.Now().Add(time.Hour).Unix()
 	for _, id := range []string{"default", "other"} {
@@ -172,7 +172,7 @@ func TestAuthAPITokenLogin_Logout(t *testing.T) {
 	apiServer := newMyUserAPI(t)
 	defer apiServer.Close()
 
-	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f := newGoAuthCommandFactory(t, apiServer.URL, authServer.URL)
 	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=", EnvPrefix+"API_WRITE_USER_SSH_CONFIG=0")
 	_, stderr, err := f.RunInteractive(mockapi.ValidAPITokens[0]+"\n", "auth:api-token-login")
 	require.NoError(t, err, "stderr: %s", stderr)
@@ -193,7 +193,7 @@ func TestSessionSwitch_UsesNewSession(t *testing.T) {
 	apiServer := newMyUserAPI(t)
 	defer apiServer.Close()
 
-	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f := newGoAuthCommandFactory(t, apiServer.URL, authServer.URL)
 	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
 	writeOAuthSession(t, f.home, "work", map[string]any{
 		"accessToken": "work-token", "expires": time.Now().Add(time.Hour).Unix(),
