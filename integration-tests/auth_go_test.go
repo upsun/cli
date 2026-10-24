@@ -325,8 +325,8 @@ func TestErrorOutput_QuietOverride(t *testing.T) {
 	}
 }
 
-// TestAuthSocket checks that the legacy CLI gets tokens and auth state from the wrapper's socket.
-func TestAuthSocket(t *testing.T) {
+// TestAuthChannel checks that the legacy CLI gets tokens from the wrapper over the inherited socket.
+func TestAuthChannel(t *testing.T) {
 	t.Parallel()
 	if runtime.GOOS == "windows" {
 		t.Skip("the legacy CLI runs auth:internal on Windows")
@@ -341,5 +341,5 @@ func TestAuthSocket(t *testing.T) {
 	stdout, stderr, err := f.RunCombinedOutput("auth:info", "id", "--refresh")
 	require.NoError(t, err, "stderr: %s", stderr)
 	assert.Equal(t, "u1\n", stdout)
-	assert.Contains(t, stderr, "Auth socket request: token")
+	assert.Contains(t, stderr, "Auth channel request: token")
 }

@@ -361,7 +361,7 @@ func makeLegacyCLIWrapper(cnf *config.Config, stdout, stderr io.Writer, stdin io
 		if authStderr == nil {
 			authStderr = io.Discard
 		}
-		c.PrepareEnv = func() ([]string, func(), error) { return startAuthSocket(cnf, authStderr) }
+		c.PrepareCmd = prepareAuthChannel(cnf, authStderr)
 	}
 	return c
 }
