@@ -159,6 +159,7 @@ func (c *Config) Auth() (*Auth, error) {
 	// The session ID file is only read if <PREFIX>SESSION_ID is not set.
 	if envID, ok := os.LookupEnv(prefix + "SESSION_ID"); ok {
 		a.SessionID = envID
+		a.SessionIDFromEnv = true
 	} else {
 		fileID, err := c.readSessionIDFile()
 		if err != nil {
@@ -174,7 +175,6 @@ func (c *Config) Auth() (*Auth, error) {
 	if err := ValidateSessionID(a.SessionID); err != nil {
 		return nil, err
 	}
-	a.SessionIDFromEnv = a.SessionID != "default" && a.SessionID == os.Getenv(prefix+"SESSION_ID")
 
 	if a.AuthURL != "" {
 		base := strings.TrimRight(a.AuthURL, "/")

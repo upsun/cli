@@ -159,6 +159,15 @@ func TestAuth(t *testing.T) {
 			},
 		},
 		{
+			name:      "default session ID from env",
+			sessionID: "from-file",
+			env:       map[string]string{"SESSION_ID": "default"},
+			check: func(t *testing.T, a *config.Auth) {
+				assert.Equal(t, "default", a.SessionID)
+				assert.True(t, a.SessionIDFromEnv)
+			},
+		},
+		{
 			name:    "invalid session ID",
 			env:     map[string]string{"SESSION_ID": "a/b"},
 			wantErr: "invalid session ID: a/b",

@@ -42,7 +42,7 @@ class SessionSwitchCommand extends CommandBase
         $previousId = $this->config->getSessionId();
 
         $envVar = $this->config->getStr('application.env_prefix') . 'SESSION_ID';
-        if (getenv($envVar) !== false) {
+        if ($this->config->isSessionIdFromEnv()) {
             $this->stdErr->writeln(sprintf('The session ID is set via the environment variable %s.', $envVar));
             $this->stdErr->writeln('It cannot be changed using this command.');
             return 1;
@@ -107,6 +107,9 @@ class SessionSwitchCommand extends CommandBase
 
     private function showAccountInfo(): void
     {
+        if ($this->api->hasApiToken(false)) {
+            $this->stdErr->writeln("\n<comment>Warning: an API token is set via config, and is used in every session</comment>");
+        }
         if ($this->api->isLoggedIn()) {
             $account = $this->api->getMyAccount();
             $this->stdErr->writeln(sprintf(

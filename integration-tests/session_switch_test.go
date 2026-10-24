@@ -138,5 +138,38 @@ func TestSessionSwitch_EnvToken(t *testing.T) {
 
 	_, stderr, err := f.RunCombinedOutput("session:switch", "work")
 	require.NoError(t, err, "stderr: %s", stderr)
+	assert.Contains(t, stderr, "Warning: an API token is set via config, and is used in every session")
 	assert.Equal(t, "access-token-1", f.Run("auth:token", "--no-warn"))
+}
+
+// TestSessionSwitch_DefaultIDFromEnv checks that the session:switch command is not suggested when the session ID is set
+// to "default" via the environment, as it would refuse to run.
+func TestSessionSwitch_DefaultIDFromEnv(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiServer := newMyUserAPI(t)
+	defer apiServer.Close()
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=", EnvPrefix+"SESSION_ID=default")
+	for _, id := range []string{"default", "work", "other"} {
+		writeOAuthSession(t, f.home, id, map[string]any{
+			"accessToken": id + "-token", "expires": time.Now().Add(time.Hour).Unix(),
+		})
+	}
+
+	_, stderr, err := f.RunCombinedOutput("session:switch", "work")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "It cannot be changed using this command.")
+
+	_, stderr, err = f.RunCombinedOutput("auth:info")
+	require.NoError(t, err, "stderr: %s", stderr)
+	assert.Contains(t, stderr, "The current session ID is: default")
+	assert.NotContains(t, stderr, "session:switch")
+
+	_, stderr, err = f.RunCombinedOutput("auth:logout")
+	require.NoError(t, err, "stderr: %s", stderr)
+	assert.Contains(t, stderr, "The current session ID is: default")
+	assert.NotContains(t, stderr, "session:switch")
 }
