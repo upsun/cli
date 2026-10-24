@@ -183,7 +183,7 @@ func TestAuth(t *testing.T) {
 		},
 		{
 			name: "token set again in a child process",
-			env:  map[string]string{"WRAPPER_HAS_TOKEN": "1", "TOKEN": "child-token"}, //nolint:gosec // a test value
+			env:  map[string]string{"WRAPPER_HAS_TOKEN": "1", "TOKEN": "child-token"},
 			check: func(t *testing.T, a *config.Auth) {
 				assert.False(t, a.TokenWithheld)
 			},
