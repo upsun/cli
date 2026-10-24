@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -342,4 +343,36 @@ func TestAuthChannel(t *testing.T) {
 	require.NoError(t, err, "stderr: %s", stderr)
 	assert.Equal(t, "u1\n", stdout)
 	assert.Contains(t, stderr, "Auth channel request: token")
+}
+
+// TestAuthChannel_TokenNotInherited checks that processes started by the legacy CLI, such as Git hooks, do not inherit
+// the API token.
+func TestAuthChannel_TokenNotInherited(t *testing.T) {
+	t.Parallel()
+	if !goAuthMode() {
+		t.Skip("with legacy auth, the legacy CLI needs the API token")
+	}
+	p := setUpGitProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil))
+	repo := repoLayout{git: true, branch: "main", remoteName: "platform-test"}.build(t)
+	p.f.dir = repo
+	envFile := filepath.Join(t.TempDir(), "env")
+	hooksDir := filepath.Join(repo, ".git", "hooks")
+	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
+	hook := []byte("#!/bin/sh\nenv > '" + envFile + "'\n")
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "pre-push"), hook, 0o755))
+	runGit(t, repo, "config", "core.hooksPath", hooksDir)
+
+	_, stderr, err := p.f.RunCombinedOutput("push", "-y")
+	require.NoError(t, err, "stderr: %s", stderr)
+	b, err := os.ReadFile(envFile)
+	require.NoError(t, err)
+	// Only the relevant variables are compared, to avoid printing the environment.
+	env := map[string]string{}
+	for _, line := range strings.Split(string(b), "\n") {
+		if name, value, ok := strings.Cut(line, "="); ok &&
+			slices.Contains([]string{EnvPrefix + "TOKEN", EnvPrefix + "WRAPPER_HAS_TOKEN", "CLI_SSH_NO_REFRESH"}, name) {
+			env[name] = value
+		}
+	}
+	assert.Equal(t, map[string]string{EnvPrefix + "WRAPPER_HAS_TOKEN": "1", "CLI_SSH_NO_REFRESH": "1"}, env)
 }

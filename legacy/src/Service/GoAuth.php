@@ -82,6 +82,20 @@ class GoAuth
     }
 
     /**
+     * Returns whether an API token or access token is set via config, if the wrapper reports it.
+     *
+     * The wrapper removes these tokens from this process's environment when it serves auth requests over its channel.
+     *
+     * @return bool|null Null if the wrapper does not report it.
+     */
+    public function hasConfiguredToken(): ?bool
+    {
+        $value = getenv($this->config->getStr('application.env_prefix') . 'WRAPPER_HAS_TOKEN');
+
+        return $value === false || $value === '' ? null : $value === '1';
+    }
+
+    /**
      * Returns the auth state, without making network requests.
      *
      * @return array{logged_in: bool, session_ids: string[], has_stored_api_token: bool}

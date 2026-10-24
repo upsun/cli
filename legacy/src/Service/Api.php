@@ -213,7 +213,9 @@ class Api
         if (!$this->goAuth->isEnabled()) {
             return $this->tokenConfig->getAccessToken() || $this->tokenConfig->getApiToken($includeStored);
         }
-        if ($this->tokenConfig->getAccessToken() || $this->tokenConfig->getApiToken(false)) {
+        $configured = $this->goAuth->hasConfiguredToken()
+            ?? ($this->tokenConfig->getAccessToken() || $this->tokenConfig->getApiToken(false));
+        if ($configured) {
             return true;
         }
 

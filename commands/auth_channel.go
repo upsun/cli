@@ -9,7 +9,9 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -39,6 +41,9 @@ const authChannelTimeout = 5 * time.Minute
 // The descriptor number and this process's ID are passed in environment variables: the legacy CLI only uses the
 // descriptor in the process that this one started, not in processes it forks. Without them, or if a request fails, it
 // runs auth:internal instead.
+//
+// The legacy CLI does not need the API token or access token while it can use the channel, so they are removed from its
+// environment, and so from the processes it starts (e.g. Git hooks). Whether one is set is passed instead.
 func prepareAuthChannel(cnf *config.Config, stderr io.Writer) func(cmd *exec.Cmd) (func(), error) {
 	return func(cmd *exec.Cmd) (func(), error) {
 		conn, child, err := newSocketPair()
@@ -46,14 +51,26 @@ func prepareAuthChannel(cnf *config.Config, stderr io.Writer) func(cmd *exec.Cmd
 			debugLogf("Auth channel not available: %s", err)
 			return func() {}, nil
 		}
+		m, err := newAuthManager(cnf, stderr)
+		if err != nil {
+			debugLogf("Auth channel not available: %s", err)
+			_ = conn.Close()
+			_ = child.Close()
+			return func() {}, nil
+		}
+		s := &authChannelServer{cnf: cnf, stderr: stderr, managers: map[string]*auth.Manager{m.Settings.SessionID: m}}
 		fd := 3 + len(cmd.ExtraFiles)
 		cmd.ExtraFiles = append(cmd.ExtraFiles, child)
 		prefix := cnf.Application.EnvPrefix
-		cmd.Env = append(cmd.Env,
+		hasToken := "0"
+		if hasConfiguredToken(m) {
+			hasToken = "1"
+		}
+		cmd.Env = append(withoutTokenEnv(cmd.Env, prefix),
 			prefix+"WRAPPER_AUTH_FD="+strconv.Itoa(fd),
 			prefix+"WRAPPER_PID="+strconv.Itoa(os.Getpid()),
+			prefix+"WRAPPER_HAS_TOKEN="+hasToken,
 		)
-		s := &authChannelServer{cnf: cnf, stderr: stderr, managers: map[string]*auth.Manager{}}
 		ctx, cancel := context.WithCancel(context.Background())
 		done := make(chan struct{})
 		go func() {
@@ -67,6 +84,14 @@ func prepareAuthChannel(cnf *config.Config, stderr io.Writer) func(cmd *exec.Cmd
 			<-done
 		}, nil
 	}
+}
+
+// withoutTokenEnv returns env without the variables that can set an API token or access token.
+func withoutTokenEnv(env []string, prefix string) []string {
+	return slices.DeleteFunc(slices.Clone(env), func(e string) bool {
+		name, _, _ := strings.Cut(e, "=")
+		return name == prefix+"TOKEN" || name == prefix+"API_TOKEN" || name == prefix+"API_ACCESS_TOKEN"
+	})
 }
 
 type authChannelServer struct {

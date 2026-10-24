@@ -58,7 +58,8 @@ func TestAuthChannelServer(t *testing.T) {
 	<-done
 }
 
-// TestPrepareAuthChannel checks that a child process can send requests on the inherited descriptor.
+// TestPrepareAuthChannel checks that a child process can send requests on the inherited descriptor, and that it does
+// not inherit the token variables.
 func TestPrepareAuthChannel(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the auth channel is not used on Windows")
@@ -66,15 +67,25 @@ func TestPrepareAuthChannel(t *testing.T) {
 	t.Setenv("TEST_HOME", t.TempDir())
 	t.Setenv("TEST_API_DISABLE_CREDENTIAL_HELPERS", "1")
 	t.Setenv("TEST_API_ACCESS_TOKEN", "raw-token")
+	t.Setenv("TEST_API_TOKEN", "raw-token")
 
 	cmd := exec.Command("sh", "-c", `printf '%s\n' "$REQUEST" >&"$TEST_WRAPPER_AUTH_FD"
 head -n 1 <&"$TEST_WRAPPER_AUTH_FD"
-echo "$TEST_WRAPPER_PID"`)
+echo "$TEST_WRAPPER_PID $TEST_WRAPPER_HAS_TOKEN" "${TEST_API_ACCESS_TOKEN-unset}" \
+	"${TEST_TOKEN-unset}" "${TEST_API_TOKEN-unset}"`)
 	cmd.Env = append(os.Environ(), `REQUEST={"command": "token", "session_id": "default"}`)
 	done, err := prepareAuthChannel(testConfig(), io.Discard)(cmd)
 	require.NoError(t, err)
 	out, err := cmd.Output()
 	done()
 	require.NoError(t, err)
-	assert.Equal(t, `{"result":{"access_token":"raw-token"}}`+"\n"+strconv.Itoa(os.Getpid())+"\n", string(out))
+	assert.Equal(t, `{"result":{"access_token":"raw-token"}}`+"\n"+strconv.Itoa(os.Getpid())+" 1 unset unset unset\n",
+		string(out))
+}
+
+func TestWithoutTokenEnv(t *testing.T) {
+	env := []string{"TEST_TOKEN=a", "TEST_API_TOKEN=b", "TEST_API_ACCESS_TOKEN=c", "TEST_TOKEN_OTHER=d", "OTHER_TOKEN=e",
+		"TEST_SESSION_ID=f"}
+	assert.Equal(t, []string{"TEST_TOKEN_OTHER=d", "OTHER_TOKEN=e", "TEST_SESSION_ID=f"}, withoutTokenEnv(env, "TEST_"))
+	assert.Len(t, env, 6, "the input must not be changed")
 }
