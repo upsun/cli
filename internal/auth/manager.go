@@ -150,16 +150,16 @@ func (m *Manager) HasConfiguredToken() (bool, error) {
 	return t != "", err
 }
 
-// apiToken returns the API token to use, in order of precedence: a stored one, then one set via config.
+// apiToken returns the API token to use, in order of precedence: one set via config, then a stored one.
 func (m *Manager) apiToken(ctx context.Context) (string, error) {
+	if t, err := m.ConfiguredAPIToken(); t != "" || err != nil {
+		return t, err
+	}
 	e, err := m.load(ctx, m.Settings.SessionID)
-	if err != nil {
+	if err != nil || e == nil {
 		return "", err
 	}
-	if e != nil && e.APIToken != "" {
-		return e.APIToken, nil
-	}
-	return m.ConfiguredAPIToken()
+	return e.APIToken, nil
 }
 
 // Token returns a valid access token, refreshing it if needed.

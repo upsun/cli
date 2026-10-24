@@ -23,15 +23,11 @@ readonly class TokenConfig
         return $this->apiTokenStorage;
     }
 
+    /**
+     * Returns the API token to use: one set via config, or else one saved by auth:api-token-login.
+     */
     public function getApiToken(bool $includeStored = true): ?string
     {
-        if ($includeStored) {
-            $storedToken = $this->apiTokenStorage->getToken();
-            if ($storedToken !== '') {
-                return $storedToken;
-            }
-        }
-
         $token = (string) $this->config->getWithDefault('api.token', '');
         if ($token !== '') {
             return $token;
@@ -40,6 +36,13 @@ readonly class TokenConfig
         $file = (string) $this->config->getWithDefault('api.token_file', '');
         if ($file !== '') {
             return $this->loadTokenFromFile($file);
+        }
+
+        if ($includeStored) {
+            $storedToken = $this->apiTokenStorage->getToken();
+            if ($storedToken !== '') {
+                return $storedToken;
+            }
         }
 
         return null;

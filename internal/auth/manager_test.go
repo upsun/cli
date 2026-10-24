@@ -235,9 +235,9 @@ func TestManager_Token(t *testing.T) {
 			wantLogin: "The API token is invalid.",
 		},
 		{
-			name:      "stored API token takes precedence",
-			entry:     &store.Entry{APIToken: "good-api-token"},
-			settings:  config.Auth{Token: "bad-api-token"},
+			name:      "API token from config takes precedence",
+			entry:     &store.Entry{APIToken: "bad-api-token"},
+			settings:  config.Auth{Token: "good-api-token"},
 			wantToken: "at-1",
 		},
 	}
