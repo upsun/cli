@@ -35,7 +35,10 @@ readonly class TokenConfig
 
         $file = (string) $this->config->getWithDefault('api.token_file', '');
         if ($file !== '') {
-            return $this->loadTokenFromFile($file);
+            $token = $this->loadTokenFromFile($file);
+            if ($token !== '') {
+                return $token;
+            }
         }
 
         if ($includeStored) {

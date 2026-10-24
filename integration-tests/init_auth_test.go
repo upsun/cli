@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,6 +28,9 @@ func TestInit_AIRequestIsAuthenticated(t *testing.T) {
 	t.Parallel()
 	if !goAuthMode() {
 		t.Skip("with legacy auth, init needs a JWT access token, and the mock auth server issues opaque ones")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("the repository digest fails on Windows: whatsun opens its embedded rules with OS-specific paths")
 	}
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()

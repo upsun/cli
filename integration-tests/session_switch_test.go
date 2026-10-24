@@ -173,3 +173,21 @@ func TestSessionSwitch_DefaultIDFromEnv(t *testing.T) {
 	assert.Contains(t, stderr, "The current session ID is: default")
 	assert.NotContains(t, stderr, "session:switch")
 }
+
+// TestSessionSwitch_UnreadableTokenFile checks that the session is not switched if the token file cannot be read.
+func TestSessionSwitch_UnreadableTokenFile(t *testing.T) {
+	t.Parallel()
+	f := newCommandFactory(t, "", "")
+	// The legacy CLI reads api.token_file from the user config file, not from the environment.
+	f.home = t.TempDir()
+	configDir := filepath.Join(f.home, ".platform-test-cli")
+	require.NoError(t, os.MkdirAll(configDir, 0o700))
+	missing := filepath.ToSlash(filepath.Join(t.TempDir(), "missing"))
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.yaml"),
+		[]byte("api:\n  token_file: '"+missing+"'\n"), 0o600))
+
+	_, stderr, err := f.RunCombinedOutput("session:switch", "work")
+	assert.Error(t, err)
+	assert.Contains(t, stderr, "ailed to read file")
+	assert.NoFileExists(t, filepath.Join(f.home, ".platform-test-cli", "session-id"))
+}

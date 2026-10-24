@@ -48,6 +48,9 @@ class SessionSwitchCommand extends CommandBase
             return 1;
         }
 
+        // This is checked first, as it fails if the token file cannot be read.
+        $hasConfiguredToken = $this->api->hasApiToken(false);
+
         $newId = Argument::stringOrNull($input, 'id');
         if ($newId === null) {
             if (!$input->isInteractive()) {
@@ -83,7 +86,7 @@ class SessionSwitchCommand extends CommandBase
 
         if ($newId === $previousId) {
             $this->stdErr->writeln(sprintf('The session ID is already set as <info>%s</info>', $newId));
-            $this->showAccountInfo();
+            $this->showAccountInfo($hasConfiguredToken);
             return 0;
         }
 
@@ -100,14 +103,14 @@ class SessionSwitchCommand extends CommandBase
 
         $this->stdErr->writeln(sprintf('Session ID changed from <info>%s</info> to <info>%s</info>', $previousId, $this->config->getSessionId()));
 
-        $this->showAccountInfo();
+        $this->showAccountInfo($hasConfiguredToken);
 
         return 0;
     }
 
-    private function showAccountInfo(): void
+    private function showAccountInfo(bool $hasConfiguredToken): void
     {
-        if ($this->api->hasApiToken(false)) {
+        if ($hasConfiguredToken) {
             $this->stdErr->writeln("\n<comment>Warning: an API token is set via config, and is used in every session</comment>");
         }
         if ($this->api->isLoggedIn()) {

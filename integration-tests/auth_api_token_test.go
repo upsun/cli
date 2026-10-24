@@ -2,6 +2,8 @@ package tests
 
 import (
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -117,4 +119,24 @@ func TestAuthAPITokenLogin_ReplacesSession(t *testing.T) {
 	assert.Equal(t, 2, authServer.APITokenExchanges())
 	assert.JSONEq(t, `{"logged_in": true, "session_ids": ["default"], "has_stored_api_token": true}`,
 		f.Run("auth:internal", "status"))
+}
+
+// TestAuthAPIToken_EmptyTokenFile checks that an empty token file does not hide a stored API token.
+func TestAuthAPIToken_EmptyTokenFile(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiServer := newMyUserAPI(t)
+	defer apiServer.Close()
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=", EnvPrefix+"API_WRITE_USER_SSH_CONFIG=0")
+	_, stderr, err := f.RunInteractive(mockapi.ValidAPITokens[1]+"\n", "auth:api-token-login")
+	require.NoError(t, err, "stderr: %s", stderr)
+
+	tokenFile := filepath.Join(t.TempDir(), "token")
+	require.NoError(t, os.WriteFile(tokenFile, []byte("\n"), 0o600))
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"API_TOKEN_FILE="+tokenFile)
+	assert.Equal(t, "access-token-2", f.Run("auth:token", "--no-warn"))
+	assert.Equal(t, "u1\n", f.Run("auth:info", "id", "--refresh"))
 }
