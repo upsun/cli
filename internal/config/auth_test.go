@@ -175,6 +175,20 @@ func TestAuth(t *testing.T) {
 			},
 		},
 		{
+			name: "token withheld by a parent process",
+			env:  map[string]string{"WRAPPER_HAS_TOKEN": "1"},
+			check: func(t *testing.T, a *config.Auth) {
+				assert.True(t, a.TokenWithheld)
+			},
+		},
+		{
+			name: "token set again in a child process",
+			env:  map[string]string{"WRAPPER_HAS_TOKEN": "1", "TOKEN": "child-token"},
+			check: func(t *testing.T, a *config.Auth) {
+				assert.False(t, a.TokenWithheld)
+			},
+		},
+		{
 			name:    "invalid session ID",
 			env:     map[string]string{"SESSION_ID": "a/b"},
 			wantErr: "invalid session ID: a/b",

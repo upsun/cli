@@ -252,6 +252,18 @@ func TestManager_Token(t *testing.T) {
 			wantErr:  "failed to exchange the API token",
 		},
 		{
+			name:     "token withheld by a parent process",
+			entry:    &store.Entry{AccessToken: "stored", RefreshToken: "rt-0", Expires: future},
+			settings: config.Auth{TokenWithheld: true},
+			wantErr:  "but it is not passed on",
+		},
+		{
+			name:      "access token from config takes precedence over a stored API token",
+			entry:     &store.Entry{APIToken: "good-api-token"},
+			settings:  config.Auth{AccessToken: "raw"},
+			wantToken: "raw",
+		},
+		{
 			name:      "access token from config",
 			settings:  config.Auth{AccessToken: "raw"},
 			wantToken: "raw",

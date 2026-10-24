@@ -13,7 +13,9 @@ use Symfony\Component\Process\Process;
 /**
  * Gets tokens and auth state from the Go wrapper, which is the only component that stores or refreshes credentials.
  *
- * The wrapper's path is passed in the {prefix}WRAPPER_EXECUTABLE environment variable.
+ * Requests are sent over a socket that the wrapper passes as an inherited file descriptor, whose number is in the
+ * {prefix}WRAPPER_AUTH_FD environment variable. Otherwise, e.g. on Windows or in a forked process, the wrapper's hidden
+ * auth:internal command is run, using the executable path in the {prefix}WRAPPER_EXECUTABLE environment variable.
  */
 class GoAuth
 {
@@ -30,6 +32,12 @@ class GoAuth
 
     /** @var array<string, array{access_token: string, expires?: int}> */
     private static array $tokens = [];
+
+    /** @var resource|false|null The wrapper's auth channel, false if it cannot be used, or null if not opened yet. */
+    private static mixed $channel = null;
+
+    /** The ID of the process that opened the channel. */
+    private static ?int $channelPid = null;
 
     private readonly OutputInterface $stdErr;
 
@@ -71,6 +79,20 @@ class GoAuth
         $token = $rejected !== null ? $this->run(['token', '--rejected'], $rejected) : $this->run(['token']);
 
         return self::$tokens[$sessionId] = $token;
+    }
+
+    /**
+     * Returns whether an API token or access token is set via config, if the wrapper reports it.
+     *
+     * The wrapper removes these tokens from this process's environment when it serves auth requests over its channel.
+     *
+     * @return bool|null Null if the wrapper does not report it.
+     */
+    public function hasConfiguredToken(): ?bool
+    {
+        $value = getenv($this->config->getStr('application.env_prefix') . 'WRAPPER_HAS_TOKEN');
+
+        return $value === false || $value === '' ? null : $value === '1';
     }
 
     /**
@@ -138,6 +160,16 @@ class GoAuth
      */
     private function run(array $args, ?string $input = null): array
     {
+        $channel = $this->channel();
+        if ($channel !== null) {
+            $response = $this->request($channel, $args[0], $input);
+            if ($response !== null) {
+                return $this->result($response);
+            }
+            // The wrapper has exited, e.g. if this is a background process.
+            self::$channel = false;
+        }
+
         $process = new Process(array_merge([$this->executable(), 'auth:internal'], $args), null, $this->env(), $input);
         $process->setTimeout(null);
         $process->run();
@@ -159,6 +191,87 @@ class GoAuth
         }
 
         return $data;
+    }
+
+    /**
+     * Returns the wrapper's auth channel, if this process can use it.
+     *
+     * The channel is only used by the process that the wrapper started: a process forked by it shares the socket, but
+     * may outlive the wrapper.
+     *
+     * @return resource|null
+     */
+    private function channel(): mixed
+    {
+        if (self::$channelPid !== null && self::$channelPid !== (int) getmypid()) {
+            return null;
+        }
+        if (self::$channel === null) {
+            self::$channel = false;
+            self::$channelPid = (int) getmypid();
+            $prefix = $this->config->getStr('application.env_prefix');
+            $fd = getenv($prefix . 'WRAPPER_AUTH_FD');
+            $wrapperPid = getenv($prefix . 'WRAPPER_PID');
+            if (is_string($fd) && ctype_digit($fd) && is_string($wrapperPid) && function_exists('posix_getppid')
+                && posix_getppid() === (int) $wrapperPid) {
+                self::$channel = @fopen('php://fd/' . $fd, 'r+');
+            }
+        }
+
+        return self::$channel ?: null;
+    }
+
+    /**
+     * Sends a request over the wrapper's auth channel, which answers with one line of JSON.
+     *
+     * @param resource $channel
+     * @param string|null $rejected An access token that the API rejected.
+     *
+     * @return array<mixed>|null The response, or null if the channel is closed.
+     */
+    private function request(mixed $channel, string $command, ?string $rejected): ?array
+    {
+        $request = ['command' => $command, 'session_id' => $this->config->getSessionId()];
+        if ($rejected !== null) {
+            $request['rejected'] = $rejected;
+        }
+        if (@fwrite($channel, json_encode($request, JSON_THROW_ON_ERROR) . "\n") === false) {
+            return null;
+        }
+        $line = @fgets($channel);
+        if (!is_string($line)) {
+            return null;
+        }
+        $response = json_decode($line, true);
+        if (!is_array($response)) {
+            throw new \RuntimeException('Failed to parse authentication details');
+        }
+
+        return $response;
+    }
+
+    /**
+     * Returns the result of a response from the wrapper's auth channel.
+     *
+     * @param array<mixed> $response
+     *
+     * @throws GoLoginRequiredException if login is required
+     *
+     * @return array<mixed>
+     */
+    private function result(array $response): array
+    {
+        if (isset($response['login_required']) && is_array($response['login_required'])) {
+            throw GoLoginRequiredException::fromData($response['login_required']);
+        }
+        if (isset($response['error']) && is_string($response['error'])) {
+            throw new \RuntimeException('Failed to get authentication details: ' . $response['error']);
+        }
+        if (!isset($response['result']) || !is_array($response['result'])) {
+            throw new \RuntimeException('Failed to parse authentication details');
+        }
+
+        return $response['result'];
     }
 
     /**
