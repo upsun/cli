@@ -258,6 +258,12 @@ func TestManager_Token(t *testing.T) {
 			wantErr:  "but it is not passed on",
 		},
 		{
+			name:      "access token from config takes precedence over a stored API token",
+			entry:     &store.Entry{APIToken: "good-api-token"},
+			settings:  config.Auth{AccessToken: "raw"},
+			wantToken: "raw",
+		},
+		{
 			name:      "access token from config",
 			settings:  config.Auth{AccessToken: "raw"},
 			wantToken: "raw",

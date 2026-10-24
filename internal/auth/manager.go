@@ -170,18 +170,22 @@ func (m *Manager) apiToken(ctx context.Context) (string, error) {
 
 // Token returns a valid access token, refreshing it if needed.
 //
+// The credentials are used in order of precedence: an API token set via config, an access token set via config, an
+// API token stored by auth:api-token-login, then the session's tokens.
+//
 // If rejected is set (an access token the API rejected), and it is still the stored token, the token is refreshed.
 func (m *Manager) Token(ctx context.Context, rejected string) (*Token, error) {
 	if m.Settings.TokenWithheld {
 		// Other credentials, e.g. a stored session, may be for a different user.
 		return nil, ErrTokenWithheld
 	}
-	apiToken, err := m.apiToken(ctx)
+	// Credentials set via config take precedence over stored ones.
+	configured, err := m.ConfiguredAPIToken()
 	if err != nil {
 		return nil, err
 	}
-	if apiToken != "" {
-		return m.refresh(ctx, APITokenSessionID(apiToken), rejected, apiToken)
+	if configured != "" {
+		return m.refresh(ctx, APITokenSessionID(configured), rejected, configured)
 	}
 	if m.Settings.AccessToken != "" {
 		t := &Token{AccessToken: m.Settings.AccessToken}
@@ -189,6 +193,13 @@ func (m *Manager) Token(ctx context.Context, rejected string) (*Token, error) {
 			t.Expires = exp.Unix()
 		}
 		return t, nil
+	}
+	stored, err := m.apiToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if stored != "" {
+		return m.refresh(ctx, APITokenSessionID(stored), rejected, stored)
 	}
 	return m.refresh(ctx, m.Settings.SessionID, rejected, "")
 }

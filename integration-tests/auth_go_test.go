@@ -410,3 +410,25 @@ func TestAuthAccessTokenPrecedence(t *testing.T) {
 	assert.Equal(t, "success", f.Run("api:curl", "/curl-test"))
 	assert.Equal(t, "Bearer from-env", lastRequest(t, apiHandler, "GET", "/curl-test").Header.Get("Authorization"))
 }
+
+// TestAuthAccessTokenOverridesStoredAPIToken checks that an access token set via the environment is used in PHP
+// commands instead of an API token saved by auth:api-token-login.
+func TestAuthAccessTokenOverridesStoredAPIToken(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.SetMyUser(&mockapi.User{ID: "u1", Username: "testuser", Email: "test@example.com"})
+	apiHandler.Get("/curl-test", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("success")) })
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=", EnvPrefix+"API_WRITE_USER_SSH_CONFIG=0")
+	_, stderr, err := f.RunInteractive(mockapi.ValidAPITokens[0]+"\n", "auth:api-token-login")
+	require.NoError(t, err, "stderr: %s", stderr)
+
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"API_TOKEN=from-env")
+	assert.Equal(t, "success", f.Run("api:curl", "/curl-test"))
+	assert.Equal(t, "Bearer from-env", lastRequest(t, apiHandler, "GET", "/curl-test").Header.Get("Authorization"))
+}
