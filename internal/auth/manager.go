@@ -141,9 +141,14 @@ func (m *Manager) ConfiguredAPIToken() (string, error) {
 	return "", nil
 }
 
-// HasConfiguredToken reports whether an API token or access token is set via config.
+// ErrTokenWithheld is returned for a process started by another CLI command, which did not pass on its token.
+var ErrTokenWithheld = errors.New("the API token set for the parent CLI command is not passed to the processes it starts: " +
+	"set it again to use it here")
+
+// HasConfiguredToken reports whether an API token or access token is set via config, or was withheld by a parent CLI
+// process.
 func (m *Manager) HasConfiguredToken() (bool, error) {
-	if m.Settings.AccessToken != "" {
+	if m.Settings.AccessToken != "" || m.Settings.TokenWithheld {
 		return true, nil
 	}
 	t, err := m.ConfiguredAPIToken()
@@ -166,6 +171,10 @@ func (m *Manager) apiToken(ctx context.Context) (string, error) {
 //
 // If rejected is set (an access token the API rejected), and it is still the stored token, the token is refreshed.
 func (m *Manager) Token(ctx context.Context, rejected string) (*Token, error) {
+	if m.Settings.TokenWithheld {
+		// Other credentials, e.g. a stored session, may be for a different user.
+		return nil, ErrTokenWithheld
+	}
 	apiToken, err := m.apiToken(ctx)
 	if err != nil {
 		return nil, err

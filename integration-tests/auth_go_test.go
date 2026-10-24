@@ -347,7 +347,7 @@ func TestAuthChannel(t *testing.T) {
 }
 
 // TestAuthChannel_TokenNotInherited checks that processes started by the legacy CLI, such as Git hooks, do not inherit
-// the API token.
+// the API token, and that a CLI command run by them does not use other credentials instead.
 func TestAuthChannel_TokenNotInherited(t *testing.T) {
 	t.Parallel()
 	if !goAuthMode() {
@@ -356,10 +356,17 @@ func TestAuthChannel_TokenNotInherited(t *testing.T) {
 	p := setUpGitProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil))
 	repo := repoLayout{git: true, branch: "main", remoteName: "platform-test"}.build(t)
 	p.f.dir = repo
-	envFile := filepath.Join(t.TempDir(), "env")
+	// A stored session, which may be for another user.
+	writeOAuthSession(t, p.f.home, "default", map[string]any{
+		"accessToken": "stored-token", "expires": time.Now().Add(time.Hour).Unix(),
+	})
+	tmp := t.TempDir()
+	envFile, nestedFile := filepath.Join(tmp, "env"), filepath.Join(tmp, "nested")
 	hooksDir := filepath.Join(repo, ".git", "hooks")
 	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
-	hook := []byte("#!/bin/sh\nenv > '" + envFile + "'\n")
+	hook := []byte("#!/bin/sh\nenv > '" + envFile + "'\n" +
+		`"$` + EnvPrefix + `WRAPPER_EXECUTABLE" auth:token -W > '` + nestedFile + `' 2>&1; echo "exit $?" >> '` +
+		nestedFile + "'\n")
 	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "pre-push"), hook, 0o755))
 	runGit(t, repo, "config", "core.hooksPath", hooksDir)
 
@@ -376,6 +383,12 @@ func TestAuthChannel_TokenNotInherited(t *testing.T) {
 		}
 	}
 	assert.Equal(t, map[string]string{EnvPrefix + "WRAPPER_HAS_TOKEN": "1", "CLI_SSH_NO_REFRESH": "1"}, env)
+
+	b, err = os.ReadFile(nestedFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(b), "not passed to the processes it starts")
+	assert.Contains(t, string(b), "exit 1")
+	assert.NotContains(t, string(b), "stored-token")
 }
 
 // TestAuthAccessTokenPrecedence checks that an access token set via the environment is used in PHP commands instead of
