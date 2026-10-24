@@ -62,15 +62,18 @@ func prepareAuthChannel(cnf *config.Config, stderr io.Writer) func(cmd *exec.Cmd
 		fd := 3 + len(cmd.ExtraFiles)
 		cmd.ExtraFiles = append(cmd.ExtraFiles, child)
 		prefix := cnf.Application.EnvPrefix
-		hasToken := "0"
-		if hasConfiguredToken(m) {
-			hasToken = "1"
-		}
 		cmd.Env = append(withoutTokenEnv(cmd.Env, prefix),
 			prefix+"WRAPPER_AUTH_FD="+strconv.Itoa(fd),
 			prefix+"WRAPPER_PID="+strconv.Itoa(os.Getpid()),
-			prefix+"WRAPPER_HAS_TOKEN="+hasToken,
 		)
+		// If this fails (e.g. the token file cannot be read), the legacy CLI checks the config itself, and reports it.
+		if has, err := m.HasConfiguredToken(); err == nil {
+			value := "0"
+			if has {
+				value = "1"
+			}
+			cmd.Env = append(cmd.Env, prefix+"WRAPPER_HAS_TOKEN="+value)
+		}
 		ctx, cancel := context.WithCancel(context.Background())
 		done := make(chan struct{})
 		go func() {
