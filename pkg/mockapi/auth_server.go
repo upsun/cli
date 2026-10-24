@@ -34,6 +34,9 @@ type AuthServer struct {
 	revokedMu     sync.Mutex
 	revokedTokens []string
 
+	authorizeMu      sync.Mutex
+	authorizePrompts []string
+
 	refreshMu       sync.Mutex
 	refreshTokens   map[string]*refreshToken
 	refreshDelay    time.Duration
@@ -204,6 +207,13 @@ func (s *AuthServer) rotateRefreshToken(token string) (newToken, errCode string)
 	return s.issueRefreshToken(rt.family), ""
 }
 
+// AuthorizePrompts returns the "prompt" parameter of each authorization request.
+func (s *AuthServer) AuthorizePrompts() []string {
+	s.authorizeMu.Lock()
+	defer s.authorizeMu.Unlock()
+	return slices.Clone(s.authorizePrompts)
+}
+
 // RevokedTokens returns a copy of all tokens that have been revoked.
 func (s *AuthServer) RevokedTokens() []string {
 	s.revokedMu.Lock()
@@ -235,6 +245,9 @@ func NewAuthServer(t *testing.T) *AuthServer {
 
 	mux.Get("/oauth2/authorize", func(w http.ResponseWriter, req *http.Request) {
 		q := req.URL.Query()
+		srv.authorizeMu.Lock()
+		srv.authorizePrompts = append(srv.authorizePrompts, q.Get("prompt"))
+		srv.authorizeMu.Unlock()
 		code := "test-auth-code-" + q.Get("state")
 		pendingMu.Lock()
 		pendingAuths[code] = pendingAuth{

@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/upsun/cli/internal/auth"
 )
 
 func TestAuthCommands_Disabled(t *testing.T) {
@@ -34,6 +37,47 @@ func TestAuthCommands_LegacyGlobalFlags(t *testing.T) {
 		c, rest, err := root.Find(args)
 		require.NoError(t, err)
 		assert.NoError(t, c.ParseFlags(rest), "args: %v", args)
+	}
+}
+
+func TestLoginRequiredMessage(t *testing.T) {
+	maxAge := 300
+	cases := []struct {
+		name string
+		err  auth.LoginRequiredError
+		want string
+	}{
+		{
+			name: "no challenge",
+			want: "Authentication is required.\n\nPlease log in by running:\n    %s login",
+		},
+		{
+			name: "methods and max age",
+			err:  auth.LoginRequiredError{AuthMethods: []string{"sso:acme corp", "mfa"}, MaxAge: &maxAge},
+			want: "More recent authentication is required.\n\nPlease log in by running:\n" +
+				"    %s login --method 'sso:acme corp,mfa' --max-age 300",
+		},
+		{
+			name: "MFA with an API token",
+			err:  auth.LoginRequiredError{AuthMethods: []string{"mfa"}, HasAPIToken: true},
+			want: "Multi-factor authentication (MFA) is required.\n\n" +
+				"The API token may need to be re-created after enabling MFA.",
+		},
+		{
+			name: "SSO with an API token",
+			err:  auth.LoginRequiredError{AuthMethods: []string{"sso:acme"}, HasAPIToken: true},
+			want: "Single sign-on (SSO) is required.",
+		},
+	}
+	cnf := testConfig()
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			want := c.want
+			if strings.Contains(want, "%s") {
+				want = fmt.Sprintf(want, cnf.Application.Executable)
+			}
+			assert.Equal(t, want, loginRequiredMessage(cnf, &c.err))
+		})
 	}
 }
 
