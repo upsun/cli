@@ -13,7 +13,9 @@ use Symfony\Component\Process\Process;
 /**
  * Gets tokens and auth state from the Go wrapper, which is the only component that stores or refreshes credentials.
  *
- * The wrapper's path is passed in the {prefix}WRAPPER_EXECUTABLE environment variable.
+ * Requests are sent to the wrapper's socket, whose path is passed in the {prefix}WRAPPER_AUTH_SOCKET environment
+ * variable. Without it, the wrapper's hidden auth:internal command is run, using the executable path in the
+ * {prefix}WRAPPER_EXECUTABLE environment variable.
  */
 class GoAuth
 {
@@ -138,6 +140,11 @@ class GoAuth
      */
     private function run(array $args, ?string $input = null): array
     {
+        $socket = getenv($this->config->getStr('application.env_prefix') . 'WRAPPER_AUTH_SOCKET');
+        if ($socket !== false && $socket !== '') {
+            return $this->request($socket, $args[0], $input);
+        }
+
         $process = new Process(array_merge([$this->executable(), 'auth:internal'], $args), null, $this->env(), $input);
         $process->setTimeout(null);
         $process->run();
@@ -159,6 +166,45 @@ class GoAuth
         }
 
         return $data;
+    }
+
+    /**
+     * Sends a request to the wrapper's socket, which answers with one line of JSON.
+     *
+     * @param string|null $rejected An access token that the API rejected.
+     *
+     * @return array<mixed>
+     */
+    private function request(string $socket, string $command, ?string $rejected): array
+    {
+        $conn = @stream_socket_client('unix://' . $socket, $errno, $errstr);
+        if ($conn === false) {
+            throw new \RuntimeException('Failed to get authentication details: ' . $errstr);
+        }
+        // The wrapper may wait for another process's token refresh.
+        stream_set_timeout($conn, 300);
+        $request = ['command' => $command, 'session_id' => $this->config->getSessionId()];
+        if ($rejected !== null) {
+            $request['rejected'] = $rejected;
+        }
+        fwrite($conn, json_encode($request, JSON_THROW_ON_ERROR) . "\n");
+        $line = fgets($conn);
+        fclose($conn);
+        $response = is_string($line) ? json_decode($line, true) : null;
+        if (!is_array($response)) {
+            throw new \RuntimeException('Failed to parse authentication details');
+        }
+        if (isset($response['login_required']) && is_array($response['login_required'])) {
+            throw GoLoginRequiredException::fromData($response['login_required']);
+        }
+        if (isset($response['error']) && is_string($response['error'])) {
+            throw new \RuntimeException('Failed to get authentication details: ' . $response['error']);
+        }
+        if (!isset($response['result']) || !is_array($response['result'])) {
+            throw new \RuntimeException('Failed to parse authentication details');
+        }
+
+        return $response['result'];
     }
 
     /**

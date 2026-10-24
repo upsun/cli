@@ -78,6 +78,8 @@ func newAuthManager(cnf *config.Config, stderr io.Writer) (*auth.Manager, error)
 			var stdout, errOut bytes.Buffer
 			c := makeLegacyCLIWrapper(cnf, &stdout, &errOut, nil)
 			c.DisableInteraction = true
+			// The export does not need tokens.
+			c.PrepareEnv = nil
 			args := []string{"auth:export-sessions"}
 			if del {
 				args = append(args, "--delete")

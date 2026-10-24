@@ -347,7 +347,7 @@ func exitWithError(err error) {
 }
 
 func makeLegacyCLIWrapper(cnf *config.Config, stdout, stderr io.Writer, stdin io.Reader) *legacy.CLIWrapper {
-	return &legacy.CLIWrapper{
+	c := &legacy.CLIWrapper{
 		Config:             cnf,
 		Version:            config.Version,
 		DebugLogFunc:       debugLogf,
@@ -356,4 +356,12 @@ func makeLegacyCLIWrapper(cnf *config.Config, stdout, stderr io.Writer, stdin io
 		Stderr:             stderr,
 		Stdin:              stdin,
 	}
+	if cnf.GoAuthEnabled() {
+		authStderr := stderr
+		if authStderr == nil {
+			authStderr = io.Discard
+		}
+		c.PrepareEnv = func() ([]string, func(), error) { return startAuthSocket(cnf, authStderr) }
+	}
+	return c
 }

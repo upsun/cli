@@ -324,3 +324,22 @@ func TestErrorOutput_QuietOverride(t *testing.T) {
 		}
 	}
 }
+
+// TestAuthSocket checks that the legacy CLI gets tokens and auth state from the wrapper's socket.
+func TestAuthSocket(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("the legacy CLI runs auth:internal on Windows")
+	}
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiServer := newMyUserAPI(t)
+	defer apiServer.Close()
+
+	f := newGoAuthCommandFactory(t, apiServer.URL, authServer.URL)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"DEBUG=1")
+	stdout, stderr, err := f.RunCombinedOutput("auth:info", "id", "--refresh")
+	require.NoError(t, err, "stderr: %s", stderr)
+	assert.Equal(t, "u1\n", stdout)
+	assert.Contains(t, stderr, "Auth socket request: token")
+}

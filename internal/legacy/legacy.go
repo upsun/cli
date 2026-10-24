@@ -38,6 +38,9 @@ type CLIWrapper struct {
 	DisableInteraction bool
 	ForceColor         bool
 	DebugLogFunc       func(string, ...any)
+	// PrepareEnv returns extra environment variables for a command, and a function to call after it exits. It may be
+	// nil.
+	PrepareEnv func() (env []string, done func(), err error)
 
 	initOnce  sync.Once
 	_cacheDir string
@@ -158,6 +161,14 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 		c.Version,
 		PHPVersion,
 	))
+	if c.PrepareEnv != nil {
+		env, done, err := c.PrepareEnv()
+		if err != nil {
+			return err
+		}
+		defer done()
+		cmd.Env = append(cmd.Env, env...)
+	}
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("could not run PHP CLI command: %w", err)
 	}
