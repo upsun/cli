@@ -56,7 +56,8 @@ type authSources struct {
 // "API_TOKEN" is an alias for api.access_token (deprecated), overriding the generic form for api.token.
 var authKeys = []authKey{
 	{"token", []string{"TOKEN"}, func(a *authSources) *string { return &a.token }},
-	{"token_file", []string{"API_TOKEN_FILE"}, func(a *authSources) *string { return &a.tokenFile }},
+	// The legacy CLI only reads api.token_file from config files.
+	{"token_file", nil, func(a *authSources) *string { return &a.tokenFile }},
 	{"access_token", []string{"API_ACCESS_TOKEN", "API_TOKEN"}, func(a *authSources) *string { return &a.accessToken }},
 	{"session_id", []string{"API_SESSION_ID"}, func(a *authSources) *string { return &a.sessionID }},
 	{"base_url", []string{"API_BASE_URL", "API_URL"}, func(a *authSources) *string { return &a.baseURL }},

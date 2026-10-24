@@ -123,10 +123,8 @@ func TestAuthLoginRequired_UnreadableTokenFile(t *testing.T) {
 	defer authServer.Close()
 
 	f := newGoAuthCommandFactory(t, "", authServer.URL)
-	f.extraEnv = append(f.extraEnv,
-		EnvPrefix+"TOKEN=",
-		EnvPrefix+"API_TOKEN_FILE="+filepath.Join(t.TempDir(), "missing"),
-	)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
+	f.writeUserTokenFileConfig(filepath.Join(t.TempDir(), "missing"))
 	// An API token saved by auth:api-token-login, in the legacy CLI's storage (which is migrated).
 	sessDir := filepath.Join(f.home, ".platform-test-cli", ".session", "sess-cli-default")
 	require.NoError(t, os.MkdirAll(sessDir, 0o700))
