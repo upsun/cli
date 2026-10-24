@@ -136,7 +136,7 @@ func TestAuthAPIToken_EmptyTokenFile(t *testing.T) {
 
 	tokenFile := filepath.Join(t.TempDir(), "token")
 	require.NoError(t, os.WriteFile(tokenFile, []byte("\n"), 0o600))
-	f.extraEnv = append(f.extraEnv, EnvPrefix+"API_TOKEN_FILE="+tokenFile)
+	f.writeUserTokenFileConfig(tokenFile)
 	assert.Equal(t, "access-token-2", f.Run("auth:token", "--no-warn"))
 	assert.Equal(t, "u1\n", f.Run("auth:info", "id", "--refresh"))
 }
