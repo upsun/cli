@@ -20,8 +20,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var ValidAPITokens = []string{"api-token-1"}
-var accessTokens = []string{"access-token-1"}
+// ValidAPITokens are the API tokens that the server accepts. Each is exchanged for the access token at the same index
+// in accessTokens, unless SetUniqueAccessTokens is used.
+var ValidAPITokens = []string{"api-token-1", "api-token-2"}
+var accessTokens = []string{"access-token-1", "access-token-2"}
 
 // AuthServer is a mock authentication server for testing.
 //
@@ -32,12 +34,16 @@ type AuthServer struct {
 	revokedMu     sync.Mutex
 	revokedTokens []string
 
+	authorizeMu      sync.Mutex
+	authorizePrompts []string
+
 	refreshMu       sync.Mutex
 	refreshTokens   map[string]*refreshToken
 	refreshDelay    time.Duration
 	refreshCount    int
 	refreshRequests int
 	refreshFailures int
+	exchanges       int
 	tokenLifetime   time.Duration
 	uniqueTokens    bool
 	accessCount     int
@@ -96,10 +102,14 @@ func (s *AuthServer) SetUniqueAccessTokens(unique bool) {
 }
 
 func (s *AuthServer) newAccessToken() string {
+	return s.newAccessTokenAt(0)
+}
+
+func (s *AuthServer) newAccessTokenAt(i int) string {
 	s.refreshMu.Lock()
 	defer s.refreshMu.Unlock()
 	if !s.uniqueTokens {
-		return accessTokens[0]
+		return accessTokens[i]
 	}
 	s.accessCount++
 	return fmt.Sprintf("access-token-%d", s.accessCount)
@@ -110,6 +120,13 @@ func (s *AuthServer) SetRefreshFailures(n int) {
 	s.refreshMu.Lock()
 	defer s.refreshMu.Unlock()
 	s.refreshFailures = n
+}
+
+// APITokenExchanges returns the number of api_token grant requests received.
+func (s *AuthServer) APITokenExchanges() int {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	return s.exchanges
 }
 
 // RefreshRequests returns the number of refresh_token grant requests received.
@@ -190,6 +207,13 @@ func (s *AuthServer) rotateRefreshToken(token string) (newToken, errCode string)
 	return s.issueRefreshToken(rt.family), ""
 }
 
+// AuthorizePrompts returns the "prompt" parameter of each authorization request.
+func (s *AuthServer) AuthorizePrompts() []string {
+	s.authorizeMu.Lock()
+	defer s.authorizeMu.Unlock()
+	return slices.Clone(s.authorizePrompts)
+}
+
 // RevokedTokens returns a copy of all tokens that have been revoked.
 func (s *AuthServer) RevokedTokens() []string {
 	s.revokedMu.Lock()
@@ -221,6 +245,9 @@ func NewAuthServer(t *testing.T) *AuthServer {
 
 	mux.Get("/oauth2/authorize", func(w http.ResponseWriter, req *http.Request) {
 		q := req.URL.Query()
+		srv.authorizeMu.Lock()
+		srv.authorizePrompts = append(srv.authorizePrompts, q.Get("prompt"))
+		srv.authorizeMu.Unlock()
 		code := "test-auth-code-" + q.Get("state")
 		pendingMu.Lock()
 		pendingAuths[code] = pendingAuth{
@@ -236,10 +263,12 @@ func NewAuthServer(t *testing.T) *AuthServer {
 		require.NoError(t, req.ParseForm())
 		switch req.Form.Get("grant_type") {
 		case "api_token":
-			apiToken := req.Form.Get("api_token")
-			if slices.Contains(ValidAPITokens, apiToken) {
+			srv.refreshMu.Lock()
+			srv.exchanges++
+			srv.refreshMu.Unlock()
+			if i := slices.Index(ValidAPITokens, req.Form.Get("api_token")); i >= 0 {
 				_ = json.NewEncoder(w).Encode(map[string]any{
-					"access_token":  srv.newAccessToken(),
+					"access_token":  srv.newAccessTokenAt(i),
 					"expires_in":    srv.expiresIn(),
 					"token_type":    "bearer",
 					"refresh_token": srv.newRefreshToken(),

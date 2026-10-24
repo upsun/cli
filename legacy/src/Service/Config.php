@@ -320,8 +320,7 @@ class Config
      */
     public function isSessionIdFromEnv(): bool
     {
-        $sessionId = $this->getSessionId();
-        return $sessionId !== 'default' && $sessionId === $this->getEnv('SESSION_ID');
+        return $this->getEnv('SESSION_ID') !== false;
     }
 
     /**

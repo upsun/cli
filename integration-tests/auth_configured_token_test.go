@@ -115,24 +115,22 @@ func TestAuthLoginRequired_StoredToken(t *testing.T) {
 	}
 }
 
-// TestAuthLoginRequired_UnreadableTokenFile checks that an unreadable token file, which is not used when an API token
-// is stored, does not hide the login-required error.
+// TestAuthLoginRequired_UnreadableTokenFile checks that an unreadable token file is reported, instead of using a stored
+// API token.
 func TestAuthLoginRequired_UnreadableTokenFile(t *testing.T) {
 	t.Parallel()
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 
 	f := newGoAuthCommandFactory(t, "", authServer.URL)
-	f.extraEnv = append(f.extraEnv,
-		EnvPrefix+"TOKEN=",
-		EnvPrefix+"API_TOKEN_FILE="+filepath.Join(t.TempDir(), "missing"),
-	)
-	// An invalid API token saved by auth:api-token-login, in the legacy CLI's storage (which is migrated).
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
+	f.writeUserTokenFileConfig(filepath.Join(t.TempDir(), "missing"))
+	// An API token saved by auth:api-token-login, in the legacy CLI's storage (which is migrated).
 	sessDir := filepath.Join(f.home, ".platform-test-cli", ".session", "sess-cli-default")
 	require.NoError(t, os.MkdirAll(sessDir, 0o700))
-	require.NoError(t, os.WriteFile(filepath.Join(sessDir, "api-token"), []byte("invalid-token"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(sessDir, "api-token"), []byte(mockapi.ValidAPITokens[0]), 0o600))
 
 	_, stderr, err := f.RunCombinedOutput("auth:token", "--no-warn")
-	assertExitCode(t, 3, err)
-	assert.Contains(t, stderr, "The API token is invalid.")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "failed to read file")
 }

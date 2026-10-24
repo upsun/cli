@@ -48,6 +48,8 @@ var notInSpec = []string{
 	// The CLI follows an entrypoint link to /observability/, with a trailing slash, and to logs/query.
 	"GET /projects/*/environments/*/observability/",
 	"GET /projects/*/environments/*/observability/logs/query",
+	// The AI configuration API, used by init.
+	"POST /ai/generate-configuration",
 	// Test routes.
 	"POST /projects/*/integrations/*/check",
 	"* /curl-test",
