@@ -2,6 +2,7 @@ package tests
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -375,4 +376,24 @@ func TestAuthChannel_TokenNotInherited(t *testing.T) {
 		}
 	}
 	assert.Equal(t, map[string]string{EnvPrefix + "WRAPPER_HAS_TOKEN": "1", "CLI_SSH_NO_REFRESH": "1"}, env)
+}
+
+// TestAuthAccessTokenPrecedence checks that an access token set via the environment is used in PHP commands instead of
+// one in the user config file, also when the wrapper removes it from PHP's environment.
+func TestAuthAccessTokenPrecedence(t *testing.T) {
+	t.Parallel()
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.Get("/curl-test", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("success")) })
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	f := newCommandFactory(t, apiServer.URL, "")
+	configDir := filepath.Join(f.home, ".platform-test-cli")
+	require.NoError(t, os.MkdirAll(configDir, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.yaml"),
+		[]byte("api:\n  access_token: from-config\n"), 0o600))
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"API_TOKEN=from-env")
+
+	assert.Equal(t, "success", f.Run("api:curl", "/curl-test"))
+	assert.Equal(t, "Bearer from-env", lastRequest(t, apiHandler, "GET", "/curl-test").Header.Get("Authorization"))
 }

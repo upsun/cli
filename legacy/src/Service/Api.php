@@ -1592,8 +1592,9 @@ class Api
      */
     public function getAccessToken(bool $forceNew = false): string
     {
-        // Check for an externally configured access token.
-        if ($accessToken = $this->tokenConfig->getAccessToken()) {
+        // Check for an externally configured access token. With Go auth, Go reads it, with the same precedence as other
+        // credentials, as the wrapper may remove it from this process's environment.
+        if (!$this->goAuth->isEnabled() && ($accessToken = $this->tokenConfig->getAccessToken())) {
             return $accessToken;
         }
 
