@@ -386,7 +386,7 @@ func TestAuthChannel_TokenNotInherited(t *testing.T) {
 
 	b, err = os.ReadFile(nestedFile)
 	require.NoError(t, err)
-	assert.Contains(t, string(b), "not passed to the processes it starts")
+	assert.Contains(t, string(b), "but it is not passed on")
 	assert.Contains(t, string(b), "exit 1")
 	assert.NotContains(t, string(b), "stored-token")
 }

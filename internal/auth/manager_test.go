@@ -255,7 +255,7 @@ func TestManager_Token(t *testing.T) {
 			name:     "token withheld by a parent process",
 			entry:    &store.Entry{AccessToken: "stored", RefreshToken: "rt-0", Expires: future},
 			settings: config.Auth{TokenWithheld: true},
-			wantErr:  "not passed to the processes it starts",
+			wantErr:  "but it is not passed on",
 		},
 		{
 			name:      "access token from config",

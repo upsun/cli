@@ -143,7 +143,8 @@ func (m *Manager) ConfiguredAPIToken() (string, error) {
 
 // ErrTokenWithheld is returned for a process started by another CLI command, which did not pass on its token.
 var ErrTokenWithheld = errors.New(
-	"the API token set for the parent CLI command is not passed to the processes it starts: set it again to use it here")
+	"an API token is set for the CLI command that started this process, but it is not passed on: " +
+		"set an API token in this process to use it here")
 
 // HasConfiguredToken reports whether an API token or access token is set via config, or was withheld by a parent CLI
 // process.
