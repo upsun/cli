@@ -72,6 +72,13 @@ class SessionSwitchCommand extends CommandBase
                 return $sessionId;
             });
             $this->stdErr->writeln('');
+        } else {
+            try {
+                $this->config->validateSessionId($newId);
+            } catch (\InvalidArgumentException $e) {
+                $this->stdErr->writeln($e->getMessage());
+                return 1;
+            }
         }
 
         if ($newId === $previousId) {
