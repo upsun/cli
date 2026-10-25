@@ -20,6 +20,9 @@ type Auth struct {
 	Token       string // An API token (api.token).
 	TokenFile   string // A file containing an API token (api.token_file), resolved to an absolute path.
 	AccessToken string // A raw access token (api.access_token), never stored or refreshed.
+	// TokenWithheld is whether a parent CLI process removed a configured token from this process's environment, which
+	// it reports in <PREFIX>WRAPPER_HAS_TOKEN.
+	TokenWithheld bool
 
 	SessionID        string // The session ID (api.session_id), defaulting to "default".
 	SessionIDFromEnv bool   // Whether the session ID was set via the <PREFIX>SESSION_ID environment variable.
@@ -156,6 +159,9 @@ func (c *Config) Auth() (*Auth, error) {
 			a.TokenFile = filepath.Join(userConfigDir, a.TokenFile)
 		}
 	}
+
+	a.TokenWithheld = os.Getenv(prefix+"WRAPPER_HAS_TOKEN") == "1" &&
+		a.Token == "" && a.TokenFile == "" && a.AccessToken == ""
 
 	// The session ID file is only read if <PREFIX>SESSION_ID is not set.
 	if envID, ok := os.LookupEnv(prefix + "SESSION_ID"); ok {
