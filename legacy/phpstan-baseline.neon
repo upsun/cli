@@ -733,12 +733,6 @@ parameters:
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
 		-
-			message: '#^Strict comparison using \=\=\= between null and null will always evaluate to true\.$#'
-			identifier: identical.alwaysTrue
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
 			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -815,12 +809,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: src/Command/BlueGreen/BlueGreenDeployCommand.php
-
-		-
-			message: '#^While loop condition is always true\.$#'
-			identifier: while.alwaysTrue
-			count: 1
-			path: src/Command/BotCommand.php
 
 		-
 			message: '#^Parameter \#2 \$data of method Platformsh\\Cli\\Service\\PropertyFormatter\:\:displayData\(\) expects array\<string, mixed\>, array given\.$#'
@@ -1225,12 +1213,6 @@ parameters:
 			path: src/Command/Environment/EnvironmentCheckoutCommand.php
 
 		-
-			message: '#^Strict comparison using \!\=\= between \(int\|string\) and false will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
-			count: 1
-			path: src/Command/Environment/EnvironmentCheckoutCommand.php
-
-		-
 			message: '#^Cannot access offset ''commits_ahead'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -1299,12 +1281,6 @@ parameters:
 		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 1
-			path: src/Command/Environment/EnvironmentPushCommand.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Command\\Environment\\EnvironmentPushCommand\:\:execute\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
 			count: 1
 			path: src/Command/Environment/EnvironmentPushCommand.php
 
@@ -1403,12 +1379,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: src/Command/Environment/EnvironmentUrlCommand.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Command\\Environment\\EnvironmentXdebugCommand\:\:execute\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Command/Environment/EnvironmentXdebugCommand.php
 
 		-
 			message: '#^Method Platformsh\\Cli\\Command\\Environment\\EnvironmentXdebugCommand\:\:isPhp\(\) should return bool but returns mixed\.$#'
@@ -3013,12 +2983,6 @@ parameters:
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
-			message: '#^Trying to invoke \(callable\(\)\: mixed\)\|null but it might not be a callable\.$#'
-			identifier: callable.nonCallable
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
 			message: '#^Parameter \#1 \$profiles of method Platformsh\\Cli\\Command\\Resources\\ResourcesCommandBase\:\:sortContainerProfiles\(\) expects array\<string, array\<string, array\<string, string\>\>\>, array given\.$#'
 			identifier: argument.type
 			count: 1
@@ -3787,12 +3751,6 @@ parameters:
 			path: src/Command/Variable/VariableCreateCommand.php
 
 		-
-			message: '#^Dead catch \- Platformsh\\ConsoleForm\\Exception\\ConditionalFieldException is never thrown in the try block\.$#'
-			identifier: catch.neverThrown
-			count: 1
-			path: src/Command/Variable/VariableCreateCommand.php
-
-		-
 			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getEnvironment\(\) expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -3887,12 +3845,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: src/Command/WelcomeCommand.php
-
-		-
-			message: '#^While loop condition is always true\.$#'
-			identifier: while.alwaysTrue
-			count: 1
-			path: src/Command/WinkyCommand.php
 
 		-
 			message: '#^Cannot access offset ''settings'' on mixed\.$#'
@@ -4549,12 +4501,6 @@ parameters:
 			path: src/Local/LocalBuild.php
 
 		-
-			message: '#^Strict comparison using \!\=\= between int and null will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
-			count: 1
-			path: src/Local/LocalBuild.php
-
-		-
 			message: '#^Cannot access offset non\-empty\-string on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 4
@@ -4689,12 +4635,6 @@ parameters:
 		-
 			message: '#^Parameter \#1 \$config of class Platformsh\\Cli\\Model\\AppConfig constructor expects array\<string, mixed\>, array given\.$#'
 			identifier: argument.type
-			count: 1
-			path: src/Model/AppConfig.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\Model\\AppConfig\:\:\$normalizedConfig in isset\(\) is not nullable nor uninitialized\.$#'
-			identifier: isset.initializedProperty
 			count: 1
 			path: src/Model/AppConfig.php
 
@@ -4963,12 +4903,6 @@ parameters:
 			path: src/Service/AccessApi.php
 
 		-
-			message: '#^Static property Platformsh\\Cli\\Service\\AccessApi\:\:\$userCache \(array\<string, Platformsh\\Client\\Model\\ProjectAccess\|Platformsh\\Client\\Model\\UserAccess\\ProjectUserAccess\|null\>\|null\) is never assigned null so it can be removed from the property type\.$#'
-			identifier: property.unusedType
-			count: 1
-			path: src/Service/AccessApi.php
-
-		-
 			message: '#^Cannot access offset ''exit_code'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -4981,20 +4915,8 @@ parameters:
 			path: src/Service/ActivityMonitor.php
 
 		-
-			message: '#^Ternary operator condition is always false\.$#'
-			identifier: ternary.alwaysFalse
-			count: 1
-			path: src/Service/ActivityMonitor.php
-
-		-
 			message: '#^Binary operation "\." between ''Project…'' and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
-			count: 1
-			path: src/Service/Api.php
-
-		-
-			message: '#^Call to function is_array\(\) with array\<string, mixed\> will always evaluate to true\.$#'
-			identifier: function.alreadyNarrowedType
 			count: 1
 			path: src/Service/Api.php
 
@@ -5197,12 +5119,6 @@ parameters:
 			path: src/Service/Api.php
 
 		-
-			message: '#^Parameter \#1 \$body of method Platformsh\\Cli\\Service\\Api\:\:isApiTokenInvalid\(\) expects array\<string, mixed\>, array\<mixed, mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Api.php
-
-		-
 			message: '#^Parameter \#1 \$data of class Platformsh\\Client\\Model\\Deployment\\EnvironmentDeployment constructor expects array, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -5252,12 +5168,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$id of method Platformsh\\Client\\PlatformClient\:\:getOrganizationById\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Api.php
-
-		-
-			message: '#^Parameter \#1 \$project of method Platformsh\\Cli\\Service\\Api\:\:supportsGuaranteedCPU\(\) expects Platformsh\\Client\\Model\\Project, Platformsh\\Client\\Model\\Project\|null given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Service/Api.php
@@ -5626,12 +5536,6 @@ parameters:
 			message: '#^Binary operation "\.\=" between string and mixed results in an error\.$#'
 			identifier: assignOp.invalid
 			count: 2
-			path: src/Service/CurlCli.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Service\\CurlCli\:\:run\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
 			path: src/Service/CurlCli.php
 
 		-
@@ -6061,12 +5965,6 @@ parameters:
 			path: src/Service/RemoteEnvVars.php
 
 		-
-			message: '#^Method Platformsh\\Cli\\Service\\RemoteEnvVars\:\:getEnvVar\(\) should return string but returns string\|false\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/RemoteEnvVars.php
-
-		-
 			message: '#^Cannot access offset ''disk'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -6087,12 +5985,6 @@ parameters:
 		-
 			message: '#^Cannot access offset mixed on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/ResourcesUtil.php
-
-		-
-			message: '#^Instanceof between Platformsh\\Client\\Model\\Deployment\\Task and Platformsh\\Client\\Model\\Deployment\\Task will always evaluate to true\.$#'
-			identifier: instanceof.alwaysTrue
 			count: 1
 			path: src/Service/ResourcesUtil.php
 
@@ -6159,12 +6051,6 @@ parameters:
 		-
 			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
 			identifier: foreach.nonIterable
-			count: 1
-			path: src/Service/Ssh.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Service\\Ssh\:\:getHost\(\) should return string\|false but returns string\|false\|null\.$#'
-			identifier: return.type
 			count: 1
 			path: src/Service/Ssh.php
 

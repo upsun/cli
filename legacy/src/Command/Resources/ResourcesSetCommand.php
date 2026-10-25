@@ -730,7 +730,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
      * @param InputInterface $input
      * @param string $optionName The input option name.
      * @param array<string, Service|WebApp|Worker|Task> $services
-     * @param callable|null $validator
+     * @param callable $validator
      *   Validate the value. The callback takes the arguments ($value,
      *   $serviceName, $service) and returns a normalized value or throws
      *   an InvalidArgumentException.
@@ -738,7 +738,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
      * @return array{array<string, mixed>, bool}
      *     An array of settings per service, and whether an error occurred.
      */
-    private function parseSetting(InputInterface $input, string $optionName, array $services, ?callable $validator): array
+    private function parseSetting(InputInterface $input, string $optionName, array $services, callable $validator): array
     {
         $items = ArrayArgument::getOption($input, $optionName);
         $serviceNames = array_keys($services);

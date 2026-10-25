@@ -126,7 +126,7 @@ readonly class CurlCli implements InputConfiguringInterface
             $output->write($stdoutBuffer);
         }
 
-        return $process->getExitCode();
+        return $process->getExitCode() ?? 1;
     }
 
     /**

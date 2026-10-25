@@ -165,11 +165,9 @@ class EnvironmentCheckoutCommand extends CommandBase
         // If there's only one choice, QuestionHelper::choose() does not
         // interact. But we still need interactive confirmation at this point.
         $environmentId = key($environmentList);
-        if ($environmentId !== false) {
-            $label = $this->api->getEnvironmentLabel($environments[$environmentId]);
-            if ($this->questionHelper->confirm(sprintf('Check out environment %s?', $label))) {
-                return (string) $environmentId;
-            }
+        $label = $this->api->getEnvironmentLabel($environments[$environmentId]);
+        if ($this->questionHelper->confirm(sprintf('Check out environment %s?', $label))) {
+            return (string) $environmentId;
         }
 
         return false;

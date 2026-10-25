@@ -78,7 +78,7 @@ class BotCommand extends CommandBase
             });
         }
 
-        while (true) {
+        while (true) { // @phpstan-ignore while.alwaysTrue
             $animation->render();
         }
     }

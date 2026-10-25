@@ -128,7 +128,7 @@ class VariableCreateCommand extends CommandBase
 
         try {
             $values = $this->form->resolveOptions($input, $output, $this->questionHelper);
-        } catch (ConditionalFieldException $e) {
+        } catch (ConditionalFieldException $e) { // @phpstan-ignore catch.neverThrown (resolveOptions() throws it without declaring it.)
             $previousValues = $e->getPreviousValues();
             $field = $e->getField();
             $conditions = $field->getConditions();

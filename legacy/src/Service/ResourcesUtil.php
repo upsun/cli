@@ -82,10 +82,7 @@ class ResourcesUtil
         $webapps = $deployment->webapps;
         $workers = $deployment->workers;
         $services = $deployment->services;
-        // Only include tasks the client mapped to Task objects (older clients pass raw arrays).
-        $tasks = !empty($deployment->getData()['tasks'])
-            ? array_filter($deployment->tasks, fn($task): bool => $task instanceof Task)
-            : [];
+        $tasks = !empty($deployment->getData()['tasks']) ? $deployment->tasks : [];
         ksort($webapps, SORT_STRING | SORT_FLAG_CASE);
         ksort($workers, SORT_STRING | SORT_FLAG_CASE);
         ksort($services, SORT_STRING | SORT_FLAG_CASE);

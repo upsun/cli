@@ -15,7 +15,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class AccessApi
 {
     /** @var array<string, ProjectUserAccess|ProjectAccess|null> */
-    private static ?array $userCache = [];
+    private static array $userCache = [];
 
     private OutputInterface $stdErr;
 
