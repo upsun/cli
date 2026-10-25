@@ -45,7 +45,7 @@ abstract class IntegrationCommandBase extends CommandBase
     /** @var array<string, string> */
     private array $bitbucketAccessTokens = [];
 
-    protected ?Selection $selection = null;
+    protected Selection $selection;
 
     #[Required]
     public function autowire(Api $api, LocalProject $localProject, PropertyFormatter $propertyFormatter, QuestionHelper $questionHelper, Selector $selector, Table $table): void

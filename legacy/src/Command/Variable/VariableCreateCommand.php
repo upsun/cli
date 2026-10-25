@@ -31,7 +31,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'variable:create', description: 'Create a variable')]
 class VariableCreateCommand extends CommandBase
 {
-    private ?Form $form = null;
+    private Form $form;
 
     private Selection $selection;
 

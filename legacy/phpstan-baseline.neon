@@ -853,24 +853,6 @@ parameters:
 			path: src/Command/Certificate/CertificateListCommand.php
 
 		-
-			message: '#^Cannot call method getStr\(\) on Platformsh\\Cli\\Service\\Config\|null\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: src/Command/CommandBase.php
-
-		-
-			message: '#^Cannot call method isCommandEnabled\(\) on Platformsh\\Cli\\Service\\Config\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/CommandBase.php
-
-		-
-			message: '#^Cannot call method isCommandHidden\(\) on Platformsh\\Cli\\Service\\Config\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/CommandBase.php
-
-		-
 			message: '#^Method Platformsh\\Cli\\Command\\CommandBase\:\:getPreferredName\(\) should return string but returns string\|null\.$#'
 			identifier: return.type
 			count: 1
@@ -1453,12 +1435,6 @@ parameters:
 			path: src/Command/Environment/EnvironmentXdebugCommand.php
 
 		-
-			message: '#^Cannot call method find\(\) on Symfony\\Component\\Console\\Application\|null\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: src/Command/HelpCommand.php
-
-		-
 			message: '#^Parameter \#2 \$data of method Platformsh\\Cli\\Service\\PropertyFormatter\:\:displayData\(\) expects array\<string, mixed\>, array given\.$#'
 			identifier: argument.type
 			count: 1
@@ -1516,18 +1492,6 @@ parameters:
 			message: '#^Binary operation "\." between ''Invalid header \(no…'' and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
 			count: 1
-			path: src/Command/Integration/IntegrationCommandBase.php
-
-		-
-			message: '#^Cannot call method getProject\(\) on Platformsh\\Cli\\Selector\\Selection\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Integration/IntegrationCommandBase.php
-
-		-
-			message: '#^Cannot call method hasProject\(\) on Platformsh\\Cli\\Selector\\Selection\|null\.$#'
-			identifier: method.nonObject
-			count: 2
 			path: src/Command/Integration/IntegrationCommandBase.php
 
 		-
@@ -2487,12 +2451,6 @@ parameters:
 		-
 			message: '#^Binary operation "\." between ''The destination…'' and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Project/ProjectGetCommand.php
-
-		-
-			message: '#^Cannot call method has\(\) on Symfony\\Component\\Console\\Application\|null\.$#'
-			identifier: method.nonObject
 			count: 1
 			path: src/Command/Project/ProjectGetCommand.php
 
@@ -3505,12 +3463,6 @@ parameters:
 			path: src/Command/Team/Project/TeamProjectListCommand.php
 
 		-
-			message: '#^Cannot call method has\(\) on Symfony\\Component\\Console\\Application\|null\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: src/Command/Team/TeamCommandBase.php
-
-		-
 			message: '#^Cannot access offset ''filter\[organization_id\]'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -3647,12 +3599,6 @@ parameters:
 			identifier: offsetAccess.invalidOffset
 			count: 1
 			path: src/Command/Team/TeamListCommand.php
-
-		-
-			message: '#^Cannot call method has\(\) on Symfony\\Component\\Console\\Application\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Team/User/TeamUserAddCommand.php
 
 		-
 			message: '#^Cannot cast mixed to string\.$#'
@@ -3871,12 +3817,6 @@ parameters:
 			path: src/Command/Variable/VariableCreateCommand.php
 
 		-
-			message: '#^Cannot call method getFields\(\) on Platformsh\\ConsoleForm\\Form\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Variable/VariableCreateCommand.php
-
-		-
 			message: '#^Cannot call method getLink\(\) on Platformsh\\Client\\Model\\Environment\|null\.$#'
 			identifier: method.nonObject
 			count: 1
@@ -3884,12 +3824,6 @@ parameters:
 
 		-
 			message: '#^Cannot call method getVariable\(\) on Platformsh\\Client\\Model\\Environment\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Variable/VariableCreateCommand.php
-
-		-
-			message: '#^Cannot call method resolveOptions\(\) on Platformsh\\ConsoleForm\\Form\|null\.$#'
 			identifier: method.nonObject
 			count: 1
 			path: src/Command/Variable/VariableCreateCommand.php
@@ -3933,12 +3867,6 @@ parameters:
 		-
 			message: '#^Binary operation "\." between ''The value is not…'' and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Variable/VariableUpdateCommand.php
-
-		-
-			message: '#^Cannot call method getFields\(\) on Platformsh\\ConsoleForm\\Form\|null\.$#'
-			identifier: method.nonObject
 			count: 1
 			path: src/Command/Variable/VariableUpdateCommand.php
 
@@ -4495,60 +4423,6 @@ parameters:
 			path: src/Local/ApplicationFinder.php
 
 		-
-			message: '#^Cannot call method getName\(\) on Platformsh\\Cli\\Local\\LocalApplication\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
-			message: '#^Cannot call method getSharedFileMounts\(\) on Platformsh\\Cli\\Local\\LocalApplication\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
-			message: '#^Cannot call method getSourceDir\(\) on Platformsh\\Cli\\Local\\LocalApplication\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
-			message: '#^Cannot call method getStr\(\) on Platformsh\\Cli\\Service\\Config\|null\.$#'
-			identifier: method.nonObject
-			count: 3
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
-			message: '#^Cannot call method isSingle\(\) on Platformsh\\Cli\\Local\\LocalApplication\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
-			message: '#^Cannot call method shouldMoveToRoot\(\) on Platformsh\\Cli\\Local\\LocalApplication\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
-			message: '#^Parameter \#1 \$source of method Platformsh\\Cli\\Service\\Filesystem\:\:copyAll\(\) expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
-			message: '#^Parameter \#1 \$string of function substr expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
-			message: '#^Parameter \#1 \$target of method Platformsh\\Cli\\Service\\Filesystem\:\:symlink\(\) expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
 			message: '#^Binary operation "\." between ''\-\-concurrency\='' and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
 			count: 1
@@ -4585,12 +4459,6 @@ parameters:
 			path: src/Local/BuildFlavor/Drupal.php
 
 		-
-			message: '#^Cannot call method getSharedFileMounts\(\) on Platformsh\\Cli\\Local\\LocalApplication\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Local/BuildFlavor/Drupal.php
-
-		-
 			message: '#^Method Platformsh\\Cli\\Local\\BuildFlavor\\Drupal\:\:getDrushHelper\(\) should return Platformsh\\Cli\\Service\\Drush but returns mixed\.$#'
 			identifier: return.type
 			count: 1
@@ -4600,12 +4468,6 @@ parameters:
 			message: '#^Parameter \#1 \$levels of method Symfony\\Component\\Finder\\Finder\:\:depth\(\) expects array\<int\|string\>\|int\|string, mixed given\.$#'
 			identifier: argument.type
 			count: 3
-			path: src/Local/BuildFlavor/Drupal.php
-
-		-
-			message: '#^Parameter \#1 \$source of method Platformsh\\Cli\\Service\\Filesystem\:\:symlinkAll\(\) expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 2
 			path: src/Local/BuildFlavor/Drupal.php
 
 		-
@@ -5127,24 +4989,6 @@ parameters:
 		-
 			message: '#^Cannot access offset string on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/AccessApi.php
-
-		-
-			message: '#^Cannot call method fetchNextPage\(\) on Platformsh\\Client\\Model\\Collection\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Service/AccessApi.php
-
-		-
-			message: '#^Cannot call method getData\(\) on Platformsh\\Client\\Model\\Collection\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Service/AccessApi.php
-
-		-
-			message: '#^Cannot call method hasNextPage\(\) on Platformsh\\Client\\Model\\Collection\|null\.$#'
-			identifier: method.nonObject
 			count: 1
 			path: src/Service/AccessApi.php
 
@@ -6715,52 +6559,10 @@ parameters:
 			path: tests/Command/User/UserAddCommandTest.php
 
 		-
-			message: '#^Property Platformsh\\Cli\\Tests\\Local\\BuildFlavor\\BuildFlavorTestBase\:\:\$builder \(Platformsh\\Cli\\Local\\LocalBuild\) does not accept mixed\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: tests/Local/BuildFlavor/BuildFlavorTestBase.php
-
-		-
-			message: '#^Cannot call method getTreeId\(\) on Platformsh\\Cli\\Local\\LocalBuild\|null\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: tests/Local/LocalBuildTest.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\Tests\\Local\\LocalBuildTest\:\:\$localBuild \(Platformsh\\Cli\\Local\\LocalBuild\|null\) does not accept object\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: tests/Local/LocalBuildTest.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\Tests\\Local\\LocalBuildTest\:\:\$localBuild \(Platformsh\\Cli\\Local\\LocalBuild\|null\) is never assigned null so it can be removed from the property type\.$#'
-			identifier: property.unusedType
-			count: 1
-			path: tests/Local/LocalBuildTest.php
-
-		-
 			message: '#^Parameter \#2 \$array of method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, mixed given\.$#'
 			identifier: argument.type
 			count: 6
 			path: tests/Service/DrushServiceTest.php
-
-		-
-			message: '#^Parameter \#1 \$objectOrMethod of class ReflectionMethod constructor expects object\|string, Platformsh\\Cli\\Service\\Ssh\|null given\.$#'
-			identifier: argument.type
-			count: 2
-			path: tests/Service/SshTest.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\Tests\\Service\\SshTest\:\:\$ssh \(Platformsh\\Cli\\Service\\Ssh\|null\) does not accept object\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: tests/Service/SshTest.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\Tests\\Service\\SshTest\:\:\$ssh \(Platformsh\\Cli\\Service\\Ssh\|null\) is never assigned null so it can be removed from the property type\.$#'
-			identifier: property.unusedType
-			count: 1
-			path: tests/Service/SshTest.php
 
 		-
 			message: '#^Method Platformsh\\Cli\\Tests\\Service\\TunnelManagerTest\:\:callUnserialize\(\) should return array\<Platformsh\\Cli\\Tunnel\\Tunnel\> but returns mixed\.$#'
@@ -6815,9 +6617,3 @@ parameters:
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
 			path: tests/Util/NestedArrayUtilTest.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\Tests\\Util\\TimezoneUtilTest\:\:\$originalIni \(bool\|string\) is never assigned bool so it can be removed from the property type\.$#'
-			identifier: property.unusedType
-			count: 1
-			path: tests/Util/TimezoneUtilTest.php

@@ -144,7 +144,7 @@ class AccessApi
             'query' => ['page[size]' => 200],
         ])['collection'];
         $userRef = null;
-        while (true) {
+        while ($collection !== null) {
             $data = $collection->getData();
             if (!empty($data['ref:users'])) {
                 foreach ($data['ref:users'] as $candidate) {
@@ -164,10 +164,7 @@ class AccessApi
                     }
                 }
             }
-            if (!$collection->hasNextPage()) {
-                break;
-            }
-            $collection = $collection->fetchNextPage();
+            $collection = $collection->hasNextPage() ? $collection->fetchNextPage() : null;
         }
         $progress->done();
         return null;

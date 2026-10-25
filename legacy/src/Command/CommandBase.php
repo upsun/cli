@@ -8,6 +8,7 @@ use Platformsh\Cli\Console\CompleterInterface;
 use Platformsh\Cli\Console\HiddenAliases;
 use Platformsh\Cli\Console\HiddenInputOption;
 use Platformsh\Cli\Service\Config;
+use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Completion\CompletionInput;
 use Symfony\Component\Console\Completion\CompletionSuggestions;
@@ -49,7 +50,7 @@ abstract class CommandBase extends Command implements MultiAwareInterface
      */
     private array $synopsis = [];
 
-    private ?Config $config = null;
+    private Config $config;
 
     /** @var CompleterInterface[] */
     private array $completers = [];
@@ -79,7 +80,7 @@ abstract class CommandBase extends Command implements MultiAwareInterface
     {
         return $this->hiddenInList
             || !in_array($this->stability, [self::STABILITY_STABLE, self::STABILITY_BETA])
-            || $this->config->isCommandHidden($this->getName());
+            || $this->config->isCommandHidden((string) $this->getName());
     }
 
     protected function initialize(InputInterface $input, OutputInterface $output): void
@@ -203,7 +204,15 @@ abstract class CommandBase extends Command implements MultiAwareInterface
 
     public function isEnabled(): bool
     {
-        return $this->config->isCommandEnabled($this->getName());
+        return $this->config->isCommandEnabled((string) $this->getName());
+    }
+
+    /**
+     * Returns the application, which is set on every command that runs.
+     */
+    protected function requireApplication(): Application
+    {
+        return $this->getApplication() ?? throw new \LogicException('The command has no application');
     }
 
     /**
