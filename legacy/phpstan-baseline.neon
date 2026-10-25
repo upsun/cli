@@ -277,66 +277,6 @@ parameters:
 			path: src/Application.php
 
 		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\ApiResourceBase\:\:\$created_at\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\ApiResourceBase\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 5
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\ApiResourceBase\:\:\$state\.$#'
-			identifier: property.notFound
-			count: 2
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Call to an undefined method Platformsh\\Client\\Model\\ApiResourceBase\:\:cancel\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Parameter \#1 \$activity of static method Platformsh\\Cli\\Service\\ActivityMonitor\:\:getFormattedDescription\(\) expects Platformsh\\Client\\Model\\Activity, Platformsh\\Client\\Model\\ApiResourceBase given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Parameter \#1 \$items of method Platformsh\\Cli\\Service\\QuestionHelper\:\:choose\(\) expects array\<string, string\>, array\<string\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Parameter \#1 \$state of static method Platformsh\\Cli\\Service\\ActivityMonitor\:\:formatState\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Possibly invalid array key type mixed\.$#'
-			identifier: offsetAccess.invalidOffset
-			count: 2
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
 			message: '#^Parameter \#1 \$values of method Symfony\\Component\\Console\\Completion\\CompletionSuggestions\:\:suggestValues\(\) expects list\<string\|Symfony\\Component\\Console\\Completion\\Suggestion\>, array\<string\> given\.$#'
 			identifier: argument.type
 			count: 1
@@ -1363,12 +1303,6 @@ parameters:
 			path: src/Command/Environment/EnvironmentInfoCommand.php
 
 		-
-			message: '#^Parameter \#1 \$environments of method Platformsh\\Cli\\Command\\Environment\\EnvironmentListCommand\:\:buildEnvironmentTree\(\) expects array\<Platformsh\\Client\\Model\\Environment\>, array\<Platformsh\\Client\\Model\\ApiResourceBase\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentListCommand.php
-
-		-
 			message: '#^Parameter \#2 \$haystack of function in_array expects array, mixed given\.$#'
 			identifier: argument.type
 			count: 2
@@ -2359,32 +2293,8 @@ parameters:
 			path: src/Command/Organization/OrganizationInfoCommand.php
 
 		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\ApiResourceBase\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Command/Organization/OrganizationListCommand.php
-
-		-
 			message: '#^Binary operation "\.\=" between mixed and ''\<info\>\*\</info\>'' results in an error\.$#'
 			identifier: assignOp.invalid
-			count: 1
-			path: src/Command/Organization/OrganizationListCommand.php
-
-		-
-			message: '#^Call to an undefined method Platformsh\\Client\\Model\\ApiResourceBase\:\:getOwnerInfo\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Organization/OrganizationListCommand.php
-
-		-
-			message: '#^Cannot access property \$email on mixed\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: src/Command/Organization/OrganizationListCommand.php
-
-		-
-			message: '#^Cannot access property \$username on mixed\.$#'
-			identifier: property.nonObject
 			count: 1
 			path: src/Command/Organization/OrganizationListCommand.php
 
@@ -5137,24 +5047,6 @@ parameters:
 			path: src/Rector/UseSelectorServiceRector.php
 
 		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\ApiResourceBase\:\:\$capabilities\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\ApiResourceBase\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 3
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\ApiResourceBase\:\:\$owner_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
 			message: '#^Binary operation "\." between ''Project "'' and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
 			count: 1
@@ -5174,12 +5066,6 @@ parameters:
 
 		-
 			message: '#^Method Platformsh\\Cli\\Selector\\Selector\:\:offerProjectChoice\(\) should return string but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Selector\\Selector\:\:selectOrganization\(\) should return Platformsh\\Client\\Model\\Organization\\Organization but returns Platformsh\\Client\\Model\\ApiResourceBase\.$#'
 			identifier: return.type
 			count: 1
 			path: src/Selector/Selector.php
@@ -5209,18 +5095,6 @@ parameters:
 			path: src/Selector/Selector.php
 
 		-
-			message: '#^Parameter \#1 \$items of method Platformsh\\Cli\\Service\\QuestionHelper\:\:choose\(\) expects array\<string, string\>, array\<string\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Parameter \#1 \$organization of method Platformsh\\Cli\\Service\\Api\:\:getOrganizationLabel\(\) expects Platformsh\\Client\\Model\\Organization\\Organization, Platformsh\\Client\\Model\\ApiResourceBase given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
 			message: '#^Parameter \#1 \$values of method Symfony\\Component\\Console\\Completion\\CompletionSuggestions\:\:suggestValues\(\) expects list\<string\|Symfony\\Component\\Console\\Completion\\Suggestion\>, array\<Symfony\\Component\\Console\\Completion\\Suggestion\> given\.$#'
 			identifier: argument.type
 			count: 2
@@ -5228,12 +5102,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$values of method Symfony\\Component\\Console\\Completion\\CompletionSuggestions\:\:suggestValues\(\) expects list\<string\|Symfony\\Component\\Console\\Completion\\Suggestion\>, array\<string\|Symfony\\Component\\Console\\Completion\\Suggestion\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Parameter \#2 \$haystack of function in_array expects array, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Selector/Selector.php
@@ -5247,7 +5115,7 @@ parameters:
 		-
 			message: '#^Possibly invalid array key type mixed\.$#'
 			identifier: offsetAccess.invalidOffset
-			count: 4
+			count: 1
 			path: src/Selector/Selector.php
 
 		-

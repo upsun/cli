@@ -1412,9 +1412,14 @@ class Api
      *
      * Keys will be preserved.
      *
-     * @param ApiResource[] &$resources
-     * @param string        $propertyPath
-     * @param bool          $reverse
+     * @template K of array-key
+     * @template T of ApiResource
+     *
+     * @param array<K, T> &$resources
+     * @param string      $propertyPath
+     * @param bool        $reverse
+     *
+     * @param-out array<K, T> $resources
      *
      * @return void
      */
