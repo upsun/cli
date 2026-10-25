@@ -1153,18 +1153,6 @@ parameters:
 			path: src/Command/Domain/DomainCommandBase.php
 
 		-
-			message: '#^Cannot call method getLink\(\) on Platformsh\\Client\\Model\\Environment\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Domain/DomainGetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$environment of static method Platformsh\\Cli\\Model\\EnvironmentDomain\:\:getList\(\) expects Platformsh\\Client\\Model\\Environment, Platformsh\\Client\\Model\\Environment\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Domain/DomainGetCommand.php
-
-		-
 			message: '#^Cannot access offset ''has_certificate'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -1181,12 +1169,6 @@ parameters:
 			identifier: return.type
 			count: 1
 			path: src/Command/Domain/DomainListCommand.php
-
-		-
-			message: '#^Cannot call method getLink\(\) on Platformsh\\Client\\Model\\Environment\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Domain/DomainUpdateCommand.php
 
 		-
 			message: '#^Parameter \#1 \$id of static method Platformsh\\Client\\Model\\ApiResourceBase\:\:get\(\) expects string, string\|null given\.$#'
@@ -3775,18 +3757,6 @@ parameters:
 			path: src/Command/User/UserAddCommand.php
 
 		-
-			message: '#^Cannot access property \$type on Platformsh\\Client\\Model\\Environment\|null\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: src/Command/User/UserGetCommand.php
-
-		-
-			message: '#^Cannot call method getUser\(\) on Platformsh\\Client\\Model\\Environment\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/User/UserGetCommand.php
-
-		-
 			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getOrganizationById\(\) expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -3811,24 +3781,6 @@ parameters:
 			path: src/Command/Variable/VariableCreateCommand.php
 
 		-
-			message: '#^Cannot access property \$id on Platformsh\\Client\\Model\\Environment\|null\.$#'
-			identifier: property.nonObject
-			count: 2
-			path: src/Command/Variable/VariableCreateCommand.php
-
-		-
-			message: '#^Cannot call method getLink\(\) on Platformsh\\Client\\Model\\Environment\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Variable/VariableCreateCommand.php
-
-		-
-			message: '#^Cannot call method getVariable\(\) on Platformsh\\Client\\Model\\Environment\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Variable/VariableCreateCommand.php
-
-		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
 			count: 5
@@ -3842,6 +3794,12 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getEnvironment\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Command/Variable/VariableCreateCommand.php
+
+		-
+			message: '#^Parameter \#1 \$id of method Platformsh\\Client\\Model\\Environment\:\:getVariable\(\) expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Variable/VariableCreateCommand.php

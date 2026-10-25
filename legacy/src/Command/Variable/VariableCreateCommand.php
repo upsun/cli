@@ -187,6 +187,9 @@ class VariableCreateCommand extends CommandBase
 
         switch ($level) {
             case 'environment':
+                if ($environment === null) {
+                    throw new \LogicException('No environment selected');
+                }
                 // Unset visible_build and visible_runtime if they are already the API's defaults.
                 // This is to provide backwards compatibility with older API versions.
                 // @todo remove when API version 12 is everywhere
