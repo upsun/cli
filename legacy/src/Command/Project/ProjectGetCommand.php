@@ -149,12 +149,12 @@ class ProjectGetCommand extends CommandBase
             }
 
             $this->io->debug('Initializing the repository');
-            $this->git->init($projectRoot, $project->default_branch, true);
+            $this->git->init($projectRoot, $project->default_branch ?? '', true);
 
             $this->io->debug('Initializing the project');
             $this->localProject->mapDirectory($projectRoot, $project);
 
-            if ($this->git->getCurrentBranch($projectRoot) != $project->default_branch) {
+            if ($project->default_branch !== null && $this->git->getCurrentBranch($projectRoot) != $project->default_branch) {
                 $this->io->debug('current branch does not match the default_branch, create it.');
                 $this->git->checkOutNew($project->default_branch, null, null, $projectRoot);
             }

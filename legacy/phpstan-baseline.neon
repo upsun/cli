@@ -2533,6 +2533,12 @@ parameters:
 			path: src/Command/Project/ProjectGetCommand.php
 
 		-
+			message: '#^Strict comparison using \!\=\= between string and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Command/Project/ProjectGetCommand.php
+
+		-
 			message: '#^Parameter \#1 \$properties of method Platformsh\\Cli\\Command\\Project\\ProjectInfoCommand\:\:listProperties\(\) expects array\<string, mixed\>, array\<mixed, mixed\> given\.$#'
 			identifier: argument.type
 			count: 1

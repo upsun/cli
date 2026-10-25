@@ -1,12 +1,16 @@
 package tests
 
 import (
+	"encoding/json"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/upsun/cli/pkg/mockapi"
 )
 
 func TestProjectGet(t *testing.T) {
@@ -55,4 +59,32 @@ func TestProjectGetEmpty(t *testing.T) {
 	dir := filepath.Join(p.f.dir, "empty")
 	assert.Equal(t, layoutGitURL+"\n", gitConfig(t, dir, "remote.platform-test.url"))
 	assert.FileExists(t, filepath.Join(dir, ".platform", "local", "project.yaml"))
+}
+
+// TestProjectGetEmptyWithoutDefaultBranch checks that getting a project with an empty repository, and without a default
+// branch, initializes a local repository.
+func TestProjectGetEmptyWithoutDefaultBranch(t *testing.T) {
+	t.Parallel()
+	p := setUpGitProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil))
+	project, err := json.Marshal(&mockapi.Project{
+		ID:         layoutProjectID,
+		Title:      "Test Project",
+		Repository: mockapi.ProjectRepository{URL: layoutGitURL},
+		Links: mockapi.MakeHALLinks(
+			"self=/projects/"+layoutProjectID,
+			"environments=/projects/"+layoutProjectID+"/environments",
+		),
+	})
+	require.NoError(t, err)
+	var data map[string]any
+	require.NoError(t, json.Unmarshal(project, &data))
+	data["default_branch"] = nil
+	p.api.Get("/projects/"+layoutProjectID, func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(data)
+	})
+
+	_, stdErr, err := p.f.RunCombinedOutput("project:get", layoutProjectID, "empty", "-e", "main")
+	require.NoError(t, err, stdErr)
+	assert.Contains(t, stdErr, "Your project has been initialized and connected to Platform.sh Testing!")
+	assert.FileExists(t, filepath.Join(p.f.dir, "empty", ".platform", "local", "project.yaml"))
 }
