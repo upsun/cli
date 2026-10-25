@@ -751,12 +751,6 @@ parameters:
 			path: src/Command/Backup/BackupGetCommand.php
 
 		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\Backup\:\:\$safe\.$#'
-			identifier: property.notFound
-			count: 2
-			path: src/Command/Backup/BackupListCommand.php
-
-		-
 			message: '#^Cannot access offset ''id'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 3
@@ -1045,7 +1039,7 @@ parameters:
 			path: src/Command/Db/DbSizeCommand.php
 
 		-
-			message: '#^Parameter \#2 \$array of function implode expects array\<string\>, array given\.$#'
+			message: '#^Parameter \#2 \$array of function implode expects array\<string\>, array\<mixed, mixed\> given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Db/DbSizeCommand.php
@@ -1173,12 +1167,6 @@ parameters:
 		-
 			message: '#^Parameter \#3 \$default of method Platformsh\\Cli\\Service\\QuestionHelper\:\:choose\(\) expects string\|null, mixed given\.$#'
 			identifier: argument.type
-			count: 1
-			path: src/Command/Domain/DomainCommandBase.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between string and null will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
 			count: 1
 			path: src/Command/Domain/DomainCommandBase.php
 
@@ -2533,12 +2521,6 @@ parameters:
 			path: src/Command/Project/ProjectGetCommand.php
 
 		-
-			message: '#^Strict comparison using \!\=\= between string and null will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
-			count: 1
-			path: src/Command/Project/ProjectGetCommand.php
-
-		-
 			message: '#^Parameter \#1 \$properties of method Platformsh\\Cli\\Command\\Project\\ProjectInfoCommand\:\:listProperties\(\) expects array\<string, mixed\>, array\<mixed, mixed\> given\.$#'
 			identifier: argument.type
 			count: 1
@@ -3097,12 +3079,6 @@ parameters:
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\Deployment\\Service\|Platformsh\\Client\\Model\\Deployment\\Task\|Platformsh\\Client\\Model\\Deployment\\WebApp\|Platformsh\\Client\\Model\\Deployment\\Worker\:\:\$container_profile\.$#'
-			identifier: property.notFound
-			count: 3
-			path: src/Command/Resources/ResourcesSizeListCommand.php
-
-		-
 			message: '#^Parameter \#1 \$profiles of method Platformsh\\Cli\\Command\\Resources\\ResourcesCommandBase\:\:sortContainerProfiles\(\) expects array\<string, array\<string, array\<string, string\>\>\>, array given\.$#'
 			identifier: argument.type
 			count: 1
@@ -3399,12 +3375,6 @@ parameters:
 		-
 			message: '#^Cannot access offset ''sizing_api_enabled'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Service/ServiceListCommand.php
-
-		-
-			message: '#^Strict comparison using \!\=\= between string and null will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
 			count: 1
 			path: src/Command/Service/ServiceListCommand.php
 
@@ -6019,12 +5989,6 @@ parameters:
 			path: src/Service/GitDataApi.php
 
 		-
-			message: '#^Strict comparison using \=\=\= between string and null will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: src/Service/GitDataApi.php
-
-		-
 			message: '#^Method Platformsh\\Cli\\Service\\Identifier\:\:getClusterHeader\(\) should return string\|false but returns mixed\.$#'
 			identifier: return.type
 			count: 1
@@ -6555,12 +6519,6 @@ parameters:
 		-
 			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
 			identifier: foreach.nonIterable
-			count: 1
-			path: src/Service/VariableCommandUtil.php
-
-		-
-			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
-			identifier: function.alreadyNarrowedType
 			count: 1
 			path: src/Service/VariableCommandUtil.php
 
