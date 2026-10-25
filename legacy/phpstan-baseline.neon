@@ -391,24 +391,6 @@ parameters:
 			path: src/Command/App/AppListCommand.php
 
 		-
-			message: '#^Call to an undefined method Platformsh\\Client\\Connection\\ConnectorInterface\:\:getOAuth2Provider\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Auth/ApiTokenLoginCommand.php
-
-		-
-			message: '#^Call to an undefined method Platformsh\\Client\\Connection\\ConnectorInterface\:\:saveToken\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Auth/ApiTokenLoginCommand.php
-
-		-
-			message: '#^Cannot call method getAccessToken\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Auth/ApiTokenLoginCommand.php
-
-		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
 			count: 2
@@ -416,12 +398,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$validator of method Symfony\\Component\\Console\\Question\\Question\:\:setValidator\(\) expects \(callable\(mixed\)\: mixed\)\|null, Closure\(string\|null\)\: non\-empty\-string given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Auth/ApiTokenLoginCommand.php
-
-		-
-			message: '#^Parameter \#2 \$accessToken of method Platformsh\\Cli\\Command\\Auth\\ApiTokenLoginCommand\:\:saveTokens\(\) expects League\\OAuth2\\Client\\Token\\AccessToken, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Auth/ApiTokenLoginCommand.php
@@ -523,21 +499,9 @@ parameters:
 			path: src/Command/Auth/VerifyPhoneNumberCommand.php
 
 		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:post\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: src/Command/Auth/VerifyPhoneNumberCommand.php
-
-		-
-			message: '#^Cannot call method getBody\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: src/Command/Auth/VerifyPhoneNumberCommand.php
-
-		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 3
+			count: 1
 			path: src/Command/Auth/VerifyPhoneNumberCommand.php
 
 		-
@@ -859,18 +823,6 @@ parameters:
 			path: src/Command/Backup/BackupListCommand.php
 
 		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:delete\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenConcludeCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:get\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenConcludeCommand.php
-
-		-
 			message: '#^Cannot access offset ''id'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 3
@@ -883,15 +835,9 @@ parameters:
 			path: src/Command/BlueGreen/BlueGreenConcludeCommand.php
 
 		-
-			message: '#^Cannot call method getBody\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenConcludeCommand.php
-
-		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 2
+			count: 1
 			path: src/Command/BlueGreen/BlueGreenConcludeCommand.php
 
 		-
@@ -899,18 +845,6 @@ parameters:
 			identifier: argument.type
 			count: 2
 			path: src/Command/BlueGreen/BlueGreenConcludeCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:get\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenDeployCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:patch\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenDeployCommand.php
 
 		-
 			message: '#^Cannot access offset ''id'' on mixed\.$#'
@@ -937,15 +871,9 @@ parameters:
 			path: src/Command/BlueGreen/BlueGreenDeployCommand.php
 
 		-
-			message: '#^Cannot call method getBody\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenDeployCommand.php
-
-		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 2
+			count: 1
 			path: src/Command/BlueGreen/BlueGreenDeployCommand.php
 
 		-
@@ -959,30 +887,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: src/Command/BlueGreen/BlueGreenDeployCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:get\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenEnableCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:post\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenEnableCommand.php
-
-		-
-			message: '#^Cannot call method getBody\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenEnableCommand.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenEnableCommand.php
 
 		-
 			message: '#^While loop condition is always true\.$#'
@@ -1699,18 +1603,6 @@ parameters:
 			path: src/Command/Integration/IntegrationCommandBase.php
 
 		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:post\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Integration/IntegrationCommandBase.php
-
-		-
-			message: '#^Cannot call method getBody\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Integration/IntegrationCommandBase.php
-
-		-
 			message: '#^Cannot call method getProject\(\) on Platformsh\\Cli\\Selector\\Selection\|null\.$#'
 			identifier: method.nonObject
 			count: 1
@@ -1731,7 +1623,7 @@ parameters:
 		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 7
+			count: 6
 			path: src/Command/Integration/IntegrationCommandBase.php
 
 		-
@@ -2635,12 +2527,6 @@ parameters:
 			path: src/Command/Project/ProjectCreateCommand.php
 
 		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:get\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Project/ProjectCreateCommand.php
-
-		-
 			message: '#^Cannot access offset ''carbon_intensity'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -2665,12 +2551,6 @@ parameters:
 			path: src/Command/Project/ProjectCreateCommand.php
 
 		-
-			message: '#^Cannot call method getStatusCode\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Project/ProjectCreateCommand.php
-
-		-
 			message: '#^Cannot cast mixed to int\.$#'
 			identifier: cast.int
 			count: 4
@@ -2679,12 +2559,6 @@ parameters:
 		-
 			message: '#^Method Platformsh\\Cli\\Command\\Project\\ProjectCreateCommand\:\:regionInfo\(\) should return string but returns mixed\.$#'
 			identifier: return.type
-			count: 1
-			path: src/Command/Project/ProjectCreateCommand.php
-
-		-
-			message: '#^Parameter \#1 \$haystack of function str_starts_with expects string, mixed given\.$#'
-			identifier: argument.type
 			count: 1
 			path: src/Command/Project/ProjectCreateCommand.php
 
@@ -2701,21 +2575,15 @@ parameters:
 			path: src/Command/Project/ProjectCreateCommand.php
 
 		-
-			message: '#^Parameter \#1 \$url of function parse_url expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Project/ProjectCreateCommand.php
-
-		-
 			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
-			count: 5
+			count: 4
 			path: src/Command/Project/ProjectCreateCommand.php
 
 		-
 			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
-			count: 2
+			count: 1
 			path: src/Command/Project/ProjectCreateCommand.php
 
 		-
@@ -3715,12 +3583,6 @@ parameters:
 			path: src/Command/Task/TaskRunCommand.php
 
 		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:post\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Team/Project/TeamProjectAddCommand.php
-
-		-
 			message: '#^Cannot access offset ''filter\[status\]\[in\]'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -3755,12 +3617,6 @@ parameters:
 			identifier: offsetAccess.invalidOffset
 			count: 1
 			path: src/Command/Team/Project/TeamProjectAddCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:delete\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Team/Project/TeamProjectDeleteCommand.php
 
 		-
 			message: '#^Cannot access offset ''sort'' on mixed\.$#'
@@ -3871,12 +3727,6 @@ parameters:
 			path: src/Command/Team/TeamListCommand.php
 
 		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:get\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Team/TeamListCommand.php
-
-		-
 			message: '#^Cannot access offset ''granted_at'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -3901,18 +3751,6 @@ parameters:
 			path: src/Command/Team/TeamListCommand.php
 
 		-
-			message: '#^Cannot call method getBody\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Team/TeamListCommand.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 1
-			path: src/Command/Team/TeamListCommand.php
-
-		-
 			message: '#^Method Platformsh\\Cli\\Command\\Team\\TeamListCommand\:\:loadTeamsOnProject\(\) should return array\<string, string\> but returns array\.$#'
 			identifier: return.type
 			count: 1
@@ -3929,12 +3767,6 @@ parameters:
 			identifier: offsetAccess.invalidOffset
 			count: 1
 			path: src/Command/Team/TeamListCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:post\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Team/User/TeamUserAddCommand.php
 
 		-
 			message: '#^Cannot call method has\(\) on Symfony\\Component\\Console\\Application\|null\.$#'
@@ -4237,12 +4069,6 @@ parameters:
 			path: src/Command/Variable/VariableUpdateCommand.php
 
 		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:get\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Version/VersionListCommand.php
-
-		-
 			message: '#^Cannot access offset ''commit'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -4269,18 +4095,6 @@ parameters:
 		-
 			message: '#^Cannot access offset ''routing'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Version/VersionListCommand.php
-
-		-
-			message: '#^Cannot call method getBody\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Version/VersionListCommand.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
 			count: 1
 			path: src/Command/Version/VersionListCommand.php
 
@@ -6341,24 +6155,6 @@ parameters:
 			identifier: identical.alwaysFalse
 			count: 1
 			path: src/Service/GitDataApi.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:head\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Service/Identifier.php
-
-		-
-			message: '#^Cannot call method getHeader\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Service/Identifier.php
-
-		-
-			message: '#^Cannot call method getStatusCode\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: src/Service/Identifier.php
 
 		-
 			message: '#^Method Platformsh\\Cli\\Service\\Identifier\:\:getClusterHeader\(\) should return string\|false but returns mixed\.$#'

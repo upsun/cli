@@ -106,7 +106,7 @@ class TeamUserAddCommand extends TeamCommandBase
         $payload = ['user_id' => $orgMember->user_id];
 
         try {
-            $this->api->getHttpClient()->post($team->getUri() . '/members', ['json' => $payload]);
+            $this->api->getHttpClient()->request('POST', $team->getUri() . '/members', ['json' => $payload]);
         } catch (BadResponseException $e) {
             throw ApiResponseException::create($e->getRequest(), $e->getResponse(), $e);
         }

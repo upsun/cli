@@ -46,7 +46,7 @@ class BlueGreenEnableCommand extends CommandBase
         $environment = $selection->getEnvironment();
 
         $httpClient = $this->api->getHttpClient();
-        $response = $httpClient->get($environment->getLink('#versions'));
+        $response = $httpClient->request('GET', $environment->getLink('#versions'));
         $data = (array) Utils::jsonDecode((string) $response->getBody(), true);
         if (count($data) > 1) {
             $this->stdErr->writeln(sprintf('Blue/green deployments are already enabled for the environment %s.', $this->api->getEnvironmentLabel($environment)));
@@ -58,7 +58,7 @@ class BlueGreenEnableCommand extends CommandBase
         }
 
         $this->stdErr->writeln('');
-        $httpClient->post($environment->getLink('#versions'), ['json' => new \stdClass()]);
+        $httpClient->request('POST', $environment->getLink('#versions'), ['json' => new \stdClass()]);
         $this->stdErr->writeln(sprintf('Blue/green deployments are now enabled for the environment %s.', $this->api->getEnvironmentLabel($environment)));
 
         return 0;

@@ -74,7 +74,7 @@ class VerifyPhoneNumberCommand extends CommandBase
 
         $httpClient = $this->api->getHttpClient();
 
-        $response = $httpClient->post('/users/' . rawurlencode($myUser->id) . '/phonenumber', [
+        $response = $httpClient->request('POST', '/users/' . rawurlencode($myUser->id) . '/phonenumber', [
             'json' => [
                 'channel' => $channel,
                 'phone_number' => $number,
@@ -99,7 +99,7 @@ class VerifyPhoneNumberCommand extends CommandBase
                 throw new InvalidArgumentException('Invalid verification code');
             }
             try {
-                $httpClient->post('/users/' . rawurlencode($myUser->id) . '/phonenumber/' . rawurlencode($sid), [
+                $httpClient->request('POST', '/users/' . rawurlencode($myUser->id) . '/phonenumber/' . rawurlencode($sid), [
                     'json' => ['code' => $code],
                 ]);
             } catch (BadResponseException $e) {
@@ -112,7 +112,7 @@ class VerifyPhoneNumberCommand extends CommandBase
         });
 
         $this->io->debug('Refreshing phone verification status');
-        $response = $httpClient->post('/me/verification?force_refresh=1');
+        $response = $httpClient->request('POST', '/me/verification?force_refresh=1');
         $needsVerify = (array) Utils::jsonDecode((string) $response->getBody(), true);
         $this->stdErr->writeln('');
 
