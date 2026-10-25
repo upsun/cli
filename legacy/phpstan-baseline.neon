@@ -1453,12 +1453,6 @@ parameters:
 			path: src/Command/Environment/EnvironmentDeleteCommand.php
 
 		-
-			message: '#^Call to preg_quote\(\) is missing delimiter / to be effective\.$#'
-			identifier: argument.invalidPregQuote
-			count: 1
-			path: src/Command/Environment/EnvironmentDrushCommand.php
-
-		-
 			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
 			count: 1
@@ -6437,7 +6431,6 @@ parameters:
 			identifier: argument.type
 			count: 2
 			path: src/Service/PropertyFormatter.php
-
 
 		-
 			message: '#^Parameter \#2 \$array of function implode expects array, mixed given\.$#'
