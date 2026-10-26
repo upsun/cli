@@ -2,6 +2,7 @@ package tests
 
 import (
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -71,4 +72,33 @@ func TestAutoscalingSettingsSetPartial(t *testing.T) {
 	assert.Contains(t, stderr, "Duration: 2m")
 	assert.Contains(t, stderr, "Cooldown: 5m")
 	assert.Contains(t, stderr, "Min: 2")
+}
+
+// TestAutoscalingSettingsSetInteractivePartialDefaults checks the interactive form when the defaults omit a value.
+func TestAutoscalingSettingsSetInteractivePartialDefaults(t *testing.T) {
+	t.Parallel()
+	apiHandler := mockapi.NewHandler(t)
+	projectID := setUpAutoscalingWithDefaults(apiHandler, map[string]any{
+		"triggers": map[string]any{"cpu": map[string]any{
+			"up":   map[string]any{"threshold": 80, "duration": 60},
+			"down": map[string]any{"threshold": 20, "duration": 600},
+		}},
+		"instances": map[string]any{"min": 1},
+	}, map[string]any{})
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+
+	// Accept the defaults for the metric, and for each scaling direction's threshold and duration
+	// (the only app is chosen without a question). The cooldowns and the maximum instance count
+	// have no default: an empty answer is rejected and the question is asked again.
+	_, stderr, err := f.RunInteractive("\n\n\n\n5m\n\n\n\n5m\n\n\n3\n",
+		"autoscaling:set", "-p", projectID, "-e", "main", "--dry-run")
+	require.NoError(t, err, stderr)
+	assert.NotContains(t, stderr, "TypeError")
+	assert.Equal(t, 3, strings.Count(stderr, "A value is required."))
+	assert.Contains(t, stderr, "Cooldown: 5m")
+	assert.Contains(t, stderr, "Max: 3")
 }

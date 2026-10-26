@@ -364,8 +364,8 @@ class AutoscalingSettingsSetCommand extends CommandBase
                 'Enter the threshold (%)',
                 $currentServiceSettings['triggers'][$metric][$direction]['threshold'] ?? null,
                 $defaults['triggers'][$metric][$direction]['threshold'] ?? null,
-                function ($value) {
-                    return $this->validateThreshold($value);
+                function (?string $value) {
+                    return $this->validateThreshold($this->requireAnswer($value));
                 },
                 $service,
                 'threshold-' . $direction,
@@ -413,8 +413,8 @@ class AutoscalingSettingsSetCommand extends CommandBase
             'Enter the minimum number of instances',
             $currentServiceSettings['instances']['min'] ?? null,
             1,
-            function ($value) use ($instanceLimit) {
-                return $this->validateInstanceCount($value, $instanceLimit);
+            function (?string $value) use ($instanceLimit) {
+                return $this->validateInstanceCount($this->requireAnswer($value), $instanceLimit);
             },
             $service,
             'instances-min',
@@ -426,8 +426,8 @@ class AutoscalingSettingsSetCommand extends CommandBase
             'Enter the maximum number of instances',
             $currentServiceSettings['instances']['max'] ?? null,
             $instanceLimit,
-            function ($value) use ($instanceLimit) {
-                return $this->validateInstanceCount($value, $instanceLimit);
+            function (?string $value) use ($instanceLimit) {
+                return $this->validateInstanceCount($this->requireAnswer($value), $instanceLimit);
             },
             $service,
             'instances-max',
@@ -502,8 +502,8 @@ class AutoscalingSettingsSetCommand extends CommandBase
         if ($currentValue === null) {
             $choices = array_keys(self::$validDurations);
             $default = $existingValue ?? $defaultValue;
-            $newValue = $this->questionHelper->askInput($prompt, $default !== null ? $this->formatDuration($default) : null, $choices, function ($v) {
-                return $this->validateDuration($v);
+            $newValue = $this->questionHelper->askInput($prompt, $default !== null ? $this->formatDuration($default) : null, $choices, function (?string $v) {
+                return $this->validateDuration($this->requireAnswer($v));
             });
             $this->stdErr->writeln('');
 
@@ -843,6 +843,19 @@ class AutoscalingSettingsSetCommand extends CommandBase
             "false", "no" => false,
             default => throw new InvalidArgumentException(sprintf('Invalid value <error>%s</error>: must be one of: true, yes, false, no', $value)),
         };
+    }
+
+    /**
+     * Rejects an empty answer to a question without a default, which Symfony passes as null.
+     *
+     * @throws InvalidArgumentException
+     */
+    private function requireAnswer(?string $value): string
+    {
+        if ($value === null) {
+            throw new InvalidArgumentException('A value is required.');
+        }
+        return $value;
     }
 
     /**
