@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,6 +14,7 @@ import (
 )
 
 // setUpRuntimeOperations serves a project whose main environment has apps with a "migrate" runtime operation.
+// A name containing "--" is a worker of the app named before it, which repeats the app's operations.
 func setUpRuntimeOperations(t *testing.T, appNames ...string) (
 	f *cmdFactory, apiHandler *mockapi.Handler, projectID, deploymentPath string,
 ) {
@@ -41,9 +43,9 @@ func setUpRuntimeOperations(t *testing.T, appNames ...string) (
 	deploymentPath = envPath + "/deployments/current"
 
 	// Mock the deployment, in which each app has a "migrate" runtime operation.
-	webapps := map[string]any{}
+	webapps, workers := map[string]any{}, map[string]any{}
 	for _, name := range appNames {
-		webapps[name] = map[string]any{
+		app := map[string]any{
 			"name": name,
 			"type": "golang:1.23",
 			"operations": map[string]any{
@@ -52,6 +54,12 @@ func setUpRuntimeOperations(t *testing.T, appNames ...string) (
 					"commands": map[string]any{"start": "php migrate.php", "stop": nil},
 				},
 			},
+		}
+		if parent, _, ok := strings.Cut(name, "--"); ok {
+			app["app"] = parent
+			workers[name] = app
+		} else {
+			webapps[name] = app
 		}
 	}
 	apiHandler.Get(deploymentPath, func(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +72,7 @@ func setUpRuntimeOperations(t *testing.T, appNames ...string) (
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"webapps":  webapps,
 			"services": map[string]any{},
-			"workers":  map[string]any{},
+			"workers":  workers,
 			"routes":   map[string]any{},
 			"_links": map[string]any{
 				"self":        map[string]any{"href": base + deploymentPath},
@@ -187,4 +195,21 @@ func TestRuntimeOperationRunAmbiguous(t *testing.T) {
 	require.NoError(t, err, stderr)
 	body := jsonObject(t, lastRequest(t, apiHandler, "POST", deploymentPath+"/operations").Body)
 	assert.Equal(t, "other", body["service"])
+}
+
+// TestRuntimeOperationRunWithWorker checks that an operation which a worker repeats from its app runs on the app.
+func TestRuntimeOperationRunWithWorker(t *testing.T) {
+	t.Parallel()
+	f, apiHandler, projectID, deploymentPath := setUpRuntimeOperations(t, "app", "app--queue")
+
+	_, stderr, err := f.RunCombinedOutput("operation:run", "migrate", "-p", projectID, "-e", "main", "--no-wait", "--yes")
+	require.NoError(t, err, stderr)
+	body := jsonObject(t, lastRequest(t, apiHandler, "POST", deploymentPath+"/operations").Body)
+	assert.Equal(t, "app", body["service"])
+
+	_, stderr, err = f.RunCombinedOutput(
+		"operation:run", "migrate", "--worker", "app--queue", "-p", projectID, "-e", "main", "--no-wait", "--yes")
+	require.NoError(t, err, stderr)
+	body = jsonObject(t, lastRequest(t, apiHandler, "POST", deploymentPath+"/operations").Body)
+	assert.Equal(t, "app--queue", body["service"])
 }
