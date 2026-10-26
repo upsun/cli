@@ -37,7 +37,7 @@ func TestReadFileWhileReplaced(t *testing.T) {
 		if _, err := os.ReadFile(path); err != nil {
 			plainErrors++
 		}
-		b, err := readFile(path)
+		b, err := ReadFile(path)
 		if !assert.NoError(t, err) {
 			break
 		}

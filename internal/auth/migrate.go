@@ -205,7 +205,7 @@ func (mg *Migrator) debugf(format string, args ...any) {
 }
 
 func readMarker(path string) (*migrationMarker, error) {
-	b, err := os.ReadFile(path)
+	b, err := store.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, nil
