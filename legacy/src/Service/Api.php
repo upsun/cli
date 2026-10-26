@@ -553,8 +553,6 @@ class Api
 
     /**
      * Tests if an error from refreshing a token indicates that the user's API token is invalid.
-     *
-     * @param array<string, mixed> $body
      */
     private function isApiTokenInvalid(mixed $body): bool
     {
@@ -1412,9 +1410,14 @@ class Api
      *
      * Keys will be preserved.
      *
-     * @param ApiResource[] &$resources
-     * @param string        $propertyPath
-     * @param bool          $reverse
+     * @template K of array-key
+     * @template T of ApiResource
+     *
+     * @param array<K, T> &$resources
+     * @param string      $propertyPath
+     * @param bool        $reverse
+     *
+     * @param-out array<K, T> $resources
      *
      * @return void
      */
@@ -2313,7 +2316,7 @@ class Api
     /**
      * Check if an environment has guaranteed CPU.
      */
-    public function environmentHasGuaranteedCPU(Environment $environment, ?Project $project = null): bool
+    public function environmentHasGuaranteedCPU(Environment $environment, Project $project): bool
     {
         if (!$this->supportsGuaranteedCPU($project)) {
             return false;

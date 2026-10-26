@@ -164,7 +164,7 @@ readonly class Identifier
             $this->io->debug('Making a HEAD request to identify project from URL: ' . $url);
             try {
                 $response = $this->api->getExternalHttpClient()
-                    ->head($url, [
+                    ->request('HEAD', $url, [
                         'auth' => false,
                         'timeout' => 5,
                         'connect_timeout' => 5,

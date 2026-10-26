@@ -189,7 +189,7 @@ class TeamProjectAddCommand extends TeamCommandBase
         }
 
         try {
-            $this->api->getHttpClient()->post($team->getUri() . '/project-access', ['json' => $payload]);
+            $this->api->getHttpClient()->request('POST', $team->getUri() . '/project-access', ['json' => $payload]);
         } catch (BadResponseException $e) {
             throw ApiResponseException::create($e->getRequest(), $e->getResponse(), $e);
         }

@@ -23,7 +23,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'variable:update', description: 'Update a variable')]
 class VariableUpdateCommand extends CommandBase
 {
-    private ?Form $form = null;
+    private Form $form;
     private Selection $selection;
 
     public function __construct(

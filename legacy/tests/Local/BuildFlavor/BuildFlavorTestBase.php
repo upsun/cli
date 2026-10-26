@@ -59,7 +59,9 @@ abstract class BuildFlavorTestBase extends TestCase
      */
     public function setUp(): void
     {
-        $this->builder = self::$container->get(LocalBuild::class);
+        $builder = self::$container->get(LocalBuild::class);
+        \assert($builder instanceof LocalBuild);
+        $this->builder = $builder;
         $this->tempDirSetUp();
     }
 

@@ -207,14 +207,11 @@ class AutoscalingSettingsSetCommand extends CommandBase
 
             $serviceNames = array_keys($supportedServices);
 
-            if ($service === null) {
-                // Ask user to select services to configure.
-                $default = $serviceNames[0];
-                $text = 'Enter a number to choose an app, worker, or service:' . "\n" . 'Default: <question>' . $default . '</question>';
-                $serviceNamesIndexed = array_combine($serviceNames, $serviceNames);
-                $selectedService = $this->questionHelper->choose($serviceNamesIndexed, $text, $default);
-                $service = $selectedService;
-            }
+            // Ask user to select services to configure.
+            $default = $serviceNames[0];
+            $text = 'Enter a number to choose an app, worker, or service:' . "\n" . 'Default: <question>' . $default . '</question>';
+            $serviceNamesIndexed = array_combine($serviceNames, $serviceNames);
+            $service = $this->questionHelper->choose($serviceNamesIndexed, $text, $default);
 
             // Get autoscaling current values for selected service
             $currentServiceSettings = $autoscalingSettings['services'][$service] ?? null;

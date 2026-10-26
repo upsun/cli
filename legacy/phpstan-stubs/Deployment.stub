@@ -1,0 +1,41 @@
+<?php
+
+namespace Platformsh\Client\Model\Deployment;
+
+/**
+ * Local PHPStan stub for deployed services: disk is a nullable integer, and container_profile is added, as in the
+ * Upsun OpenAPI spec.
+ *
+ * @property-read string      $type
+ * @property-read string      $size
+ * @property-read int|null    $disk
+ * @property-read string|null $container_profile
+ * @property-read array<string, mixed> $access
+ * @property-read array<string, mixed> $configuration
+ * @property-read array<string, mixed> $relationships
+ */
+class Service
+{
+}
+
+/**
+ * Local PHPStan stub for deployed apps and workers: disk is nullable, and container_profile is added, as in the
+ * Upsun OpenAPI spec.
+ *
+ * @property-read string      $name
+ * @property-read string      $type
+ *
+ * @property-read array<string, mixed> $access
+ * @property-read int|null    $disk
+ * @property-read string|null $container_profile
+ * @property-read array<string, mixed> $mounts
+ * @property-read array<string, mixed> $preflight
+ * @property-read array<string, mixed> $relationships
+ * @property-read array<string, mixed> $runtime
+ * @property-read string      $size
+ * @property-read string|null $timezone
+ * @property-read array<string, mixed> $variables
+ */
+abstract class AppBase
+{
+}

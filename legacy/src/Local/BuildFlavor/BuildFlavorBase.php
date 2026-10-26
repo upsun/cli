@@ -33,7 +33,7 @@ abstract class BuildFlavorBase implements BuildFlavorInterface
      */
     protected array $specialDestinations;
 
-    protected ?LocalApplication $app = null;
+    protected LocalApplication $app;
     /** @var array<string, mixed> $settings */
     protected array $settings = [];
     protected string $buildDir = '.';
@@ -46,9 +46,9 @@ abstract class BuildFlavorBase implements BuildFlavorInterface
     protected Git $gitHelper;
     protected Shell $shellHelper;
 
-    protected ?Config $config = null;
+    protected Config $config;
 
-    protected ?string $appRoot = null;
+    protected string $appRoot;
 
     private ?string $documentRoot = null;
 

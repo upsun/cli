@@ -1,0 +1,18 @@
+<?php
+
+namespace Platformsh\Client\Model;
+
+/**
+ * Local PHPStan stub for the Project model: default_branch is nullable in the Upsun OpenAPI spec.
+ *
+ * @property-read string      $id
+ * @property-read string      $title
+ * @property-read string      $created_at
+ * @property-read string      $updated_at
+ * @property-read string      $owner
+ * @property-read string|null $default_branch
+ * @property-read string      $region
+ */
+class Project
+{
+}

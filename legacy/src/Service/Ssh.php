@@ -240,7 +240,7 @@ class Ssh implements InputConfiguringInterface
         if (!preg_match('@^[\p{Ll}0-9-]+\.[\p{Ll}0-9-]+@', $uri)) {
             return false;
         }
-        return \parse_url('ssh://' . $uri, PHP_URL_HOST);
+        return \parse_url('ssh://' . $uri, PHP_URL_HOST) ?? false;
     }
 
     /**

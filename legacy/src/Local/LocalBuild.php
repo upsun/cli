@@ -569,7 +569,7 @@ class LocalBuild
                 $numKept++;
                 continue;
             }
-            if (($keepMax !== null && $numKept >= $keepMax)
+            if ($numKept >= $keepMax
                 || ($maxAge !== null && $now - filemtime($filename) > $maxAge)) {
                 if (!$quiet) {
                     $this->output->writeln("Deleting: " . basename($filename));

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/upsun/cli/pkg/mockapi"
@@ -123,5 +124,69 @@ func TestActivityNullTimestamp(t *testing.T) {
 	}
 	if err3 != nil {
 		t.Fatalf("activity:get -P duration failed unexpectedly: %v\nstderr=%s", err3, stderr3)
+	}
+}
+
+// TestActivityCancelNullCreatedAt checks that activity:cancel lists a cancellable activity without a created_at date.
+func TestActivityCancelNullCreatedAt(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+
+	apiHandler := mockapi.NewHandler(t)
+	projectID := mockapi.ProjectID()
+	apiHandler.SetProjects([]*mockapi.Project{{
+		ID: projectID,
+		Links: mockapi.MakeHALLinks(
+			"self=/projects/"+projectID,
+			"environments=/projects/"+projectID+"/environments",
+		),
+		DefaultBranch: "main",
+	}})
+	main := makeEnv(projectID, "main", "production", "active", nil)
+	main.Links["#activities"] = mockapi.HALLink{HREF: "/projects/" + projectID + "/environments/main/activities"}
+	apiHandler.SetEnvironments([]*mockapi.Environment{main})
+
+	activityJSON := func(id, createdAt string) string {
+		return `{
+			"id": "` + id + `",
+			"type": "environment.redeploy",
+			"state": "pending",
+			"completion_percent": 0,
+			"created_at": ` + createdAt + `,
+			"updated_at": null,
+			"project": "` + projectID + `",
+			"environments": ["main"],
+			"description": "Mock User redeployed main",
+			"_links": {"#cancel": {"href": "/projects/` + projectID + `/activities/` + id + `/cancel"}}
+		}`
+	}
+	listPath := "/projects/" + projectID + "/environments/main/activities"
+	listJSON := "[" + activityJSON("nulldate", "null") + "," + activityJSON("dated", `"2024-01-01T00:00:00+00:00"`) + "]"
+	var canceled atomic.Value // string
+	wrapped := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == listPath:
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(listJSON))
+			return
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/cancel"):
+			canceled.Store(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/projects/"+projectID+"/activities/"), "/cancel"))
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"status": "OK", "code": 200}`))
+			return
+		}
+		apiHandler.ServeHTTP(w, r)
+	})
+	apiServer := httptest.NewServer(wrapped)
+	defer apiServer.Close()
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	_, stdErr, err := f.RunCombinedOutput("activity:cancel", "-p", projectID, "-e", "main")
+	if err != nil {
+		t.Fatalf("activity:cancel failed: %v\nstderr=%s", err, stdErr)
+	}
+	if c, _ := canceled.Load().(string); c != "nulldate" && c != "dated" {
+		t.Fatalf("no activity was canceled\nstderr=%s", stdErr)
 	}
 }

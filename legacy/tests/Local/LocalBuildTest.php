@@ -15,7 +15,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class LocalBuildTest extends TestCase
 {
-    private ?LocalBuild $localBuild;
+    private LocalBuild $localBuild;
     private Config $config;
 
     public function setUp(): void
@@ -25,7 +25,9 @@ class LocalBuildTest extends TestCase
         $container->set(Config::class, $this->config);
         $container->set(InputInterface::class, new ArrayInput([]));
         $container->set(OutputInterface::class, new BufferedOutput());
-        $this->localBuild = $container->get(LocalBuild::class);
+        $localBuild = $container->get(LocalBuild::class);
+        \assert($localBuild instanceof LocalBuild);
+        $this->localBuild = $localBuild;
     }
 
     public function testGetTreeId(): void
@@ -48,7 +50,6 @@ class LocalBuildTest extends TestCase
                 touch($buildsDir . '/' . $name, $now - (5 - $i) * 100);
             }
 
-            $this->assertNotNull($this->localBuild);
             [$deleted, $kept] = $this->localBuild->cleanBuilds($projectRoot, null, 2);
 
             $this->assertEquals([3, 2], [$deleted, $kept]);

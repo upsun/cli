@@ -304,7 +304,7 @@ class EnvironmentPushCommand extends CommandBase
             if ($process->getExitCode() !== 0) {
                 $diagnostics = $this->sshDiagnostics;
                 $diagnostics->diagnoseFailure($project->getGitUrl(), $process);
-                return $process->getExitCode();
+                return $process->getExitCode() ?? 1;
             }
 
             // Clear the environment cache after pushing.

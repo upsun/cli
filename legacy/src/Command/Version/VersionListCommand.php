@@ -39,7 +39,7 @@ class VersionListCommand extends CommandBase
         $environment = $selection->getEnvironment();
 
         $httpClient = $this->api->getHttpClient();
-        $response = $httpClient->get($environment->getLink('#versions'));
+        $response = $httpClient->request('GET', $environment->getLink('#versions'));
         $data = (array) Utils::jsonDecode((string) $response->getBody(), true);
 
         $header = ['id' => 'ID', 'commit' => 'Commit', 'locked' => 'Locked', 'routing_percentage' => 'Routing %'];

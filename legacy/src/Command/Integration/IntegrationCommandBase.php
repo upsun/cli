@@ -45,7 +45,7 @@ abstract class IntegrationCommandBase extends CommandBase
     /** @var array<string, string> */
     private array $bitbucketAccessTokens = [];
 
-    protected ?Selection $selection = null;
+    protected Selection $selection;
 
     #[Required]
     public function autowire(Api $api, LocalProject $localProject, PropertyFormatter $propertyFormatter, QuestionHelper $questionHelper, Selector $selector, Table $table): void
@@ -696,7 +696,7 @@ abstract class IntegrationCommandBase extends CommandBase
         }
         $response = $this->api
             ->getExternalHttpClient()
-            ->post('https://bitbucket.org/site/oauth2/access_token', [
+            ->request('POST', 'https://bitbucket.org/site/oauth2/access_token', [
                 'auth' => [$credentials['key'], $credentials['secret']],
                 'body' => [
                     'grant_type' => 'client_credentials',

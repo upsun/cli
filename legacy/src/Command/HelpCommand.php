@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Command;
 
 use Platformsh\Cli\Application as CliApplication;
+use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Console\CustomJsonDescriptor;
 use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Service\Config;
@@ -79,7 +80,7 @@ class HelpCommand extends CommandBase
             );
         }
 
-        $command = $this->command ?: $this->getApplication()->find($input->getArgument('command_name'));
+        $command = $this->command ?: $this->requireApplication()->find(Argument::string($input, 'command_name'));
 
         $format = Option::string($input, 'format');
         $options = ['format' => $format, 'raw_text' => Option::bool($input, 'raw'), 'all' => true];
@@ -96,7 +97,7 @@ class HelpCommand extends CommandBase
                 return 0;
         }
 
-        $originalCommand = $this->getApplication()->find($input->getFirstArgument());
+        $originalCommand = $this->requireApplication()->find((string) $input->getFirstArgument());
         if ($originalCommand->getName() !== 'help' && $originalCommand->getDefinition()->hasOption('format')) {
             // If the --format is unrecognised, it might be because the
             // command has its own --format option. Fall back to plain text

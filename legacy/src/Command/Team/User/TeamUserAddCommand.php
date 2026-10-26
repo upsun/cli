@@ -75,7 +75,7 @@ class TeamUserAddCommand extends TeamCommandBase
                 $this->stdErr->writeln(sprintf('The user with email address <error>%s</error> was not found in the organization %s.', $identifier, $this->api->getOrganizationLabel($organization, 'comment')));
                 $this->stdErr->writeln('');
                 $this->stdErr->writeln('A team may only contain users who are part of the organization.');
-                if ($this->getApplication()->has('organization:user:add')) {
+                if ($this->requireApplication()->has('organization:user:add')) {
                     $this->stdErr->writeln('');
                     $this->stdErr->writeln(sprintf(
                         "To invite the user, run:\n  <comment>%s org:user:add -o %s %s</comment>",
@@ -106,7 +106,7 @@ class TeamUserAddCommand extends TeamCommandBase
         $payload = ['user_id' => $orgMember->user_id];
 
         try {
-            $this->api->getHttpClient()->post($team->getUri() . '/members', ['json' => $payload]);
+            $this->api->getHttpClient()->request('POST', $team->getUri() . '/members', ['json' => $payload]);
         } catch (BadResponseException $e) {
             throw ApiResponseException::create($e->getRequest(), $e->getResponse(), $e);
         }
