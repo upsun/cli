@@ -28,7 +28,7 @@ class WinkyCommand extends CommandBase
             return 0;
         }
 
-        while (true) {
+        while (true) { // @phpstan-ignore while.alwaysTrue
             $winky->render();
         }
     }

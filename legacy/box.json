@@ -21,8 +21,7 @@
   ],
   "finder": [
     {
-      "in": "src",
-      "exclude": ["Rector"]
+      "in": "src"
     },
     {
       "in": "vendor",

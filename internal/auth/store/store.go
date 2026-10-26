@@ -253,7 +253,7 @@ func (s *Store) sessionFilePath(id string) string {
 }
 
 func (s *Store) readSessionFile(id string) (*sessionFile, error) {
-	b, err := os.ReadFile(s.sessionFilePath(id))
+	b, err := ReadFile(s.sessionFilePath(id))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, nil
@@ -351,6 +351,18 @@ func randomSuffix() string {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// ReadFile reads a file written by WriteFileAtomic. On Windows, it retries while another process has the file open
+// without sharing it, e.g. while WriteFileAtomic replaces it.
+func ReadFile(path string) ([]byte, error) {
+	for attempt := 0; ; attempt++ {
+		b, err := os.ReadFile(path)
+		if err == nil || !isSharingViolation(err) || attempt == 40 {
+			return b, err
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
 }
 
 // WriteFileAtomic writes a file with 0600 permissions via a synced temporary file, creating the directory (0700).

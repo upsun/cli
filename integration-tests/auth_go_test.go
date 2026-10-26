@@ -2,10 +2,12 @@ package tests
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -323,4 +325,110 @@ func TestErrorOutput_QuietOverride(t *testing.T) {
 			assert.NotContains(t, stderr, "Error:", "args: %v", c.args)
 		}
 	}
+}
+
+// TestAuthChannel checks that the legacy CLI gets tokens from the wrapper over the inherited socket.
+func TestAuthChannel(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("the legacy CLI runs auth:internal on Windows")
+	}
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiServer := newMyUserAPI(t)
+	defer apiServer.Close()
+
+	f := newGoAuthCommandFactory(t, apiServer.URL, authServer.URL)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"DEBUG=1")
+	stdout, stderr, err := f.RunCombinedOutput("auth:info", "id", "--refresh")
+	require.NoError(t, err, "stderr: %s", stderr)
+	assert.Equal(t, "u1\n", stdout)
+	assert.Contains(t, stderr, "Auth channel request: token")
+}
+
+// TestAuthChannel_TokenNotInherited checks that processes started by the legacy CLI, such as Git hooks, do not inherit
+// the API token, and that a CLI command run by them does not use other credentials instead.
+func TestAuthChannel_TokenNotInherited(t *testing.T) {
+	t.Parallel()
+	if !goAuthMode() {
+		t.Skip("with legacy auth, the legacy CLI needs the API token")
+	}
+	p := setUpGitProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil))
+	repo := repoLayout{git: true, branch: "main", remoteName: "platform-test"}.build(t)
+	p.f.dir = repo
+	// A stored session, which may be for another user.
+	writeOAuthSession(t, p.f.home, "default", map[string]any{
+		"accessToken": "stored-token", "expires": time.Now().Add(time.Hour).Unix(),
+	})
+	tmp := t.TempDir()
+	envFile, nestedFile := filepath.Join(tmp, "env"), filepath.Join(tmp, "nested")
+	hooksDir := filepath.Join(repo, ".git", "hooks")
+	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
+	hook := []byte("#!/bin/sh\nenv > '" + envFile + "'\n" +
+		`"$` + EnvPrefix + `WRAPPER_EXECUTABLE" auth:token -W > '` + nestedFile + `' 2>&1; echo "exit $?" >> '` +
+		nestedFile + "'\n")
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "pre-push"), hook, 0o755))
+	runGit(t, repo, "config", "core.hooksPath", hooksDir)
+
+	_, stderr, err := p.f.RunCombinedOutput("push", "-y")
+	require.NoError(t, err, "stderr: %s", stderr)
+	b, err := os.ReadFile(envFile)
+	require.NoError(t, err)
+	// Only the relevant variables are compared, to avoid printing the environment.
+	env := map[string]string{}
+	for _, line := range strings.Split(string(b), "\n") {
+		if name, value, ok := strings.Cut(line, "="); ok &&
+			slices.Contains([]string{EnvPrefix + "TOKEN", EnvPrefix + "WRAPPER_HAS_TOKEN", "CLI_SSH_NO_REFRESH"}, name) {
+			env[name] = value
+		}
+	}
+	assert.Equal(t, map[string]string{EnvPrefix + "WRAPPER_HAS_TOKEN": "1", "CLI_SSH_NO_REFRESH": "1"}, env)
+
+	b, err = os.ReadFile(nestedFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(b), "but it is not passed on")
+	assert.Contains(t, string(b), "exit 1")
+	assert.NotContains(t, string(b), "stored-token")
+}
+
+// TestAuthAccessTokenPrecedence checks that an access token set via the environment is used in PHP commands instead of
+// one in the user config file, also when the wrapper removes it from PHP's environment.
+func TestAuthAccessTokenPrecedence(t *testing.T) {
+	t.Parallel()
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.Get("/curl-test", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("success")) })
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	f := newCommandFactory(t, apiServer.URL, "")
+	configDir := filepath.Join(f.home, ".platform-test-cli")
+	require.NoError(t, os.MkdirAll(configDir, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.yaml"),
+		[]byte("api:\n  access_token: from-config\n"), 0o600))
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"API_TOKEN=from-env")
+
+	assert.Equal(t, "success", f.Run("api:curl", "/curl-test"))
+	assert.Equal(t, "Bearer from-env", lastRequest(t, apiHandler, "GET", "/curl-test").Header.Get("Authorization"))
+}
+
+// TestAuthAccessTokenOverridesStoredAPIToken checks that an access token set via the environment is used in PHP
+// commands instead of an API token saved by auth:api-token-login.
+func TestAuthAccessTokenOverridesStoredAPIToken(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.SetMyUser(&mockapi.User{ID: "u1", Username: "testuser", Email: "test@example.com"})
+	apiHandler.Get("/curl-test", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("success")) })
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=", EnvPrefix+"API_WRITE_USER_SSH_CONFIG=0")
+	_, stderr, err := f.RunInteractive(mockapi.ValidAPITokens[0]+"\n", "auth:api-token-login")
+	require.NoError(t, err, "stderr: %s", stderr)
+
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"API_TOKEN=from-env")
+	assert.Equal(t, "success", f.Run("api:curl", "/curl-test"))
+	assert.Equal(t, "Bearer from-env", lastRequest(t, apiHandler, "GET", "/curl-test").Header.Get("Authorization"))
 }

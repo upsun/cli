@@ -73,11 +73,11 @@ class EnvironmentDrushCommand extends CommandBase
 
         // Pass through options that the CLI shares with Drush.
         foreach (['yes', 'no', 'quiet'] as $option) {
-            if (Option::bool($input, $option) && !preg_match('/\b' . preg_quote($option) . '\b/', $drushCommand)) {
+            if (Option::bool($input, $option) && !preg_match('/(^|\s)--' . $option . '(\s|=|$)/', $drushCommand)) {
                 $drushCommand .= " --$option";
             }
         }
-        if (!preg_match('/\b((verbose|debug|quiet)\b|-v)/', $drushCommand)) {
+        if (!preg_match('/(^|\s)(--(verbose|debug|quiet)|-v+|-q)(\s|=|$)/', $drushCommand)) {
             if ($output->getVerbosity() >= OutputInterface::VERBOSITY_DEBUG) {
                 $drushCommand .= " --debug";
             } elseif ($output->getVerbosity() >= OutputInterface::VERBOSITY_VERY_VERBOSE) {

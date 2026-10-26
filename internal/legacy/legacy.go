@@ -38,6 +38,9 @@ type CLIWrapper struct {
 	DisableInteraction bool
 	ForceColor         bool
 	DebugLogFunc       func(string, ...any)
+	// PrepareCmd changes a command before it runs, e.g. its environment or extra files, and returns a function to call
+	// after it exits. It may be nil.
+	PrepareCmd func(cmd *exec.Cmd) (done func(), err error)
 
 	initOnce  sync.Once
 	_cacheDir string
@@ -158,6 +161,13 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 		c.Version,
 		PHPVersion,
 	))
+	if c.PrepareCmd != nil {
+		done, err := c.PrepareCmd(cmd)
+		if err != nil {
+			return err
+		}
+		defer done()
+	}
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("could not run PHP CLI command: %w", err)
 	}

@@ -62,7 +62,6 @@ func TestAuth(t *testing.T) {
 		{
 			name: "env generic forms",
 			env: map[string]string{ //nolint:gosec // test values
-				"API_TOKEN_FILE":                 "token.txt",
 				"API_ACCESS_TOKEN":               "access-token",
 				"API_AUTH_URL":                   "https://auth3.example.com",
 				"API_OAUTH2_TOKEN_URL":           "https://token.example.com",
@@ -72,8 +71,6 @@ func TestAuth(t *testing.T) {
 				"API_SKIP_SSL":                   "0",
 			},
 			check: func(t *testing.T, a *config.Auth) {
-				assert.True(t, filepath.IsAbs(a.TokenFile))
-				assert.Equal(t, "token.txt", filepath.Base(a.TokenFile))
 				assert.Equal(t, "access-token", a.AccessToken)
 				assert.Equal(t, "https://auth3.example.com/oauth2/authorize", a.AuthorizeURL)
 				assert.Equal(t, "https://token.example.com", a.TokenURL)
@@ -82,6 +79,16 @@ func TestAuth(t *testing.T) {
 				assert.False(t, a.SessionIDFromEnv)
 				assert.True(t, a.DisableCredentialHelpers)
 				assert.False(t, a.SkipSSL)
+			},
+		},
+		{
+			// The legacy CLI only reads api.token_file from config files.
+			name:       "token file from the user config, not env",
+			env:        map[string]string{"API_TOKEN_FILE": "from-env.txt"}, //nolint:gosec // a test value
+			userConfig: "api: {token_file: token.txt}\n",
+			check: func(t *testing.T, a *config.Auth) {
+				assert.True(t, filepath.IsAbs(a.TokenFile))
+				assert.Equal(t, "token.txt", filepath.Base(a.TokenFile))
 			},
 		},
 		{
@@ -156,6 +163,29 @@ func TestAuth(t *testing.T) {
 			env:       map[string]string{"SESSION_ID": "from-env"},
 			check: func(t *testing.T, a *config.Auth) {
 				assert.Equal(t, "from-env", a.SessionID)
+			},
+		},
+		{
+			name:      "default session ID from env",
+			sessionID: "from-file",
+			env:       map[string]string{"SESSION_ID": "default"},
+			check: func(t *testing.T, a *config.Auth) {
+				assert.Equal(t, "default", a.SessionID)
+				assert.True(t, a.SessionIDFromEnv)
+			},
+		},
+		{
+			name: "token withheld by a parent process",
+			env:  map[string]string{"WRAPPER_HAS_TOKEN": "1"},
+			check: func(t *testing.T, a *config.Auth) {
+				assert.True(t, a.TokenWithheld)
+			},
+		},
+		{
+			name: "token set again in a child process",
+			env:  map[string]string{"WRAPPER_HAS_TOKEN": "1", "TOKEN": "child-token"},
+			check: func(t *testing.T, a *config.Auth) {
+				assert.False(t, a.TokenWithheld)
 			},
 		},
 		{

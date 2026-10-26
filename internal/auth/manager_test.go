@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,6 +37,9 @@ type testAuthServer struct {
 	dropNext  int      // the number of refresh requests to accept, but whose responses are dropped
 	lifetime  int64
 	delay     time.Duration
+	// omitRefreshToken makes refresh responses leave out the refresh token, so the client keeps the old one.
+	omitRefreshToken bool
+	revokeStatus     int
 }
 
 func newTestAuthServer(t *testing.T) *testAuthServer {
@@ -44,8 +48,12 @@ func newTestAuthServer(t *testing.T) *testAuthServer {
 		require.NoError(t, r.ParseForm())
 		if r.URL.Path == "/revoke" {
 			s.mu.Lock()
+			defer s.mu.Unlock()
+			if s.revokeStatus != 0 {
+				w.WriteHeader(s.revokeStatus)
+				return
+			}
 			s.revoked = append(s.revoked, r.Form.Get("token"))
-			s.mu.Unlock()
 			return
 		}
 		s.mu.Lock()
@@ -88,6 +96,12 @@ func newTestAuthServer(t *testing.T) *testAuthServer {
 				panic(http.ErrAbortHandler)
 			}
 		case "api_token":
+			if len(s.failNext) > 0 {
+				status := s.failNext[0]
+				s.failNext = s.failNext[1:]
+				writeErr(status, "server_error")
+				return
+			}
 			if r.Form.Get("api_token") != "good-api-token" {
 				writeErr(http.StatusBadRequest, "request_unauthorized")
 				return
@@ -97,14 +111,17 @@ func newTestAuthServer(t *testing.T) *testAuthServer {
 			return
 		}
 		s.issued++
-		newRT := fmt.Sprintf("rt-%d", s.issued)
-		s.valid[newRT] = true
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"access_token":  fmt.Sprintf("at-%d", s.issued),
-			"refresh_token": newRT,
-			"token_type":    "bearer",
-			"expires_in":    s.lifetime,
-		})
+		resp := map[string]any{
+			"access_token": fmt.Sprintf("at-%d", s.issued),
+			"token_type":   "bearer",
+			"expires_in":   s.lifetime,
+		}
+		if !s.omitRefreshToken || r.Form.Get("grant_type") != "refresh_token" {
+			newRT := fmt.Sprintf("rt-%d", s.issued)
+			s.valid[newRT] = true
+			resp["refresh_token"] = newRT
+		}
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	t.Cleanup(s.Close)
 	return s
@@ -148,6 +165,7 @@ func TestManager_Token(t *testing.T) {
 		wantLogin     string // The expected notice of a login-required error.
 		wantErr       string
 		wantDeleted   bool
+		wantStoredRT  string // The refresh token that is stored afterwards, if set.
 	}{
 		{
 			name:      "valid token",
@@ -220,6 +238,32 @@ func TestManager_Token(t *testing.T) {
 			wantErr:       "being refreshed by another process",
 		},
 		{
+			name:          "refresh without a new refresh token",
+			entry:         &store.Entry{AccessToken: "stored", RefreshToken: "rt-0", Expires: past},
+			setup:         func(s *testAuthServer) { s.omitRefreshToken = true },
+			wantToken:     "at-1",
+			wantRefreshes: 1,
+			wantStoredRT:  "rt-0",
+		},
+		{
+			name:     "API token exchange failure",
+			settings: config.Auth{Token: "good-api-token"},
+			setup:    func(s *testAuthServer) { s.failNext = []int{503, 503} },
+			wantErr:  "failed to exchange the API token",
+		},
+		{
+			name:     "token withheld by a parent process",
+			entry:    &store.Entry{AccessToken: "stored", RefreshToken: "rt-0", Expires: future},
+			settings: config.Auth{TokenWithheld: true},
+			wantErr:  "but it is not passed on",
+		},
+		{
+			name:      "access token from config takes precedence over a stored API token",
+			entry:     &store.Entry{APIToken: "good-api-token"},
+			settings:  config.Auth{AccessToken: "raw"},
+			wantToken: "raw",
+		},
+		{
 			name:      "access token from config",
 			settings:  config.Auth{AccessToken: "raw"},
 			wantToken: "raw",
@@ -235,9 +279,9 @@ func TestManager_Token(t *testing.T) {
 			wantLogin: "The API token is invalid.",
 		},
 		{
-			name:      "stored API token takes precedence",
-			entry:     &store.Entry{APIToken: "good-api-token"},
-			settings:  config.Auth{Token: "bad-api-token"},
+			name:      "API token from config takes precedence",
+			entry:     &store.Entry{APIToken: "bad-api-token"},
+			settings:  config.Auth{Token: "good-api-token"},
 			wantToken: "at-1",
 		},
 	}
@@ -285,6 +329,9 @@ func TestManager_Token(t *testing.T) {
 			}
 			if !c.wantDeleted {
 				assert.Empty(t, loggedOut)
+			}
+			if c.wantStoredRT != "" {
+				assert.Equal(t, c.wantStoredRT, stored.RefreshToken)
 			}
 		})
 	}
@@ -367,6 +414,52 @@ func TestManager_LogoutAndStatus(t *testing.T) {
 	ids, err := m.Store.List()
 	require.NoError(t, err)
 	assert.Equal(t, []string{"other"}, ids)
+}
+
+func TestManager_AccessTokenFromConfig(t *testing.T) {
+	exp := time.Now().Add(time.Hour).Unix()
+	jwt := "header." + base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf(`{"exp": %d}`, exp))) + ".signature"
+	m := newTestManager(newTestAuthServer(t), t.TempDir(), &config.Auth{AccessToken: jwt})
+	tok, err := m.Token(context.Background(), "")
+	require.NoError(t, err)
+	assert.Equal(t, &Token{AccessToken: jwt, Expires: exp}, tok)
+}
+
+func TestManager_AfterConcurrentRefresh(t *testing.T) {
+	m := newTestManager(newTestAuthServer(t), t.TempDir(), &config.Auth{})
+	old := &store.Entry{AccessToken: "old", RefreshToken: "rt-old"}
+	require.NoError(t, m.Store.Save("default", old))
+	_, err := m.afterConcurrentRefresh(context.Background(), "default", old)
+	assert.ErrorContains(t, err, "being refreshed by another process")
+
+	// The other process saved new tokens.
+	require.NoError(t, m.Store.Save("default", &store.Entry{AccessToken: "new", RefreshToken: "rt-new"}))
+	tok, err := m.afterConcurrentRefresh(context.Background(), "default", old)
+	require.NoError(t, err)
+	assert.Equal(t, "new", tok.AccessToken)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = m.afterConcurrentRefresh(ctx, "default", old)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+// TestManager_LogoutRevokeFailure checks that a session is deleted even if its tokens cannot be revoked.
+func TestManager_LogoutRevokeFailure(t *testing.T) {
+	srv := newTestAuthServer(t)
+	srv.revokeStatus = http.StatusBadRequest
+	m := newTestManager(srv, t.TempDir(), &config.Auth{})
+	var stderr strings.Builder
+	m.Stderr = &stderr
+	require.NoError(t, m.Store.Save("default", &store.Entry{AccessToken: "at", RefreshToken: "rt"}))
+
+	require.NoError(t, m.Logout(context.Background(), "default"))
+	assert.Contains(t, stderr.String(),
+		"Warning: failed to revoke the refresh token: token revocation failed with status 400")
+	assert.Contains(t, stderr.String(), "Warning: failed to revoke the access token")
+	e, err := m.Store.Load("default")
+	require.NoError(t, err)
+	assert.Nil(t, e)
 }
 
 func TestManager_LogoutToReplace_LockedKeychain(t *testing.T) {
@@ -537,6 +630,71 @@ func TestMigrator_SkipsUnneededExports(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, c.wantExports, exports)
 			assert.Equal(t, c.wantDeletes, deletes)
+		})
+	}
+}
+
+// TestMigrator_Import checks which exported sessions are imported.
+func TestMigrator_Import(t *testing.T) {
+	cases := []struct {
+		name       string
+		exported   string
+		wantErr    string
+		wantTokens map[string]string // Access tokens by session ID, after the import.
+	}{
+		{
+			name: "a session that is already stored is kept",
+			exported: `{
+				"default": {"access_token": "legacy"},
+				"work": {"access_token": "work-legacy"}
+			}`,
+			wantTokens: map[string]string{"default": "go", "work": "work-legacy"},
+		},
+		{
+			name:       "invalid session IDs are skipped",
+			exported:   `{"a b": {"access_token": "x"}, "api-token-abc": {"access_token": "y"}}`,
+			wantTokens: map[string]string{"default": "go"},
+		},
+		{
+			name:       "invalid export",
+			exported:   `not json`,
+			wantErr:    "failed to migrate credentials from the legacy CLI: invalid export",
+			wantTokens: map[string]string{"default": "go"},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			writableDir := t.TempDir()
+			m := newTestManager(newTestAuthServer(t), filepath.Join(writableDir, "auth"), &config.Auth{})
+			var stderr strings.Builder
+			m.Stderr = &stderr
+			legacyFile := filepath.Join(writableDir, ".session", "sess-work", "sess-work.json")
+			require.NoError(t, os.MkdirAll(filepath.Dir(legacyFile), 0o700))
+			require.NoError(t, os.WriteFile(legacyFile, nil, 0o600))
+			require.NoError(t, m.Store.Save("default", &store.Entry{AccessToken: "go"}))
+			m.Migrator = &Migrator{Export: func(_ context.Context, del bool) ([]byte, error) {
+				if del {
+					return nil, nil
+				}
+				return []byte(c.exported), nil
+			}}
+
+			ids, err := m.SessionIDs(context.Background())
+			require.NoError(t, err)
+			if c.wantErr != "" {
+				assert.Contains(t, stderr.String(), c.wantErr)
+			} else {
+				assert.Empty(t, stderr.String())
+			}
+			var wantIDs []string
+			for id, tok := range c.wantTokens {
+				wantIDs = append(wantIDs, id)
+				e, err := m.Store.Load(id)
+				require.NoError(t, err)
+				require.NotNil(t, e, id)
+				assert.Equal(t, tok, e.AccessToken)
+			}
+			assert.ElementsMatch(t, wantIDs, ids)
 		})
 	}
 }

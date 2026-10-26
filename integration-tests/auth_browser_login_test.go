@@ -207,3 +207,59 @@ func TestAuthBrowserLogin_AlreadyLoggedIn(t *testing.T) {
 	assertExitCode(t, 1, err)
 	assert.Contains(t, stderr, "Cannot log in via the browser, because an API token is set via config.")
 }
+
+// TestAuthBrowserLogin_AcceptRelogin checks that confirming a login over a valid session asks the user to select an
+// account, and replaces the session.
+func TestAuthBrowserLogin_AcceptRelogin(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiServer := newMyUserAPI(t)
+	defer apiServer.Close()
+
+	f := newInteractiveLoginFactory(t, apiServer.URL, authServer.URL)
+	writeOAuthSession(t, f.home, "default", map[string]any{
+		"accessToken": "old-access-token", "refreshToken": "old-refresh-token", "tokenType": "bearer",
+		"expires": time.Now().Add(time.Hour).Unix(),
+	})
+	f.stdin = strings.NewReader("y\n")
+
+	_, stderr, err := f.RunCombinedOutput("auth:browser-login")
+	require.NoError(t, err, "stderr: %s", stderr)
+	assert.Contains(t, stderr, "You are already logged in as testuser (test@example.com)")
+	assert.Equal(t, []string{"consent select_account"}, authServer.AuthorizePrompts())
+	assert.Contains(t, authServer.RevokedTokens(), "old-refresh-token")
+	assert.Equal(t, "access-token-1", f.Run("auth:token", "--no-warn"))
+}
+
+// TestAuthBrowserLogin_RejectedSession checks that a login is not confirmed if the API rejects the current session.
+func TestAuthBrowserLogin_RejectedSession(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.SetMyUser(&mockapi.User{ID: "u1", Username: "testuser", Email: "test@example.com"})
+	apiHandler.RejectAccessToken("old-access-token")
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	f := newInteractiveLoginFactory(t, apiServer.URL, authServer.URL)
+	// Without a refresh token, the rejected token cannot be replaced.
+	writeOAuthSession(t, f.home, "default", map[string]any{
+		"accessToken": "old-access-token", "tokenType": "bearer", "expires": time.Now().Add(time.Hour).Unix(),
+	})
+
+	_, stderr, err := f.RunCombinedOutput("auth:browser-login")
+	require.NoError(t, err, "stderr: %s", stderr)
+	assert.NotContains(t, stderr, "Log in anyway?")
+	assert.Equal(t, []string{"consent"}, authServer.AuthorizePrompts())
+	assert.Equal(t, "access-token-1", f.Run("auth:token", "--no-warn"))
+}
+
+func TestAuthBrowserLogin_NonInteractive(t *testing.T) {
+	t.Parallel()
+	f := newCommandFactory(t, "", "")
+	_, stderr, err := f.RunCombinedOutput("auth:browser-login")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "Non-interactive use of this command is not supported.")
+}

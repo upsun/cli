@@ -188,13 +188,15 @@ class QuestionHelper extends BaseQuestionHelper
     /**
      * Ask a simple question which requires input.
      *
+     * @template T
+     *
      * @param string $questionText
      * @param mixed|null $default
      * @param string[] $autoCompleterValues
-     * @param callable|null $validator
+     * @param (callable(string): T)|null $validator
      * @param string $defaultLabel
-     * @return mixed
-     *   The user's answer.
+     * @return ($validator is null ? mixed : T)
+     *   The user's answer, as returned by the validator if there is one.
      */
     public function askInput(string $questionText, mixed $default = null, array $autoCompleterValues = [], ?callable $validator = null, string $defaultLabel = 'default: '): mixed
     {
@@ -213,7 +215,7 @@ class QuestionHelper extends BaseQuestionHelper
             $question->setAutocompleterValues($autoCompleterValues);
         }
         if ($validator !== null) {
-            $question->setValidator($validator);
+            $question->setValidator($validator); // @phpstan-ignore argument.type (Symfony passes the answer, a string unless there is no default.)
             $question->setMaxAttempts(5);
         }
 

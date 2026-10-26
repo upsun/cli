@@ -15,7 +15,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class SshTest extends TestCase
 {
-    private ?Ssh $ssh;
+    private Ssh $ssh;
 
     public function setUp(): void
     {
@@ -25,7 +25,9 @@ class SshTest extends TestCase
         $container->set(Config::class, (new Config())->withOverrides([
             'ssh.domain_wildcards' => ['*.ssh.example.com'],
         ]));
-        $this->ssh = $container->get(Ssh::class);
+        $ssh = $container->get(Ssh::class);
+        \assert($ssh instanceof Ssh);
+        $this->ssh = $ssh;
     }
 
     public function testGetHost(): void

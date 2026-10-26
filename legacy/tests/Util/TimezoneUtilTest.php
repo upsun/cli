@@ -10,7 +10,7 @@ use Platformsh\Cli\Util\TimezoneUtil;
 class TimezoneUtilTest extends TestCase
 {
     private string $originalSetting;
-    private string|bool $originalIni;
+    private string $originalIni;
     private string|bool $originalEnv;
 
     public function setUp(): void

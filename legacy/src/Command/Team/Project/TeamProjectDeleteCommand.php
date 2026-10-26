@@ -69,7 +69,7 @@ class TeamProjectDeleteCommand extends TeamCommandBase
         }
 
         try {
-            $this->api->getHttpClient()->delete($team->getUri() . '/project-access/' . rawurlencode((string) $projectId));
+            $this->api->getHttpClient()->request('DELETE', $team->getUri() . '/project-access/' . rawurlencode((string) $projectId));
         } catch (BadResponseException $e) {
             throw ApiResponseException::create($e->getRequest(), $e->getResponse(), $e);
         }

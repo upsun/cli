@@ -63,14 +63,14 @@ class Config
                     } catch (\InvalidArgumentException) {
                         throw new \InvalidArgumentException('Invalid session ID in file: ' . $sessionIdFile);
                     }
-                    $this->config['api']['session_id'] = \trim($id);
+                    $this->set('api.session_id', \trim($id));
                 }
             }
         }
 
         // Validate the session ID.
-        if (isset($this->config['api']['session_id'])) {
-            $this->validateSessionId($this->config['api']['session_id']);
+        if ($this->has('api.session_id')) {
+            $this->validateSessionId($this->getStr('api.session_id'));
         }
     }
 
@@ -170,6 +170,50 @@ class Config
     }
 
     /**
+     * Get a string configuration value, or null if it is not defined.
+     *
+     * @throws \RuntimeException if the configuration is not a string.
+     */
+    public function getStrOrNull(string $name): ?string
+    {
+        return $this->has($name) ? $this->getStr($name) : null;
+    }
+
+    /**
+     * Get a list of strings from the configuration, which is empty if the list is not defined.
+     *
+     * A string is split into lines, as an environment variable can only set a string.
+     *
+     * @throws \RuntimeException if the configuration is not a list of strings.
+     *
+     * @return string[]
+     */
+    public function getStrList(string $name): array
+    {
+        $value = $this->getWithDefault($name, []);
+        if (is_string($value)) {
+            return $value === '' ? [] : explode("\n", $value);
+        }
+        $list = [];
+        foreach (is_array($value) ? $value : [null] as $item) {
+            if (!is_string($item)) {
+                throw new \RuntimeException(sprintf('Configuration %s was expected to be a list of strings', $name));
+            }
+            $list[] = $item;
+        }
+
+        return $list;
+    }
+
+    /**
+     * Sets a configuration value, replacing any existing one.
+     */
+    private function set(string $name, mixed $value): void
+    {
+        NestedArrayUtil::setNestedArrayValue($this->config, explode('.', $name), $value, true);
+    }
+
+    /**
      * Get a configuration value, specifying a default if it does not exist.
      *
      * @param string $name
@@ -202,7 +246,7 @@ class Config
         if (!$reset && isset($this->homeDir)) {
             return $this->homeDir;
         }
-        $prefix = $this->config['application']['env_prefix'] ?? '';
+        $prefix = $this->getStrOrNull('application.env_prefix') ?? '';
         $envVars = [$prefix . 'HOME', 'HOME', 'USERPROFILE'];
         foreach ($envVars as $envVar) {
             $value = getenv($envVar);
@@ -255,7 +299,7 @@ class Config
      */
     public function getWritableUserDir(): string
     {
-        $path = $this->config['application']['writable_user_dir'] ?? $this->getUserConfigDir(false);
+        $path = $this->getStrOrNull('application.writable_user_dir') ?? $this->getUserConfigDir(false);
         $configDir = $this->getHomeDirectory() . DIRECTORY_SEPARATOR . $path;
 
         // If the directory is not writable (e.g. if we are on a Platform.sh
@@ -282,7 +326,7 @@ class Config
      */
     public function getSessionId(): string
     {
-        return $this->getWithDefault('api.session_id', 'default');
+        return $this->getStrOrNull('api.session_id') ?? 'default';
     }
 
     /**
@@ -300,7 +344,7 @@ class Config
      */
     public function setSessionId(string $id, bool $persist = false): void
     {
-        $this->config['api']['session_id'] = $id;
+        $this->set('api.session_id', $id);
         if ($persist) {
             $filename = $this->getSessionIdFile();
             if ($id === 'default') {
@@ -320,8 +364,7 @@ class Config
      */
     public function isSessionIdFromEnv(): bool
     {
-        $sessionId = $this->getSessionId();
-        return $sessionId !== 'default' && $sessionId === $this->getEnv('SESSION_ID');
+        return $this->getEnv('SESSION_ID') !== false;
     }
 
     /**
@@ -451,17 +494,17 @@ class Config
 
         // Special case: replace the list ssh.domain_wildcards with the value of {PREFIX}SSH_DOMAIN_WILDCARD.
         if (($value = $this->getEnv('SSH_DOMAIN_WILDCARD')) !== false) {
-            $this->config['ssh']['domain_wildcards'] = [$value];
+            $this->set('ssh.domain_wildcards', [$value]);
         }
 
         // Special case: {PREFIX}NO_LEGACY_WARNING disables the migration prompt.
         if ($this->getEnv('NO_LEGACY_WARNING')) {
-            $this->config['migrate']['prompt'] = false;
+            $this->set('migrate.prompt', false);
         }
 
         // Special case: replace the list api.organization_types with the (split) value of {PREFIX}API_ORGANIZATION_TYPES.
         if (($value = $this->getEnv('API_ORGANIZATION_TYPES')) !== false) {
-            $this->config['api']['organization_types'] = $value === '' ? [] : \preg_split('/[,\s]+/', $value);
+            $this->set('api.organization_types', $value === '' ? [] : \preg_split('/[,\s]+/', $value));
         }
     }
 
@@ -478,7 +521,7 @@ class Config
      */
     private function getEnv(string $name, bool $addPrefix = true): string|false
     {
-        $prefix = $addPrefix && isset($this->config['application']['env_prefix']) ? $this->config['application']['env_prefix'] : '';
+        $prefix = $addPrefix ? $this->getStrOrNull('application.env_prefix') ?? '' : '';
         if (array_key_exists($prefix . $name, $this->env)) {
             return $this->env[$prefix . $name];
         }
@@ -503,7 +546,7 @@ class Config
      */
     public function isExperimentEnabled(string $name): bool
     {
-        return !empty($this->config['experimental']['all_experiments']) || !empty($this->config['experimental'][$name]);
+        return !empty($this->getWithDefault('experimental.all_experiments', false)) || !empty($this->getWithDefault('experimental.' . $name, false));
     }
 
     /**
@@ -511,8 +554,7 @@ class Config
      */
     public function isCommandHidden(string $name): bool
     {
-        return (!empty($this->config['application']['hidden_commands'])
-            && in_array($name, $this->config['application']['hidden_commands']));
+        return in_array($name, $this->getStrList('application.hidden_commands'));
     }
 
     /**
@@ -520,22 +562,15 @@ class Config
      */
     public function isCommandEnabled(string $name): bool
     {
-        if (!empty($this->config['application']['disabled_commands'])
-            && in_array($name, $this->config['application']['disabled_commands'])) {
+        if (in_array($name, $this->getStrList('application.disabled_commands'))) {
             return false;
         }
-        if ($this->isWrapped()
-            && !empty($this->config['application']['wrapped_disabled_commands'])
-            && in_array($name, $this->config['application']['wrapped_disabled_commands'])) {
+        if ($this->isWrapped() && in_array($name, $this->getStrList('application.wrapped_disabled_commands'))) {
             return false;
         }
-        if (!empty($this->config['application']['experimental_commands'])
-            && in_array($name, $this->config['application']['experimental_commands'])) {
-            return !empty($this->config['experimental']['all_experiments'])
-                || (
-                    !empty($this->config['experimental']['enable_commands'])
-                    && in_array($name, $this->config['experimental']['enable_commands'])
-                );
+        if (in_array($name, $this->getStrList('application.experimental_commands'))) {
+            return !empty($this->getWithDefault('experimental.all_experiments', false))
+                || in_array($name, $this->getStrList('experimental.enable_commands'));
         }
 
         return true;
@@ -549,8 +584,8 @@ class Config
         if (isset($this->version)) {
             return $this->version;
         }
-        $version = $this->getWithDefault('application.version', '@version-placeholder@');
-        if (str_starts_with((string) $version, '@') && str_ends_with((string) $version, '@') && !str_starts_with(CLI_ROOT, 'phar://')) {
+        $version = $this->getStrOrNull('application.version') ?? '@version-placeholder@';
+        if (str_starts_with($version, '@') && str_ends_with($version, '@') && !str_starts_with(CLI_ROOT, 'phar://')) {
             // Silently try getting the version from Git.
             $tag = (new Shell())->execute(['git', 'describe', '--tags'], CLI_ROOT);
             if (is_string($tag) && str_starts_with($tag, 'v')) {
@@ -569,10 +604,7 @@ class Config
      */
     public function getUserAgent(): string
     {
-        $template = $this->getWithDefault(
-            'api.user_agent',
-            '{APP_NAME_DASH}/{VERSION} ({UNAME_S}; {UNAME_R}; PHP {PHP_VERSION})',
-        );
+        $template = $this->getStrOrNull('api.user_agent') ?? '{APP_NAME_DASH}/{VERSION} ({UNAME_S}; {UNAME_R}; PHP {PHP_VERSION})';
         /** @var array<string, string> $replacements */
         $replacements = [
             '{APP_NAME_DASH}' => \str_replace(' ', '-', $this->getStr('application.name')),
@@ -594,12 +626,12 @@ class Config
     public function getProxies(): array
     {
         $proxies = [];
-        if (\getenv('https_proxy') !== false) {
-            $proxies['https'] = \getenv('https_proxy');
+        if (($https = \getenv('https_proxy')) !== false) {
+            $proxies['https'] = $https;
         }
         // An environment variable prefixed by 'http_' cannot be trusted in a non-CLI (web) context.
-        if (PHP_SAPI === 'cli' && \getenv('http_proxy') !== false) {
-            $proxies['http'] = \getenv('http_proxy');
+        if (PHP_SAPI === 'cli' && ($http = \getenv('http_proxy')) !== false) {
+            $proxies['http'] = $http;
         }
         return $proxies;
     }
@@ -731,43 +763,44 @@ class Config
         $this->applyUrlDefaults();
         $this->applyLocalDirectoryDefaults();
 
-        if (!isset($this->config['application']['slug'])) {
-            $this->config['application']['slug'] = preg_replace('/[^a-z0-9-]+/', '-', str_replace(['.', ' '], ['', '-'], strtolower($this->getStr('application.name'))));
+        if (!$this->has('application.slug')) {
+            $this->set('application.slug', preg_replace('/[^a-z0-9-]+/', '-', str_replace(['.', ' '], ['', '-'], strtolower($this->getStr('application.name')))));
         }
-        if (!isset($this->config['application']['tmp_sub_dir'])) {
-            $this->config['application']['tmp_sub_dir'] = $this->getStr('application.slug') . '-tmp';
+        if (!$this->has('application.tmp_sub_dir')) {
+            $this->set('application.tmp_sub_dir', $this->getStr('application.slug') . '-tmp');
         }
-        if (!isset($this->config['api']['oauth2_client_id'])) {
-            $this->config['api']['oauth2_client_id'] = $this->getStr('application.slug');
+        if (!$this->has('api.oauth2_client_id')) {
+            $this->set('api.oauth2_client_id', $this->getStr('application.slug'));
         }
-        if (!isset($this->config['detection']['console_domain']) && isset($this->config['service']['console_url'])) {
-            $consoleDomain = parse_url((string) $this->config['service']['console_url'], PHP_URL_HOST);
+        if (!$this->has('detection.console_domain') && $this->has('service.console_url')) {
+            $consoleDomain = parse_url($this->getStr('service.console_url'), PHP_URL_HOST);
             if ($consoleDomain !== false) {
-                $this->config['detection']['console_domain'] = $consoleDomain;
+                $this->set('detection.console_domain', $consoleDomain);
             }
         }
-        if (!isset($this->config['service']['applications_config_file'])) {
-            $this->config['service']['applications_config_file'] = $this->getStr('service.project_config_dir') . '/applications.yaml';
+        if (!$this->has('service.applications_config_file')) {
+            $this->set('service.applications_config_file', $this->getStr('service.project_config_dir') . '/applications.yaml');
         }
 
         // Migrate renamed config keys.
-        if (isset($this->config['api']['add_to_ssh_agent']) && !isset($this->config['ssh']['add_to_agent'])) {
-            $this->config['ssh']['add_to_agent'] = $this->config['api']['add_to_ssh_agent'];
+        $renamed = [
+            'api.add_to_ssh_agent' => 'ssh.add_to_agent',
+            'api.auto_load_ssh_cert' => 'ssh.auto_load_cert',
+            'api.ssh_domain_wildcards' => 'ssh.domain_wildcards',
+        ];
+        foreach ($renamed as $old => $new) {
+            if ($this->has($old) && !$this->has($new)) {
+                $this->set($new, $this->get($old));
+            }
         }
-        if (isset($this->config['api']['auto_load_ssh_cert']) && !isset($this->config['ssh']['auto_load_cert'])) {
-            $this->config['ssh']['auto_load_cert'] = $this->config['api']['auto_load_ssh_cert'];
-        }
-        if (isset($this->config['api']['ssh_domain_wildcards']) && !isset($this->config['ssh']['domain_wildcards'])) {
-            $this->config['ssh']['domain_wildcards'] = $this->config['api']['ssh_domain_wildcards'];
-        }
-        if (isset($this->config['service']['header_prefix']) && !isset($this->config['detection']['cluster_header'])) {
-            $this->config['detection']['cluster_header'] = $this->config['service']['header_prefix'] . '-Cluster';
+        if ($this->has('service.header_prefix') && !$this->has('detection.cluster_header')) {
+            $this->set('detection.cluster_header', $this->getStr('service.header_prefix') . '-Cluster');
         }
     }
 
     private function applyUrlDefaults(): void
     {
-        $authUrl = $this->getWithDefault('api.auth_url', '');
+        $authUrl = $this->getStrOrNull('api.auth_url') ?? '';
         if ($authUrl === '') {
             return;
         }
@@ -778,19 +811,18 @@ class Config
             'certifier_url' => '',
         ];
         foreach ($defaultsUnderAuthUrl as $apiSubKey => $path) {
-            if (!isset($this->config['api'][$apiSubKey])) {
-                $this->config['api'][$apiSubKey] = rtrim((string) $authUrl, '/') . $path;
+            if (!$this->has('api.' . $apiSubKey)) {
+                $this->set('api.' . $apiSubKey, rtrim($authUrl, '/') . $path);
             }
         }
     }
 
     private function applyLocalDirectoryDefaults(): void
     {
-        if (isset($this->config['local']['local_dir'])) {
-            $localDir = $this->config['local']['local_dir'];
-        } else {
+        $localDir = $this->getStrOrNull('local.local_dir');
+        if ($localDir === null) {
             $localDir = $this->getStr('service.project_config_dir') . DIRECTORY_SEPARATOR . 'local';
-            $this->config['local']['local_dir'] = $localDir;
+            $this->set('local.local_dir', $localDir);
         }
         $defaultsUnderLocalDir = [
             'archive_dir' => 'build-archives',
@@ -800,8 +832,8 @@ class Config
             'shared_dir' => 'shared',
         ];
         foreach ($defaultsUnderLocalDir as $localSubKey => $subPath) {
-            if (!isset($this->config['local'][$localSubKey])) {
-                $this->config['local'][$localSubKey] = $localDir . DIRECTORY_SEPARATOR . $subPath;
+            if (!$this->has('local.' . $localSubKey)) {
+                $this->set('local.' . $localSubKey, $localDir . DIRECTORY_SEPARATOR . $subPath);
             }
         }
     }

@@ -130,7 +130,7 @@ class ActivityMonitor
         $overrideState = '';
         $progressColor = 'cyan';
         $bar->setPlaceholderFormatterDefinition('state', function () use ($activity, &$overrideState) {
-            return $this->formatState($overrideState ?: $activity->state);
+            return $this->formatState($overrideState ?: $activity->state); // @phpstan-ignore ternary.alwaysFalse (The closure gets $overrideState by reference.)
         });
         $startTime = $this->getStart($activity) ?: time();
         $bar->setPlaceholderFormatterDefinition('elapsed', fn() => $this->formatDuration(time() - $startTime));

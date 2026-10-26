@@ -48,7 +48,7 @@ class BuildResourcesGetCommand extends CommandBase
         }
 
         $project = $selection->getProject();
-        $settings = $project->getSettings();
+        $current = $this->resourcesUtil->buildResources($project->getSettings());
 
         $isOriginalCommand = $input instanceof ArgvInput;
 
@@ -58,8 +58,8 @@ class BuildResourcesGetCommand extends CommandBase
 
         $rows = [
             [
-                'cpu' => $settings['build_resources']['cpu'],
-                'memory' => $settings['build_resources']['memory'],
+                'cpu' => $current['cpu'] ?? '',
+                'memory' => $current['memory'] ?? '',
             ],
         ];
 

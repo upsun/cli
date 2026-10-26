@@ -31,7 +31,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'variable:create', description: 'Create a variable')]
 class VariableCreateCommand extends CommandBase
 {
-    private ?Form $form = null;
+    private Form $form;
 
     private Selection $selection;
 
@@ -128,7 +128,7 @@ class VariableCreateCommand extends CommandBase
 
         try {
             $values = $this->form->resolveOptions($input, $output, $this->questionHelper);
-        } catch (ConditionalFieldException $e) {
+        } catch (ConditionalFieldException $e) { // @phpstan-ignore catch.neverThrown (resolveOptions() throws it without declaring it.)
             $previousValues = $e->getPreviousValues();
             $field = $e->getField();
             $conditions = $field->getConditions();
@@ -187,6 +187,9 @@ class VariableCreateCommand extends CommandBase
 
         switch ($level) {
             case 'environment':
+                if ($environment === null) {
+                    throw new \LogicException('No environment selected');
+                }
                 // Unset visible_build and visible_runtime if they are already the API's defaults.
                 // This is to provide backwards compatibility with older API versions.
                 // @todo remove when API version 12 is everywhere

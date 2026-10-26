@@ -20,6 +20,9 @@ type Auth struct {
 	Token       string // An API token (api.token).
 	TokenFile   string // A file containing an API token (api.token_file), resolved to an absolute path.
 	AccessToken string // A raw access token (api.access_token), never stored or refreshed.
+	// TokenWithheld is whether a parent CLI process removed a configured token from this process's environment, which
+	// it reports in <PREFIX>WRAPPER_HAS_TOKEN.
+	TokenWithheld bool
 
 	SessionID        string // The session ID (api.session_id), defaulting to "default".
 	SessionIDFromEnv bool   // Whether the session ID was set via the <PREFIX>SESSION_ID environment variable.
@@ -56,7 +59,8 @@ type authSources struct {
 // "API_TOKEN" is an alias for api.access_token (deprecated), overriding the generic form for api.token.
 var authKeys = []authKey{
 	{"token", []string{"TOKEN"}, func(a *authSources) *string { return &a.token }},
-	{"token_file", []string{"API_TOKEN_FILE"}, func(a *authSources) *string { return &a.tokenFile }},
+	// The legacy CLI only reads api.token_file from config files.
+	{"token_file", nil, func(a *authSources) *string { return &a.tokenFile }},
 	{"access_token", []string{"API_ACCESS_TOKEN", "API_TOKEN"}, func(a *authSources) *string { return &a.accessToken }},
 	{"session_id", []string{"API_SESSION_ID"}, func(a *authSources) *string { return &a.sessionID }},
 	{"base_url", []string{"API_BASE_URL", "API_URL"}, func(a *authSources) *string { return &a.baseURL }},
@@ -156,9 +160,13 @@ func (c *Config) Auth() (*Auth, error) {
 		}
 	}
 
+	a.TokenWithheld = os.Getenv(prefix+"WRAPPER_HAS_TOKEN") == "1" &&
+		a.Token == "" && a.TokenFile == "" && a.AccessToken == ""
+
 	// The session ID file is only read if <PREFIX>SESSION_ID is not set.
 	if envID, ok := os.LookupEnv(prefix + "SESSION_ID"); ok {
 		a.SessionID = envID
+		a.SessionIDFromEnv = true
 	} else {
 		fileID, err := c.readSessionIDFile()
 		if err != nil {
@@ -174,7 +182,6 @@ func (c *Config) Auth() (*Auth, error) {
 	if err := ValidateSessionID(a.SessionID); err != nil {
 		return nil, err
 	}
-	a.SessionIDFromEnv = a.SessionID != "default" && a.SessionID == os.Getenv(prefix+"SESSION_ID")
 
 	if a.AuthURL != "" {
 		base := strings.TrimRight(a.AuthURL, "/")

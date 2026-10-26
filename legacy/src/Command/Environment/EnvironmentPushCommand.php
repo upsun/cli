@@ -304,7 +304,7 @@ class EnvironmentPushCommand extends CommandBase
             if ($process->getExitCode() !== 0) {
                 $diagnostics = $this->sshDiagnostics;
                 $diagnostics->diagnoseFailure($project->getGitUrl(), $process);
-                return $process->getExitCode();
+                return $process->getExitCode() ?? 1;
             }
 
             // Clear the environment cache after pushing.
@@ -338,9 +338,8 @@ class EnvironmentPushCommand extends CommandBase
             }
 
             // Check the push log for other possible deployment error messages.
-            $messages = (array) $this->config->get('detection.push_deploy_error_messages');
-            foreach ($messages as $message) {
-                if (str_contains($log, (string) $message)) {
+            foreach ($this->config->getStrList('detection.push_deploy_error_messages') as $message) {
+                if (str_contains($log, $message)) {
                     $this->stdErr->writeln('');
                     $this->stdErr->writeln(\sprintf('The push completed but there was a deployment error ("<error>%s</error>").', $message));
 

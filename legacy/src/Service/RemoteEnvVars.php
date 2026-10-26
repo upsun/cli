@@ -40,7 +40,7 @@ class RemoteEnvVars
     {
         $varName = $this->config->getStr('service.env_prefix') . $variable;
         if ($host instanceof LocalHost) {
-            return getenv($varName) !== false ? getenv($varName) : '';
+            return (string) getenv($varName);
         }
         // We ssh to the environment and 'echo' the variable, and read stdout.
         // Sometimes a program in the environment will print errors or other

@@ -144,10 +144,12 @@ func (c *Config) Raw() ([]byte, error) {
 	return c.raw, nil
 }
 
+// UserAgent returns the User-Agent header, from the api.user_agent template. The default matches the legacy CLI's
+// format, e.g. "Upsun-CLI/5.0.0 (linux; amd64; Go)".
 func (c *Config) UserAgent() string {
 	template := c.API.UserAgent
 	if template == "" {
-		template = "{APP_NAME_DASH} {VERSION} ({OS} {ARCH})"
+		template = "{APP_NAME_DASH}/{VERSION} ({OS}; {ARCH}; Go)"
 	}
 	replacements := map[string]string{
 		"{APP_NAME_DASH}": strings.ReplaceAll(c.Application.Name, " ", "-"),

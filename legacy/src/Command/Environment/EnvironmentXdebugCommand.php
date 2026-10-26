@@ -142,7 +142,7 @@ class EnvironmentXdebugCommand extends CommandBase
         if (!$process->isRunning() && !$process->isSuccessful()) {
             $this->stdErr->writeln(trim($process->getErrorOutput()));
             $this->stdErr->writeln('Failed to create the tunnel.');
-            return $process->stop();
+            return $process->stop() ?? 1;
         }
 
         $this->stdErr->writeln('');

@@ -84,7 +84,7 @@ class ResourcesSetTest extends TestCase
             if ($disk !== null) {
                 $properties['disk'] = $disk;
             }
-            $this->assertSame($expected, $m->invoke($command, $properties), sprintf(
+            $this->assertSame($expected, $m->invoke($command, WebApp::fromData($properties)), sprintf(
                 'minimum %s, disk %s',
                 var_export($minimum, true),
                 var_export($disk, true),

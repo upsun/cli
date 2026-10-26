@@ -340,3 +340,13 @@ func (b *syncBuffer) String() string {
 	defer b.mu.Unlock()
 	return b.buf.String()
 }
+
+// writeUserTokenFileConfig sets api.token_file in the user config file, which the legacy CLI reads (unlike the
+// <PREFIX>API_TOKEN_FILE environment variable).
+func (f *cmdFactory) writeUserTokenFileConfig(tokenFile string) {
+	f.t.Helper()
+	configDir := filepath.Join(f.home, ".platform-test-cli")
+	require.NoError(f.t, os.MkdirAll(configDir, 0o700))
+	require.NoError(f.t, os.WriteFile(filepath.Join(configDir, "config.yaml"),
+		[]byte("api:\n  token_file: '"+filepath.ToSlash(tokenFile)+"'\n"), 0o600))
+}

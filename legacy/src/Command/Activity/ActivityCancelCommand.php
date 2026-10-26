@@ -98,7 +98,7 @@ class ActivityCancelCommand extends ActivityCommandBase
                 $byId[$activity->id] = $activity;
                 $choices[$activity->id] = \sprintf(
                     '%s: %s (%s)',
-                    $this->propertyFormatter->formatDate($activity->created_at),
+                    $this->propertyFormatter->format($activity->created_at, 'created_at'),
                     ActivityMonitor::getFormattedDescription($activity),
                     ActivityMonitor::formatState($activity->state),
                 );

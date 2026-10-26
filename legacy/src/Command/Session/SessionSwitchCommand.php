@@ -42,11 +42,14 @@ class SessionSwitchCommand extends CommandBase
         $previousId = $this->config->getSessionId();
 
         $envVar = $this->config->getStr('application.env_prefix') . 'SESSION_ID';
-        if (getenv($envVar) !== false) {
+        if ($this->config->isSessionIdFromEnv()) {
             $this->stdErr->writeln(sprintf('The session ID is set via the environment variable %s.', $envVar));
             $this->stdErr->writeln('It cannot be changed using this command.');
             return 1;
         }
+
+        // This is checked first, as it fails if the token file cannot be read.
+        $hasConfiguredToken = $this->api->hasApiToken(false);
 
         $newId = Argument::stringOrNull($input, 'id');
         if ($newId === null) {
@@ -72,11 +75,18 @@ class SessionSwitchCommand extends CommandBase
                 return $sessionId;
             });
             $this->stdErr->writeln('');
+        } else {
+            try {
+                $this->config->validateSessionId($newId);
+            } catch (\InvalidArgumentException $e) {
+                $this->stdErr->writeln($e->getMessage());
+                return 1;
+            }
         }
 
         if ($newId === $previousId) {
             $this->stdErr->writeln(sprintf('The session ID is already set as <info>%s</info>', $newId));
-            $this->showAccountInfo();
+            $this->showAccountInfo($hasConfiguredToken);
             return 0;
         }
 
@@ -93,13 +103,16 @@ class SessionSwitchCommand extends CommandBase
 
         $this->stdErr->writeln(sprintf('Session ID changed from <info>%s</info> to <info>%s</info>', $previousId, $this->config->getSessionId()));
 
-        $this->showAccountInfo();
+        $this->showAccountInfo($hasConfiguredToken);
 
         return 0;
     }
 
-    private function showAccountInfo(): void
+    private function showAccountInfo(bool $hasConfiguredToken): void
     {
+        if ($hasConfiguredToken) {
+            $this->stdErr->writeln("\n<comment>Warning: an API token is set via config, and is used in every session</comment>");
+        }
         if ($this->api->isLoggedIn()) {
             $account = $this->api->getMyAccount();
             $this->stdErr->writeln(sprintf(

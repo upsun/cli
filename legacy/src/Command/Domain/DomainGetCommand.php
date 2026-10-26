@@ -48,13 +48,12 @@ class DomainGetCommand extends DomainCommandBase
     {
         $selection = $this->selector->getSelection($input, new SelectorConfig(envRequired: false));
         $project = $selection->getProject();
-        $forEnvironment = Option::stringOrNull($input, 'environment') !== null;
-        $environment = $forEnvironment ? $selection->getEnvironment() : null;
+        $environment = Option::stringOrNull($input, 'environment') !== null ? $selection->getEnvironment() : null;
         $httpClient = $this->api->getHttpClient();
 
         $domainName = Argument::stringOrNull($input, 'name');
         if (!empty($domainName)) {
-            $domain = $forEnvironment
+            $domain = $environment !== null
                 ? EnvironmentDomain::get($domainName, $environment->getLink('#domains'), $httpClient)
                 : $project->getDomain($domainName);
             if (!$domain) {
@@ -65,7 +64,7 @@ class DomainGetCommand extends DomainCommandBase
             $this->stdErr->writeln('The domain name is required.');
             return 1;
         } else {
-            $domains = $forEnvironment ? EnvironmentDomain::getList($environment, $httpClient) : $project->getDomains();
+            $domains = $environment !== null ? EnvironmentDomain::getList($environment, $httpClient) : $project->getDomains();
             $options = [];
             $byName = [];
             foreach ($domains as $domain) {
@@ -98,8 +97,8 @@ class DomainGetCommand extends DomainCommandBase
         $this->stdErr->writeln('');
         $executable = $this->config->getStr('application.executable');
         $exampleArgs = '';
-        if ($forEnvironment) {
-            $exampleArgs = '-e ' . OsUtil::escapeShellArg($selection->getEnvironment()->name) . ' ';
+        if ($environment !== null) {
+            $exampleArgs = '-e ' . OsUtil::escapeShellArg($environment->name) . ' ';
         }
         $exampleArgs .= OsUtil::escapeShellArg($domainName);
         $this->stdErr->writeln([

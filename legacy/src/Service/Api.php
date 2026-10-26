@@ -31,6 +31,7 @@ use Platformsh\Cli\Event\LoginRequiredEvent;
 use Platformsh\Cli\Exception\GoLoginRequiredException;
 use Platformsh\Cli\Exception\ProcessFailedException;
 use Platformsh\Cli\GuzzleDebugMiddleware;
+use Platformsh\Cli\Model\AutoscalingSettings;
 use Platformsh\Cli\Model\Route;
 use Platformsh\Cli\Util\Jwt;
 use Platformsh\Cli\Util\NamespacedCache;
@@ -39,7 +40,6 @@ use Platformsh\Cli\Util\Sort;
 use Platformsh\Cli\Connector;
 use Platformsh\Client\Exception\ApiResponseException;
 use Platformsh\Client\Exception\EnvironmentStateException;
-use Platformsh\Client\Model\AutoscalingSettings;
 use Platformsh\Client\Model\BasicProjectInfo;
 use Platformsh\Client\Model\Deployment\EnvironmentDeployment;
 use Platformsh\Client\Model\Environment;
@@ -213,7 +213,9 @@ class Api
         if (!$this->goAuth->isEnabled()) {
             return $this->tokenConfig->getAccessToken() || $this->tokenConfig->getApiToken($includeStored);
         }
-        if ($this->tokenConfig->getAccessToken() || $this->tokenConfig->getApiToken(false)) {
+        $configured = $this->goAuth->hasConfiguredToken()
+            ?? ($this->tokenConfig->getAccessToken() || $this->tokenConfig->getApiToken(false));
+        if ($configured) {
             return true;
         }
 
@@ -551,8 +553,6 @@ class Api
 
     /**
      * Tests if an error from refreshing a token indicates that the user's API token is invalid.
-     *
-     * @param array<string, mixed> $body
      */
     private function isApiTokenInvalid(mixed $body): bool
     {
@@ -1410,9 +1410,14 @@ class Api
      *
      * Keys will be preserved.
      *
-     * @param ApiResource[] &$resources
-     * @param string        $propertyPath
-     * @param bool          $reverse
+     * @template K of array-key
+     * @template T of ApiResource
+     *
+     * @param array<K, T> &$resources
+     * @param string      $propertyPath
+     * @param bool        $reverse
+     *
+     * @param-out array<K, T> $resources
      *
      * @return void
      */
@@ -1590,8 +1595,9 @@ class Api
      */
     public function getAccessToken(bool $forceNew = false): string
     {
-        // Check for an externally configured access token.
-        if ($accessToken = $this->tokenConfig->getAccessToken()) {
+        // Check for an externally configured access token. With Go auth, Go reads it, with the same precedence as other
+        // credentials, as the wrapper may remove it from this process's environment.
+        if (!$this->goAuth->isEnabled() && ($accessToken = $this->tokenConfig->getAccessToken())) {
             return $accessToken;
         }
 
@@ -2168,10 +2174,10 @@ class Api
      *
      * @param Environment $environment
      *
-     * @return \Platformsh\Client\Model\AutoscalingSettings|false
+     * @return AutoscalingSettings|false
      *  The autoscaling settings for the environment or false on failure.
      */
-    public function getAutoscalingSettings(Environment $environment)
+    public function getAutoscalingSettings(Environment $environment): AutoscalingSettings|false
     {
         $autoscalingSettingsLink = $this->getAutoscalingSettingsLink($environment);
         if (!$autoscalingSettingsLink) {
@@ -2186,7 +2192,7 @@ class Api
             }
             return false;
         }
-        return new AutoscalingSettings($result->getData(), $autoscalingSettingsLink);
+        return AutoscalingSettings::fromData($result->getData());
     }
 
     /**
@@ -2310,7 +2316,7 @@ class Api
     /**
      * Check if an environment has guaranteed CPU.
      */
-    public function environmentHasGuaranteedCPU(Environment $environment, ?Project $project = null): bool
+    public function environmentHasGuaranteedCPU(Environment $environment, Project $project): bool
     {
         if (!$this->supportsGuaranteedCPU($project)) {
             return false;

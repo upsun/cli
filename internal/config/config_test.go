@@ -2,8 +2,10 @@ package config_test
 
 import (
 	_ "embed"
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -84,4 +86,13 @@ func TestEmbedded(t *testing.T) {
 	assert.Equal(t, cnf.Wrapper, embedded.Wrapper)
 	assert.Equal(t, cnf.Application.Executable, embedded.Application.Executable)
 	assert.Empty(t, altCnf.Wrapper.GitHubRepo)
+}
+
+func TestUserAgent(t *testing.T) {
+	cnf := &config.Config{}
+	cnf.Application.Name = "Test CLI"
+	assert.Equal(t, fmt.Sprintf("Test-CLI/%s (%s; %s; Go)", config.Version, runtime.GOOS, runtime.GOARCH), cnf.UserAgent())
+
+	cnf.API.UserAgent = "{APP_NAME}/{VERSION}"
+	assert.Equal(t, "Test CLI/"+config.Version, cnf.UserAgent())
 }

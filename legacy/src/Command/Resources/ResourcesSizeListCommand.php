@@ -64,10 +64,13 @@ class ResourcesSizeListCommand extends ResourcesCommandBase
         }
         $servicesByProfile = [];
         foreach ($services as $name => $service) {
-            $servicesByProfile[$service->container_profile][] = $name;
+            $profile = $this->resourcesUtil->containerProfile($service);
+            if ($profile !== null) {
+                $servicesByProfile[$profile][] = $name;
+            }
         }
 
-        $containerProfiles = $this->sortContainerProfiles($nextDeployment->container_profiles);
+        $containerProfiles = $this->sortContainerProfiles($this->resourcesUtil->containerProfiles($nextDeployment));
 
         if ($serviceOption = Option::stringOrNull($input, 'service')) {
             if (!isset($services[$serviceOption])) {
@@ -75,7 +78,7 @@ class ResourcesSizeListCommand extends ResourcesCommandBase
                 return 1;
             }
             $service = $services[$serviceOption];
-            $profile = $service->container_profile;
+            $profile = $this->resourcesUtil->containerProfile($service);
         } elseif ($profileOption = Option::stringOrNull($input, 'profile')) {
             $profile = $profileOption;
             if (!isset($containerProfiles[$profile])) {
@@ -90,7 +93,7 @@ class ResourcesSizeListCommand extends ResourcesCommandBase
             $profile = $this->questionHelper->choose($options, 'Enter a number to choose a container profile:');
         } elseif (count($services) === 1) {
             $service = reset($services);
-            $profile = $service->container_profile;
+            $profile = $this->resourcesUtil->containerProfile($service);
         } else {
             throw new InvalidArgumentException('The --service or --profile is required.');
         }
@@ -101,7 +104,7 @@ class ResourcesSizeListCommand extends ResourcesCommandBase
         if ($supportsGuaranteedCPU) {
             $defaultColumns[] = 'cpu_type';
         }
-        foreach ($containerProfiles[$profile] as $sizeName => $sizeInfo) {
+        foreach ($containerProfiles[$profile] ?? [] as $sizeName => $sizeInfo) {
             if (!$supportsGuaranteedCPU && $sizeInfo['cpu_type'] === 'guaranteed') {
                 continue;
             }
@@ -109,7 +112,7 @@ class ResourcesSizeListCommand extends ResourcesCommandBase
                 'size' => $sizeName,
                 'cpu' => $this->resourcesUtil->formatCPU($sizeInfo['cpu']),
                 'memory' => $sizeInfo['memory'],
-                'cpu_type' => $sizeInfo['cpu_type'] ?? '',
+                'cpu_type' => $sizeInfo['cpu_type'],
             ];
         }
 

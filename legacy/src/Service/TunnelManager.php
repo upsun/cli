@@ -299,7 +299,8 @@ class TunnelManager
     {
         $args = ['ssh', '-n', '-N', '-L', implode(':', [$tunnel->localPort, $tunnel->remoteHost, $tunnel->remotePort]), $url];
         $args = array_merge($args, $extraArgs);
-        $process = new Process($args);
+        // Skip refreshing the SSH certificate in the SSH configuration, as for other SSH commands run by the CLI.
+        $process = new Process($args, null, [Ssh::SSH_NO_REFRESH_ENV_VAR => '1']);
         $process->setTimeout(null);
 
         return $process;

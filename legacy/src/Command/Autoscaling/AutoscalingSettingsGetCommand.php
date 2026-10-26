@@ -9,6 +9,7 @@ use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\ResourcesUtil;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Model\AutoscalingSettings;
 use Platformsh\Cli\Service\Table;
 use Platformsh\Client\Exception\EnvironmentStateException;
 use Platformsh\Client\Model\Deployment\Service;
@@ -17,6 +18,9 @@ use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * @phpstan-import-type ServiceSettings from AutoscalingSettings
+ */
 #[AsCommand(name: 'autoscaling:get', description: 'View the autoscaling configuration of apps, workers, and services on an environment', aliases: ['autoscaling'])]
 class AutoscalingSettingsGetCommand extends CommandBase
 {
@@ -74,7 +78,6 @@ class AutoscalingSettingsGetCommand extends CommandBase
             $this->stdErr->writeln(\sprintf('Autoscaling support is not currently available on the environment: %s', $this->api->getEnvironmentLabel($environment, 'error')));
             return 1;
         }
-        $autoscalingSettings = $autoscalingSettings->getData();
 
         $services = $this->resourcesUtil->allServices($deployment);
         // Autoscaling does not apply to tasks.
@@ -84,9 +87,9 @@ class AutoscalingSettingsGetCommand extends CommandBase
             return 1;
         }
 
-        if (!empty($autoscalingSettings['services'])) {
+        if (!empty($autoscalingSettings->services)) {
             // Filter autoscaling settings to only show services that are allowed to be configured.
-            $filteredSettings = $this->filterAutoscalingSettings($autoscalingSettings['services'], $services, $selection->getProject());
+            $filteredSettings = $this->filterAutoscalingSettings($autoscalingSettings->services, $services, $selection->getProject());
 
             if (empty($filteredSettings)) {
                 $this->stdErr->writeln(sprintf('No autoscaling configuration found for the project %s, environment %s.', $this->api->getProjectLabel($selection->getProject()), $this->api->getEnvironmentLabel($environment)));
@@ -119,13 +122,14 @@ class AutoscalingSettingsGetCommand extends CommandBase
                     'instance_count' => $empty,
                 ];
 
-                foreach ($settings['triggers'] as $metric => $conditions) {
+                foreach ($settings['triggers'] as $metric => $trigger) {
                     $row['metric'] = $metric;
-                    foreach ($conditions as $direction => $condition) {
-                        if ($direction === 'enabled') {
-                            $row['enabled'] = $this->propertyFormatter->format($condition, 'enabled');
+                    $row['enabled'] = isset($trigger['enabled']) ? $this->propertyFormatter->format($trigger['enabled'], 'enabled') : $empty;
+                    foreach (['up', 'down'] as $direction) {
+                        if (!isset($trigger[$direction])) {
                             continue;
                         }
+                        $condition = $trigger[$direction];
                         $row['direction'] = $direction;
                         $row['threshold'] = isset($condition['threshold']) ? sprintf('%.1f%%', $condition['threshold']) : $empty;
                         $row['duration'] = $condition['duration'] ?? $empty;
@@ -160,11 +164,11 @@ class AutoscalingSettingsGetCommand extends CommandBase
     /**
      * Filters autoscaling settings to only include services that are allowed to be configured.
      *
-     * @param array<string, array<string, mixed>> $autoscalingSettings Autoscaling settings from the API
+     * @param array<string, ServiceSettings> $autoscalingSettings Autoscaling settings from the API
      * @param array<string, \Platformsh\Client\Model\Deployment\Service|\Platformsh\Client\Model\Deployment\WebApp|\Platformsh\Client\Model\Deployment\Worker> $services Array of Service|WebApp|Worker objects from deployment
      * @param \Platformsh\Client\Model\Project $project
      *
-     * @return array<string, array<string, mixed>> Filtered autoscaling settings
+     * @return array<string, ServiceSettings> Filtered autoscaling settings
      */
     protected function filterAutoscalingSettings(array $autoscalingSettings, array $services, \Platformsh\Client\Model\Project $project): array
     {

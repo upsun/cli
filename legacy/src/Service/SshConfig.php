@@ -40,10 +40,7 @@ class SshConfig
                 return null;
             }
         }
-        if ($additionalKeys = $this->config->getWithDefault('ssh.host_keys', [])) {
-            if (!is_array($additionalKeys)) {
-                $additionalKeys = explode("\n", (string) $additionalKeys);
-            }
+        if ($additionalKeys = $this->config->getStrList('ssh.host_keys')) {
             $hostKeys = rtrim($hostKeys, "\n") . "\n" . implode("\n", $additionalKeys);
         }
         if (empty($hostKeys)) {
@@ -147,11 +144,10 @@ class SshConfig
         $includerFilename = $this->getCliSshDir() . DIRECTORY_SEPARATOR . 'session.config';
 
         // Add other configured options.
-        if ($configuredOptions = $this->config->get('ssh.options')) {
-            /** @var string[]|string $configuredOptions */
+        if ($configuredOptions = $this->config->getStrList('ssh.options')) {
             $lines[] = '';
             $lines[] = "# Other options from the CLI's configuration.";
-            $lines = array_merge($lines, is_array($configuredOptions) ? $configuredOptions : explode("\n", $configuredOptions));
+            $lines = array_merge($lines, $configuredOptions);
         }
 
         $this->writeSshIncludeFile($sessionSpecificFilename, $lines);
