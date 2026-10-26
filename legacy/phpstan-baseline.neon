@@ -439,25 +439,7 @@ parameters:
 			path: src/Command/Auth/VerifyPhoneNumberCommand.php
 
 		-
-			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Cannot access offset ''duration'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Cannot access offset ''max'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Cannot access offset ''min'' on mixed\.$#'
+			message: '#^Cannot access offset ''supports_horizontal_scaling_services'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
 			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
@@ -465,113 +447,11 @@ parameters:
 		-
 			message: '#^Cannot access offset ''supports_horizontal_scaling_services'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Cannot access offset ''threshold'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Cannot access offset mixed on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$autoscalingSettings of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsGetCommand\:\:filterAutoscalingSettings\(\) expects array\<string, array\<string, mixed\>\>, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$rows of method Platformsh\\Cli\\Service\\Table\:\:render\(\) expects array\<array\<int\|string, float\|int\|string\|Symfony\\Component\\Console\\Helper\\TableCell\>\|Symfony\\Component\\Console\\Helper\\TableSeparator\>, list\<array\<string, mixed\>\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Cannot access offset ''down'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''duration'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 4
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''enabled'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''max'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''min'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
 			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''supports_horizontal_scaling_services'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''threshold'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 4
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
 		-
 			message: '#^Cannot access offset ''threshold\-up'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''triggers'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''up'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset mixed on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 5
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset string on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 13
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset string\|null on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
@@ -595,21 +475,9 @@ parameters:
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
 		-
-			message: '#^Parameter \#1 \$defaults of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:getSupportedMetrics\(\) expects array\<string, mixed\>, array\<mixed, mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$previousValue of method Platformsh\\Cli\\Service\\ResourcesUtil\:\:formatChange\(\) expects float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 4
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
 			message: '#^Parameter \#1 \$value of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:formatDuration\(\) expects int, mixed given\.$#'
 			identifier: argument.type
-			count: 8
+			count: 4
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
 		-
@@ -637,69 +505,9 @@ parameters:
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
 		-
-			message: '#^Parameter \#2 \$currentServiceSettings of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:handleInstanceSettings\(\) expects array\<string, mixed\>\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#2 \$limit of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:validateInstanceCount\(\) expects int\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
 			message: '#^Parameter \#2 \$newValue of method Platformsh\\Cli\\Service\\ResourcesUtil\:\:formatChange\(\) expects float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 4
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#2 \$settings of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:summarizeChanges\(\) expects array\<string, array\<string, mixed\>\>, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#3 \$existingValue of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:askForDurationSetting\(\) expects int\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#3 \$instanceLimit of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:handleInstanceSettings\(\) expects int, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#4 \$currentServiceSettings of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:handleScalingSettings\(\) expects array\<string, mixed\>\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#4 \$defaultValue of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:askForDurationSetting\(\) expects int, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#5 \$defaults of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:handleScalingSettings\(\) expects array\<string, mixed\>, array\<mixed, mixed\> given\.$#'
-			identifier: argument.type
-			count: 2
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
 		-
@@ -724,12 +532,6 @@ parameters:
 			message: '#^Possibly invalid array key type mixed\.$#'
 			identifier: array.invalidKey
 			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Possibly invalid array key type mixed\.$#'
-			identifier: offsetAccess.invalidOffset
-			count: 4
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
 		-
@@ -2613,17 +2415,11 @@ parameters:
 		-
 			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
 			identifier: foreach.nonIterable
-			count: 2
-			path: src/Command/Resources/ResourcesGetCommand.php
-
-		-
-			message: '#^Cannot access offset ''disk'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
 			path: src/Command/Resources/ResourcesGetCommand.php
 
 		-
-			message: '#^Cannot access offset ''enabled'' on mixed\.$#'
+			message: '#^Cannot access offset ''disk'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
 			path: src/Command/Resources/ResourcesGetCommand.php
@@ -2661,13 +2457,13 @@ parameters:
 		-
 			message: '#^Possibly invalid array key type mixed\.$#'
 			identifier: offsetAccess.invalidOffset
-			count: 6
+			count: 5
 			path: src/Command/Resources/ResourcesGetCommand.php
 
 		-
 			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
 			identifier: foreach.nonIterable
-			count: 4
+			count: 3
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
@@ -2716,12 +2512,6 @@ parameters:
 			message: '#^Cannot access offset ''disk'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 8
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''enabled'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
@@ -2979,7 +2769,7 @@ parameters:
 		-
 			message: '#^Possibly invalid array key type mixed\.$#'
 			identifier: offsetAccess.invalidOffset
-			count: 9
+			count: 8
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-

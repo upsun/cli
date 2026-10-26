@@ -100,7 +100,7 @@ class ResourcesGetCommand extends ResourcesCommandBase
         // Check autoscaling settings for the environment, as autoscaling prevents changing some resources manually.
         $autoscalingSettings = $this->api->getAutoscalingSettings($environment);
         if ($autoscalingSettings) {
-            foreach ($autoscalingSettings->getData()['services'] as $service => $serviceSettings) {
+            foreach ($autoscalingSettings->services as $service => $serviceSettings) {
                 $autoscalingEnabled[$service] = !empty($serviceSettings['enabled']);
             }
         }
