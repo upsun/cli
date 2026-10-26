@@ -15,6 +15,8 @@ use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Exception\ApiFeatureMissingException;
 use Platformsh\Client\Exception\OperationUnavailableException;
+use Platformsh\Client\Model\Deployment\EnvironmentDeployment;
+use Platformsh\Client\Model\Deployment\RuntimeOperation;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -27,6 +29,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'operation:run', description: 'Run an operation on the environment')]
 class RunCommand extends CommandBase
 {
+    private const DUPLICATE_MESSAGE = 'More than one operation is defined with the same name. Specify an <error>--app</error> or a <error>--worker</error>.';
+
     public function __construct(private readonly ActivityMonitor $activityMonitor, private readonly Api $api, private readonly Config $config, private readonly QuestionHelper $questionHelper, private readonly Selector $selector)
     {
         parent::__construct();
@@ -48,21 +52,24 @@ class RunCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $selection = $this->selector->getSelection($input, new SelectorConfig(chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
+        $selection = $this->selector->getSelection($input, new SelectorConfig(
+            chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive(),
+            selectRemoteContainer: false,
+        ));
 
         $environment = $selection->getEnvironment();
         $deployment = $this->api->getCurrentDeployment($environment);
 
         try {
             if (Option::stringOrNull($input, 'app') || Option::stringOrNull($input, 'worker')) {
-                $selectedApp = $selection->getRemoteContainer();
+                $selectedApp = $this->selector->withRemoteContainer($input, $selection)->getRemoteContainer();
                 $appName = $selectedApp->getName();
                 $operations = [
                     $selectedApp->getName() => $selectedApp->getRuntimeOperations(),
                 ];
             } else {
                 $appName = null;
-                $operations = $deployment->getRuntimeOperations();
+                $operations = $this->withoutWorkerCopies($deployment, $deployment->getRuntimeOperations());
             }
         } catch (OperationUnavailableException) {
             throw new ApiFeatureMissingException('This project does not support runtime operations.');
@@ -85,7 +92,7 @@ class RunCommand extends CommandBase
             foreach ($operations as $serviceName => $serviceOperations) {
                 foreach ($serviceOperations as $name => $op) {
                     if (isset($choices[$name])) {
-                        $this->stdErr->writeln('More than one operation is defined with the same name. Specify an <error></error>--app</error> or a <error>--worker</error>.');
+                        $this->stdErr->writeln(self::DUPLICATE_MESSAGE);
                         return 1;
                     }
                     $choices[$name] = sprintf('%s (on %s)', $name, $serviceName);
@@ -98,11 +105,13 @@ class RunCommand extends CommandBase
         } else {
             $found = false;
             foreach ($operations as $serviceName => $serviceOperations) {
-                foreach ($serviceOperations as $name => $op) {
-                    if ($name === $operationName) {
-                        $appName = $serviceName;
-                        $found = true;
+                if (isset($serviceOperations[$operationName])) {
+                    if ($found) {
+                        $this->stdErr->writeln(self::DUPLICATE_MESSAGE);
+                        return 1;
                     }
+                    $appName = $serviceName;
+                    $found = true;
                 }
             }
             if (!$found) {
@@ -139,5 +148,24 @@ class RunCommand extends CommandBase
         }
 
         return $success ? 0 : 1;
+    }
+
+    /**
+     * Removes the operations that workers repeat from their apps, so that those run on the app by default.
+     *
+     * @param array<string, array<string, RuntimeOperation>> $operations
+     *
+     * @return array<string, array<string, RuntimeOperation>>
+     */
+    private function withoutWorkerCopies(EnvironmentDeployment $deployment, array $operations): array
+    {
+        foreach ($deployment->workers as $name => $worker) {
+            $app = $worker->getProperties()['app'] ?? null;
+            if (is_string($app) && isset($operations[$name], $operations[$app])) {
+                $operations[$name] = array_diff_key($operations[$name], $operations[$app]);
+            }
+        }
+
+        return $operations;
     }
 }
