@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/upsun/cli/pkg/mockapi"
@@ -162,7 +163,7 @@ func TestActivityCancelNullCreatedAt(t *testing.T) {
 	}
 	listPath := "/projects/" + projectID + "/environments/main/activities"
 	listJSON := "[" + activityJSON("nulldate", "null") + "," + activityJSON("dated", `"2024-01-01T00:00:00+00:00"`) + "]"
-	var canceled string
+	var canceled atomic.Value // string
 	wrapped := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == listPath:
@@ -170,7 +171,7 @@ func TestActivityCancelNullCreatedAt(t *testing.T) {
 			_, _ = w.Write([]byte(listJSON))
 			return
 		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/cancel"):
-			canceled = strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/projects/"+projectID+"/activities/"), "/cancel")
+			canceled.Store(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/projects/"+projectID+"/activities/"), "/cancel"))
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"status": "OK", "code": 200}`))
 			return
@@ -185,7 +186,7 @@ func TestActivityCancelNullCreatedAt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("activity:cancel failed: %v\nstderr=%s", err, stdErr)
 	}
-	if canceled != "nulldate" && canceled != "dated" {
+	if c, _ := canceled.Load().(string); c != "nulldate" && c != "dated" {
 		t.Fatalf("no activity was canceled\nstderr=%s", stdErr)
 	}
 }
