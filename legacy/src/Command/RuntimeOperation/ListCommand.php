@@ -52,14 +52,17 @@ class ListCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $selection = $this->selector->getSelection($input, new SelectorConfig(chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
+        $selection = $this->selector->getSelection($input, new SelectorConfig(
+            chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive(),
+            selectRemoteContainer: false,
+        ));
         $deployment = $this->api->getCurrentDeployment($selection->getEnvironment());
 
         // Fetch a list of operations grouped by service name, either for one
         // service or all of the services in an environment.
         try {
             if (Option::stringOrNull($input, 'app') || Option::stringOrNull($input, 'worker')) {
-                $selectedApp = $selection->getRemoteContainer();
+                $selectedApp = $this->selector->withRemoteContainer($input, $selection)->getRemoteContainer();
                 $operations = [
                     $selectedApp->getName() => $selectedApp->getRuntimeOperations(),
                 ];
