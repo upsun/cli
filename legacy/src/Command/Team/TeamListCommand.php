@@ -176,7 +176,7 @@ class TeamListCommand extends TeamCommandBase
                 $progress->showIfOutputDecorated(sprintf('Loading project teams (page %d)...', $pageNumber));
             }
             try {
-                $response = $httpClient->get($url);
+                $response = $httpClient->request('GET', $url);
             } catch (BadResponseException $e) {
                 throw ApiResponseException::create($e->getRequest(), $e->getResponse(), $e);
             }
@@ -187,7 +187,7 @@ class TeamListCommand extends TeamCommandBase
             $progress->done();
             $url = $data['_links']['next']['href'] ?? null;
             $pageNumber++;
-        } while ($url);
+        } while (is_string($url));
         return $info;
     }
 }

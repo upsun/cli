@@ -13,6 +13,13 @@ import (
 
 // setUpBuildResources serves a project with build resources of 1 CPU and 2048 MB, and maximums of 4 CPU and 8192 MB.
 func setUpBuildResources(t *testing.T) (apiHandler *mockapi.Handler, f *cmdFactory, projectID string) {
+	return setUpBuildResourcesWith(t, map[string]any{"cpu": 1, "memory": 2048})
+}
+
+// setUpBuildResourcesWith is setUpBuildResources with the given build resources settings.
+func setUpBuildResourcesWith(t *testing.T, buildResources map[string]any) (
+	apiHandler *mockapi.Handler, f *cmdFactory, projectID string,
+) {
 	apiHandler = mockapi.NewHandler(t)
 	projectID = mockapi.ProjectID()
 	apiHandler.SetProjects([]*mockapi.Project{{
@@ -24,7 +31,7 @@ func setUpBuildResources(t *testing.T) (apiHandler *mockapi.Handler, f *cmdFacto
 		DefaultBranch: "main",
 		Settings: map[string]any{
 			"sizing_api_enabled": true,
-			"build_resources":    map[string]any{"cpu": 1, "memory": 2048},
+			"build_resources":    buildResources,
 		},
 	}})
 	apiHandler.SetEnvironments([]*mockapi.Environment{makeEnv(projectID, "main", "production", "active", nil)})
@@ -108,10 +115,28 @@ func TestBuildResourcesSet(t *testing.T) {
 			assert.Contains(t, stderr, c.wantErr)
 		}
 
-		_, stderr, err := f.RunCombinedOutput("resources:build:set", "-p", projectID, "--memory", "2048")
-		require.NoError(t, err, stderr)
-		assert.Contains(t, stderr, "No changes were provided: nothing to update.")
+		// The current values are the API's integers.
+		for _, args := range [][]string{{"--memory", "2048"}, {"--cpu", "1"}} {
+			_, stderr, err := f.RunCombinedOutput(append([]string{"resources:build:set", "-p", projectID}, args...)...)
+			require.NoError(t, err, stderr)
+			assert.Contains(t, stderr, "No changes were provided: nothing to update.")
+		}
 
 		assert.Empty(t, apiHandler.ProjectSettingsPatches(projectID))
 	})
+}
+
+// TestBuildResourcesPartial checks the build resources commands when the settings omit a value.
+func TestBuildResourcesPartial(t *testing.T) {
+	t.Parallel()
+	apiHandler, f, projectID := setUpBuildResourcesWith(t, map[string]any{"cpu": 1})
+
+	assertTrimmed(t, "CPU\tMemory (MB)\n1\t", f.Run("resources:build:get", "-p", projectID, "--format", "tsv"))
+
+	_, stderr, err := f.RunCombinedOutput("resources:build:set", "-p", projectID, "--memory", "1024")
+	require.NoError(t, err, stderr)
+	assert.Contains(t, stderr, "Memory: 1024 MB")
+	patches := apiHandler.ProjectSettingsPatches(projectID)
+	require.Len(t, patches, 1)
+	assert.Equal(t, map[string]any{"build_resources": map[string]any{"memory": 1024.0}}, patches[0])
 }

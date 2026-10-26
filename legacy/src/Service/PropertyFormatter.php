@@ -130,8 +130,7 @@ class PropertyFormatter implements InputConfiguringInterface
             $dateTime = new \DateTime($value);
         }
         $dateTime->setTimezone(new \DateTimeZone(
-            $this->config->getWithDefault('application.timezone', null)
-            ?: TimezoneUtil::getTimezone(),
+            $this->config->getStrOrNull('application.timezone') ?: TimezoneUtil::getTimezone(),
         ));
 
         return $dateTime->format($this->dateFormat());

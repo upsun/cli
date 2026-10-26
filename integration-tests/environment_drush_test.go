@@ -55,6 +55,18 @@ func TestEnvironmentDrush(t *testing.T) {
 			args: []string{"cr", "--yes", "-v"},
 			want: []string{"--root=/app/", "--uri=https://main.example.com/", "cr", "--yes", "--verbose"},
 		},
+		{
+			name: "shared options, with their names in arguments",
+			args: []string{"sqlq", "select 1 as no, 2 as verbose", "--no", "-v"},
+			want: []string{
+				"--root=/app/", "--uri=https://main.example.com/", "sqlq", "select 1 as no, 2 as verbose", "--no", "--verbose",
+			},
+		},
+		{
+			name: "shared options, already in the command",
+			args: []string{"cr --yes --verbose", "--yes", "-v"},
+			want: []string{"--root=/app/", "--uri=https://main.example.com/", "cr", "--yes", "--verbose"},
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

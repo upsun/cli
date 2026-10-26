@@ -47,16 +47,16 @@ class OrganizationCreateCommand extends OrganizationCommandBase
         $fields['label'] = new Field('Label', [
             'description' => 'The full name of the organization, e.g. "ACME Inc."',
         ]);
-        if ($orgTypes = $this->config->get('api.organization_types')) {
+        if ($orgTypes = $this->config->getStrList('api.organization_types')) {
             $options = [];
-            foreach ((array) $orgTypes as $type) {
+            foreach ($orgTypes as $type) {
                 $options[$type] = ucfirst($type);
             }
             $fields['type'] = new OptionsField('Type', [
                 'description' => 'The organization type.',
                 'options' => $options,
                 'avoidQuestion' => true,
-                'default' => $this->config->getWithDefault('api.default_organization_type', key($options)),
+                'default' => $this->config->getStrOrNull('api.default_organization_type') ?? key($options),
             ]);
         }
         $fields['name'] = new Field('Name', [

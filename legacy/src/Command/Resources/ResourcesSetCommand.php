@@ -30,6 +30,12 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * @phpstan-import-type ContainerProfiles from ResourcesUtil
+ * @phpstan-import-type ProfileSize from ResourcesUtil
+ * @phpstan-type ServiceUpdates array{resources?: array{profile_size?: string, disk?: array{object: int}}, instance_count?: int, disk?: int}
+ * @phpstan-type CurrentService array{profile_size: string|null, instance_count: int|null, disk: int|null, sizes: array<int|string, ProfileSize>}
+ */
 #[AsCommand(name: 'resources:set', description: 'Set the resources of apps, tasks and services on an environment')]
 class ResourcesSetCommand extends ResourcesCommandBase
 {
@@ -144,32 +150,34 @@ class ResourcesSetCommand extends ResourcesCommandBase
 
         // Determine the limit of the number of instances, which can vary per project.
         $instanceLimit = null;
-        if (($projectInfo = $nextDeployment->getProperty('project_info')) && isset($projectInfo['capabilities']['instance_limit'])) {
-            $instanceLimit = $projectInfo['capabilities']['instance_limit'];
+        $projectInfo = $nextDeployment->getProperty('project_info', false);
+        if (is_array($projectInfo) && isset($projectInfo['capabilities']) && is_array($projectInfo['capabilities'])) {
+            $limit = $projectInfo['capabilities']['instance_limit'] ?? null;
+            $instanceLimit = is_int($limit) ? $limit : null;
         }
 
         $autoscalingEnabled = [];
         // Check autoscaling settings for the environment, as autoscaling prevents changing some resources manually.
         $autoscalingSettings = $this->api->getAutoscalingSettings($environment);
         if ($autoscalingSettings) {
-            foreach ($autoscalingSettings->getData()['services'] as $service => $serviceSettings) {
+            foreach ($autoscalingSettings->services as $service => $serviceSettings) {
                 $autoscalingEnabled[$service] = !empty($serviceSettings['enabled']);
             }
         }
 
         // Validate the --size option.
-        [$givenSizes, $errored] = $this->parseSetting($input, 'size', $services, fn($v, $serviceName, $service) => $this->validateProfileSize($v, $serviceName, $service, $nextDeployment));
+        [$givenSizes, $errored] = $this->parseSetting($input, 'size', $services, fn(string $v, string $serviceName, WebApp|Worker|Service|Task $service): string => $this->validateProfileSize($v, $serviceName, $service, $nextDeployment));
 
         // Validate the --count option.
-        [$givenCounts, $countErrored] = $this->parseSetting($input, 'count', $services, fn($v, $serviceName, $service) => $this->validateInstanceCount($v, $serviceName, $service, $instanceLimit, !empty($autoscalingEnabled[$serviceName])));
+        [$givenCounts, $countErrored] = $this->parseSetting($input, 'count', $services, fn(string $v, string $serviceName, WebApp|Worker|Service|Task $service): int => $this->validateInstanceCount($v, $serviceName, $service, $instanceLimit, !empty($autoscalingEnabled[$serviceName])));
         $errored = $errored || $countErrored;
 
         // Validate the --disk option.
-        [$givenDiskSizes, $diskErrored] = $this->parseSetting($input, 'disk', $services, fn($v, $serviceName, $service) => $this->validateDiskSize($v, $serviceName, $service));
+        [$givenDiskSizes, $diskErrored] = $this->parseSetting($input, 'disk', $services, fn(string $v, string $serviceName, WebApp|Worker|Service|Task $service): int => $this->validateDiskSize($v, $serviceName, $service));
         $errored = $errored || $diskErrored;
 
         // Validate the --object-storage option.
-        [$givenObjectStorage, $objectStorageErrored] = $this->parseSetting($input, 'object-storage', $services, fn($v, $serviceName, $service) => $this->validateObjectStorage($v, $serviceName, $service));
+        [$givenObjectStorage, $objectStorageErrored] = $this->parseSetting($input, 'object-storage', $services, fn(string $v, string $serviceName, WebApp|Worker|Service|Task $service): int => $this->validateObjectStorage($v, $serviceName, $service));
         $errored = $errored || $objectStorageErrored;
         if ($errored) {
             return 1;
@@ -183,7 +191,8 @@ class ResourcesSetCommand extends ResourcesCommandBase
         }
         $this->stdErr->writeln('');
 
-        $containerProfiles = $nextDeployment->container_profiles;
+        $allContainerProfiles = $this->resourcesUtil->containerProfiles($nextDeployment);
+        $containerProfiles = $allContainerProfiles;
 
         // Remove guaranteed profiles if project does not support it.
         $supportsGuaranteedCPU = $this->api->supportsGuaranteedCPU($selection->getProject(), $nextDeployment);
@@ -209,14 +218,17 @@ class ResourcesSetCommand extends ResourcesCommandBase
             $type = $this->typeName($service);
             $group = $this->group($service);
 
-            $properties = $service->getProperties();
-            // Tasks may lack a profile, instance_count and disk; default safely.
-            $containerProfile = $properties['container_profile'] ?? ($service instanceof Task ? 'BALANCED' : null);
-            $current[$group][$name]['resources']['profile_size'] = $properties['resources']['profile_size'] ?? null;
-            $current[$group][$name]['instance_count'] = $properties['instance_count'] ?? null;
-            $current[$group][$name]['disk'] = $properties['disk'] ?? null;
-            // Unfiltered, so that usage is also known for a current size that is no longer offered.
-            $current[$group][$name]['sizes'] = $nextDeployment->container_profiles[$containerProfile] ?? [];
+            $resources = $this->resourcesUtil->resources($service);
+            $currentSize = $resources['profile_size'] ?? null;
+            $currentDisk = $this->resourcesUtil->disk($service);
+            $containerProfile = $this->resourcesUtil->containerProfile($service);
+            $current[$group][$name] = [
+                'profile_size' => $currentSize,
+                'instance_count' => $this->resourcesUtil->instanceCount($service),
+                'disk' => $currentDisk,
+                // Unfiltered, so that usage is also known for a current size that is no longer offered.
+                'sizes' => $allContainerProfiles[$containerProfile] ?? [],
+            ];
 
             $header = '<options=bold>' . ucfirst($type) . ': </><options=bold,underscore>' . $name . '</>';
             $headerShown = false;
@@ -230,34 +242,27 @@ class ResourcesSetCommand extends ResourcesCommandBase
 
             // Set the profile size.
             if (isset($givenSizes[$name])) {
-                if (!isset($properties['resources']['profile_size']) || $givenSizes[$name] != $properties['resources']['profile_size']) {
+                if ($currentSize === null || $givenSizes[$name] != $currentSize) {
                     $updates[$group][$name]['resources']['profile_size'] = $givenSizes[$name];
                 }
             } elseif ($showCompleteForm
-                || (!isset($properties['resources']['profile_size']) && $input->isInteractive())) {
+                || ($currentSize === null && $input->isInteractive())) {
                 if ($containerProfile !== null) {
                     $header .= "\n" . sprintf('Container profile: <info>%s</info>', $containerProfile);
                 }
                 $ensureHeader();
-                $new = isset($properties['resources']['profile_size']) ? 'a new' : 'a';
+                $new = $currentSize !== null ? 'a new' : 'a';
                 $profileSizes = $containerProfiles[$containerProfile] ?? [];
-                if (isset($properties['resources']['profile_size'])) {
-                    $defaultOption = $properties['resources']['profile_size'];
-                } elseif (isset($properties['resources']['default']['profile_size'])) {
-                    $defaultOption = $properties['resources']['default']['profile_size'];
-                } else {
-                    $defaultOption = null;
-                }
+                $defaultOption = $currentSize ?? $resources['default']['profile_size'] ?? null;
                 $options = [];
                 foreach ($profileSizes as $profileSize => $sizeInfo) {
                     // Skip showing sizes that are below the minimum for this service.
-                    if ((isset($properties['resources']['minimum']['cpu']) && $sizeInfo['cpu'] < $properties['resources']['minimum']['cpu'])
-                      || (isset($properties['resources']['minimum']['memory']) && $sizeInfo['memory'] < $properties['resources']['minimum']['memory'])) {
+                    if ((isset($resources['minimum']['cpu']) && $sizeInfo['cpu'] < $resources['minimum']['cpu'])
+                      || (isset($resources['minimum']['memory']) && $sizeInfo['memory'] < $resources['minimum']['memory'])) {
                         continue;
                     }
                     $description = sprintf('CPU %s, memory %s MB (%s)', $sizeInfo['cpu'], $sizeInfo['memory'], $sizeInfo['cpu_type']);
-                    if (isset($properties['resources']['profile_size'])
-                        && $profileSize == $properties['resources']['profile_size']) {
+                    if ($currentSize !== null && $profileSize == $currentSize) {
                         $description .= ' <question>(current)</question>';
                     } elseif ($defaultOption !== null && $defaultOption === (string) $profileSize) {
                         $description .= ' <question>(default)</question>';
@@ -266,16 +271,16 @@ class ResourcesSetCommand extends ResourcesCommandBase
                     $options[$profileSize] = $description;
                 }
 
-                if (!isset($properties['resources']['profile_size']) && empty($options)) {
+                if ($currentSize === null && empty($options)) {
                     $this->stdErr->writeln(sprintf('No profile size can be found for the %s <comment>%s</comment> which satisfies its minimum resources.', $type, $name));
                     $errored = true;
                 } else {
                     $profileSize = $this->questionHelper->chooseAssoc($options, sprintf('Choose %s profile size:', $new), $defaultOption, false, false);
-                    if (!isset($properties['resources']['profile_size']) || $profileSize !== $properties['resources']['profile_size']) {
+                    if ($profileSize !== $currentSize) {
                         $updates[$group][$name]['resources']['profile_size'] = $profileSize;
                     }
                 }
-            } elseif (!isset($properties['resources']['profile_size'])) {
+            } elseif ($currentSize === null) {
                 $this->stdErr->writeln(sprintf('A profile size is required for the %s <comment>%s</comment>.', $type, $name));
                 $errored = true;
             }
@@ -294,7 +299,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
             // This is not applicable to a Task or a non-scalable Service, and unavailable when autoscaling is enabled.
             if ($this->supportsInstanceCount($service) && empty($autoscalingEnabled[$name])) {
                 // An unset instance count means 1.
-                $currentCount = $properties['instance_count'] ?? 1;
+                $currentCount = $current[$group][$name]['instance_count'] ?? 1;
                 if (isset($givenCounts[$name])) {
                     $instanceCount = $givenCounts[$name];
                     if ($instanceCount !== $currentCount) {
@@ -317,22 +322,19 @@ class ResourcesSetCommand extends ResourcesCommandBase
 
             // Set the disk size.
             if ($this->resourcesUtil->supportsDisk($service)) {
+                $diskIsRequiredButUnset = $this->diskIsRequiredButUnset($service);
                 if (isset($givenDiskSizes[$name])) {
-                    if ($givenDiskSizes[$name] !== ($properties['disk'] ?? null)) {
+                    if ($givenDiskSizes[$name] !== $currentDisk) {
                         $updates[$group][$name]['disk'] = $givenDiskSizes[$name];
                     }
-                } elseif ($showCompleteForm || ($this->diskIsRequiredButUnset($properties) && $input->isInteractive())) {
+                } elseif ($showCompleteForm || ($diskIsRequiredButUnset && $input->isInteractive())) {
                     $ensureHeader();
-                    if (($properties['disk'] ?? null)) {
-                        $default = $properties['disk'];
-                    } else {
-                        $default = $properties['resources']['default']['disk'] ?? '512';
-                    }
+                    $default = $currentDisk ?: $resources['default']['disk'] ?? 512;
                     $diskSize = $this->questionHelper->askInput('Enter a disk size in MB', (string) $default, ['512', '1024', '2048'], fn($v) => $this->validateDiskSize($v, $name, $service));
-                    if ($diskSize !== ($properties['disk'] ?? null)) {
+                    if ($diskSize !== $currentDisk) {
                         $updates[$group][$name]['disk'] = $diskSize;
                     }
-                } elseif ($this->diskIsRequiredButUnset($properties)) {
+                } elseif ($diskIsRequiredButUnset) {
                     $this->stdErr->writeln(sprintf('A disk size is required for the %s <comment>%s</comment>.', $type, $name));
                     $errored = true;
                 }
@@ -340,7 +342,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
 
             // Set the object storage size (apps only).
             if ($service instanceof WebApp && isset($givenObjectStorage[$name])) {
-                $currentObject = $properties['resources']['disk']['object'] ?? null;
+                $currentObject = $resources['object_storage'] ?? null;
                 if ($givenObjectStorage[$name] !== $currentObject) {
                     $updates[$group][$name]['resources']['disk']['object'] = $givenObjectStorage[$name];
                 }
@@ -437,9 +439,9 @@ class ResourcesSetCommand extends ResourcesCommandBase
     /**
      * Summarizes all the changes that would be made.
      *
-     * @param array<array<string, array<string, mixed>>> $updates
+     * @param array<string, array<string, ServiceUpdates>> $updates
      * @param array<string, WebApp|Worker|Service|Task> $services
-     * @param array<string, mixed> $containerProfiles
+     * @param ContainerProfiles $containerProfiles
      * @return void
      */
     private function summarizeChanges(array $updates, array $services, array $containerProfiles): void
@@ -455,20 +457,18 @@ class ResourcesSetCommand extends ResourcesCommandBase
     /**
      * Summarizes changes per service.
      *
-     * @param array<string, mixed> $updates
-     * @param array<string, mixed> $containerProfiles
+     * @param ServiceUpdates $updates
+     * @param ContainerProfiles $containerProfiles
      */
     private function summarizeChangesPerService(string $name, WebApp|Worker|Service|Task $service, array $updates, array $containerProfiles): void
     {
         $this->stdErr->writeln(sprintf('  <options=bold>%s: </><options=bold,underscore>%s</>', ucfirst($this->typeName($service)), $name));
 
-        $properties = $service->getProperties();
-        $properties['container_profile'] ??= $service instanceof Task ? 'BALANCED' : null;
+        $resources = $this->resourcesUtil->resources($service);
         if (isset($updates['resources']['profile_size'])) {
-            $sizeInfo = $this->resourcesUtil->sizeInfo($properties, $containerProfiles);
-            $newProperties = array_replace_recursive($properties, $updates);
-
-            $newSizeInfo = $this->resourcesUtil->sizeInfo($newProperties, $containerProfiles);
+            $sizes = $containerProfiles[$this->resourcesUtil->containerProfile($service)] ?? [];
+            $sizeInfo = isset($resources['profile_size']) ? $sizes[$resources['profile_size']] ?? null : null;
+            $newSizeInfo = $sizes[$updates['resources']['profile_size']] ?? null;
             if ($newSizeInfo === null) {
                 // The requested profile_size isn't in the deployment's
                 // container_profiles catalog, so we can't show CPU/memory
@@ -492,20 +492,20 @@ class ResourcesSetCommand extends ResourcesCommandBase
         }
         if (isset($updates['instance_count'])) {
             $this->stdErr->writeln('    Instance count: ' . $this->resourcesUtil->formatChange(
-                $properties['instance_count'] ?? 1,
+                $this->resourcesUtil->instanceCount($service) ?? 1,
                 $updates['instance_count'],
             ));
         }
         if (isset($updates['disk'])) {
             $this->stdErr->writeln('    Disk: ' . $this->resourcesUtil->formatChange(
-                $properties['disk'] ?? null,
+                $this->resourcesUtil->disk($service),
                 $updates['disk'],
                 ' MB',
             ));
         }
         if (isset($updates['resources']['disk']['object'])) {
             $this->stdErr->writeln('    Object storage: ' . $this->resourcesUtil->formatChange(
-                $properties['resources']['disk']['object'] ?? null,
+                $resources['object_storage'] ?? null,
                 $updates['resources']['disk']['object'],
                 ' MB',
             ));
@@ -593,13 +593,11 @@ class ResourcesSetCommand extends ResourcesCommandBase
      *
      * A zero minimum means a disk is allowed but optional, as on Upsun, so
      * leaving it unset is a valid final state rather than something to fix.
-     *
-     * @param array<string, mixed> $properties
      */
-    protected function diskIsRequiredButUnset(array $properties): bool
+    protected function diskIsRequiredButUnset(WebApp|Worker|Service|Task $service): bool
     {
-        return !empty($properties['resources']['minimum']['disk'])
-            && empty($properties['disk'] ?? null);
+        return !empty($this->resourcesUtil->resources($service)['minimum']['disk'])
+            && empty($this->resourcesUtil->disk($service));
     }
 
     /**
@@ -727,18 +725,20 @@ class ResourcesSetCommand extends ResourcesCommandBase
     /**
      * Parses a user's list of settings for --size, --instances or --disk.
      *
+     * @template T of int|string
+     *
      * @param InputInterface $input
      * @param string $optionName The input option name.
      * @param array<string, Service|WebApp|Worker|Task> $services
-     * @param callable|null $validator
+     * @param callable(string, string, Service|WebApp|Worker|Task): T $validator
      *   Validate the value. The callback takes the arguments ($value,
      *   $serviceName, $service) and returns a normalized value or throws
      *   an InvalidArgumentException.
      *
-     * @return array{array<string, mixed>, bool}
+     * @return array{array<string, T>, bool}
      *     An array of settings per service, and whether an error occurred.
      */
-    private function parseSetting(InputInterface $input, string $optionName, array $services, ?callable $validator): array
+    private function parseSetting(InputInterface $input, string $optionName, array $services, callable $validator): array
     {
         $items = ArrayArgument::getOption($input, $optionName);
         $serviceNames = array_keys($services);
@@ -845,8 +845,8 @@ class ResourcesSetCommand extends ResourcesCommandBase
      * Compute the total memory/CPU/storage diff that will occur when the given update
      * is applied.
      *
-     * @param array<string, array<string, array<string, mixed>>> $updates
-     * @param array<string, array<string, array<string, mixed>>> $current
+     * @param array<string, array<string, ServiceUpdates>> $updates
+     * @param array<string, array<string, CurrentService>> $current
      *
      * @return array{memory: int|float, cpu: int|float, disk: int|float}
      */
@@ -859,16 +859,10 @@ class ResourcesSetCommand extends ResourcesCommandBase
         ];
         foreach ($updates as $group => $groupUpdates) {
             foreach ($groupUpdates as $serviceName => $serviceUpdates) {
-                if (isset($current[$group][$serviceName]['instance_count']) === false) {
-                    $current[$group][$serviceName]['instance_count'] = 1;
-                }
-                if (isset($current[$group][$serviceName]['disk']) === false) {
-                    $current[$group][$serviceName]['disk'] = 0;
-                }
-
-                $currentCount = $current[$group][$serviceName]['instance_count'];
-                $currentSize = $current[$group][$serviceName]['resources']['profile_size'];
-                $currentStorage = $current[$group][$serviceName]['disk'];
+                $currentService = $current[$group][$serviceName];
+                $currentCount = $currentService['instance_count'] ?? 1;
+                $currentSize = $currentService['profile_size'];
+                $currentStorage = $currentService['disk'] ?? 0;
 
                 $newCount = $currentCount;
                 $newSize = $currentSize;
@@ -883,8 +877,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
                     $newStorage = $serviceUpdates['disk'];
                 }
 
-                $currentService = $current[$group][$serviceName];
-                $currentProfile = $currentService['sizes'][$currentSize] ?? [];
+                $currentProfile = $currentSize !== null ? $currentService['sizes'][$currentSize] ?? [] : [];
                 $currentCPU = $currentCount * ($currentProfile['cpu'] ?? 0);
                 $currentRAM = $currentCount * ($currentProfile['memory'] ?? 0);
 

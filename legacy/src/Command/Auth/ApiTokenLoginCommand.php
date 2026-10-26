@@ -11,8 +11,9 @@ use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Service\TokenConfig;
 use GuzzleHttp\Exception\BadResponseException;
 use GuzzleHttp\Utils;
-use League\OAuth2\Client\Token\AccessToken;
+use League\OAuth2\Client\Token\AccessTokenInterface;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Client\Connection\Connector;
 use Platformsh\OAuth2\Client\Grant\ApiToken;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
@@ -62,7 +63,9 @@ class ApiTokenLoginCommand extends CommandBase
             }
 
             try {
-                $provider = $this->api->getClient(false)->getConnector()->getOAuth2Provider();
+                /** @var Connector $connector */
+                $connector = $this->api->getClient(false)->getConnector();
+                $provider = $connector->getOAuth2Provider();
                 $token = $provider->getAccessToken(new ApiToken(), [
                     'api_token' => $apiToken,
                 ]);
@@ -94,18 +97,17 @@ class ApiTokenLoginCommand extends CommandBase
     /**
      * Saves the new tokens and safely logs out of the previous session.
      *
-     * @param string      $apiToken
-     * @param AccessToken $accessToken
+     * @param string               $apiToken
+     * @param AccessTokenInterface $accessToken
      */
-    private function saveTokens(string $apiToken, AccessToken $accessToken): void
+    private function saveTokens(string $apiToken, AccessTokenInterface $accessToken): void
     {
         $this->api->logout();
         $this->tokenConfig->storage()->storeToken($apiToken);
 
-        $this->api
-            ->getClient(false, true)
-            ->getConnector()
-            ->saveToken($accessToken);
+        /** @var Connector $connector */
+        $connector = $this->api->getClient(false, true)->getConnector();
+        $connector->saveToken($accessToken);
     }
 
     /**

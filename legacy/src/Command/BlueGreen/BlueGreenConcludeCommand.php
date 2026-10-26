@@ -39,7 +39,7 @@ class BlueGreenConcludeCommand extends CommandBase
         $environment = $selection->getEnvironment();
 
         $httpClient = $this->api->getHttpClient();
-        $response = $httpClient->get($environment->getLink('#versions'));
+        $response = $httpClient->request('GET', $environment->getLink('#versions'));
         $data = (array) Utils::jsonDecode((string) $response->getBody(), true);
         if (count($data) < 2) {
             $this->stdErr->writeln(sprintf('Blue/green deployments are not enabled for the environment %s.', $this->api->getEnvironmentLabel($environment, 'error')));
@@ -64,7 +64,7 @@ class BlueGreenConcludeCommand extends CommandBase
         }
 
         $this->stdErr->writeln('');
-        $httpClient->delete($environment->getLink('#versions') . '/' . rawurlencode((string) $lockedVersionData['id']));
+        $httpClient->request('DELETE', $environment->getLink('#versions') . '/' . rawurlencode((string) $lockedVersionData['id']));
         $this->stdErr->writeln(sprintf('Version <info>%s</info> was deleted.', $lockedVersionData['id']));
         $this->stdErr->writeln(sprintf('List versions with: <info>%s versions</info>.', $this->config->getStr('application.executable')));
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,18 +13,18 @@ import (
 	"github.com/upsun/cli/pkg/mockapi"
 )
 
-// TestRuntimeOperationRun verifies that `operation:run <name>` passes the
-// expected app name (not null) through to execRuntimeOperation, even when the
-// --app/--worker options are not provided. PHPStan flagged $appName as
-// potentially null at the call site; this test reproduces the exact path.
-func TestRuntimeOperationRun(t *testing.T) {
-	t.Parallel()
+// setUpRuntimeOperations serves a project whose main environment has apps with a "migrate" runtime operation.
+// A name containing "--" is a worker of the app named before it, which repeats the app's operations.
+func setUpRuntimeOperations(t *testing.T, appNames ...string) (
+	f *cmdFactory, apiHandler *mockapi.Handler, projectID, deploymentPath string,
+) {
+	t.Helper()
 	authServer := mockapi.NewAuthServer(t)
-	defer authServer.Close()
+	t.Cleanup(authServer.Close)
 
-	apiHandler := mockapi.NewHandler(t)
+	apiHandler = mockapi.NewHandler(t)
 
-	projectID := mockapi.ProjectID()
+	projectID = mockapi.ProjectID()
 	envPath := "/projects/" + projectID + "/environments/main"
 
 	apiHandler.SetProjects([]*mockapi.Project{{
@@ -39,9 +40,28 @@ func TestRuntimeOperationRun(t *testing.T) {
 		makeEnv(projectID, "main", "production", "active", nil),
 	})
 
-	deploymentPath := envPath + "/deployments/current"
+	deploymentPath = envPath + "/deployments/current"
 
-	// Mock the deployment with one webapp that has a "migrate" runtime operation.
+	// Mock the deployment, in which each app has a "migrate" runtime operation.
+	webapps, workers := map[string]any{}, map[string]any{}
+	for _, name := range appNames {
+		app := map[string]any{
+			"name": name,
+			"type": "golang:1.23",
+			"operations": map[string]any{
+				"migrate": map[string]any{
+					"role":     "viewer",
+					"commands": map[string]any{"start": "php migrate.php", "stop": nil},
+				},
+			},
+		}
+		if parent, _, ok := strings.Cut(name, "--"); ok {
+			app["app"] = parent
+			workers[name] = app
+		} else {
+			webapps[name] = app
+		}
+	}
 	apiHandler.Get(deploymentPath, func(w http.ResponseWriter, r *http.Request) {
 		// Build absolute URL so the client treats the #operations link correctly.
 		scheme := "http"
@@ -50,23 +70,9 @@ func TestRuntimeOperationRun(t *testing.T) {
 		}
 		base := scheme + "://" + r.Host
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"webapps": map[string]any{
-				"app": map[string]any{
-					"name": "app",
-					"type": "golang:1.23",
-					"operations": map[string]any{
-						"migrate": map[string]any{
-							"role": "viewer",
-							"commands": map[string]any{
-								"start": "php migrate.php",
-								"stop":  nil,
-							},
-						},
-					},
-				},
-			},
+			"webapps":  webapps,
 			"services": map[string]any{},
-			"workers":  map[string]any{},
+			"workers":  workers,
 			"routes":   map[string]any{},
 			"_links": map[string]any{
 				"self":        map[string]any{"href": base + deploymentPath},
@@ -80,9 +86,19 @@ func TestRuntimeOperationRun(t *testing.T) {
 	})
 
 	apiServer := httptest.NewServer(apiHandler)
-	defer apiServer.Close()
+	t.Cleanup(apiServer.Close)
 
-	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	f = newCommandFactory(t, apiServer.URL, authServer.URL)
+	return f, apiHandler, projectID, deploymentPath
+}
+
+// TestRuntimeOperationRun verifies that `operation:run <name>` passes the
+// expected app name (not null) through to execRuntimeOperation, even when the
+// --app/--worker options are not provided. PHPStan flagged $appName as
+// potentially null at the call site; this test reproduces the exact path.
+func TestRuntimeOperationRun(t *testing.T) {
+	t.Parallel()
+	f, apiHandler, projectID, deploymentPath := setUpRuntimeOperations(t, "app")
 
 	t.Run("list", func(t *testing.T) {
 		stdout, stderr, err := f.RunCombinedOutput("operation:list", "-p", projectID, "-e", "main")
@@ -157,4 +173,43 @@ func TestRuntimeOperationRun(t *testing.T) {
 		assert.NotContains(t, stderr, "must be of type string")
 		assert.Contains(t, stderr, "was not found")
 	})
+}
+
+// TestRuntimeOperationRunAmbiguous checks that an operation defined on more than one app needs --app or --worker.
+func TestRuntimeOperationRunAmbiguous(t *testing.T) {
+	t.Parallel()
+	f, apiHandler, projectID, deploymentPath := setUpRuntimeOperations(t, "app", "other")
+
+	stdout, stderr, err := f.RunCombinedOutput("operation:list", "-p", projectID, "-e", "main", "--format", "csv")
+	require.NoError(t, err, stderr)
+	assert.Contains(t, stdout, "app,migrate")
+	assert.Contains(t, stdout, "other,migrate")
+
+	_, stderr, err = f.RunCombinedOutput("operation:run", "migrate", "-p", projectID, "-e", "main", "--no-wait", "--yes")
+	assert.Error(t, err)
+	assert.Contains(t, stderr, "More than one operation is defined with the same name. Specify an --app or a --worker.")
+	assert.Empty(t, apiHandler.Requests("POST", deploymentPath+"/operations"))
+
+	_, stderr, err = f.RunCombinedOutput(
+		"operation:run", "migrate", "--app", "other", "-p", projectID, "-e", "main", "--no-wait", "--yes")
+	require.NoError(t, err, stderr)
+	body := jsonObject(t, lastRequest(t, apiHandler, "POST", deploymentPath+"/operations").Body)
+	assert.Equal(t, "other", body["service"])
+}
+
+// TestRuntimeOperationRunWithWorker checks that an operation which a worker repeats from its app runs on the app.
+func TestRuntimeOperationRunWithWorker(t *testing.T) {
+	t.Parallel()
+	f, apiHandler, projectID, deploymentPath := setUpRuntimeOperations(t, "app", "app--queue")
+
+	_, stderr, err := f.RunCombinedOutput("operation:run", "migrate", "-p", projectID, "-e", "main", "--no-wait", "--yes")
+	require.NoError(t, err, stderr)
+	body := jsonObject(t, lastRequest(t, apiHandler, "POST", deploymentPath+"/operations").Body)
+	assert.Equal(t, "app", body["service"])
+
+	_, stderr, err = f.RunCombinedOutput(
+		"operation:run", "migrate", "--worker", "app--queue", "-p", projectID, "-e", "main", "--no-wait", "--yes")
+	require.NoError(t, err, stderr)
+	body = jsonObject(t, lastRequest(t, apiHandler, "POST", deploymentPath+"/operations").Body)
+	assert.Equal(t, "app--queue", body["service"])
 }

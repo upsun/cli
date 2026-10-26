@@ -1,0 +1,54 @@
+<?php
+
+namespace Platformsh\Client\Model;
+
+/**
+ * Local PHPStan stub for the Environment model: head_commit is nullable in the Upsun OpenAPI spec.
+ *
+ * @property-read string      $id
+ *   The primary ID of the environment. This is the same as the 'name' property.
+ * @property-read string      $status
+ *   The status of the environment: active, inactive, deleting, dirty, or paused.
+ * @property-read string|null $head_commit
+ *   The SHA-1 hash identifying the Git commit at the branch's HEAD.
+ * @property-read string      $name
+ *   The Git branch name of the environment.
+ * @property-read string|null $parent
+ *   The ID (or name) of the parent environment, or null if there is no parent.
+ * @property-read string      $machine_name
+ *   A slug of the ID, sanitized for use in domain names, with a random suffix
+ *   (for uniqueness within a project). Can contain lower-case letters, numbers,
+ *   and hyphens.
+ * @property-read string      $title
+ *   A human-readable title or label for the environment.
+ * @property-read string      $created_at
+ *   The date the environment was created (ISO 8601).
+ * @property-read string      $updated_at
+ *   The date the environment was last updated (ISO 8601).
+ * @property-read string      $project
+ *   The project ID for the environment.
+ * @property-read bool        $is_dirty
+ *   Whether the environment is in a 'dirty' state: deploying or broken.
+ * @property-read bool        $enable_smtp
+ *   Whether outgoing emails should be enabled for an environment.
+ * @property-read bool        $has_code
+ *   Whether the environment has any code committed.
+ * @property-read string      $deployment_target
+ *   The deployment target for an environment (always 'local' for now).
+ * @property-read array<string, mixed> $http_access
+ *   HTTP access control for an environment. An array containing at least
+ *   'is_enabled' (bool), 'addresses' (array), and 'basic_auth' (array).
+ * @property-read bool        $is_main
+ *   Whether the environment is the main, production one.
+ * @property-read array<string, mixed> $backups
+ *   The backup configuration. It's recommended to use getBackupConfig() instead
+ *   of using this array directly.
+ * @property-read string      $edge_hostname
+ *   The hostname for the edge router that serves the environment.
+ * @property-read string      $type
+ *   The type of the environment. This is predominantly used for access control and is usually one of: production,
+ *   development, or staging.
+ */
+class Environment
+{
+}

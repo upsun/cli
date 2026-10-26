@@ -57,6 +57,32 @@ class ConfigTest extends TestCase
         $this->assertEquals('Overridden application name', $config->get('application.name'));
     }
 
+    public function testGetStrList(): void
+    {
+        $config = (new Config([], $this->configFile))->withOverrides([
+            'test.list' => ['a', 'b'],
+            'test.lines' => "a\nb",
+            'test.empty' => '',
+            'test.null' => null,
+            'test.mixed' => ['a', 1],
+        ]);
+        $this->assertSame(['a', 'b'], $config->getStrList('test.list'));
+        $this->assertSame(['a', 'b'], $config->getStrList('test.lines'));
+        $this->assertSame([], $config->getStrList('test.empty'));
+        $this->assertSame([], $config->getStrList('test.null'));
+        $this->assertSame([], $config->getStrList('test.undefined'));
+        $this->expectException(\RuntimeException::class);
+        $config->getStrList('test.mixed');
+    }
+
+    public function testGetStrOrNull(): void
+    {
+        $config = (new Config([], $this->configFile))->withOverrides(['test.str' => 'a', 'test.null' => null]);
+        $this->assertSame('a', $config->getStrOrNull('test.str'));
+        $this->assertNull($config->getStrOrNull('test.null'));
+        $this->assertNull($config->getStrOrNull('test.undefined'));
+    }
+
     /**
      * Test that selected user config can override initial config.
      */

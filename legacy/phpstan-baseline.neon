@@ -271,78 +271,6 @@ parameters:
 			path: src/Application.php
 
 		-
-			message: '#^Parameter \#1 \$timezoneId of function date_default_timezone_set expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Application.php
-
-		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\ApiResourceBase\:\:\$created_at\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\ApiResourceBase\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 5
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\ApiResourceBase\:\:\$state\.$#'
-			identifier: property.notFound
-			count: 2
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Call to an undefined method Platformsh\\Client\\Model\\ApiResourceBase\:\:cancel\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Parameter \#1 \$activity of static method Platformsh\\Cli\\Service\\ActivityMonitor\:\:getFormattedDescription\(\) expects Platformsh\\Client\\Model\\Activity, Platformsh\\Client\\Model\\ApiResourceBase given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Parameter \#1 \$items of method Platformsh\\Cli\\Service\\QuestionHelper\:\:choose\(\) expects array\<string, string\>, array\<string\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Parameter \#1 \$state of static method Platformsh\\Cli\\Service\\ActivityMonitor\:\:formatState\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Parameter \#1 \$value of method Platformsh\\Cli\\Service\\PropertyFormatter\:\:formatDate\(\) expects int\|string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
-			message: '#^Possibly invalid array key type mixed\.$#'
-			identifier: offsetAccess.invalidOffset
-			count: 2
-			path: src/Command/Activity/ActivityCancelCommand.php
-
-		-
 			message: '#^Parameter \#1 \$values of method Symfony\\Component\\Console\\Completion\\CompletionSuggestions\:\:suggestValues\(\) expects list\<string\|Symfony\\Component\\Console\\Completion\\Suggestion\>, array\<string\> given\.$#'
 			identifier: argument.type
 			count: 1
@@ -391,24 +319,6 @@ parameters:
 			path: src/Command/App/AppListCommand.php
 
 		-
-			message: '#^Call to an undefined method Platformsh\\Client\\Connection\\ConnectorInterface\:\:getOAuth2Provider\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Auth/ApiTokenLoginCommand.php
-
-		-
-			message: '#^Call to an undefined method Platformsh\\Client\\Connection\\ConnectorInterface\:\:saveToken\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Auth/ApiTokenLoginCommand.php
-
-		-
-			message: '#^Cannot call method getAccessToken\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Auth/ApiTokenLoginCommand.php
-
-		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
 			count: 2
@@ -416,12 +326,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$validator of method Symfony\\Component\\Console\\Question\\Question\:\:setValidator\(\) expects \(callable\(mixed\)\: mixed\)\|null, Closure\(string\|null\)\: non\-empty\-string given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Auth/ApiTokenLoginCommand.php
-
-		-
-			message: '#^Parameter \#2 \$accessToken of method Platformsh\\Cli\\Command\\Auth\\ApiTokenLoginCommand\:\:saveTokens\(\) expects League\\OAuth2\\Client\\Token\\AccessToken, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Auth/ApiTokenLoginCommand.php
@@ -505,61 +409,13 @@ parameters:
 			path: src/Command/Auth/BrowserLoginCommand.php
 
 		-
-			message: '#^Binary operation "\." between ''A verification code…'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 2
-			path: src/Command/Auth/VerifyPhoneNumberCommand.php
-
-		-
-			message: '#^Binary operation "\." between ''Calling the number …'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Auth/VerifyPhoneNumberCommand.php
-
-		-
-			message: '#^Binary operation "\." between ''E164\-formatted…'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Auth/VerifyPhoneNumberCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:post\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: src/Command/Auth/VerifyPhoneNumberCommand.php
-
-		-
-			message: '#^Cannot call method getBody\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: src/Command/Auth/VerifyPhoneNumberCommand.php
-
-		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 3
+			count: 1
 			path: src/Command/Auth/VerifyPhoneNumberCommand.php
 
 		-
-			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Cannot access offset ''duration'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Cannot access offset ''max'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Cannot access offset ''min'' on mixed\.$#'
+			message: '#^Cannot access offset ''supports_horizontal_scaling_services'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
 			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
@@ -567,120 +423,12 @@ parameters:
 		-
 			message: '#^Cannot access offset ''supports_horizontal_scaling_services'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Cannot access offset ''threshold'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Cannot access offset mixed on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$autoscalingSettings of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsGetCommand\:\:filterAutoscalingSettings\(\) expects array\<string, array\<string, mixed\>\>, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$rows of method Platformsh\\Cli\\Service\\Table\:\:render\(\) expects array\<array\<int\|string, float\|int\|string\|Symfony\\Component\\Console\\Helper\\TableCell\>\|Symfony\\Component\\Console\\Helper\\TableSeparator\>, list\<array\<string, mixed\>\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsGetCommand.php
-
-		-
-			message: '#^Cannot access offset ''down'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''duration'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 4
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''enabled'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''max'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''min'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
 			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''supports_horizontal_scaling_services'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''threshold'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 4
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
 		-
 			message: '#^Cannot access offset ''threshold\-up'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''triggers'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''up'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset mixed on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 5
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset string on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 13
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Cannot access offset string\|null on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:askForDurationSetting\(\) should return int but returns mixed\.$#'
-			identifier: return.type
 			count: 1
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
@@ -697,39 +445,9 @@ parameters:
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
 		-
-			message: '#^Parameter \#1 \$defaults of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:getSupportedMetrics\(\) expects array\<string, mixed\>, array\<mixed, mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$previousValue of method Platformsh\\Cli\\Service\\ResourcesUtil\:\:formatChange\(\) expects float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 4
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
 			message: '#^Parameter \#1 \$value of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:formatDuration\(\) expects int, mixed given\.$#'
 			identifier: argument.type
-			count: 8
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$value of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:validateDuration\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$value of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:validateInstanceCount\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$value of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:validateThreshold\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
+			count: 4
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
 		-
@@ -739,69 +457,9 @@ parameters:
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
 		-
-			message: '#^Parameter \#2 \$currentServiceSettings of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:handleInstanceSettings\(\) expects array\<string, mixed\>\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#2 \$limit of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:validateInstanceCount\(\) expects int\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
 			message: '#^Parameter \#2 \$newValue of method Platformsh\\Cli\\Service\\ResourcesUtil\:\:formatChange\(\) expects float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 4
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#2 \$settings of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:summarizeChanges\(\) expects array\<string, array\<string, mixed\>\>, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#3 \$existingValue of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:askForDurationSetting\(\) expects int\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#3 \$instanceLimit of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:handleInstanceSettings\(\) expects int, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#4 \$currentServiceSettings of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:handleScalingSettings\(\) expects array\<string, mixed\>\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#4 \$defaultValue of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:askForDurationSetting\(\) expects int, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Parameter \#5 \$defaults of method Platformsh\\Cli\\Command\\Autoscaling\\AutoscalingSettingsSetCommand\:\:handleScalingSettings\(\) expects array\<string, mixed\>, array\<mixed, mixed\> given\.$#'
-			identifier: argument.type
-			count: 2
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
 		-
@@ -829,18 +487,6 @@ parameters:
 			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
 
 		-
-			message: '#^Possibly invalid array key type mixed\.$#'
-			identifier: offsetAccess.invalidOffset
-			count: 4
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between null and null will always evaluate to true\.$#'
-			identifier: identical.alwaysTrue
-			count: 1
-			path: src/Command/Autoscaling/AutoscalingSettingsSetCommand.php
-
-		-
 			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -851,24 +497,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: src/Command/Backup/BackupGetCommand.php
-
-		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\Backup\:\:\$safe\.$#'
-			identifier: property.notFound
-			count: 2
-			path: src/Command/Backup/BackupListCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:delete\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenConcludeCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:get\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenConcludeCommand.php
 
 		-
 			message: '#^Cannot access offset ''id'' on mixed\.$#'
@@ -883,15 +511,9 @@ parameters:
 			path: src/Command/BlueGreen/BlueGreenConcludeCommand.php
 
 		-
-			message: '#^Cannot call method getBody\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenConcludeCommand.php
-
-		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 2
+			count: 1
 			path: src/Command/BlueGreen/BlueGreenConcludeCommand.php
 
 		-
@@ -899,18 +521,6 @@ parameters:
 			identifier: argument.type
 			count: 2
 			path: src/Command/BlueGreen/BlueGreenConcludeCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:get\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenDeployCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:patch\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenDeployCommand.php
 
 		-
 			message: '#^Cannot access offset ''id'' on mixed\.$#'
@@ -937,15 +547,9 @@ parameters:
 			path: src/Command/BlueGreen/BlueGreenDeployCommand.php
 
 		-
-			message: '#^Cannot call method getBody\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenDeployCommand.php
-
-		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 2
+			count: 1
 			path: src/Command/BlueGreen/BlueGreenDeployCommand.php
 
 		-
@@ -959,36 +563,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: src/Command/BlueGreen/BlueGreenDeployCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:get\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenEnableCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:post\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenEnableCommand.php
-
-		-
-			message: '#^Cannot call method getBody\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenEnableCommand.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 1
-			path: src/Command/BlueGreen/BlueGreenEnableCommand.php
-
-		-
-			message: '#^While loop condition is always true\.$#'
-			identifier: while.alwaysTrue
-			count: 1
-			path: src/Command/BotCommand.php
 
 		-
 			message: '#^Parameter \#2 \$data of method Platformsh\\Cli\\Service\\PropertyFormatter\:\:displayData\(\) expects array\<string, mixed\>, array given\.$#'
@@ -1019,24 +593,6 @@ parameters:
 			identifier: return.type
 			count: 1
 			path: src/Command/Certificate/CertificateListCommand.php
-
-		-
-			message: '#^Cannot call method getStr\(\) on Platformsh\\Cli\\Service\\Config\|null\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: src/Command/CommandBase.php
-
-		-
-			message: '#^Cannot call method isCommandEnabled\(\) on Platformsh\\Cli\\Service\\Config\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/CommandBase.php
-
-		-
-			message: '#^Cannot call method isCommandHidden\(\) on Platformsh\\Cli\\Service\\Config\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/CommandBase.php
 
 		-
 			message: '#^Method Platformsh\\Cli\\Command\\CommandBase\:\:getPreferredName\(\) should return string but returns string\|null\.$#'
@@ -1207,7 +763,7 @@ parameters:
 			path: src/Command/Db/DbSizeCommand.php
 
 		-
-			message: '#^Parameter \#2 \$array of function implode expects array\<string\>, array given\.$#'
+			message: '#^Parameter \#2 \$array of function implode expects array\<string\>, array\<mixed, mixed\> given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Db/DbSizeCommand.php
@@ -1339,24 +895,6 @@ parameters:
 			path: src/Command/Domain/DomainCommandBase.php
 
 		-
-			message: '#^Strict comparison using \=\=\= between string and null will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: src/Command/Domain/DomainCommandBase.php
-
-		-
-			message: '#^Cannot call method getLink\(\) on Platformsh\\Client\\Model\\Environment\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Domain/DomainGetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$environment of static method Platformsh\\Cli\\Model\\EnvironmentDomain\:\:getList\(\) expects Platformsh\\Client\\Model\\Environment, Platformsh\\Client\\Model\\Environment\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Domain/DomainGetCommand.php
-
-		-
 			message: '#^Cannot access offset ''has_certificate'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -1373,12 +911,6 @@ parameters:
 			identifier: return.type
 			count: 1
 			path: src/Command/Domain/DomainListCommand.php
-
-		-
-			message: '#^Cannot call method getLink\(\) on Platformsh\\Client\\Model\\Environment\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Domain/DomainUpdateCommand.php
 
 		-
 			message: '#^Parameter \#1 \$id of static method Platformsh\\Client\\Model\\ApiResourceBase\:\:get\(\) expects string, string\|null given\.$#'
@@ -1435,12 +967,6 @@ parameters:
 			path: src/Command/Environment/EnvironmentCheckoutCommand.php
 
 		-
-			message: '#^Strict comparison using \!\=\= between \(int\|string\) and false will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
-			count: 1
-			path: src/Command/Environment/EnvironmentCheckoutCommand.php
-
-		-
 			message: '#^Cannot access offset ''commits_ahead'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -1453,12 +979,6 @@ parameters:
 			path: src/Command/Environment/EnvironmentDeleteCommand.php
 
 		-
-			message: '#^Call to preg_quote\(\) is missing delimiter / to be effective\.$#'
-			identifier: argument.invalidPregQuote
-			count: 1
-			path: src/Command/Environment/EnvironmentDrushCommand.php
-
-		-
 			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
 			count: 1
@@ -1469,12 +989,6 @@ parameters:
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
 			path: src/Command/Environment/EnvironmentInfoCommand.php
-
-		-
-			message: '#^Parameter \#1 \$environments of method Platformsh\\Cli\\Command\\Environment\\EnvironmentListCommand\:\:buildEnvironmentTree\(\) expects array\<Platformsh\\Client\\Model\\Environment\>, array\<Platformsh\\Client\\Model\\ApiResourceBase\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Environment/EnvironmentListCommand.php
 
 		-
 			message: '#^Parameter \#2 \$haystack of function in_array expects array, mixed given\.$#'
@@ -1519,27 +1033,9 @@ parameters:
 			path: src/Command/Environment/EnvironmentPushCommand.php
 
 		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 1
-			path: src/Command/Environment/EnvironmentPushCommand.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Command\\Environment\\EnvironmentPushCommand\:\:execute\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Command/Environment/EnvironmentPushCommand.php
-
-		-
 			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getEnvironment\(\) expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 2
-			path: src/Command/Environment/EnvironmentPushCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
 			path: src/Command/Environment/EnvironmentPushCommand.php
 
 		-
@@ -1627,22 +1123,10 @@ parameters:
 			path: src/Command/Environment/EnvironmentUrlCommand.php
 
 		-
-			message: '#^Method Platformsh\\Cli\\Command\\Environment\\EnvironmentXdebugCommand\:\:execute\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Command/Environment/EnvironmentXdebugCommand.php
-
-		-
 			message: '#^Method Platformsh\\Cli\\Command\\Environment\\EnvironmentXdebugCommand\:\:isPhp\(\) should return bool but returns mixed\.$#'
 			identifier: return.type
 			count: 1
 			path: src/Command/Environment/EnvironmentXdebugCommand.php
-
-		-
-			message: '#^Cannot call method find\(\) on Symfony\\Component\\Console\\Application\|null\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: src/Command/HelpCommand.php
 
 		-
 			message: '#^Parameter \#2 \$data of method Platformsh\\Cli\\Service\\PropertyFormatter\:\:displayData\(\) expects array\<string, mixed\>, array given\.$#'
@@ -1705,30 +1189,6 @@ parameters:
 			path: src/Command/Integration/IntegrationCommandBase.php
 
 		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:post\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Integration/IntegrationCommandBase.php
-
-		-
-			message: '#^Cannot call method getBody\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Integration/IntegrationCommandBase.php
-
-		-
-			message: '#^Cannot call method getProject\(\) on Platformsh\\Cli\\Selector\\Selection\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Integration/IntegrationCommandBase.php
-
-		-
-			message: '#^Cannot call method hasProject\(\) on Platformsh\\Cli\\Selector\\Selection\|null\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: src/Command/Integration/IntegrationCommandBase.php
-
-		-
 			message: '#^Cannot cast mixed to int\.$#'
 			identifier: cast.int
 			count: 1
@@ -1737,7 +1197,7 @@ parameters:
 		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 7
+			count: 6
 			path: src/Command/Integration/IntegrationCommandBase.php
 
 		-
@@ -2371,12 +1831,6 @@ parameters:
 			path: src/Command/Organization/Billing/OrganizationProfileCommand.php
 
 		-
-			message: '#^Possibly invalid array key type mixed\.$#'
-			identifier: offsetAccess.invalidOffset
-			count: 1
-			path: src/Command/Organization/OrganizationCommandBase.php
-
-		-
 			message: '#^Cannot access offset ''label'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -2396,12 +1850,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$name of method Platformsh\\Client\\PlatformClient\:\:createOrganization\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Organization/OrganizationCreateCommand.php
-
-		-
-			message: '#^Parameter \#1 \$string of function ucfirst expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Organization/OrganizationCreateCommand.php
@@ -2445,7 +1893,7 @@ parameters:
 		-
 			message: '#^Possibly invalid array key type mixed\.$#'
 			identifier: offsetAccess.invalidOffset
-			count: 2
+			count: 1
 			path: src/Command/Organization/OrganizationCreateCommand.php
 
 		-
@@ -2479,32 +1927,8 @@ parameters:
 			path: src/Command/Organization/OrganizationInfoCommand.php
 
 		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\ApiResourceBase\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Command/Organization/OrganizationListCommand.php
-
-		-
 			message: '#^Binary operation "\.\=" between mixed and ''\<info\>\*\</info\>'' results in an error\.$#'
 			identifier: assignOp.invalid
-			count: 1
-			path: src/Command/Organization/OrganizationListCommand.php
-
-		-
-			message: '#^Call to an undefined method Platformsh\\Client\\Model\\ApiResourceBase\:\:getOwnerInfo\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Organization/OrganizationListCommand.php
-
-		-
-			message: '#^Cannot access property \$email on mixed\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: src/Command/Organization/OrganizationListCommand.php
-
-		-
-			message: '#^Cannot access property \$username on mixed\.$#'
-			identifier: property.nonObject
 			count: 1
 			path: src/Command/Organization/OrganizationListCommand.php
 
@@ -2545,45 +1969,9 @@ parameters:
 			path: src/Command/Organization/OrganizationSubscriptionListCommand.php
 
 		-
-			message: '#^Parameter \#1 \$args of static method Platformsh\\Cli\\Console\\ArrayArgument\:\:split\(\) expects array\<string\>, array\<int, mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Organization/User/OrganizationUserAddCommand.php
-
-		-
-			message: '#^Parameter \#1 \$argument of static method Platformsh\\Cli\\Util\\OsUtil\:\:escapeShellArg\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Organization/User/OrganizationUserAddCommand.php
-
-		-
-			message: '#^Parameter \#1 \$email of method Platformsh\\Client\\Model\\Organization\\Organization\:\:inviteMemberByEmail\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Organization/User/OrganizationUserAddCommand.php
-
-		-
 			message: '#^Parameter \#1 \$permissions of method Platformsh\\Cli\\Command\\Organization\\User\\OrganizationUserCommandBase\:\:listPermissions\(\) expects array\<string\>\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 1
-			path: src/Command/Organization/User/OrganizationUserAddCommand.php
-
-		-
-			message: '#^Parameter \#1 \$value of method Platformsh\\Cli\\Command\\Organization\\User\\OrganizationUserAddCommand\:\:validateEmail\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Organization/User/OrganizationUserAddCommand.php
-
-		-
-			message: '#^Parameter \#2 \$email of method Platformsh\\Cli\\Service\\Api\:\:loadMemberByEmail\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Organization/User/OrganizationUserAddCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
 			path: src/Command/Organization/User/OrganizationUserAddCommand.php
 
 		-
@@ -2641,12 +2029,6 @@ parameters:
 			path: src/Command/Project/ProjectCreateCommand.php
 
 		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:get\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Project/ProjectCreateCommand.php
-
-		-
 			message: '#^Cannot access offset ''carbon_intensity'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -2671,12 +2053,6 @@ parameters:
 			path: src/Command/Project/ProjectCreateCommand.php
 
 		-
-			message: '#^Cannot call method getStatusCode\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Project/ProjectCreateCommand.php
-
-		-
 			message: '#^Cannot cast mixed to int\.$#'
 			identifier: cast.int
 			count: 4
@@ -2685,12 +2061,6 @@ parameters:
 		-
 			message: '#^Method Platformsh\\Cli\\Command\\Project\\ProjectCreateCommand\:\:regionInfo\(\) should return string but returns mixed\.$#'
 			identifier: return.type
-			count: 1
-			path: src/Command/Project/ProjectCreateCommand.php
-
-		-
-			message: '#^Parameter \#1 \$haystack of function str_starts_with expects string, mixed given\.$#'
-			identifier: argument.type
 			count: 1
 			path: src/Command/Project/ProjectCreateCommand.php
 
@@ -2707,21 +2077,15 @@ parameters:
 			path: src/Command/Project/ProjectCreateCommand.php
 
 		-
-			message: '#^Parameter \#1 \$url of function parse_url expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Project/ProjectCreateCommand.php
-
-		-
 			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
-			count: 5
+			count: 4
 			path: src/Command/Project/ProjectCreateCommand.php
 
 		-
 			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
-			count: 2
+			count: 1
 			path: src/Command/Project/ProjectCreateCommand.php
 
 		-
@@ -2733,12 +2097,6 @@ parameters:
 		-
 			message: '#^Binary operation "\." between ''The destination…'' and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Project/ProjectGetCommand.php
-
-		-
-			message: '#^Cannot call method has\(\) on Symfony\\Component\\Console\\Application\|null\.$#'
-			identifier: method.nonObject
 			count: 1
 			path: src/Command/Project/ProjectGetCommand.php
 
@@ -2848,173 +2206,11 @@ parameters:
 			message: '#^Cannot access offset ''cpu'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
-			path: src/Command/Resources/Build/BuildResourcesGetCommand.php
-
-		-
-			message: '#^Cannot access offset ''memory'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Resources/Build/BuildResourcesGetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$rows of method Platformsh\\Cli\\Service\\Table\:\:render\(\) expects array\<array\<int\|string, float\|int\|string\|Symfony\\Component\\Console\\Helper\\TableCell\>\|Symfony\\Component\\Console\\Helper\\TableSeparator\>, array\<int, array\<string, mixed\>\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/Build/BuildResourcesGetCommand.php
-
-		-
-			message: '#^Cannot access offset ''cpu'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
 			path: src/Command/Resources/Build/BuildResourcesSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''max_cpu'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Resources/Build/BuildResourcesSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''max_memory'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Resources/Build/BuildResourcesSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''memory'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Command/Resources/Build/BuildResourcesSetCommand.php
-
-		-
-			message: '#^Cannot cast mixed to float\.$#'
-			identifier: cast.double
-			count: 1
-			path: src/Command/Resources/Build/BuildResourcesSetCommand.php
-
-		-
-			message: '#^Cannot cast mixed to int\.$#'
-			identifier: cast.int
-			count: 1
-			path: src/Command/Resources/Build/BuildResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$unformatted of method Platformsh\\Cli\\Service\\ResourcesUtil\:\:formatCPU\(\) expects float\|int\|string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/Build/BuildResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$updates of method Platformsh\\Cli\\Command\\Resources\\Build\\BuildResourcesSetCommand\:\:summarizeChanges\(\) expects array\{cpu\?\: int, memory\?\: int\}, non\-empty\-array\{cpu\?\: mixed, memory\?\: mixed\} given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/Build/BuildResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#2 \$current of method Platformsh\\Cli\\Command\\Resources\\Build\\BuildResourcesSetCommand\:\:summarizeChanges\(\) expects array\{cpu\: int, memory\: int\}, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/Build/BuildResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Resources/Build/BuildResourcesSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''disk'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Resources/ResourcesCommandBase.php
-
-		-
-			message: '#^Cannot access offset ''minimum'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Resources/ResourcesCommandBase.php
-
-		-
-			message: '#^Cannot access offset ''profile_size'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Resources/ResourcesCommandBase.php
-
-		-
-			message: '#^Possibly invalid array key type mixed\.$#'
-			identifier: offsetAccess.invalidOffset
-			count: 4
-			path: src/Command/Resources/ResourcesCommandBase.php
 
 		-
 			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
 			identifier: foreach.nonIterable
-			count: 2
-			path: src/Command/Resources/ResourcesGetCommand.php
-
-		-
-			message: '#^Cannot access offset ''disk'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Resources/ResourcesGetCommand.php
-
-		-
-			message: '#^Cannot access offset ''enabled'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Resources/ResourcesGetCommand.php
-
-		-
-			message: '#^Cannot access offset ''object'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Resources/ResourcesGetCommand.php
-
-		-
-			message: '#^Cannot access offset ''profile_size'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Resources/ResourcesGetCommand.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 1
-			path: src/Command/Resources/ResourcesGetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$profiles of method Platformsh\\Cli\\Command\\Resources\\ResourcesCommandBase\:\:sortContainerProfiles\(\) expects array\<string, array\<string, array\<string, string\>\>\>, array given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesGetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$rows of method Platformsh\\Cli\\Service\\Table\:\:render\(\) expects array\<array\<int\|string, float\|int\|string\|Symfony\\Component\\Console\\Helper\\TableCell\>\|Symfony\\Component\\Console\\Helper\\TableSeparator\>, list\<array\<string, mixed\>\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesGetCommand.php
-
-		-
-			message: '#^Possibly invalid array key type mixed\.$#'
-			identifier: offsetAccess.invalidOffset
-			count: 6
-			path: src/Command/Resources/ResourcesGetCommand.php
-
-		-
-			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 4
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Binary operation "\*" between mixed and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 4
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Binary operation "\-" between mixed and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
 			count: 1
 			path: src/Command/Resources/ResourcesSetCommand.php
 
@@ -3025,69 +2221,39 @@ parameters:
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
-			message: '#^Cannot access offset ''capabilities'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
 			message: '#^Cannot access offset ''cpu'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 7
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''cpu_type'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
+			count: 2
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
 			message: '#^Cannot access offset ''default'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 4
+			count: 2
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
 			message: '#^Cannot access offset ''disk'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 8
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''enabled'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''instance_limit'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
+			count: 3
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
 			message: '#^Cannot access offset ''memory'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 7
+			count: 2
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
 			message: '#^Cannot access offset ''minimum'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 8
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Cannot access offset ''object'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
+			count: 5
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
 			message: '#^Cannot access offset ''profile_size'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 15
+			count: 2
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
@@ -3103,12 +2269,6 @@ parameters:
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
-			message: '#^Cannot access offset mixed on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 4
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
 			message: '#^Cannot cast mixed to int\.$#'
 			identifier: cast.int
 			count: 2
@@ -3117,7 +2277,7 @@ parameters:
 		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 4
+			count: 1
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
@@ -3145,165 +2305,21 @@ parameters:
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
-			message: '#^Parameter \#1 \$previousValue of method Platformsh\\Cli\\Service\\ResourcesUtil\:\:formatChange\(\) expects float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 3
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$properties of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:diskIsRequiredButUnset\(\) expects array\<string, mixed\>, array given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$properties of method Platformsh\\Cli\\Service\\ResourcesUtil\:\:sizeInfo\(\) expects array\<string, mixed\>, array given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$updates of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:computeMemoryCPUStorageDiff\(\) expects array\<string, array\<string, array\<string, mixed\>\>\>, array\<string, array\<array\<string, mixed\>\>\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$updates of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:summarizeChanges\(\) expects array\<array\<string, array\<string, mixed\>\>\>, array\<string, array\<array\<string, mixed\>\>\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$value of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:validateDiskSize\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$value of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:validateInstanceCount\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$value of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:validateObjectStorage\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$value of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:validateProfileSize\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#2 \$current of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:computeMemoryCPUStorageDiff\(\) expects array\<string, array\<string, array\<string, mixed\>\>\>, array\<string, array\<array\<string, mixed\>\>\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#2 \$newValue of method Platformsh\\Cli\\Service\\ResourcesUtil\:\:formatChange\(\) expects float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 3
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#2 \$serviceName of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:validateDiskSize\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#2 \$serviceName of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:validateInstanceCount\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#2 \$serviceName of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:validateObjectStorage\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#2 \$serviceName of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:validateProfileSize\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#2 \$services of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:summarizeChanges\(\) expects array\<string, Platformsh\\Client\\Model\\Deployment\\Service\|Platformsh\\Client\\Model\\Deployment\\Task\|Platformsh\\Client\\Model\\Deployment\\WebApp\|Platformsh\\Client\\Model\\Deployment\\Worker\>, array\<Platformsh\\Client\\Model\\Deployment\\Service\|Platformsh\\Client\\Model\\Deployment\\Task\|Platformsh\\Client\\Model\\Deployment\\WebApp\|Platformsh\\Client\\Model\\Deployment\\Worker\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
 			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
-			count: 7
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#3 \$containerProfiles of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:summarizeChanges\(\) expects array\<string, mixed\>, array given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#3 \$default of method Platformsh\\Cli\\Service\\QuestionHelper\:\:chooseAssoc\(\) expects string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#3 \$service of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:validateDiskSize\(\) expects Platformsh\\Client\\Model\\Deployment\\Service\|Platformsh\\Client\\Model\\Deployment\\Task\|Platformsh\\Client\\Model\\Deployment\\WebApp\|Platformsh\\Client\\Model\\Deployment\\Worker, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#3 \$service of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:validateInstanceCount\(\) expects Platformsh\\Client\\Model\\Deployment\\Service\|Platformsh\\Client\\Model\\Deployment\\Task\|Platformsh\\Client\\Model\\Deployment\\WebApp\|Platformsh\\Client\\Model\\Deployment\\Worker, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#3 \$service of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:validateObjectStorage\(\) expects Platformsh\\Client\\Model\\Deployment\\Service\|Platformsh\\Client\\Model\\Deployment\\Task\|Platformsh\\Client\\Model\\Deployment\\WebApp\|Platformsh\\Client\\Model\\Deployment\\Worker, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#3 \$service of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:validateProfileSize\(\) expects Platformsh\\Client\\Model\\Deployment\\Service\|Platformsh\\Client\\Model\\Deployment\\Task\|Platformsh\\Client\\Model\\Deployment\\WebApp\|Platformsh\\Client\\Model\\Deployment\\Worker, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#3 \$services of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:parseSetting\(\) expects array\<string, Platformsh\\Client\\Model\\Deployment\\Service\|Platformsh\\Client\\Model\\Deployment\\Task\|Platformsh\\Client\\Model\\Deployment\\WebApp\|Platformsh\\Client\\Model\\Deployment\\Worker\>, array\<Platformsh\\Client\\Model\\Deployment\\Service\|Platformsh\\Client\\Model\\Deployment\\Task\|Platformsh\\Client\\Model\\Deployment\\WebApp\|Platformsh\\Client\\Model\\Deployment\\Worker\> given\.$#'
-			identifier: argument.type
-			count: 4
+			count: 3
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
 			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
-			count: 5
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#4 \$limit of method Platformsh\\Cli\\Command\\Resources\\ResourcesSetCommand\:\:validateInstanceCount\(\) expects int\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
+			count: 3
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
 			message: '#^Parameter \#4 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
-			count: 2
+			count: 1
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
@@ -3315,26 +2331,8 @@ parameters:
 		-
 			message: '#^Possibly invalid array key type mixed\.$#'
 			identifier: offsetAccess.invalidOffset
-			count: 9
+			count: 2
 			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Trying to invoke \(callable\(\)\: mixed\)\|null but it might not be a callable\.$#'
-			identifier: callable.nonCallable
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\Deployment\\Service\|Platformsh\\Client\\Model\\Deployment\\Task\|Platformsh\\Client\\Model\\Deployment\\WebApp\|Platformsh\\Client\\Model\\Deployment\\Worker\:\:\$container_profile\.$#'
-			identifier: property.notFound
-			count: 3
-			path: src/Command/Resources/ResourcesSizeListCommand.php
-
-		-
-			message: '#^Parameter \#1 \$profiles of method Platformsh\\Cli\\Command\\Resources\\ResourcesCommandBase\:\:sortContainerProfiles\(\) expects array\<string, array\<string, array\<string, string\>\>\>, array given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSizeListCommand.php
 
 		-
 			message: '#^Parameter \#1 \$routes of static method Platformsh\\Cli\\Model\\Route\:\:fromVariables\(\) expects array\<string, mixed\>, mixed given\.$#'
@@ -3631,60 +2629,6 @@ parameters:
 			path: src/Command/Service/ServiceListCommand.php
 
 		-
-			message: '#^Strict comparison using \!\=\= between string and null will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
-			count: 1
-			path: src/Command/Service/ServiceListCommand.php
-
-		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Config\:\:setSessionId\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Session/SessionSwitchCommand.php
-
-		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Config\:\:validateSessionId\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Session/SessionSwitchCommand.php
-
-		-
-			message: '#^Binary operation "\." between ''The file already…'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/SshKey/SshKeyAddCommand.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Command\\SshKey\\SshKeyAddCommand\:\:askNewKeyPath\(\) should return string but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Command/SshKey/SshKeyAddCommand.php
-
-		-
-			message: '#^Parameter \#1 \$filename of function file_exists expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/SshKey/SshKeyAddCommand.php
-
-		-
-			message: '#^Parameter \#1 \$haystack of function str_starts_with expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/SshKey/SshKeyAddCommand.php
-
-		-
-			message: '#^Parameter \#1 \$string of function ltrim expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/SshKey/SshKeyAddCommand.php
-
-		-
-			message: '#^Parameter \#1 \$string of function substr expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/SshKey/SshKeyAddCommand.php
-
-		-
 			message: '#^Cannot access offset ''command'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -3721,52 +2665,10 @@ parameters:
 			path: src/Command/Task/TaskRunCommand.php
 
 		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:post\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Team/Project/TeamProjectAddCommand.php
-
-		-
 			message: '#^Cannot access offset ''filter\[status\]\[in\]'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
 			path: src/Command/Team/Project/TeamProjectAddCommand.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 1
-			path: src/Command/Team/Project/TeamProjectAddCommand.php
-
-		-
-			message: '#^Parameter \#1 \$project of method Platformsh\\Cli\\Service\\Api\:\:getProjectLabel\(\) expects Platformsh\\Client\\Model\\BasicProjectInfo\|Platformsh\\Client\\Model\\Organization\\Project\|Platformsh\\Client\\Model\\Project\|Platformsh\\Client\\Model\\Team\\TeamProjectAccess\|string, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Team/Project/TeamProjectAddCommand.php
-
-		-
-			message: '#^Parameter \#1 \$projectIds of method Platformsh\\Cli\\Command\\Team\\Project\\TeamProjectAddCommand\:\:displayProjectsAsList\(\) expects array\<string\>, array\<mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Team/Project/TeamProjectAddCommand.php
-
-		-
-			message: '#^Parameter \#1 \$projectIds of method Platformsh\\Cli\\Command\\Team\\Project\\TeamProjectAddCommand\:\:displayProjectsAsList\(\) expects array\<string\>, list\<mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Team/Project/TeamProjectAddCommand.php
-
-		-
-			message: '#^Possibly invalid array key type mixed\.$#'
-			identifier: offsetAccess.invalidOffset
-			count: 1
-			path: src/Command/Team/Project/TeamProjectAddCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:delete\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Team/Project/TeamProjectDeleteCommand.php
 
 		-
 			message: '#^Cannot access offset ''sort'' on mixed\.$#'
@@ -3775,20 +2677,8 @@ parameters:
 			path: src/Command/Team/Project/TeamProjectListCommand.php
 
 		-
-			message: '#^Cannot call method has\(\) on Symfony\\Component\\Console\\Application\|null\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: src/Command/Team/TeamCommandBase.php
-
-		-
 			message: '#^Cannot access offset ''filter\[organization_id\]'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Team/TeamCreateCommand.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
 			count: 1
 			path: src/Command/Team/TeamCreateCommand.php
 
@@ -3806,12 +2696,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$haystack of function str_contains expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Team/TeamCreateCommand.php
-
-		-
-			message: '#^Parameter \#1 \$label of method Platformsh\\Client\\Model\\Organization\\Organization\:\:createTeam\(\) expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Team/TeamCreateCommand.php
@@ -3853,18 +2737,6 @@ parameters:
 			path: src/Command/Team/TeamCreateCommand.php
 
 		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Team/TeamCreateCommand.php
-
-		-
-			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Team/TeamCreateCommand.php
-
-		-
 			message: '#^Parameter \#2 \$data of method Platformsh\\Cli\\Service\\PropertyFormatter\:\:displayData\(\) expects array\<string, mixed\>, array given\.$#'
 			identifier: argument.type
 			count: 1
@@ -3873,12 +2745,6 @@ parameters:
 		-
 			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
 			identifier: foreach.nonIterable
-			count: 1
-			path: src/Command/Team/TeamListCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:get\(\)\.$#'
-			identifier: method.notFound
 			count: 1
 			path: src/Command/Team/TeamListCommand.php
 
@@ -3907,18 +2773,6 @@ parameters:
 			path: src/Command/Team/TeamListCommand.php
 
 		-
-			message: '#^Cannot call method getBody\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Team/TeamListCommand.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 1
-			path: src/Command/Team/TeamListCommand.php
-
-		-
 			message: '#^Method Platformsh\\Cli\\Command\\Team\\TeamListCommand\:\:loadTeamsOnProject\(\) should return array\<string, string\> but returns array\.$#'
 			identifier: return.type
 			count: 1
@@ -3935,42 +2789,6 @@ parameters:
 			identifier: offsetAccess.invalidOffset
 			count: 1
 			path: src/Command/Team/TeamListCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:post\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Team/User/TeamUserAddCommand.php
-
-		-
-			message: '#^Cannot call method has\(\) on Symfony\\Component\\Console\\Application\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Team/User/TeamUserAddCommand.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 1
-			path: src/Command/Team/User/TeamUserAddCommand.php
-
-		-
-			message: '#^Parameter \#1 \$argument of static method Platformsh\\Cli\\Util\\OsUtil\:\:escapeShellArg\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Team/User/TeamUserAddCommand.php
-
-		-
-			message: '#^Parameter \#2 \$email of method Platformsh\\Cli\\Service\\Api\:\:loadMemberByEmail\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Team/User/TeamUserAddCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Team/User/TeamUserAddCommand.php
 
 		-
 			message: '#^Cannot access offset ''page\[size\]'' on mixed\.$#'
@@ -4123,18 +2941,6 @@ parameters:
 			path: src/Command/User/UserAddCommand.php
 
 		-
-			message: '#^Cannot access property \$type on Platformsh\\Client\\Model\\Environment\|null\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: src/Command/User/UserGetCommand.php
-
-		-
-			message: '#^Cannot call method getUser\(\) on Platformsh\\Client\\Model\\Environment\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/User/UserGetCommand.php
-
-		-
 			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getOrganizationById\(\) expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -4159,49 +2965,19 @@ parameters:
 			path: src/Command/Variable/VariableCreateCommand.php
 
 		-
-			message: '#^Cannot access property \$id on Platformsh\\Client\\Model\\Environment\|null\.$#'
-			identifier: property.nonObject
-			count: 2
-			path: src/Command/Variable/VariableCreateCommand.php
-
-		-
-			message: '#^Cannot call method getFields\(\) on Platformsh\\ConsoleForm\\Form\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Variable/VariableCreateCommand.php
-
-		-
-			message: '#^Cannot call method getLink\(\) on Platformsh\\Client\\Model\\Environment\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Variable/VariableCreateCommand.php
-
-		-
-			message: '#^Cannot call method getVariable\(\) on Platformsh\\Client\\Model\\Environment\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Variable/VariableCreateCommand.php
-
-		-
-			message: '#^Cannot call method resolveOptions\(\) on Platformsh\\ConsoleForm\\Form\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Variable/VariableCreateCommand.php
-
-		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
 			count: 5
 			path: src/Command/Variable/VariableCreateCommand.php
 
 		-
-			message: '#^Dead catch \- Platformsh\\ConsoleForm\\Exception\\ConditionalFieldException is never thrown in the try block\.$#'
-			identifier: catch.neverThrown
+			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getEnvironment\(\) expects string, mixed given\.$#'
+			identifier: argument.type
 			count: 1
 			path: src/Command/Variable/VariableCreateCommand.php
 
 		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getEnvironment\(\) expects string, mixed given\.$#'
+			message: '#^Parameter \#1 \$id of method Platformsh\\Client\\Model\\Environment\:\:getVariable\(\) expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Variable/VariableCreateCommand.php
@@ -4231,22 +3007,10 @@ parameters:
 			path: src/Command/Variable/VariableUpdateCommand.php
 
 		-
-			message: '#^Cannot call method getFields\(\) on Platformsh\\ConsoleForm\\Form\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Variable/VariableUpdateCommand.php
-
-		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
 			count: 1
 			path: src/Command/Variable/VariableUpdateCommand.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:get\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Command/Version/VersionListCommand.php
 
 		-
 			message: '#^Cannot access offset ''commit'' on mixed\.$#'
@@ -4279,18 +3043,6 @@ parameters:
 			path: src/Command/Version/VersionListCommand.php
 
 		-
-			message: '#^Cannot call method getBody\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Command/Version/VersionListCommand.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 1
-			path: src/Command/Version/VersionListCommand.php
-
-		-
 			message: '#^Parameter \#1 \$rows of method Platformsh\\Cli\\Service\\Table\:\:render\(\) expects array\<array\<int\|string, float\|int\|string\|Symfony\\Component\\Console\\Helper\\TableCell\>\|Symfony\\Component\\Console\\Helper\\TableSeparator\>, list\<array\<string, mixed\>\> given\.$#'
 			identifier: argument.type
 			count: 1
@@ -4313,12 +3065,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: src/Command/WelcomeCommand.php
-
-		-
-			message: '#^While loop condition is always true\.$#'
-			identifier: while.alwaysTrue
-			count: 1
-			path: src/Command/WinkyCommand.php
 
 		-
 			message: '#^Cannot access offset ''settings'' on mixed\.$#'
@@ -4807,60 +3553,6 @@ parameters:
 			path: src/Local/ApplicationFinder.php
 
 		-
-			message: '#^Cannot call method getName\(\) on Platformsh\\Cli\\Local\\LocalApplication\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
-			message: '#^Cannot call method getSharedFileMounts\(\) on Platformsh\\Cli\\Local\\LocalApplication\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
-			message: '#^Cannot call method getSourceDir\(\) on Platformsh\\Cli\\Local\\LocalApplication\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
-			message: '#^Cannot call method getStr\(\) on Platformsh\\Cli\\Service\\Config\|null\.$#'
-			identifier: method.nonObject
-			count: 3
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
-			message: '#^Cannot call method isSingle\(\) on Platformsh\\Cli\\Local\\LocalApplication\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
-			message: '#^Cannot call method shouldMoveToRoot\(\) on Platformsh\\Cli\\Local\\LocalApplication\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
-			message: '#^Parameter \#1 \$source of method Platformsh\\Cli\\Service\\Filesystem\:\:copyAll\(\) expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
-			message: '#^Parameter \#1 \$string of function substr expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
-			message: '#^Parameter \#1 \$target of method Platformsh\\Cli\\Service\\Filesystem\:\:symlink\(\) expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Local/BuildFlavor/BuildFlavorBase.php
-
-		-
 			message: '#^Binary operation "\." between ''\-\-concurrency\='' and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
 			count: 1
@@ -4897,12 +3589,6 @@ parameters:
 			path: src/Local/BuildFlavor/Drupal.php
 
 		-
-			message: '#^Cannot call method getSharedFileMounts\(\) on Platformsh\\Cli\\Local\\LocalApplication\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Local/BuildFlavor/Drupal.php
-
-		-
 			message: '#^Method Platformsh\\Cli\\Local\\BuildFlavor\\Drupal\:\:getDrushHelper\(\) should return Platformsh\\Cli\\Service\\Drush but returns mixed\.$#'
 			identifier: return.type
 			count: 1
@@ -4912,12 +3598,6 @@ parameters:
 			message: '#^Parameter \#1 \$levels of method Symfony\\Component\\Finder\\Finder\:\:depth\(\) expects array\<int\|string\>\|int\|string, mixed given\.$#'
 			identifier: argument.type
 			count: 3
-			path: src/Local/BuildFlavor/Drupal.php
-
-		-
-			message: '#^Parameter \#1 \$source of method Platformsh\\Cli\\Service\\Filesystem\:\:symlinkAll\(\) expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 2
 			path: src/Local/BuildFlavor/Drupal.php
 
 		-
@@ -5037,12 +3717,6 @@ parameters:
 		-
 			message: '#^Parameter \#2 \$dependencies of method Platformsh\\Cli\\Local\\DependencyInstaller\:\:putEnv\(\) expects array\<string, mixed\>, mixed given\.$#'
 			identifier: argument.type
-			count: 1
-			path: src/Local/LocalBuild.php
-
-		-
-			message: '#^Strict comparison using \!\=\= between int and null will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
 			count: 1
 			path: src/Local/LocalBuild.php
 
@@ -5185,12 +3859,6 @@ parameters:
 			path: src/Model/AppConfig.php
 
 		-
-			message: '#^Property Platformsh\\Cli\\Model\\AppConfig\:\:\$normalizedConfig in isset\(\) is not nullable nor uninitialized\.$#'
-			identifier: isset.initializedProperty
-			count: 1
-			path: src/Model/AppConfig.php
-
-		-
 			message: '#^Parameter \$input of method Platformsh\\Cli\\Service\\Shell\:\:execute\(\) expects string\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -5251,108 +3919,6 @@ parameters:
 			path: src/Model/Route.php
 
 		-
-			message: '#^Access to an undefined property PhpParser\\Node\\Expr\\Error\|PhpParser\\Node\\Expr\\Variable\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 3
-			path: src/Rector/DependencyInjection.php
-
-		-
-			message: '#^Access to an undefined property PhpParser\\Node\\Expr\|PhpParser\\Node\\Identifier\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: src/Rector/InjectCommandServicesRector.php
-
-		-
-			message: '#^Cannot access property \$name on PhpParser\\Node\\Identifier\|null\.$#'
-			identifier: property.nonObject
-			count: 2
-			path: src/Rector/InjectCommandServicesRector.php
-
-		-
-			message: '#^Parameter \#2 \$callable of method Rector\\Rector\\AbstractRector\:\:traverseNodesWithCallable\(\) expects callable\(PhpParser\\Node\)\: \(array\<PhpParser\\Node\>\|int\|PhpParser\\Node\|null\), Closure\(PhpParser\\NodeAbstract\)\: \(PhpParser\\Node\\Expr\\Assign\|null\) given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Rector/InjectCommandServicesRector.php
-
-		-
-			message: '#^Access to an undefined property PhpParser\\Node\\Expr\|PhpParser\\Node\\Identifier\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Rector/NewServicesRector.php
-
-		-
-			message: '#^Cannot access property \$name on PhpParser\\Node\\Identifier\|null\.$#'
-			identifier: property.nonObject
-			count: 2
-			path: src/Rector/NewServicesRector.php
-
-		-
-			message: '#^Parameter \#2 \$callable of method Rector\\Rector\\AbstractRector\:\:traverseNodesWithCallable\(\) expects callable\(PhpParser\\Node\)\: \(array\<PhpParser\\Node\>\|int\|PhpParser\\Node\|null\), Closure\(PhpParser\\NodeAbstract\)\: \(PhpParser\\Node\\Expr\\MethodCall\|null\) given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Rector/NewServicesRector.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\Rector\\NewServicesRector\:\:\$transforms type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: src/Rector/NewServicesRector.php
-
-		-
-			message: '#^Argument of an invalid type array\<PhpParser\\Node\\Stmt\>\|null supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 1
-			path: src/Rector/UnnecessaryServiceVariablesRector.php
-
-		-
-			message: '#^Cannot access property \$name on PhpParser\\Node\\Identifier\|null\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: src/Rector/UnnecessaryServiceVariablesRector.php
-
-		-
-			message: '#^Doing instanceof PHPStan\\Type\\ObjectType is error\-prone and deprecated\. Use Type\:\:isObject\(\) or Type\:\:getObjectClassNames\(\) instead\.$#'
-			identifier: phpstanApi.instanceofType
-			count: 1
-			path: src/Rector/UnnecessaryServiceVariablesRector.php
-
-		-
-			message: '#^Access to an undefined property PhpParser\\Node\\Expr\|PhpParser\\Node\\Identifier\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 6
-			path: src/Rector/UseSelectorServiceRector.php
-
-		-
-			message: '#^Cannot access property \$name on PhpParser\\Node\\Identifier\|null\.$#'
-			identifier: property.nonObject
-			count: 2
-			path: src/Rector/UseSelectorServiceRector.php
-
-		-
-			message: '#^Parameter \#2 \$callable of method Rector\\Rector\\AbstractRector\:\:traverseNodesWithCallable\(\) expects callable\(PhpParser\\Node\)\: \(array\<PhpParser\\Node\>\|int\|PhpParser\\Node\|null\), Closure\(PhpParser\\NodeAbstract\)\: \(PhpParser\\Node\\Expr\\Assign\|PhpParser\\Node\\Expr\\MethodCall\|null\) given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Rector/UseSelectorServiceRector.php
-
-		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\ApiResourceBase\:\:\$capabilities\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\ApiResourceBase\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 3
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Access to an undefined property Platformsh\\Client\\Model\\ApiResourceBase\:\:\$owner_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
 			message: '#^Binary operation "\." between ''Project "'' and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
 			count: 1
@@ -5367,18 +3933,6 @@ parameters:
 		-
 			message: '#^Cannot access offset non\-falsy\-string on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Selector\\Selector\:\:offerProjectChoice\(\) should return string but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Selector\\Selector\:\:selectOrganization\(\) should return Platformsh\\Client\\Model\\Organization\\Organization but returns Platformsh\\Client\\Model\\ApiResourceBase\.$#'
-			identifier: return.type
 			count: 1
 			path: src/Selector/Selector.php
 
@@ -5407,18 +3961,6 @@ parameters:
 			path: src/Selector/Selector.php
 
 		-
-			message: '#^Parameter \#1 \$items of method Platformsh\\Cli\\Service\\QuestionHelper\:\:choose\(\) expects array\<string, string\>, array\<string\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Parameter \#1 \$organization of method Platformsh\\Cli\\Service\\Api\:\:getOrganizationLabel\(\) expects Platformsh\\Client\\Model\\Organization\\Organization, Platformsh\\Client\\Model\\ApiResourceBase given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
 			message: '#^Parameter \#1 \$values of method Symfony\\Component\\Console\\Completion\\CompletionSuggestions\:\:suggestValues\(\) expects list\<string\|Symfony\\Component\\Console\\Completion\\Suggestion\>, array\<Symfony\\Component\\Console\\Completion\\Suggestion\> given\.$#'
 			identifier: argument.type
 			count: 2
@@ -5431,21 +3973,9 @@ parameters:
 			path: src/Selector/Selector.php
 
 		-
-			message: '#^Parameter \#2 \$haystack of function in_array expects array, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Selector/Selector.php
-
-		-
 			message: '#^Parameter \#2 \$host of method Platformsh\\Cli\\Service\\Api\:\:getProject\(\) expects string\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 1
-			path: src/Selector/Selector.php
-
-		-
-			message: '#^Possibly invalid array key type mixed\.$#'
-			identifier: offsetAccess.invalidOffset
-			count: 4
 			path: src/Selector/Selector.php
 
 		-
@@ -5485,24 +4015,6 @@ parameters:
 			path: src/Service/AccessApi.php
 
 		-
-			message: '#^Cannot call method fetchNextPage\(\) on Platformsh\\Client\\Model\\Collection\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Service/AccessApi.php
-
-		-
-			message: '#^Cannot call method getData\(\) on Platformsh\\Client\\Model\\Collection\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Service/AccessApi.php
-
-		-
-			message: '#^Cannot call method hasNextPage\(\) on Platformsh\\Client\\Model\\Collection\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Service/AccessApi.php
-
-		-
 			message: '#^Method Platformsh\\Cli\\Service\\AccessApi\:\:legacyUserInfo\(\) should return array\{id\: string, email\: string, display_name\: string, created_at\: string, updated_at\: string\|null\} but returns mixed\.$#'
 			identifier: return.type
 			count: 1
@@ -5511,12 +4023,6 @@ parameters:
 		-
 			message: '#^Parameter \#1 \$data of class Platformsh\\Client\\Model\\UserAccess\\ProjectUserAccess constructor expects array, mixed given\.$#'
 			identifier: argument.type
-			count: 1
-			path: src/Service/AccessApi.php
-
-		-
-			message: '#^Static property Platformsh\\Cli\\Service\\AccessApi\:\:\$userCache \(array\<string, Platformsh\\Client\\Model\\ProjectAccess\|Platformsh\\Client\\Model\\UserAccess\\ProjectUserAccess\|null\>\|null\) is never assigned null so it can be removed from the property type\.$#'
-			identifier: property.unusedType
 			count: 1
 			path: src/Service/AccessApi.php
 
@@ -5533,20 +4039,8 @@ parameters:
 			path: src/Service/ActivityMonitor.php
 
 		-
-			message: '#^Ternary operator condition is always false\.$#'
-			identifier: ternary.alwaysFalse
-			count: 1
-			path: src/Service/ActivityMonitor.php
-
-		-
 			message: '#^Binary operation "\." between ''Project…'' and mixed results in an error\.$#'
 			identifier: binaryOp.invalid
-			count: 1
-			path: src/Service/Api.php
-
-		-
-			message: '#^Call to function is_array\(\) with array\<string, mixed\> will always evaluate to true\.$#'
-			identifier: function.alreadyNarrowedType
 			count: 1
 			path: src/Service/Api.php
 
@@ -5749,12 +4243,6 @@ parameters:
 			path: src/Service/Api.php
 
 		-
-			message: '#^Parameter \#1 \$body of method Platformsh\\Cli\\Service\\Api\:\:isApiTokenInvalid\(\) expects array\<string, mixed\>, array\<mixed, mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Api.php
-
-		-
 			message: '#^Parameter \#1 \$data of class Platformsh\\Client\\Model\\Deployment\\EnvironmentDeployment constructor expects array, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -5804,12 +4292,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$id of method Platformsh\\Client\\PlatformClient\:\:getOrganizationById\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Api.php
-
-		-
-			message: '#^Parameter \#1 \$project of method Platformsh\\Cli\\Service\\Api\:\:supportsGuaranteedCPU\(\) expects Platformsh\\Client\\Model\\Project, Platformsh\\Client\\Model\\Project\|null given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Service/Api.php
@@ -5893,235 +4375,7 @@ parameters:
 			path: src/Service/Api.php
 
 		-
-			message: '#^Binary operation "\." between mixed and ''\-Cluster'' results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Binary operation "\." between mixed and ''/''\|''\\\\'' results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Binary operation "\." between mixed and ''HOME'' results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Binary operation "\." between mixed and string results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 3
-			path: src/Service/Config.php
-
-		-
-			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''add_to_agent'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''add_to_ssh_agent'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''all_experiments'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''applications_config_file'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''archive_dir''\|''build_dir''\|''dependencies_dir''\|''project_config''\|''shared_dir'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''auto_load_cert'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''auto_load_ssh_cert'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''certifier_url''\|''oauth2_auth_url''\|''oauth2_revoke_url''\|''oauth2_token_url'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''cluster_header'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''console_domain'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''console_url'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''disabled_commands'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''domain_wildcards'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''enable_commands'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''env_prefix'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''experimental_commands'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''header_prefix'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''hidden_commands'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''local_dir'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''oauth2_client_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''organization_types'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''prompt'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''session_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''slug'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''ssh_domain_wildcards'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''tmp_sub_dir'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''wrapped_disabled_commands'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''writable_user_dir'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset string on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 4
-			path: src/Service/Config.php
-
-		-
 			message: '#^Method Platformsh\\Cli\\Service\\Config\:\:get\(\) should return array\<mixed\>\|bool\|float\|int\|string\|null but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Service\\Config\:\:getProxies\(\) should return array\{https\?\: string, http\?\: string\} but returns array\{\}\|array\{https\?\: string\|false, http\?\: string\|false\}\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Service\\Config\:\:getSessionId\(\) should return string but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Service\\Config\:\:getVersion\(\) should return string but returns mixed\.$#'
 			identifier: return.type
 			count: 1
 			path: src/Service/Config.php
@@ -6133,33 +4387,9 @@ parameters:
 			path: src/Service/Config.php
 
 		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Config\:\:validateSessionId\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Parameter \#2 \$haystack of function in_array expects array, mixed given\.$#'
-			identifier: argument.type
-			count: 5
-			path: src/Service/Config.php
-
-		-
-			message: '#^Parameter \#3 \$subject of function str_replace expects array\<string\>\|string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Config.php
-
-		-
 			message: '#^Property Platformsh\\Cli\\Service\\Config\:\:\$config \(array\<string, mixed\>\) does not accept array\.$#'
 			identifier: assign.propertyType
 			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\Service\\Config\:\:\$version \(string\|null\) does not accept mixed\.$#'
-			identifier: assign.propertyType
-			count: 1
 			path: src/Service/Config.php
 
 		-
@@ -6178,12 +4408,6 @@ parameters:
 			message: '#^Binary operation "\.\=" between string and mixed results in an error\.$#'
 			identifier: assignOp.invalid
 			count: 2
-			path: src/Service/CurlCli.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Service\\CurlCli\:\:run\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
 			path: src/Service/CurlCli.php
 
 		-
@@ -6343,38 +4567,8 @@ parameters:
 			path: src/Service/GitDataApi.php
 
 		-
-			message: '#^Strict comparison using \=\=\= between string and null will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: src/Service/GitDataApi.php
-
-		-
-			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:head\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Service/Identifier.php
-
-		-
-			message: '#^Cannot call method getHeader\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Service/Identifier.php
-
-		-
-			message: '#^Cannot call method getStatusCode\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: src/Service/Identifier.php
-
-		-
 			message: '#^Method Platformsh\\Cli\\Service\\Identifier\:\:getClusterHeader\(\) should return string\|false but returns mixed\.$#'
 			identifier: return.type
-			count: 1
-			path: src/Service/Identifier.php
-
-		-
-			message: '#^Parameter \#1 \$callback of function array_map expects \(callable\(mixed\)\: mixed\)\|null, ''preg_quote'' given\.$#'
-			identifier: argument.type
 			count: 1
 			path: src/Service/Identifier.php
 
@@ -6383,12 +4577,6 @@ parameters:
 			identifier: return.type
 			count: 1
 			path: src/Service/InstallationInfo.php
-
-		-
-			message: '#^Binary operation "\-" between int\<1, max\> and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Service/LegacyMigration.php
 
 		-
 			message: '#^Cannot access offset ''3\.x'' on mixed\.$#'
@@ -6427,17 +4615,10 @@ parameters:
 			path: src/Service/PropertyFormatter.php
 
 		-
-			message: '#^Parameter \#1 \$timezone of class DateTimeZone constructor expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/PropertyFormatter.php
-
-		-
 			message: '#^Parameter \#1 \$value of method Platformsh\\Cli\\Service\\PropertyFormatter\:\:formatDate\(\) expects int\|string, mixed given\.$#'
 			identifier: argument.type
 			count: 2
 			path: src/Service/PropertyFormatter.php
-
 
 		-
 			message: '#^Parameter \#2 \$array of function implode expects array, mixed given\.$#'
@@ -6638,66 +4819,6 @@ parameters:
 			path: src/Service/RemoteEnvVars.php
 
 		-
-			message: '#^Method Platformsh\\Cli\\Service\\RemoteEnvVars\:\:getEnvVar\(\) should return string but returns string\|false\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/RemoteEnvVars.php
-
-		-
-			message: '#^Cannot access offset ''disk'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/ResourcesUtil.php
-
-		-
-			message: '#^Cannot access offset ''minimum'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/ResourcesUtil.php
-
-		-
-			message: '#^Cannot access offset ''profile_size'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/ResourcesUtil.php
-
-		-
-			message: '#^Cannot access offset mixed on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/ResourcesUtil.php
-
-		-
-			message: '#^Instanceof between Platformsh\\Client\\Model\\Deployment\\Task and Platformsh\\Client\\Model\\Deployment\\Task will always evaluate to true\.$#'
-			identifier: instanceof.alwaysTrue
-			count: 1
-			path: src/Service/ResourcesUtil.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Service\\ResourcesUtil\:\:allServices\(\) should return array\<string, Platformsh\\Client\\Model\\Deployment\\Service\|Platformsh\\Client\\Model\\Deployment\\Task\|Platformsh\\Client\\Model\\Deployment\\WebApp\|Platformsh\\Client\\Model\\Deployment\\Worker\> but returns array\<Platformsh\\Client\\Model\\Deployment\\Service\|Platformsh\\Client\\Model\\Deployment\\Task\|Platformsh\\Client\\Model\\Deployment\\WebApp\|Platformsh\\Client\\Model\\Deployment\\Worker\>\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/ResourcesUtil.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Service\\ResourcesUtil\:\:sizeInfo\(\) should return array\{cpu\: string, memory\: string\}\|null but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/ResourcesUtil.php
-
-		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getOrganizationById\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/ResourcesUtil.php
-
-		-
-			message: '#^Possibly invalid array key type mixed\.$#'
-			identifier: offsetAccess.invalidOffset
-			count: 2
-			path: src/Service/ResourcesUtil.php
-
-		-
 			message: '#^Method Platformsh\\Cli\\Service\\Rsync\:\:supportsConvertingFilenames\(\) should return bool\|null but returns mixed\.$#'
 			identifier: return.type
 			count: 1
@@ -6740,51 +4861,15 @@ parameters:
 			path: src/Service/Ssh.php
 
 		-
-			message: '#^Method Platformsh\\Cli\\Service\\Ssh\:\:getHost\(\) should return string\|false but returns string\|false\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/Ssh.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Service\\Ssh\:\:getSshOptions\(\) should return array\<string\> but returns array\<mixed\>\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/Ssh.php
-
-		-
-			message: '#^Parameter \#1 \$array of function array_unique expects an array of values castable to string, array\<mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Ssh.php
-
-		-
 			message: '#^Parameter \#3 \$subject of function str_replace expects array\<string\>\|string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Service/Ssh.php
 
 		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 1
-			path: src/Service/SshConfig.php
-
-		-
-			message: '#^PHPDoc tag @var with type array\<string\>\|string is not subtype of native type non\-empty\-array\|float\|int\<min, \-1\>\|int\<1, max\>\|non\-falsy\-string\|true\.$#'
-			identifier: varTag.nativeType
-			count: 1
-			path: src/Service/SshConfig.php
-
-		-
 			message: '#^Parameter \#2 \$array of function implode expects array, mixed given\.$#'
 			identifier: argument.type
 			count: 4
-			path: src/Service/SshConfig.php
-
-		-
-			message: '#^Parameter \#2 \$array of function implode expects array\<string\>, array\<mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
 			path: src/Service/SshConfig.php
 
 		-
@@ -6812,28 +4897,10 @@ parameters:
 			path: src/Service/SshKey.php
 
 		-
-			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Service/State.php
-
-		-
 			message: '#^Property Platformsh\\Cli\\Service\\State\:\:\$state \(array\<string, mixed\>\) does not accept mixed\.$#'
 			identifier: assign.propertyType
 			count: 1
 			path: src/Service/State.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 2
-			path: src/Service/TokenConfig.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Service\\TokenConfig\:\:getAccessToken\(\) should return string\|null but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/TokenConfig.php
 
 		-
 			message: '#^Cannot cast mixed to int\.$#'
@@ -6898,12 +4965,6 @@ parameters:
 		-
 			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
 			identifier: foreach.nonIterable
-			count: 1
-			path: src/Service/VariableCommandUtil.php
-
-		-
-			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
-			identifier: function.alreadyNarrowedType
 			count: 1
 			path: src/Service/VariableCommandUtil.php
 
@@ -7100,52 +5161,10 @@ parameters:
 			path: tests/Command/User/UserAddCommandTest.php
 
 		-
-			message: '#^Property Platformsh\\Cli\\Tests\\Local\\BuildFlavor\\BuildFlavorTestBase\:\:\$builder \(Platformsh\\Cli\\Local\\LocalBuild\) does not accept mixed\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: tests/Local/BuildFlavor/BuildFlavorTestBase.php
-
-		-
-			message: '#^Cannot call method getTreeId\(\) on Platformsh\\Cli\\Local\\LocalBuild\|null\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: tests/Local/LocalBuildTest.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\Tests\\Local\\LocalBuildTest\:\:\$localBuild \(Platformsh\\Cli\\Local\\LocalBuild\|null\) does not accept object\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: tests/Local/LocalBuildTest.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\Tests\\Local\\LocalBuildTest\:\:\$localBuild \(Platformsh\\Cli\\Local\\LocalBuild\|null\) is never assigned null so it can be removed from the property type\.$#'
-			identifier: property.unusedType
-			count: 1
-			path: tests/Local/LocalBuildTest.php
-
-		-
 			message: '#^Parameter \#2 \$array of method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, mixed given\.$#'
 			identifier: argument.type
 			count: 6
 			path: tests/Service/DrushServiceTest.php
-
-		-
-			message: '#^Parameter \#1 \$objectOrMethod of class ReflectionMethod constructor expects object\|string, Platformsh\\Cli\\Service\\Ssh\|null given\.$#'
-			identifier: argument.type
-			count: 2
-			path: tests/Service/SshTest.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\Tests\\Service\\SshTest\:\:\$ssh \(Platformsh\\Cli\\Service\\Ssh\|null\) does not accept object\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: tests/Service/SshTest.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\Tests\\Service\\SshTest\:\:\$ssh \(Platformsh\\Cli\\Service\\Ssh\|null\) is never assigned null so it can be removed from the property type\.$#'
-			identifier: property.unusedType
-			count: 1
-			path: tests/Service/SshTest.php
 
 		-
 			message: '#^Method Platformsh\\Cli\\Tests\\Service\\TunnelManagerTest\:\:callUnserialize\(\) should return array\<Platformsh\\Cli\\Tunnel\\Tunnel\> but returns mixed\.$#'
@@ -7200,9 +5219,3 @@ parameters:
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
 			path: tests/Util/NestedArrayUtilTest.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\Tests\\Util\\TimezoneUtilTest\:\:\$originalIni \(bool\|string\) is never assigned bool so it can be removed from the property type\.$#'
-			identifier: property.unusedType
-			count: 1
-			path: tests/Util/TimezoneUtilTest.php

@@ -158,9 +158,7 @@ class Ssh implements InputConfiguringInterface
             }
         }
 
-        if ($configuredOptions = $this->config->get('ssh.options')) {
-            $options = array_merge($options, is_array($configuredOptions) ? $configuredOptions : explode("\n", (string) $configuredOptions));
-        }
+        $options = array_merge($options, $this->config->getStrList('ssh.options'));
 
         // Avoid repeating options.
         return array_unique($options);
@@ -240,7 +238,7 @@ class Ssh implements InputConfiguringInterface
         if (!preg_match('@^[\p{Ll}0-9-]+\.[\p{Ll}0-9-]+@', $uri)) {
             return false;
         }
-        return \parse_url('ssh://' . $uri, PHP_URL_HOST);
+        return \parse_url('ssh://' . $uri, PHP_URL_HOST) ?? false;
     }
 
     /**

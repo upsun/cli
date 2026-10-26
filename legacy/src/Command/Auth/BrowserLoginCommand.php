@@ -331,7 +331,7 @@ class BrowserLoginCommand extends CommandBase
                 'headers' => [
                     'Content-Type' => 'application/x-www-form-urlencoded',
                 ],
-                'auth' => [$this->config->get('api.oauth2_client_id'), ''],
+                'auth' => [$this->config->getStr('api.oauth2_client_id'), ''],
             ]);
 
             return (array) Utils::jsonDecode((string) $response->getBody(), true);

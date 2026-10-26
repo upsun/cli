@@ -42,10 +42,6 @@ final class AppConfig
      */
     public function getNormalized(): array
     {
-        if (!isset($this->normalizedConfig)) {
-            $this->normalizedConfig = $this->normalizeConfig($this->config);
-        }
-
         return $this->normalizedConfig;
     }
 

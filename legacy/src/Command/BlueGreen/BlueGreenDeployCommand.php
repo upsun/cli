@@ -42,7 +42,7 @@ class BlueGreenDeployCommand extends CommandBase
         $environment = $selection->getEnvironment();
 
         $httpClient = $this->api->getHttpClient();
-        $response = $httpClient->get($environment->getLink('#versions'));
+        $response = $httpClient->request('GET', $environment->getLink('#versions'));
         $data = (array) Utils::jsonDecode((string) $response->getBody(), true);
         if (count($data) < 2) {
             $this->stdErr->writeln(sprintf('Blue/green deployments are not enabled for the environment %s.', $this->api->getEnvironmentLabel($environment, 'error')));
@@ -80,7 +80,7 @@ class BlueGreenDeployCommand extends CommandBase
         }
 
         $this->stdErr->writeln('');
-        $httpClient->patch($environment->getLink('#versions') . '/' . rawurlencode((string) $latestVersionData['id']), [
+        $httpClient->request('PATCH', $environment->getLink('#versions') . '/' . rawurlencode((string) $latestVersionData['id']), [
             'json' => [
                 'routing' => ['percentage' => $targetPercentage],
             ],

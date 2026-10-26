@@ -8,7 +8,11 @@ parameters:
 		- config/cache/container.php
 	stubFiles:
 		- phpstan-stubs/Activity.stub
+		- phpstan-stubs/Backup.stub
 		- phpstan-stubs/Command.stub
+		- phpstan-stubs/Deployment.stub
+		- phpstan-stubs/Environment.stub
+		- phpstan-stubs/Project.stub
 
 includes:
 	- phpstan-baseline.neon

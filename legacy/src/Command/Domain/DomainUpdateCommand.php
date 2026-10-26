@@ -53,12 +53,11 @@ class DomainUpdateCommand extends DomainCommandBase
             return 1;
         }
 
-        $forEnvironment = Option::stringOrNull($input, 'environment') !== null;
-        $environment = $forEnvironment ? $selection->getEnvironment() : null;
+        $environment = Option::stringOrNull($input, 'environment') !== null ? $selection->getEnvironment() : null;
 
         $project = $selection->getProject();
 
-        if ($forEnvironment) {
+        if ($environment !== null) {
             $httpClient = $this->api->getHttpClient();
             $domain = EnvironmentDomain::get($this->domainName, $environment->getLink('#domains'), $httpClient);
         } else {
