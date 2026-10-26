@@ -25,6 +25,9 @@ var phar []byte
 
 var PHPVersion = "0.0.0"
 
+// PHPPath, if set at build time, replaces the embedded PHP binary, e.g. with legacy/scripts/coverage/php for coverage.
+var PHPPath = ""
+
 const configBasename = "config.yaml"
 
 // CLIWrapper wraps the legacy CLI
@@ -192,7 +195,11 @@ func (c *CLIWrapper) makeCmd(ctx context.Context, args []string, cacheDir string
 	}
 	cmdArgs = append(cmdArgs, c.pharPath(cacheDir))
 	cmdArgs = append(cmdArgs, args...)
-	return exec.CommandContext(ctx, phpMgr.binPath(), cmdArgs...) //nolint:gosec
+	bin := phpMgr.binPath()
+	if PHPPath != "" {
+		bin = PHPPath
+	}
+	return exec.CommandContext(ctx, bin, cmdArgs...) //nolint:gosec
 }
 
 // PharPath returns the path to the legacy CLI's Phar file.

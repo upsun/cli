@@ -162,6 +162,8 @@ The mock API (`pkg/mockapi`) validates each successful request and response agai
 
 `make test-integration-coverage` runs the integration tests with a CLI built with `-cover`, and prints a report (`scripts/coverage-report`): Go statement coverage per package, and the commands and command-specific options that the tests run (logged by `buildCommand` when `INTEGRATION_TESTS_ARGS_LOG` is set). CI runs the integration tests this way, and writes the report to the job summary.
 
+`make test-integration-php-coverage` runs them for PHP line coverage of the legacy CLI: a CLI built with `legacy.PHPPath` set to `legacy/scripts/coverage/php` runs the legacy source (`TEST_CLI_PHAR_PATH`) on the system PHP, which must load PCOV. Each PHP process writes its coverage to `PHP_COVERAGE_DIR`, and `legacy/scripts/coverage/report.php` prints a summary by directory and writes an HTML report to `dist/php-coverage/html`. CI's `integration-test-php-coverage` job writes the summary to the job summary, and uploads the HTML report.
+
 CI also runs the integration tests on macOS and Windows, using CLIs cross-compiled on Linux (`build-cross`). Skip tests that cannot work on a platform with `t.Skip` and a reason. The legacy CLI writes CRLF line endings on Windows: the `cmdFactory` run helpers convert them to LF.
 
 ### Configuration
