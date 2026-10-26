@@ -17,12 +17,26 @@ use Platformsh\Client\Model\Deployment\WebApp;
 use Platformsh\Client\Model\Deployment\Worker;
 use Platformsh\Client\Model\Environment;
 use Platformsh\Client\Model\Project;
+use Platformsh\Client\Model\Project\Settings;
 use Symfony\Component\Console\Input\InputDefinition;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * @phpstan-type Sizing array{cpu?: float, memory?: int, disk?: int, profile_size?: string}
+ * @phpstan-type ContainerResources array{
+ *     profile_size?: string,
+ *     base_memory?: int,
+ *     memory_ratio?: int,
+ *     minimum: Sizing,
+ *     default: Sizing,
+ *     object_storage?: int,
+ * }
+ * @phpstan-type ProfileSize array{cpu: float, memory: int, cpu_type: string}
+ * @phpstan-type ContainerProfiles array<string, array<int|string, ProfileSize>>
+ */
 class ResourcesUtil
 {
     private readonly OutputInterface $stdErr;
@@ -57,7 +71,7 @@ class ResourcesUtil
     private function isFixedProject(Project $project): bool
     {
         $orgId = $project->getProperty('organization', false, false);
-        if (!$orgId || !$this->config->getBool('api.organizations')) {
+        if (!is_string($orgId) || $orgId === '' || !$this->config->getBool('api.organizations')) {
             return false;
         }
         try {
@@ -87,7 +101,13 @@ class ResourcesUtil
         ksort($workers, SORT_STRING | SORT_FLAG_CASE);
         ksort($services, SORT_STRING | SORT_FLAG_CASE);
         ksort($tasks, SORT_STRING | SORT_FLAG_CASE);
-        return array_merge($webapps, $workers, $services, $tasks);
+        $all = [];
+        foreach ([$webapps, $workers, $services, $tasks] as $containers) {
+            foreach ($containers as $name => $container) {
+                $all[(string) $name] = $container;
+            }
+        }
+        return $all;
     }
 
     /**
@@ -102,7 +122,7 @@ class ResourcesUtil
         if ($service instanceof Worker || $service instanceof Task) {
             return false;
         }
-        return isset($service->getProperties()['resources']['minimum']['disk']);
+        return isset($this->resources($service)['minimum']['disk']);
     }
 
     /**
@@ -135,7 +155,7 @@ class ResourcesUtil
      * @param array<string, WebApp|Service|Worker|Task> $services
      * @param InputInterface $input
      *
-     * @return WebApp[]|Service[]|Worker[]|Task[]|false
+     * @return array<string, WebApp|Service|Worker|Task>|false
      *   False on error, or an array of services.
      */
     public function filterServices(array $services, InputInterface $input): array|false
@@ -208,26 +228,127 @@ class ResourcesUtil
     }
 
     /**
-     * Returns container profile size info, given service properties.
+     * Returns a container's resources, typed from its deployment properties.
      *
-     * @param array<string, mixed> $properties
-     *   The service properties (e.g. from $service->getProperties()).
-     * @param array<string, mixed> $containerProfiles
-     *   The list of container profiles (e.g. from
-     *   $deployment->container_profiles).
+     * Values that are missing or of an unexpected type are left out.
      *
-     * @return array{'cpu': string, 'memory': string}|null
+     * @return ContainerResources
      */
-    public function sizeInfo(array $properties, array $containerProfiles): ?array
+    public function resources(WebApp|Worker|Service|Task $service): array
     {
-        if (isset($properties['resources']['profile_size'])) {
-            $size = $properties['resources']['profile_size'];
-            $profile = $properties['container_profile'];
-            if (isset($containerProfiles[$profile][$size])) {
-                return $containerProfiles[$profile][$size];
+        $data = $service->getProperties()['resources'] ?? null;
+        $data = is_array($data) ? $data : [];
+        $resources = [
+            'minimum' => self::sizing($data['minimum'] ?? null),
+            'default' => self::sizing($data['default'] ?? null),
+        ];
+        if (isset($data['profile_size']) && (is_string($data['profile_size']) || is_int($data['profile_size']) || is_float($data['profile_size']))) {
+            $resources['profile_size'] = (string) $data['profile_size'];
+        }
+        if (isset($data['base_memory']) && is_int($data['base_memory'])) {
+            $resources['base_memory'] = $data['base_memory'];
+        }
+        if (isset($data['memory_ratio']) && is_int($data['memory_ratio'])) {
+            $resources['memory_ratio'] = $data['memory_ratio'];
+        }
+        $disk = isset($data['disk']) && is_array($data['disk']) ? $data['disk'] : [];
+        if (isset($disk['object']) && is_int($disk['object'])) {
+            $resources['object_storage'] = $disk['object'];
+        }
+
+        return $resources;
+    }
+
+    /**
+     * @return Sizing
+     */
+    private static function sizing(mixed $data): array
+    {
+        $data = is_array($data) ? $data : [];
+        $sizing = [];
+        if (isset($data['cpu']) && (is_int($data['cpu']) || is_float($data['cpu']))) {
+            $sizing['cpu'] = (float) $data['cpu'];
+        }
+        if (isset($data['memory']) && is_int($data['memory'])) {
+            $sizing['memory'] = $data['memory'];
+        }
+        if (isset($data['disk']) && is_int($data['disk'])) {
+            $sizing['disk'] = $data['disk'];
+        }
+        if (isset($data['profile_size']) && (is_string($data['profile_size']) || is_int($data['profile_size']) || is_float($data['profile_size']))) {
+            $sizing['profile_size'] = (string) $data['profile_size'];
+        }
+
+        return $sizing;
+    }
+
+    /**
+     * Returns the container profiles of a deployment, typed.
+     *
+     * Sizes without a CPU, memory and CPU type are left out.
+     *
+     * @return ContainerProfiles
+     */
+    public function containerProfiles(EnvironmentDeployment $deployment): array
+    {
+        $data = $deployment->getProperty('container_profiles', false);
+        $profiles = [];
+        foreach (is_array($data) ? $data : [] as $profileName => $sizes) {
+            $profiles[(string) $profileName] = [];
+            foreach (is_array($sizes) ? $sizes : [] as $sizeName => $size) {
+                if (is_array($size) && isset($size['cpu'], $size['memory'], $size['cpu_type'])
+                    && (is_int($size['cpu']) || is_float($size['cpu']))
+                    && is_int($size['memory'])
+                    && is_string($size['cpu_type'])) {
+                    $profiles[(string) $profileName][$sizeName] = ['cpu' => (float) $size['cpu'], 'memory' => $size['memory'], 'cpu_type' => $size['cpu_type']];
+                }
             }
         }
-        return null;
+
+        return $profiles;
+    }
+
+    /**
+     * Returns a project's build resources.
+     *
+     * @return array{cpu: float, memory: int}
+     */
+    public function buildResources(Settings $settings): array
+    {
+        $current = $settings['build_resources'] ?? null;
+        $cpu = is_array($current) ? $current['cpu'] ?? null : null;
+        $memory = is_array($current) ? $current['memory'] ?? null : null;
+        if (!(is_int($cpu) || is_float($cpu)) || !is_int($memory)) {
+            throw new \RuntimeException('The project settings do not include build resources');
+        }
+
+        return ['cpu' => (float) $cpu, 'memory' => $memory];
+    }
+
+    /**
+     * Returns a container's profile name: tasks may lack one, and default to BALANCED.
+     */
+    public function containerProfile(WebApp|Worker|Service|Task $service): ?string
+    {
+        return $service->container_profile ?? ($service instanceof Task ? 'BALANCED' : null);
+    }
+
+    /**
+     * Returns a container's instance count, if it is set.
+     */
+    public function instanceCount(WebApp|Worker|Service|Task $service): ?int
+    {
+        $count = $service->getProperties()['instance_count'] ?? null;
+        return is_int($count) ? $count : null;
+    }
+
+    /**
+     * Returns a container's disk size in MB, if it is set.
+     */
+    public function disk(WebApp|Worker|Service|Task $service): ?int
+    {
+        $disk = $service->getProperties()['disk'] ?? null;
+        return is_int($disk) ? $disk : null;
     }
 
     /**

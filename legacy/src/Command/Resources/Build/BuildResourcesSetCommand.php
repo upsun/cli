@@ -46,12 +46,15 @@ class BuildResourcesSetCommand extends ResourcesCommandBase
         $capabilities = $this->api->getProjectCapabilities($project);
 
         $capability = $capabilities->getProperty('build_resources', false);
-        $maxCpu = $capability ? $capability['max_cpu'] : null;
-        $maxMemory = $capability ? $capability['max_memory'] : null;
+        $maxCpu = is_array($capability) ? $capability['max_cpu'] ?? null : null;
+        $maxCpu = is_int($maxCpu) || is_float($maxCpu) ? (float) $maxCpu : null;
+        $maxMemory = is_array($capability) ? $capability['max_memory'] ?? null : null;
+        $maxMemory = is_int($maxMemory) ? $maxMemory : null;
 
         $settings = $project->getSettings();
+        $current = $this->resourcesUtil->buildResources($settings);
 
-        $validateCpu = function ($v) use ($maxCpu): float {
+        $validateCpu = function (string $v) use ($maxCpu): float {
             $f = (float) $v;
             if ($f != $v) {
                 throw new InvalidArgumentException('The CPU value must be a number');
@@ -59,12 +62,12 @@ class BuildResourcesSetCommand extends ResourcesCommandBase
             if ($f < 0.1) {
                 throw new InvalidArgumentException(sprintf('The minimum allowed CPU is %.1f', 0.1));
             }
-            if ($f > $maxCpu) {
+            if ($maxCpu !== null && $f > $maxCpu) {
                 throw new InvalidArgumentException(sprintf('The maximum allowed CPU is %.1f', $maxCpu));
             }
             return $f;
         };
-        $validateMemory = function ($v) use ($maxMemory): int {
+        $validateMemory = function (string $v) use ($maxMemory): int {
             $i = (int) $v;
             if ($i != $v) {
                 throw new InvalidArgumentException('The memory value must be an integer');
@@ -72,7 +75,7 @@ class BuildResourcesSetCommand extends ResourcesCommandBase
             if ($i < 64) {
                 throw new InvalidArgumentException(sprintf('The minimum allowed memory is %d MB', 64));
             }
-            if ($i > $maxMemory) {
+            if ($maxMemory !== null && $i > $maxMemory) {
                 throw new InvalidArgumentException(sprintf('The maximum allowed memory is %d MB', $maxMemory));
             }
             return $i;
@@ -101,7 +104,7 @@ class BuildResourcesSetCommand extends ResourcesCommandBase
         if ($cpuOption === null && $memoryOption === null) {
             $cpuOption = $this->questionHelper->askInput(
                 'CPU size',
-                $this->resourcesUtil->formatCPU($settings['build_resources']['cpu']),
+                $this->resourcesUtil->formatCPU($current['cpu']),
                 [],
                 $validateCpu,
                 'current: ',
@@ -109,7 +112,7 @@ class BuildResourcesSetCommand extends ResourcesCommandBase
 
             $memoryOption = $this->questionHelper->askInput(
                 'Memory size in MB',
-                $settings['build_resources']['memory'],
+                $current['memory'],
                 [],
                 $validateMemory,
                 'current: ',
@@ -118,10 +121,10 @@ class BuildResourcesSetCommand extends ResourcesCommandBase
         }
 
         $updates = [];
-        if ($cpuOption !== null && $cpuOption !== $settings['build_resources']['cpu']) {
+        if ($cpuOption !== null && $cpuOption !== $current['cpu']) {
             $updates['build_resources']['cpu'] = $cpuOption;
         }
-        if ($memoryOption !== null && $memoryOption !== $settings['build_resources']['memory']) {
+        if ($memoryOption !== null && $memoryOption !== $current['memory']) {
             $updates['build_resources']['memory'] = $memoryOption;
         }
 
@@ -130,7 +133,7 @@ class BuildResourcesSetCommand extends ResourcesCommandBase
             return 0;
         }
 
-        $this->summarizeChanges($updates['build_resources'], $settings['build_resources']);
+        $this->summarizeChanges($updates['build_resources'], $current);
 
         $this->io->debug('Raw updates: ' . json_encode($updates, JSON_UNESCAPED_SLASHES));
 
@@ -150,8 +153,8 @@ class BuildResourcesSetCommand extends ResourcesCommandBase
     /**
      * Summarizes all the changes that would be made.
      *
-     * @param array{cpu?: int, memory?: int} $updates
-     * @param array{cpu: int, memory: int} $current
+     * @param array{cpu?: float, memory?: int} $updates
+     * @param array{cpu: float, memory: int} $current
      * @return void
      */
     private function summarizeChanges(array $updates, array $current): void

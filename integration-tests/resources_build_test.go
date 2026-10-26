@@ -108,9 +108,12 @@ func TestBuildResourcesSet(t *testing.T) {
 			assert.Contains(t, stderr, c.wantErr)
 		}
 
-		_, stderr, err := f.RunCombinedOutput("resources:build:set", "-p", projectID, "--memory", "2048")
-		require.NoError(t, err, stderr)
-		assert.Contains(t, stderr, "No changes were provided: nothing to update.")
+		// The current values are the API's integers.
+		for _, args := range [][]string{{"--memory", "2048"}, {"--cpu", "1"}} {
+			_, stderr, err := f.RunCombinedOutput(append([]string{"resources:build:set", "-p", projectID}, args...)...)
+			require.NoError(t, err, stderr)
+			assert.Contains(t, stderr, "No changes were provided: nothing to update.")
+		}
 
 		assert.Empty(t, apiHandler.ProjectSettingsPatches(projectID))
 	})

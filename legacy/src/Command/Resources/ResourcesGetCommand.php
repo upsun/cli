@@ -112,7 +112,7 @@ class ResourcesGetCommand extends ResourcesCommandBase
         $empty = $this->table->formatIsMachineReadable() ? '' : '<comment>not set</comment>';
         $notApplicable = $this->table->formatIsMachineReadable() ? '' : 'N/A';
 
-        $containerProfiles = $this->sortContainerProfiles($nextDeployment->container_profiles);
+        $containerProfiles = $this->sortContainerProfiles($this->resourcesUtil->containerProfiles($nextDeployment));
 
         $rows = [];
         $cpuTypeOption = Option::stringOrNull($input, 'cpu-type');
@@ -121,8 +121,8 @@ class ResourcesGetCommand extends ResourcesCommandBase
         $hasObjectStorage = false;
         foreach ($services as $name => $service) {
             $properties = $service->getProperties();
-            // Tasks may not specify a profile yet; default so CPU/memory still resolve.
-            $containerProfile = $properties['container_profile'] ?? ($service instanceof Task ? 'BALANCED' : null);
+            $resources = $this->resourcesUtil->resources($service);
+            $containerProfile = $this->resourcesUtil->containerProfile($service);
             if (!$this->table->formatIsMachineReadable() && !empty($autoscalingEnabled[$name])) {
                 $name .= ' ' . $autoscalingIndicator;
                 $hasAutoscalingIndicator = true;
@@ -143,22 +143,22 @@ class ResourcesGetCommand extends ResourcesCommandBase
                 'memory' => $empty,
             ];
 
-            $profileSize = $properties['resources']['profile_size'] ?? null;
+            $profileSize = $resources['profile_size'] ?? null;
             if ($containerProfile !== null && $profileSize !== null && isset($containerProfiles[$containerProfile][$profileSize])) {
                 $profileInfo = $containerProfiles[$containerProfile][$profileSize];
-                if ($cpuTypeOption != "" && isset($profileInfo['cpu_type']) && $profileInfo['cpu_type'] != $cpuTypeOption) {
+                if ($cpuTypeOption != "" && $profileInfo['cpu_type'] != $cpuTypeOption) {
                     continue;
                 }
 
-                $row['cpu_type'] = $profileInfo['cpu_type'] ?? '';
-                $row['cpu'] = isset($profileInfo['cpu']) ? $this->resourcesUtil->formatCPU($profileInfo['cpu']) : '';
-                $row['memory'] = isset($profileInfo['cpu']) ? $profileInfo['memory'] : '';
+                $row['cpu_type'] = $profileInfo['cpu_type'];
+                $row['cpu'] = $this->resourcesUtil->formatCPU($profileInfo['cpu']);
+                $row['memory'] = $profileInfo['memory'];
             }
 
-            if (!empty($properties['resources'])) {
-                foreach ($properties['resources'] as $key => $value) {
-                    if (isset($row[$key])) {
-                        $row[$key] = $value === null ? '' : $value;
+            if (isset($properties['resources']) && is_array($properties['resources'])) {
+                foreach (['profile_size', 'base_memory', 'memory_ratio'] as $key) {
+                    if (array_key_exists($key, $properties['resources'])) {
+                        $row[$key] = $resources[$key] ?? '';
                     }
                 }
             }
@@ -166,19 +166,20 @@ class ResourcesGetCommand extends ResourcesCommandBase
             if (!$this->resourcesUtil->supportsDisk($service)) {
                 $row['disk'] = $notApplicable;
             } elseif (array_key_exists('disk', $properties)) {
-                if (empty($properties['disk'])) {
+                $disk = $this->resourcesUtil->disk($service);
+                if (empty($disk)) {
                     $row['disk'] = empty($properties['resources']) ? $empty : '';
                 } else {
-                    $row['disk'] = $this->propertyFormatter->format($properties['disk'], 'disk');
+                    $row['disk'] = $this->propertyFormatter->format($disk, 'disk');
                 }
             }
 
             // Object storage is only available on apps.
             if (!$service instanceof WebApp) {
                 $row['object_storage'] = $notApplicable;
-            } elseif (isset($properties['resources']['disk']['object'])) {
-                $row['object_storage'] = (string) $properties['resources']['disk']['object'];
-                if ($properties['resources']['disk']['object'] > 0) {
+            } elseif (isset($resources['object_storage'])) {
+                $row['object_storage'] = (string) $resources['object_storage'];
+                if ($resources['object_storage'] > 0) {
                     $hasObjectStorage = true;
                 }
             }
@@ -187,7 +188,8 @@ class ResourcesGetCommand extends ResourcesCommandBase
             if ($service instanceof Task) {
                 $row['instance_count'] = $notApplicable;
             } else {
-                $row['instance_count'] = isset($properties['instance_count']) ? $this->propertyFormatter->format($properties['instance_count'], 'instance_count') : '1';
+                $instanceCount = $this->resourcesUtil->instanceCount($service);
+                $row['instance_count'] = $instanceCount !== null ? $this->propertyFormatter->format($instanceCount, 'instance_count') : '1';
             }
 
             $rows[] = $row;
