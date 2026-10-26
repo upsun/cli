@@ -28,12 +28,12 @@ readonly class TokenConfig
      */
     public function getApiToken(bool $includeStored = true): ?string
     {
-        $token = (string) $this->config->getWithDefault('api.token', '');
+        $token = $this->config->getStrOrNull('api.token') ?? '';
         if ($token !== '') {
             return $token;
         }
 
-        $file = (string) $this->config->getWithDefault('api.token_file', '');
+        $file = $this->config->getStrOrNull('api.token_file') ?? '';
         if ($file !== '') {
             $token = $this->loadTokenFromFile($file);
             if ($token !== '') {
@@ -53,7 +53,7 @@ readonly class TokenConfig
 
     public function getAccessToken(): ?string
     {
-        return $this->config->getWithDefault('api.access_token', null);
+        return $this->config->getStrOrNull('api.access_token');
     }
 
     /**

@@ -158,9 +158,7 @@ class Ssh implements InputConfiguringInterface
             }
         }
 
-        if ($configuredOptions = $this->config->get('ssh.options')) {
-            $options = array_merge($options, is_array($configuredOptions) ? $configuredOptions : explode("\n", (string) $configuredOptions));
-        }
+        $options = array_merge($options, $this->config->getStrList('ssh.options'));
 
         // Avoid repeating options.
         return array_unique($options);

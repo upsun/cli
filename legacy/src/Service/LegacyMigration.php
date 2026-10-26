@@ -163,7 +163,7 @@ class LegacyMigration
 
         // Prompt the user to migrate at most once every 24 hours.
         $now = time();
-        $embargoTime = $now - $this->config->getWithDefault('migrate.prompt_interval', 60 * 60 * 24);
+        $embargoTime = $now - ($this->config->has('migrate.prompt_interval') ? $this->config->getInt('migrate.prompt_interval') : 60 * 60 * 24);
         if ($this->state->get('migrate.last_prompted') > $embargoTime) {
             return;
         }

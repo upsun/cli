@@ -271,12 +271,6 @@ parameters:
 			path: src/Application.php
 
 		-
-			message: '#^Parameter \#1 \$timezoneId of function date_default_timezone_set expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Application.php
-
-		-
 			message: '#^Parameter \#1 \$values of method Symfony\\Component\\Console\\Completion\\CompletionSuggestions\:\:suggestValues\(\) expects list\<string\|Symfony\\Component\\Console\\Completion\\Suggestion\>, array\<string\> given\.$#'
 			identifier: argument.type
 			count: 1
@@ -1051,21 +1045,9 @@ parameters:
 			path: src/Command/Environment/EnvironmentPushCommand.php
 
 		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 1
-			path: src/Command/Environment/EnvironmentPushCommand.php
-
-		-
 			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getEnvironment\(\) expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 2
-			path: src/Command/Environment/EnvironmentPushCommand.php
-
-		-
-			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
 			path: src/Command/Environment/EnvironmentPushCommand.php
 
 		-
@@ -1885,12 +1867,6 @@ parameters:
 			path: src/Command/Organization/OrganizationCreateCommand.php
 
 		-
-			message: '#^Parameter \#1 \$string of function ucfirst expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Organization/OrganizationCreateCommand.php
-
-		-
 			message: '#^Parameter \#1 \$string of method Cocur\\Slugify\\Slugify\:\:slugify\(\) expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -1929,7 +1905,7 @@ parameters:
 		-
 			message: '#^Possibly invalid array key type mixed\.$#'
 			identifier: offsetAccess.invalidOffset
-			count: 2
+			count: 1
 			path: src/Command/Organization/OrganizationCreateCommand.php
 
 		-
@@ -4411,235 +4387,7 @@ parameters:
 			path: src/Service/Api.php
 
 		-
-			message: '#^Binary operation "\." between mixed and ''\-Cluster'' results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Binary operation "\." between mixed and ''/''\|''\\\\'' results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Binary operation "\." between mixed and ''HOME'' results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Binary operation "\." between mixed and string results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 3
-			path: src/Service/Config.php
-
-		-
-			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''add_to_agent'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''add_to_ssh_agent'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''all_experiments'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''applications_config_file'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''archive_dir''\|''build_dir''\|''dependencies_dir''\|''project_config''\|''shared_dir'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''auto_load_cert'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''auto_load_ssh_cert'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''certifier_url''\|''oauth2_auth_url''\|''oauth2_revoke_url''\|''oauth2_token_url'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''cluster_header'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''console_domain'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''console_url'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''disabled_commands'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''domain_wildcards'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''enable_commands'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''env_prefix'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''experimental_commands'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''header_prefix'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''hidden_commands'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''local_dir'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''oauth2_client_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''organization_types'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''prompt'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''session_id'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''slug'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''ssh_domain_wildcards'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''tmp_sub_dir'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''wrapped_disabled_commands'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset ''writable_user_dir'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot access offset string on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 4
-			path: src/Service/Config.php
-
-		-
 			message: '#^Method Platformsh\\Cli\\Service\\Config\:\:get\(\) should return array\<mixed\>\|bool\|float\|int\|string\|null but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Service\\Config\:\:getProxies\(\) should return array\{https\?\: string, http\?\: string\} but returns array\{\}\|array\{https\?\: string\|false, http\?\: string\|false\}\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Service\\Config\:\:getSessionId\(\) should return string but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Service\\Config\:\:getVersion\(\) should return string but returns mixed\.$#'
 			identifier: return.type
 			count: 1
 			path: src/Service/Config.php
@@ -4651,33 +4399,9 @@ parameters:
 			path: src/Service/Config.php
 
 		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Config\:\:validateSessionId\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Config.php
-
-		-
-			message: '#^Parameter \#2 \$haystack of function in_array expects array, mixed given\.$#'
-			identifier: argument.type
-			count: 5
-			path: src/Service/Config.php
-
-		-
-			message: '#^Parameter \#3 \$subject of function str_replace expects array\<string\>\|string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Config.php
-
-		-
 			message: '#^Property Platformsh\\Cli\\Service\\Config\:\:\$config \(array\<string, mixed\>\) does not accept array\.$#'
 			identifier: assign.propertyType
 			count: 2
-			path: src/Service/Config.php
-
-		-
-			message: '#^Property Platformsh\\Cli\\Service\\Config\:\:\$version \(string\|null\) does not accept mixed\.$#'
-			identifier: assign.propertyType
-			count: 1
 			path: src/Service/Config.php
 
 		-
@@ -4861,22 +4585,10 @@ parameters:
 			path: src/Service/Identifier.php
 
 		-
-			message: '#^Parameter \#1 \$callback of function array_map expects \(callable\(mixed\)\: mixed\)\|null, ''preg_quote'' given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Identifier.php
-
-		-
 			message: '#^Method Platformsh\\Cli\\Service\\InstallationInfo\:\:cliPath\(\) should return string but returns mixed\.$#'
 			identifier: return.type
 			count: 1
 			path: src/Service/InstallationInfo.php
-
-		-
-			message: '#^Binary operation "\-" between int\<1, max\> and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Service/LegacyMigration.php
 
 		-
 			message: '#^Cannot access offset ''3\.x'' on mixed\.$#'
@@ -4910,12 +4622,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$httpAccess of method Platformsh\\Cli\\Service\\PropertyFormatter\:\:formatHttpAccess\(\) expects array\<string, mixed\>\|string\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/PropertyFormatter.php
-
-		-
-			message: '#^Parameter \#1 \$timezone of class DateTimeZone constructor expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Service/PropertyFormatter.php
@@ -5167,45 +4873,15 @@ parameters:
 			path: src/Service/Ssh.php
 
 		-
-			message: '#^Method Platformsh\\Cli\\Service\\Ssh\:\:getSshOptions\(\) should return array\<string\> but returns array\<mixed\>\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/Ssh.php
-
-		-
-			message: '#^Parameter \#1 \$array of function array_unique expects an array of values castable to string, array\<mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Service/Ssh.php
-
-		-
 			message: '#^Parameter \#3 \$subject of function str_replace expects array\<string\>\|string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Service/Ssh.php
 
 		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 1
-			path: src/Service/SshConfig.php
-
-		-
-			message: '#^PHPDoc tag @var with type array\<string\>\|string is not subtype of native type non\-empty\-array\|float\|int\<min, \-1\>\|int\<1, max\>\|non\-falsy\-string\|true\.$#'
-			identifier: varTag.nativeType
-			count: 1
-			path: src/Service/SshConfig.php
-
-		-
 			message: '#^Parameter \#2 \$array of function implode expects array, mixed given\.$#'
 			identifier: argument.type
 			count: 4
-			path: src/Service/SshConfig.php
-
-		-
-			message: '#^Parameter \#2 \$array of function implode expects array\<string\>, array\<mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
 			path: src/Service/SshConfig.php
 
 		-
@@ -5233,28 +4909,10 @@ parameters:
 			path: src/Service/SshKey.php
 
 		-
-			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Service/State.php
-
-		-
 			message: '#^Property Platformsh\\Cli\\Service\\State\:\:\$state \(array\<string, mixed\>\) does not accept mixed\.$#'
 			identifier: assign.propertyType
 			count: 1
 			path: src/Service/State.php
-
-		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 2
-			path: src/Service/TokenConfig.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Service\\TokenConfig\:\:getAccessToken\(\) should return string\|null but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Service/TokenConfig.php
 
 		-
 			message: '#^Cannot cast mixed to int\.$#'

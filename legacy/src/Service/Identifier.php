@@ -79,7 +79,7 @@ readonly class Identifier
         $path = $urlParts['path'] ?? '';
         $fragment = $urlParts['fragment'] ?? '';
 
-        $site_domains_pattern = '(' . implode('|', array_map('preg_quote', (array) $this->config->get('detection.site_domains'))) . ')';
+        $site_domains_pattern = '(' . implode('|', array_map(fn(string $domain): string => preg_quote($domain), $this->config->getStrList('detection.site_domains'))) . ')';
         $site_pattern = '/\-\w+\.[a-z]{2}(\-[0-9])?\.' . $site_domains_pattern . '$/';
 
         if (preg_match($site_pattern, $host)) {
