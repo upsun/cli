@@ -23,6 +23,8 @@ func TestAutoscalingSettingsGetDirections(t *testing.T) {
 					"up":      map[string]any{"threshold": 80, "duration": 60},
 					"down":    map[string]any{"threshold": 20, "duration": 300},
 				},
+				// The memory trigger doesn't say whether it is enabled.
+				"memory": map[string]any{"up": map[string]any{"threshold": 70, "duration": 60}},
 			},
 			"instances":      map[string]any{"min": 1, "max": 3},
 			"scale_cooldown": map[string]any{"up": 300, "down": 600},
@@ -41,6 +43,7 @@ func TestAutoscalingSettingsGetDirections(t *testing.T) {
 App or service,Metric,Direction,Threshold (%),Duration (s),Enabled,Cooldown (s),Minimum instances,Maximum instances
 app,cpu,up,80.0%,60,true,300,1,3
 app,cpu,down,20.0%,300,true,600,1,3
+app,memory,up,70.0%,60,,300,1,3
 `, stdout)
 }
 

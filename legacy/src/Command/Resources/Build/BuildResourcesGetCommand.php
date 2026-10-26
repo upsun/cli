@@ -58,8 +58,8 @@ class BuildResourcesGetCommand extends CommandBase
 
         $rows = [
             [
-                'cpu' => $current['cpu'],
-                'memory' => $current['memory'],
+                'cpu' => $current['cpu'] ?? '',
+                'memory' => $current['memory'] ?? '',
             ],
         ];
 

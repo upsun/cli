@@ -309,20 +309,20 @@ class ResourcesUtil
     }
 
     /**
-     * Returns a project's build resources.
+     * Returns a project's build resources, with null for a value that is missing or of an unexpected type.
      *
-     * @return array{cpu: float, memory: int}
+     * @return array{cpu: float|null, memory: int|null}
      */
     public function buildResources(Settings $settings): array
     {
         $current = $settings['build_resources'] ?? null;
         $cpu = is_array($current) ? $current['cpu'] ?? null : null;
         $memory = is_array($current) ? $current['memory'] ?? null : null;
-        if (!(is_int($cpu) || is_float($cpu)) || !is_int($memory)) {
-            throw new \RuntimeException('The project settings do not include build resources');
-        }
 
-        return ['cpu' => (float) $cpu, 'memory' => $memory];
+        return [
+            'cpu' => is_int($cpu) || is_float($cpu) ? (float) $cpu : null,
+            'memory' => is_int($memory) ? $memory : null,
+        ];
     }
 
     /**

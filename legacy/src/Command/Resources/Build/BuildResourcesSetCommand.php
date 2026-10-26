@@ -104,7 +104,7 @@ class BuildResourcesSetCommand extends ResourcesCommandBase
         if ($cpuOption === null && $memoryOption === null) {
             $cpuOption = $this->questionHelper->askInput(
                 'CPU size',
-                $this->resourcesUtil->formatCPU($current['cpu']),
+                $current['cpu'] !== null ? $this->resourcesUtil->formatCPU($current['cpu']) : null,
                 [],
                 $validateCpu,
                 'current: ',
@@ -154,20 +154,22 @@ class BuildResourcesSetCommand extends ResourcesCommandBase
      * Summarizes all the changes that would be made.
      *
      * @param array{cpu?: float, memory?: int} $updates
-     * @param array{cpu: float, memory: int} $current
+     * @param array{cpu: float|null, memory: int|null} $current
      * @return void
      */
     private function summarizeChanges(array $updates, array $current): void
     {
         $this->stdErr->writeln('<options=bold>Summary of changes:</>');
-        $this->stdErr->writeln('  CPU: ' . $this->resourcesUtil->formatChange(
-            $this->resourcesUtil->formatCPU($current['cpu']),
-            $this->resourcesUtil->formatCPU($updates['cpu'] ?? $current['cpu']),
-        ));
-        $this->stdErr->writeln('  Memory: ' . $this->resourcesUtil->formatChange(
-            $current['memory'],
-            $updates['memory'] ?? $current['memory'],
-            ' MB',
-        ));
+        $cpu = $updates['cpu'] ?? $current['cpu'];
+        if ($cpu !== null) {
+            $this->stdErr->writeln('  CPU: ' . $this->resourcesUtil->formatChange(
+                $current['cpu'] !== null ? $this->resourcesUtil->formatCPU($current['cpu']) : null,
+                $this->resourcesUtil->formatCPU($cpu),
+            ));
+        }
+        $memory = $updates['memory'] ?? $current['memory'];
+        if ($memory !== null) {
+            $this->stdErr->writeln('  Memory: ' . $this->resourcesUtil->formatChange($current['memory'], $memory, ' MB'));
+        }
     }
 }

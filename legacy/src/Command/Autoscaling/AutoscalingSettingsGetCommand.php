@@ -124,9 +124,7 @@ class AutoscalingSettingsGetCommand extends CommandBase
 
                 foreach ($settings['triggers'] as $metric => $trigger) {
                     $row['metric'] = $metric;
-                    if (isset($trigger['enabled'])) {
-                        $row['enabled'] = $this->propertyFormatter->format($trigger['enabled'], 'enabled');
-                    }
+                    $row['enabled'] = isset($trigger['enabled']) ? $this->propertyFormatter->format($trigger['enabled'], 'enabled') : $empty;
                     foreach (['up', 'down'] as $direction) {
                         if (!isset($trigger[$direction])) {
                             continue;
