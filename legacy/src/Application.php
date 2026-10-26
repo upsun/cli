@@ -70,8 +70,7 @@ class Application extends ParentApplication
 
         // Use the configured timezone, or fall back to the system timezone.
         date_default_timezone_set(
-            $this->config->getWithDefault('application.timezone', null)
-                ?: TimezoneUtil::getTimezone(),
+            $this->config->getStrOrNull('application.timezone') ?: TimezoneUtil::getTimezone(),
         );
 
         // Set the Config service.

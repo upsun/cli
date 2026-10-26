@@ -80,6 +80,20 @@ func TestAutoscalingSettingsSetEnabled(t *testing.T) {
 // setUpAutoscaling configures a project with an "app" and the given services'
 // autoscaling settings.
 func setUpAutoscaling(apiHandler *mockapi.Handler, services map[string]any) (projectID string) {
+	trigger := map[string]any{
+		"enabled": false,
+		"up":      map[string]any{"threshold": 80, "duration": 60},
+		"down":    map[string]any{"threshold": 20, "duration": 600},
+	}
+	return setUpAutoscalingWithDefaults(apiHandler, map[string]any{
+		"triggers":       map[string]any{"cpu": trigger, "memory": trigger},
+		"scale_cooldown": map[string]any{"up": 300, "down": 300},
+		"instances":      map[string]any{"min": 1, "max": 10},
+	}, services)
+}
+
+// setUpAutoscalingWithDefaults is setUpAutoscaling with the given autoscaling defaults.
+func setUpAutoscalingWithDefaults(apiHandler *mockapi.Handler, defaults, services map[string]any) (projectID string) {
 	projectID = mockapi.ProjectID()
 	apiHandler.SetProjects([]*mockapi.Project{{
 		ID: projectID,
@@ -117,19 +131,7 @@ func setUpAutoscaling(apiHandler *mockapi.Handler, services map[string]any) (pro
 		})
 	})
 
-	trigger := map[string]any{
-		"enabled": false,
-		"up":      map[string]any{"threshold": 80, "duration": 60},
-		"down":    map[string]any{"threshold": 20, "duration": 600},
-	}
-	main.SetAutoscalingSettings(map[string]any{
-		"defaults": map[string]any{
-			"triggers":       map[string]any{"cpu": trigger, "memory": trigger},
-			"scale_cooldown": map[string]any{"up": 300, "down": 300},
-			"instances":      map[string]any{"min": 1, "max": 10},
-		},
-		"services": services,
-	})
+	main.SetAutoscalingSettings(map[string]any{"defaults": defaults, "services": services})
 
 	return projectID
 }

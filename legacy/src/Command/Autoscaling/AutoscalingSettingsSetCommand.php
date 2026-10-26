@@ -12,6 +12,7 @@ use Platformsh\Cli\Service\ResourcesUtil;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\SubCommandRunner;
 use Platformsh\Cli\Command\CommandBase;
+use Platformsh\Cli\Model\AutoscalingSettings;
 use Platformsh\Client\Exception\EnvironmentStateException;
 use Platformsh\Client\Model\Deployment\Service;
 use Platformsh\Client\Model\Deployment\Task;
@@ -22,6 +23,9 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * @phpstan-import-type ServiceSettings from AutoscalingSettings
+ */
 #[AsCommand(name: 'autoscaling:set', description: 'Set the autoscaling configuration of apps, workers, or services in an environment')]
 class AutoscalingSettingsSetCommand extends CommandBase
 {
@@ -93,7 +97,6 @@ class AutoscalingSettingsSetCommand extends CommandBase
         if (!$autoscalingSettings) {
             throw new EnvironmentStateException('Managing autoscaling settings is not currently available', $environment);
         }
-        $autoscalingSettings = $autoscalingSettings->getData();
 
         $services = $this->resourcesUtil->allServices($deployment);
         // Autoscaling does not apply to tasks.
@@ -104,8 +107,8 @@ class AutoscalingSettingsSetCommand extends CommandBase
         }
 
         // Get autoscaling default values
-        $defaults = $autoscalingSettings['defaults'] ?? null;
-        if (!is_array($defaults)) {
+        $defaults = $autoscalingSettings->defaults;
+        if ($defaults === null) {
             $this->stdErr->writeln('<error>The autoscaling API did not return any default settings for this environment.</error>');
             return 1;
         }
@@ -160,7 +163,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
         }
 
         // Validate the --instances-* options.
-        $instanceLimit = $defaults['instances']['max'];
+        $instanceLimit = $defaults['instances']['max'] ?? null;
         $instancesMin = Option::stringOrNull($input, 'instances-min');
         if ($instancesMin !== null) {
             $instancesMin = $this->validateInstanceCount($instancesMin, $instanceLimit, 'instances-min');
@@ -214,7 +217,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
             $service = $this->questionHelper->choose($serviceNamesIndexed, $text, $default);
 
             // Get autoscaling current values for selected service
-            $currentServiceSettings = $autoscalingSettings['services'][$service] ?? null;
+            $currentServiceSettings = $autoscalingSettings->services[$service] ?? null;
 
             $this->stdErr->writeln('<options=bold>' . ucfirst($this->typeName($services[$service])) . ': </><options=bold,underscore>' . $service . '</>');
             $this->stdErr->writeln('');
@@ -286,7 +289,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
             }
 
             // Only mark 'enabled' as an updated field if it was explicitly set and is changing
-            $currentServiceSettings = $autoscalingSettings['services'][$service] ?? null;
+            $currentServiceSettings = $autoscalingSettings->services[$service] ?? null;
             if ($enabled !== null && ($currentServiceSettings['triggers'][$metric]['enabled'] ?? false) !== $enabled) {
                 $updates[$service]['enabled'] = $enabled;
             }
@@ -308,7 +311,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
             return 0;
         }
 
-        $this->summarizeChanges($updates, $autoscalingSettings['services']);
+        $this->summarizeChanges($updates, $autoscalingSettings->services);
 
         $this->io->debug('Raw updates: ' . json_encode($updates, JSON_UNESCAPED_SLASHES));
 
@@ -335,8 +338,9 @@ class AutoscalingSettingsSetCommand extends CommandBase
     /**
      * Handle scaling settings (up/down) for interactive mode.
      *
-     * @param array<string, mixed>|null $currentServiceSettings
-     * @param array<string, mixed> $defaults
+     * @param 'up'|'down' $direction
+     * @param ServiceSettings|null $currentServiceSettings
+     * @param ServiceSettings $defaults
      * @param array<string, array<string, mixed>> $updates
      */
     private function handleScalingSettings(
@@ -359,9 +363,9 @@ class AutoscalingSettingsSetCommand extends CommandBase
                 $threshold,
                 'Enter the threshold (%)',
                 $currentServiceSettings['triggers'][$metric][$direction]['threshold'] ?? null,
-                $defaults['triggers'][$metric][$direction]['threshold'],
-                function ($value) {
-                    return $this->validateThreshold($value);
+                $defaults['triggers'][$metric][$direction]['threshold'] ?? null,
+                function (?string $value) {
+                    return $this->validateThreshold($this->requireAnswer($value));
                 },
                 $service,
                 'threshold-' . $direction,
@@ -372,7 +376,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
                 $duration,
                 'Enter the duration of the evaluation period',
                 $currentServiceSettings['triggers'][$metric][$direction]['duration'] ?? null,
-                $defaults['triggers'][$metric][$direction]['duration'],
+                $defaults['triggers'][$metric][$direction]['duration'] ?? null,
                 $service,
                 'duration-' . $direction,
                 $updates
@@ -382,7 +386,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
                 $cooldown,
                 'Enter the duration of the cool-down period',
                 $currentServiceSettings['scale_cooldown'][$direction] ?? null,
-                $defaults['scale_cooldown'][$direction],
+                $defaults['scale_cooldown'][$direction] ?? null,
                 $service,
                 'cooldown-' . $direction,
                 $updates
@@ -393,13 +397,13 @@ class AutoscalingSettingsSetCommand extends CommandBase
     /**
      * Handle instance settings for interactive mode.
      *
-     * @param array<string, mixed>|null $currentServiceSettings
+     * @param ServiceSettings|null $currentServiceSettings
      * @param array<string, array<string, mixed>> $updates
      */
     private function handleInstanceSettings(
         string $service,
         ?array $currentServiceSettings,
-        int $instanceLimit,
+        ?int $instanceLimit,
         ?int &$instancesMin,
         ?int &$instancesMax,
         array &$updates
@@ -409,8 +413,8 @@ class AutoscalingSettingsSetCommand extends CommandBase
             'Enter the minimum number of instances',
             $currentServiceSettings['instances']['min'] ?? null,
             1,
-            function ($value) use ($instanceLimit) {
-                return $this->validateInstanceCount($value, $instanceLimit);
+            function (?string $value) use ($instanceLimit) {
+                return $this->validateInstanceCount($this->requireAnswer($value), $instanceLimit);
             },
             $service,
             'instances-min',
@@ -422,8 +426,8 @@ class AutoscalingSettingsSetCommand extends CommandBase
             'Enter the maximum number of instances',
             $currentServiceSettings['instances']['max'] ?? null,
             $instanceLimit,
-            function ($value) use ($instanceLimit) {
-                return $this->validateInstanceCount($value, $instanceLimit);
+            function (?string $value) use ($instanceLimit) {
+                return $this->validateInstanceCount($this->requireAnswer($value), $instanceLimit);
             },
             $service,
             'instances-max',
@@ -479,7 +483,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
      * @param int|null $currentValue Current duration value (null if not set)
      * @param string $prompt Prompt text for user input
      * @param int|null $existingValue Existing duration from current settings
-     * @param int $defaultValue Default duration value
+     * @param int|null $defaultValue Default duration value
      * @param string $service Service name
      * @param string $updateKey Key to use in updates array
      * @param array<string, array<string, mixed>> $updates Updates array (passed by reference)
@@ -490,7 +494,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
         ?int $currentValue,
         string $prompt,
         ?int $existingValue,
-        int $defaultValue,
+        ?int $defaultValue,
         string $service,
         string $updateKey,
         array &$updates
@@ -498,8 +502,8 @@ class AutoscalingSettingsSetCommand extends CommandBase
         if ($currentValue === null) {
             $choices = array_keys(self::$validDurations);
             $default = $existingValue ?? $defaultValue;
-            $newValue = $this->questionHelper->askInput($prompt, $this->formatDuration($default), $choices, function ($v) {
-                return $this->validateDuration($v);
+            $newValue = $this->questionHelper->askInput($prompt, $default !== null ? $this->formatDuration($default) : null, $choices, function (?string $v) {
+                return $this->validateDuration($this->requireAnswer($v));
             });
             $this->stdErr->writeln('');
 
@@ -585,7 +589,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
      * Summarizes all the changes that would be made.
      *
      * @param array<string, array<string, mixed>> $updates
-     * @param array<string, array<string, mixed>> $settings
+     * @param array<string, ServiceSettings> $settings
      */
     private function summarizeChanges(array $updates, array $settings): void
     {
@@ -598,14 +602,17 @@ class AutoscalingSettingsSetCommand extends CommandBase
     /**
      * Summarizes changes per service.
      *
-     * @param array<string, mixed>|null $current
+     * @param ServiceSettings|null $current
      * @param array<string, mixed> $updates
      */
     private function summarizeChangesPerService(string $name, ?array $current, array $updates): void
     {
         $this->stdErr->writeln(sprintf('  <options=bold>Service: </><info>%s</info>', $name));
 
-        $metric = $updates['metric'];
+        $metric = $updates['metric'] ?? null;
+        if (!is_string($metric)) {
+            throw new \LogicException('No metric is set for the service: ' . $name);
+        }
         $this->stdErr->writeln(sprintf('  Metric: <info>%s</info>', $metric));
 
         $action = 'remain';
@@ -626,20 +633,20 @@ class AutoscalingSettingsSetCommand extends CommandBase
 
             if (isset($updates['threshold-up'])) {
                 $this->stdErr->writeln('      Threshold: ' . $this->resourcesUtil->formatChange(
-                    isset($current['triggers'][$metric]['up']) ? $current['triggers'][$metric]['up']['threshold'] : null,
+                    $current['triggers'][$metric]['up']['threshold'] ?? null,
                     $updates['threshold-up'],
                     '%'
                 ));
             }
             if (isset($updates['duration-up'])) {
                 $this->stdErr->writeln('      Duration: ' . $this->formatDurationChange(
-                    isset($current['triggers'][$metric]['up']) ? $this->formatDuration($current['triggers'][$metric]['up']['duration']) : null,
+                    isset($current['triggers'][$metric]['up']['duration']) ? $this->formatDuration($current['triggers'][$metric]['up']['duration']) : null,
                     $this->formatDuration($updates['duration-up'])
                 ));
             }
             if (isset($updates['cooldown-up'])) {
                 $this->stdErr->writeln('      Cooldown: ' . $this->formatDurationChange(
-                    isset($current['scale_cooldown']) ? $this->formatDuration($current['scale_cooldown']['up']) : null,
+                    isset($current['scale_cooldown']['up']) ? $this->formatDuration($current['scale_cooldown']['up']) : null,
                     $this->formatDuration($updates['cooldown-up'])
                 ));
             }
@@ -650,20 +657,20 @@ class AutoscalingSettingsSetCommand extends CommandBase
 
             if (isset($updates['threshold-down'])) {
                 $this->stdErr->writeln('      Threshold: ' . $this->resourcesUtil->formatChange(
-                    isset($current['triggers'][$metric]['down']) ? $current['triggers'][$metric]['down']['threshold'] : null,
+                    $current['triggers'][$metric]['down']['threshold'] ?? null,
                     $updates['threshold-down'],
                     '%'
                 ));
             }
             if (isset($updates['duration-down'])) {
                 $this->stdErr->writeln('      Duration: ' . $this->formatDurationChange(
-                    isset($current['triggers'][$metric]['down']) ? $this->formatDuration($current['triggers'][$metric]['down']['duration']) : null,
+                    isset($current['triggers'][$metric]['down']['duration']) ? $this->formatDuration($current['triggers'][$metric]['down']['duration']) : null,
                     $this->formatDuration($updates['duration-down'])
                 ));
             }
             if (isset($updates['cooldown-down'])) {
                 $this->stdErr->writeln('      Cooldown: ' . $this->formatDurationChange(
-                    isset($current['scale_cooldown']) ? $this->formatDuration($current['scale_cooldown']['down']) : null,
+                    isset($current['scale_cooldown']['down']) ? $this->formatDuration($current['scale_cooldown']['down']) : null,
                     $this->formatDuration($updates['cooldown-down'])
                 ));
             }
@@ -673,14 +680,14 @@ class AutoscalingSettingsSetCommand extends CommandBase
             $this->stdErr->writeln('    Instances');
             if (isset($updates['instances-min'])) {
                 $this->stdErr->writeln('      Min: ' . $this->resourcesUtil->formatChange(
-                    isset($current['instances']) ? $current['instances']['min'] : null,
+                    $current['instances']['min'] ?? null,
                     $updates['instances-min']
                 ));
             }
 
             if (isset($updates['instances-max'])) {
                 $this->stdErr->writeln('      Max: ' . $this->resourcesUtil->formatChange(
-                    isset($current['instances']) ? $current['instances']['max'] : null,
+                    $current['instances']['max'] ?? null,
                     $updates['instances-max']
                 ));
             }
@@ -786,7 +793,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
     /**
      * Return the names of supported metrics.
      *
-     * @param array<string, mixed> $defaults Autoscaling settings defaults
+     * @param ServiceSettings $defaults Autoscaling settings defaults
      *
      * @return array<int, string> Supported metric names
      */
@@ -836,6 +843,19 @@ class AutoscalingSettingsSetCommand extends CommandBase
             "false", "no" => false,
             default => throw new InvalidArgumentException(sprintf('Invalid value <error>%s</error>: must be one of: true, yes, false, no', $value)),
         };
+    }
+
+    /**
+     * Rejects an empty answer to a question without a default, which Symfony passes as null.
+     *
+     * @throws InvalidArgumentException
+     */
+    private function requireAnswer(?string $value): string
+    {
+        if ($value === null) {
+            throw new InvalidArgumentException('A value is required.');
+        }
+        return $value;
     }
 
     /**
@@ -979,7 +999,7 @@ class AutoscalingSettingsSetCommand extends CommandBase
             $previousValue,
             $newValue,
             '',
-            function ($previousValue, $newValue) {
+            function (string $previousValue, string $newValue): bool {
                 if (!isset(self::$validDurations[$previousValue]) || !isset(self::$validDurations[$newValue])) {
                     throw new InvalidArgumentException(sprintf(
                         'Invalid duration key(s): previousValue=<error>%s</error>, newValue=<error>%s</error>. Valid keys are: %s',
