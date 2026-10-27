@@ -184,6 +184,16 @@ func TestSSHWorkerSelection(t *testing.T) {
 		assert.Error(t, err, c.args)
 		assert.Contains(t, stdErr, c.wantErr, c.args)
 	}
+
+	// The app name variable, set inside the platform's containers, applies only to the container's own project.
+	inContainer := func(projectID string) *cmdFactory {
+		f := *f
+		f.extraEnv = append(f.extraEnv[:len(f.extraEnv):len(f.extraEnv)],
+			"PLATFORM_PROJECT="+projectID, "PLATFORM_APPLICATION_NAME=admin")
+		return &f
+	}
+	assert.Equal(t, sshURL("admin--queue"), inContainer(layoutProjectID).Run(sshArgs("--worker", "queue")...))
+	assert.Equal(t, sshURL("app--mail"), inContainer("otherprojectid").Run(sshArgs("--worker", "mail")...))
 }
 
 func TestSSHInactiveEnvironment(t *testing.T) {

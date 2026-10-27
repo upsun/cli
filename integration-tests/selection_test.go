@@ -70,6 +70,11 @@ func TestProjectAndEnvironmentSelection(t *testing.T) {
 		f := f.forSubtest(t)
 		f.extraEnv = append(f.extraEnv, "PLATFORM_PROJECT="+layoutProjectID, "PLATFORM_BRANCH=staging")
 		assert.Equal(t, "staging\n", f.Run("env:info", "id"))
+
+		// The branch variable is ignored for another project, whose only environment is then selected by default.
+		stdOut, stdErr, err := f.RunInteractive("", "env:info", "-p", singleEnvProjectID, "id")
+		require.NoError(t, err, stdErr)
+		assert.Equal(t, "prod\n", stdOut)
 	})
 
 	t.Run("interactive project choice", func(t *testing.T) {

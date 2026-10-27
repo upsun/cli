@@ -189,8 +189,8 @@ class Selector implements CompleterInterface
                     'App name identified as: %s',
                     $appName,
                 ));
-            } elseif (getenv($envPrefix . 'APPLICATION_NAME')) {
-                // Or from an environment variable.
+            } elseif (getenv($envPrefix . 'APPLICATION_NAME') && $this->serviceVariablesApply($project)) {
+                // Or from an environment variable, inside the project's own container.
                 $appName = (string) getenv($envPrefix . 'APPLICATION_NAME');
                 $this->stdErr->writeln(sprintf(
                     'App name read from environment variable %s: %s',
@@ -276,6 +276,16 @@ class Selector implements CompleterInterface
         $current = $this->getCurrentProject(true);
 
         return $current && $current->id === $project->id;
+    }
+
+    /**
+     * Checks that the service environment variables apply to the project: the PROJECT variable is unset or names it.
+     */
+    private function serviceVariablesApply(Project $project): bool
+    {
+        $envProjectId = getenv($this->config->getStr('service.env_prefix') . 'PROJECT');
+
+        return !$envProjectId || $envProjectId === $project->id;
     }
 
     /**
@@ -370,7 +380,7 @@ class Selector implements CompleterInterface
     private function selectEnvironment(InputInterface $input, Project $project, SelectorConfig $config, ?string $environmentId = null): ?Environment
     {
         $envPrefix = $this->config->getStr('service.env_prefix');
-        if ($environmentId === null && getenv($envPrefix . 'BRANCH')) {
+        if ($environmentId === null && getenv($envPrefix . 'BRANCH') && $this->serviceVariablesApply($project)) {
             $environmentId = getenv($envPrefix . 'BRANCH');
             $this->stdErr->writeln(sprintf(
                 'Environment ID read from environment variable %s: %s',
