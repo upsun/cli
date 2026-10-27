@@ -200,6 +200,11 @@ func TestBackupDelete(t *testing.T) {
 	assertExitCode(t, 1, err)
 	assert.Contains(t, stderr, "Are you sure you want to delete the backup 456")
 	assert.Equal(t, wantStatuses, backupStatuses(apiHandler, projectID))
+
+	apiHandler.SetActivityResult(mockapi.ActivityResultFailure)
+	_, stderr, err = f.RunCombinedOutput("backup:delete", "-p", projectID, "-e", "main", "456")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "The activity failed")
 }
 
 // backupStatuses returns the statuses of a project's backups, keyed by ID.

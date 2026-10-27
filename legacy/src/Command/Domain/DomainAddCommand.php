@@ -121,8 +121,9 @@ class DomainAddCommand extends DomainCommandBase
         }
 
         if ($this->activityMonitor->shouldWait($input)) {
-            $activityMonitor = $this->activityMonitor;
-            $activityMonitor->waitMultiple($result->getActivities(), $project);
+            if (!$this->activityMonitor->waitMultiple($result->getActivities(), $project)) {
+                return 1;
+            }
         }
 
         return 0;

@@ -199,3 +199,20 @@ func TestDomainDelete(t *testing.T) {
 	assert.Equal(t, []string{"example.com"}, domainNames(apiHandler, projectID, ""))
 	assert.Empty(t, domainNames(apiHandler, projectID, "staging"))
 }
+
+func TestDomainFailedActivity(t *testing.T) {
+	t.Parallel()
+	apiHandler, f, projectID := setUpDomains(t, "example.com")
+	apiHandler.SetActivityResult(mockapi.ActivityResultFailure)
+	certPath, keyPath := writeSelfSignedCert(t, "example.com")
+
+	for _, args := range [][]string{
+		{"domain:add", "-p", projectID, "-e", "staging", "staging.example.com", "--attach", "example.com"},
+		{"domain:update", "-p", projectID, "example.com", "--cert", certPath, "--key", keyPath},
+		{"domain:delete", "-p", projectID, "-e", "staging", "staging.example.com"},
+	} {
+		_, stderr, err := f.RunCombinedOutput(args...)
+		assertExitCode(t, 1, err)
+		assert.Contains(t, stderr, "The activity failed")
+	}
+}

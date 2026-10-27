@@ -72,9 +72,9 @@ class UserDeleteCommand extends CommandBase
 
         $this->stdErr->writeln("User <info>$email</info> deleted");
 
+        $success = true;
         if ($result->getActivities() && $this->activityMonitor->shouldWait($input)) {
-            $activityMonitor = $this->activityMonitor;
-            $activityMonitor->waitMultiple($result->getActivities(), $project);
+            $success = $this->activityMonitor->waitMultiple($result->getActivities(), $project);
         } elseif (!$this->accessApi->centralizedPermissionsEnabled()) {
             $this->api->redeployWarning();
         }
@@ -85,6 +85,6 @@ class UserDeleteCommand extends CommandBase
             $this->api->clearProjectsCache();
         }
 
-        return 0;
+        return $success ? 0 : 1;
     }
 }

@@ -50,8 +50,9 @@ class CertificateAddCommand extends CommandBase
         $result = $project->addCertificate($options['certificate'], $options['key'], $options['chain']);
 
         if ($this->activityMonitor->shouldWait($input)) {
-            $activityMonitor = $this->activityMonitor;
-            $activityMonitor->waitMultiple($result->getActivities(), $project);
+            if (!$this->activityMonitor->waitMultiple($result->getActivities(), $project)) {
+                return 1;
+            }
         }
 
         return 0;
