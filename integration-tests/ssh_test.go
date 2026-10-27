@@ -185,6 +185,12 @@ func TestSSHWorkerSelection(t *testing.T) {
 		assert.Contains(t, stdErr, c.wantErr, c.args)
 	}
 
+	// A qualified worker name given without --app.
+	_, stdErr, err = f.RunCombinedOutput(sshArgs("--worker", "app--missing")...)
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, "Worker not found: app--missing")
+	assert.NotContains(t, stdErr, "(in app:")
+
 	// The app name variable, set inside the platform's containers, applies only to the container's own project.
 	inContainer := func(projectID string) *cmdFactory {
 		f := *f

@@ -793,7 +793,7 @@ class Selector implements CompleterInterface
             try {
                 $worker = $deployment->getWorker($qualifiedWorkerName);
             } catch (\InvalidArgumentException) {
-                throw new InvalidArgumentException('Worker not found: ' . $workerOption . ' (in app: ' . $appName . ')');
+                throw new InvalidArgumentException('Worker not found: ' . $workerOption . ($appName !== null ? ' (in app: ' . $appName . ')' : ''));
             }
             $this->stdErr->writeln(sprintf('Selected worker: <info>%s</info>', $worker->name), OutputInterface::VERBOSITY_VERBOSE);
 
