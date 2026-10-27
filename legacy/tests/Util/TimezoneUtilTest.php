@@ -40,6 +40,14 @@ class TimezoneUtilTest extends TestCase
         $this->assertEquals('Pacific/Galapagos', TimezoneUtil::getTimezone());
     }
 
+    public function testGetTimezoneIgnoresInvalidTzVariable(): void
+    {
+        foreach (['Europe/Pari', ':zone.tab'] as $tz) {
+            putenv('TZ=' . $tz);
+            $this->assertContains(TimezoneUtil::getTimezone(), \DateTimeZone::listIdentifiers(\DateTimeZone::ALL_WITH_BC), "TZ=$tz");
+        }
+    }
+
     public function testGetTimezoneReturnsSomething(): void
     {
         $this->assertNotEmpty(TimezoneUtil::getTimezone());

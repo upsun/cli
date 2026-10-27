@@ -14,8 +14,8 @@ class TimezoneUtil
      * 1. A value previously set via date_default_timezone_set() or the ini
      *    setting 'date.timezone', which can only be known if it is not the
      *    default, UTC.
-     * 2. The value of the TZ environment variable, if set.
-     * 3. A best guess at the system timezone: see self::detectSystemTimezone().
+     * 2. The value of the TZ environment variable, if set to a known timezone.
+     * 3. A best guess at the system timezone, if known: see self::detectSystemTimezone().
      * 4. Default to UTC.
      *
      * @return string
@@ -31,16 +31,24 @@ class TimezoneUtil
 
         if (getenv('TZ')) {
             $converted = self::convertTz((string) getenv('TZ'));
-            if ($converted !== false) {
+            if ($converted !== false && self::isKnown($converted)) {
                 return $converted;
             }
         }
 
-        if ($systemTz = self::detectSystemTimezone()) {
+        if (($systemTz = self::detectSystemTimezone()) && self::isKnown($systemTz)) {
             return $systemTz;
         }
 
         return $currentTz;
+    }
+
+    /**
+     * Checks that PHP accepts a timezone name, e.g. for date_default_timezone_set().
+     */
+    private static function isKnown(string $tz): bool
+    {
+        return \in_array($tz, \DateTimeZone::listIdentifiers(\DateTimeZone::ALL_WITH_BC), true);
     }
 
     /**
