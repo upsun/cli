@@ -2,7 +2,9 @@ package tests
 
 import (
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 
@@ -74,4 +76,21 @@ func TestEnvironmentInfoUsesTZ(t *testing.T) {
 	p := setUpProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil))
 	p.f.extraEnv = append(p.f.extraEnv, "TZ=Europe/Paris")
 	assert.Equal(t, "2014-04-01T12:00:00+02:00\n", p.f.Run("env:info", "-p", layoutProjectID, "-e", "main", "created_at"))
+}
+
+func TestEnvironmentInfoWrapsMultibyteText(t *testing.T) {
+	t.Parallel()
+	env := makeEnv(layoutProjectID, "main", "production", "active", nil)
+	env.Title = strings.Repeat("crème brûlée ", 5) + strings.Repeat("é", 50)
+	p := setUpProject(t, env)
+	p.f.extraEnv = append(p.f.extraEnv, "COLUMNS=60")
+
+	out := p.f.Run("env:info", "-p", layoutProjectID, "-e", "main")
+	assert.True(t, utf8.ValidString(out), out)
+	// Every line of the table is aligned to the terminal width.
+	widths := map[int]bool{}
+	for line := range strings.Lines(out) {
+		widths[utf8.RuneCountInString(strings.TrimSuffix(line, "\n"))] = true
+	}
+	assert.Equal(t, map[int]bool{60: true}, widths, out)
 }

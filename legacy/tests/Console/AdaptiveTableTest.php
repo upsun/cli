@@ -274,4 +274,49 @@ class AdaptiveTableTest extends TestCase
     {
         $this->assertWrappedWithDecoration('<info>abcde0</info>', [5]);
     }
+
+    /**
+     * Test that multibyte text is wrapped by display width, without splitting characters.
+     */
+    public function testWrapWithDecorationMultibyte(): void
+    {
+        $o = new BufferedOutput();
+        $table = new AdaptiveTable($o);
+        $cases = [
+            ['日本語日本語日本語', 5, "日本\n語日\n本語\n日本\n語"],
+            ['café crème brûlée', 6, "café\ncrème\nbrûlée"],
+            ['crème brûlée', 3, "crè\nme\nbrû\nlée"],
+            ['<info>日本語</info> <info>日本語日本語</info>', 7, "日本語\n日本語\n日本語"],
+            ['<info>brûlée</info>', 4, "brûl\née"],
+        ];
+        foreach ($cases as [$input, $width, $expected]) {
+            $wrapped = $table->wrapWithDecoration($input, $width);
+            $this->assertEquals($expected, Helper::removeDecoration($o->getFormatter(), $wrapped), "wrapping \"$input\" to $width");
+        }
+    }
+
+    /**
+     * Test that a table with wide characters is aligned and fits the maximum width.
+     */
+    public function testAdaptedRowsMultibyte(): void
+    {
+        $buffer = new BufferedOutput();
+        $table = new AdaptiveTable($buffer, 20);
+        $table->setHeaders([['K', 'V']]);
+        $table->setRows([['a', '日本語日本語日本語日本語'], ['b', '<info>日本語日本語日本語日本語</info>']]);
+        $table->render();
+
+        $expected = <<<'EOT'
+            +---+--------------+
+            | K | V            |
+            +---+--------------+
+            | a | 日本語日本語 |
+            |   | 日本語日本語 |
+            | b | 日本語日本語 |
+            |   | 日本語日本語 |
+            +---+--------------+
+
+            EOT;
+        $this->assertEquals($expected, $buffer->fetch());
+    }
 }
