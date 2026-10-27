@@ -3,8 +3,10 @@ package tests
 import (
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 
@@ -142,4 +144,31 @@ act19	2014-04-01T10:18:00+00:00	Mock User created variable X19 on environment ma
 	_, stdErr, err := f.RunCombinedOutput("act", "-p", projectID, "-e", ".", "--limit", "abc")
 	assert.Error(t, err)
 	assert.Contains(t, stdErr, "The --limit value must be a non-negative integer.")
+}
+
+func TestActivityListNoHeaderFitsTerminal(t *testing.T) {
+	t.Parallel()
+	main := makeEnv(layoutProjectID, "main", "production", "active", nil)
+	main.Links["#activities"] = mockapi.HALLink{HREF: "/projects/" + layoutProjectID + "/environments/main/activities"}
+	p := setUpProject(t, main)
+	created, _ := time.Parse(time.RFC3339, "2014-04-01T10:00:00Z")
+	p.api.SetProjectActivities(layoutProjectID, []*mockapi.Activity{{
+		ID: "act1", Type: "environment.push", State: "complete", Result: "success", CompletionPercent: 100,
+		Project: layoutProjectID, Environments: []string{"main"},
+		Description: "<user>Mock User</user> pushed to <environment>main</environment> " + strings.Repeat("lorem ipsum ", 10),
+		CreatedAt:   created, UpdatedAt: created,
+	}})
+	p.f.extraEnv = append(p.f.extraEnv, "COLUMNS=80")
+
+	out := p.f.Run("act", "-p", layoutProjectID, "-e", "main", "--no-header")
+	assert.LessOrEqual(t, maxLineWidth(out), 80, out)
+}
+
+// maxLineWidth returns the number of characters in the longest line of the output.
+func maxLineWidth(out string) int {
+	w := 0
+	for line := range strings.Lines(out) {
+		w = max(w, utf8.RuneCountInString(strings.TrimSuffix(line, "\n")))
+	}
+	return w
 }

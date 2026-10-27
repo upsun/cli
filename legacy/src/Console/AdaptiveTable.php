@@ -279,7 +279,7 @@ class AdaptiveTable extends Table
             }
             $columnCount = 0;
             foreach ($row as $column => $cell) {
-                $columnCount += $cell instanceof TableCell ? $cell->getColspan() - 1 : 1;
+                $columnCount += $cell instanceof TableCell ? $cell->getColspan() : 1;
 
                 // The maximum column width is the width of the widest cell.
                 $cellWidth = (int) ceil($this->getCellWidth($cell));

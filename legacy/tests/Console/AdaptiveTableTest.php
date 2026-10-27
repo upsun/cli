@@ -207,6 +207,23 @@ class AdaptiveTableTest extends TestCase
     }
 
     /**
+     * Test that a table of cell objects without headers fits the maximum width.
+     */
+    public function testAdaptedCellObjectsWithoutHeadersFitMaxTableWidth(): void
+    {
+        $buffer = new BufferedOutput();
+        $table = new AdaptiveTable($buffer, 40);
+        $table->setRows([
+            [new AdaptiveTableCell('lorem ipsum dolor'), new AdaptiveTableCell('sit amet consectetur'), new AdaptiveTableCell('adipiscing elit')],
+        ]);
+        $table->render();
+
+        foreach (explode(PHP_EOL, $buffer->fetch()) as $line) {
+            $this->assertLessThanOrEqual(40, Helper::width($line), $line);
+        }
+    }
+
+    /**
      * Tests that a string can be wrapped with decoration at various lengths.
      *
      * @param string $input
