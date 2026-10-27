@@ -327,6 +327,29 @@ func TestVariableUpdateToSensitive(t *testing.T) {
 	assert.NotContains(t, f.Run("var:list", "-p", p, "-e", "main", "--format", "tsv"), "token-value")
 }
 
+// TestVariableUpdateJSON checks that the value is validated as JSON only while the variable stays JSON.
+func TestVariableUpdateJSON(t *testing.T) {
+	t.Parallel()
+	s := setupVariableTest(t)
+	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
+	f, p := s.factory, s.projectID
+	f.Run("var:create", "-p", p, "-l", "p", "cfg", "--json", "true", "--value", `{"a":1}`)
+
+	_, stdErr, err := f.RunCombinedOutput("var:update", "-p", p, "-l", "p", "cfg", "--value", "plain text")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, "The value is not valid JSON")
+
+	_, _, err = f.RunCombinedOutput("var:update", "-p", p, "-l", "p", "cfg", "--json", "false", "--value", "plain text")
+	assert.NoError(t, err)
+	assertTrimmed(t, "false", f.Run("var:get", "-p", p, "-l", "p", "cfg", "-P", "is_json"))
+	assertTrimmed(t, "plain text", f.Run("var:get", "-p", p, "-l", "p", "cfg", "-P", "value"))
+
+	_, stdErr, err = f.RunCombinedOutput("var:update", "-p", p, "-l", "p", "cfg", "--json", "true")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, "The value is not valid JSON")
+	assert.Len(t, s.apiHandler.Requests("PATCH", "/projects/*/variables/*"), 1)
+}
+
 // jsonField returns the JSON encoding of a field of a JSON object.
 func jsonField(t *testing.T, data, field string) string {
 	t.Helper()
