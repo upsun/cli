@@ -494,6 +494,10 @@ class UserAddCommand extends CommandBase
      */
     private function matchRole(string $input, array $roles): string
     {
+        // An empty prefix would match the first role.
+        if ($input === '') {
+            throw new InvalidArgumentException('A role cannot be empty. Valid roles are: ' . implode(', ', $roles));
+        }
         foreach ($roles as $role) {
             if (str_starts_with($role, strtolower($input))) {
                 return $role;
