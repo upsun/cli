@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/upsun/cli/pkg/mockapi"
@@ -131,6 +132,58 @@ func TestSSHAppSelection(t *testing.T) {
 	_, stdErr, err = f.RunCombinedOutput("ssh", "-p", layoutProjectID, "-e", "main", "--pipe")
 	assert.Error(t, err)
 	assert.Contains(t, stdErr, "Specifying the --app or --worker is required in non-interactive mode")
+}
+
+// TestSSHWorkerSelection checks how --worker matches a worker by its short name, and the interactive choice of an app
+// or worker.
+func TestSSHWorkerSelection(t *testing.T) {
+	t.Parallel()
+	app := func(name string) mockapi.App {
+		return mockapi.App{Name: name, Type: "golang:1.23", Size: "S", Mounts: map[string]mockapi.Mount{}}
+	}
+	f := setUpProject(t, sshEnv(&mockapi.Deployment{
+		WebApps: map[string]mockapi.App{"app": app("app"), "admin": app("admin")},
+		Workers: map[string]mockapi.Worker{
+			"app--queue":   {App: app("app--queue")},
+			"app--mail":    {App: app("app--mail")},
+			"admin--queue": {App: app("admin--queue")},
+		},
+	})).f
+	sshURL := func(container string) string {
+		return layoutProjectID + "-main--" + container + "@ssh.cli-tests.example.com"
+	}
+	sshArgs := func(args ...string) []string {
+		return append([]string{"ssh", "-p", layoutProjectID, "-e", "main", "--pipe"}, args...)
+	}
+
+	// A short worker name is qualified with the app name, or matched against all apps' workers.
+	assert.Equal(t, sshURL("admin--queue"), f.Run(sshArgs("--app", "admin", "--worker", "queue")...))
+	assert.Equal(t, sshURL("app--mail"), f.Run(sshArgs("--worker", "mail")...))
+
+	stdOut, stdErr, err := f.RunInteractive("app--queue\n", sshArgs("--worker", "queue")...)
+	require.NoError(t, err, stdErr)
+	assert.Equal(t, sshURL("app--queue"), stdOut)
+	assert.Contains(t, stdErr, "Enter a number to choose a worker:")
+
+	stdOut, stdErr, err = f.RunInteractive("app--mail\n", sshArgs()...)
+	require.NoError(t, err, stdErr)
+	assert.Equal(t, sshURL("app--mail"), stdOut)
+	assert.Contains(t, stdErr, "Enter a number to choose an app or a worker:")
+
+	cases := []struct {
+		args    []string
+		wantErr string
+	}{
+		{[]string{"--worker", "queue"}, "Ambiguous worker name: queue (matches: "},
+		{[]string{"--worker", "missing"}, "Worker not found: missing"},
+		{[]string{"--app", "admin", "--worker", "mail"}, "Worker not found: mail (in app: admin)"},
+		{[]string{"--app", "admin", "--worker", "app--queue"}, `App name "admin" conflicts with worker name "app--queue"`},
+	}
+	for _, c := range cases {
+		_, stdErr, err := f.RunCombinedOutput(sshArgs(c.args...)...)
+		assert.Error(t, err, c.args)
+		assert.Contains(t, stdErr, c.wantErr, c.args)
+	}
 }
 
 func TestSSHInactiveEnvironment(t *testing.T) {
