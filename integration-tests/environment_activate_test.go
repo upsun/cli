@@ -84,3 +84,23 @@ func TestEnvironmentActivateParent(t *testing.T) {
 		assert.Equal(t, "environment.activate", actions[0].Type)
 	}
 }
+
+func TestEnvironmentActivateNotFound(t *testing.T) {
+	t.Parallel()
+	staging := makeEnv(layoutProjectID, "staging", "staging", "inactive", "main")
+	staging.AddOperations("activate")
+	p := setUpProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil), staging)
+
+	// The found environment is still activated.
+	_, stdErr, err := p.f.RunCombinedOutput("environment:activate", "-p", layoutProjectID, "staging", "missing",
+		"--no-wait")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stdErr, "Environment not found: missing")
+	assert.Contains(t, stdErr, "Activating environment staging")
+	assert.Len(t, p.actions("staging"), 1)
+
+	_, stdErr, err = p.f.RunCombinedOutput("environment:activate", "-p", layoutProjectID, "missing1", "missing2")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stdErr, "Environment not found: missing1")
+	assert.Contains(t, stdErr, "Environment not found: missing2")
+}

@@ -59,6 +59,7 @@ class EnvironmentActivateCommand extends CommandBase
     {
         $selection = $this->selector->getSelection($input, new SelectorConfig(chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
 
+        $notFound = [];
         if ($selection->hasEnvironment()) {
             $toActivate = [$selection->getEnvironment()];
         } else {
@@ -73,7 +74,7 @@ class EnvironmentActivateCommand extends CommandBase
 
         $success = $this->activateMultiple($toActivate, $selection->getProject(), $input, $this->stdErr);
 
-        return $success ? 0 : 1;
+        return $success && empty($notFound) ? 0 : 1;
     }
 
     /**
