@@ -224,7 +224,7 @@ class ActivityMonitor
             }
 
             // Format log items.
-            $formatted = $this->formatLog($data['items'], $timestamps);
+            $formatted = $this->formatLog($items, $timestamps);
 
             // Clear the progress bar and ensure the current line is flushed.
             $bar->clear();
