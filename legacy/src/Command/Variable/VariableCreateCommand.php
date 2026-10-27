@@ -85,11 +85,15 @@ class VariableCreateCommand extends CommandBase
         }
 
         // Check whether the variable already exists, if a name is provided.
-        if (($name = Option::stringOrNull($input, 'name'))) {
+        // An environment-level check needs an environment: without one, the
+        // form asks for it.
+        $level = $this->variableCommandUtil->getRequestedLevel($input);
+        if (($name = Option::stringOrNull($input, 'name'))
+            && ($level !== VariableCommandUtil::LEVEL_ENVIRONMENT || $selection->hasEnvironment())) {
             if (($prefix = Option::stringOrNull($input, 'prefix')) && $prefix !== 'none') {
                 $name = rtrim($prefix, ':') . ':' . $name;
             }
-            $existing = $this->variableCommandUtil->getExistingVariable($name, $selection, $this->variableCommandUtil->getRequestedLevel($input), false);
+            $existing = $this->variableCommandUtil->getExistingVariable($name, $selection, $level, false);
             if ($existing) {
                 if (!Option::bool($input, 'update')) {
                     $this->stdErr->writeln('The variable already exists: <error>' . $name . '</error>');

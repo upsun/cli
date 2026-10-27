@@ -384,3 +384,22 @@ func TestVariableDisableEnable(t *testing.T) {
 	assert.Contains(t, stdErr, "Variable not found")
 	assert.Empty(t, s.apiHandler.Requests("PATCH", "/projects/*/variables/*"))
 }
+
+// TestVariableCreateEnvLevelWithoutEnvironment checks var:create at the environment level without --environment.
+func TestVariableCreateEnvLevelWithoutEnvironment(t *testing.T) {
+	t.Parallel()
+	s := setupVariableTest(t)
+	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
+	f, p := s.factory, s.projectID
+	f.extraEnv = append(f.extraEnv, "COLUMNS=500")
+
+	_, stdErr, err := f.RunCombinedOutput("var:create", "-p", p, "-l", "e", "env:FOO", "--value", "x")
+	assert.Error(t, err)
+	assert.NotContains(t, stdErr, "No environment selected")
+	assert.Contains(t, stdErr, "--environment is required")
+
+	_, stdErr, err = f.RunInteractive("main\n", "var:create", "-p", p, "-l", "e", "env:FOO", "--value", "x")
+	assert.NoError(t, err)
+	assert.Contains(t, stdErr, "Creating variable env:FOO on the environment main")
+	assertTrimmed(t, "x", f.Run("var:get", "-p", p, "-e", "main", "-l", "e", "env:FOO", "-P", "value"))
+}
