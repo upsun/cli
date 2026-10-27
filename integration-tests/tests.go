@@ -19,6 +19,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -94,6 +95,15 @@ func newGoAuthCommandFactory(t *testing.T, apiURL, authURL string) *cmdFactory {
 	f := newCommandFactory(t, apiURL, authURL)
 	f.extraEnv = append(f.extraEnv, EnvPrefix+"GO_AUTH=1")
 	return f
+}
+
+// forSubtest returns a copy of the factory that logs to a subtest, and whose extra environment can be appended to
+// without changing the original's.
+func (f *cmdFactory) forSubtest(t *testing.T) *cmdFactory {
+	c := *f
+	c.t = t
+	c.extraEnv = slices.Clip(f.extraEnv)
+	return &c
 }
 
 // goAuthMode reports whether the tests run with Go auth.

@@ -363,8 +363,9 @@ type Backup struct {
 }
 
 type Activity struct {
-	ID   string `json:"id"`
-	Type string `json:"type"`
+	ID         string         `json:"id"`
+	Type       string         `json:"type"`
+	Parameters map[string]any `json:"parameters"`
 
 	State             string    `json:"state"`
 	Result            string    `json:"result"`
@@ -397,6 +398,9 @@ func (a Activity) MarshalJSON() ([]byte, error) { //nolint:gocritic // See above
 	c := activity(a)
 	if c.Payload == nil {
 		c.Payload = map[string]any{}
+	}
+	if c.Parameters == nil {
+		c.Parameters = map[string]any{}
 	}
 	if c.Links == nil {
 		path := "/projects/" + url.PathEscape(a.Project) + "/activities/" + url.PathEscape(a.ID)
