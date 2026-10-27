@@ -1798,15 +1798,14 @@ class Api
     private function on403(RequestInterface $request): void
     {
         $path = $request->getUri()->getPath();
-        if (str_starts_with($path, '/api/projects/')) {
-            // Clear the environments cache for environment request errors.
-            if (preg_match('#^/api/projects/([^/]+?)/environments/#', $path, $matches)) {
-                $this->clearEnvironmentsCache($matches[1]);
-            }
-            // Clear the projects cache for other project request errors.
-            if (preg_match('#^/api/projects/([^/]+?)[/$]/#', $path, $matches)) {
-                $this->clearProjectsCache();
-            }
+        // Clear the environments cache for environment request errors.
+        if (preg_match('#^(?:/api)?/projects/([^/]+)/environments/#', $path, $matches)) {
+            $this->clearEnvironmentsCache($matches[1]);
+        }
+        // Clear the projects cache for other project request errors.
+        if (preg_match('#^(?:/api)?/projects/([^/]+)(?:/|$)#', $path, $matches)) {
+            $this->clearProjectsCache();
+            $this->userCache()->delete('project:' . $matches[1]);
         }
     }
 
