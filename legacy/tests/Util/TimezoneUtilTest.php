@@ -36,8 +36,10 @@ class TimezoneUtilTest extends TestCase
 
     public function testGetTimezoneReturnsTzVariable(): void
     {
-        putenv('TZ=Pacific/Galapagos');
-        $this->assertEquals('Pacific/Galapagos', TimezoneUtil::getTimezone());
+        foreach (['Pacific/Galapagos', 'America/Port-au-Prince', 'Asia/Ust-Nera', 'Etc/GMT+5'] as $tz) {
+            putenv('TZ=' . $tz);
+            $this->assertEquals($tz, TimezoneUtil::getTimezone());
+        }
     }
 
     public function testGetTimezoneIgnoresInvalidTzVariable(): void

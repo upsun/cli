@@ -29,8 +29,12 @@ class TimezoneUtil
             return $currentTz;
         }
 
-        if (getenv('TZ')) {
-            $converted = self::convertTz((string) getenv('TZ'));
+        if ($tz = getenv('TZ')) {
+            // A zone name such as America/Port-au-Prince does not fit the POSIX format that convertTz() parses.
+            if (self::isKnown($tz)) {
+                return $tz;
+            }
+            $converted = self::convertTz($tz);
             if ($converted !== false && self::isKnown($converted)) {
                 return $converted;
             }
