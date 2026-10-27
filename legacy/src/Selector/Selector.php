@@ -398,7 +398,7 @@ class Selector implements CompleterInterface
                     throw new \RuntimeException('Default environment not found');
                 }
                 $this->stdErr->writeln(\sprintf('Selected environment: %s', $this->api->getEnvironmentLabel($environment)));
-                $this->printedEnvironment = $environmentId;
+                $this->printedEnvironment = $environment->id;
                 return $environment;
             }
 
