@@ -34,6 +34,22 @@ func TestMakeCmdIgnoresSystemPHPIni(t *testing.T) {
 	require.Greater(t, pharIdx, idxN, "-n must come before the phar path")
 }
 
+func TestInitKeepsCustomPhar(t *testing.T) {
+	w := &CLIWrapper{Config: &config.Config{}, Version: "1.0.0"}
+	w.Config.Application.Executable = "platform-test"
+	w.Config.Application.EnvPrefix = "TEST_INIT_"
+	t.Setenv("TEST_INIT_TMP", t.TempDir())
+	customPhar := filepath.Join(t.TempDir(), "custom.phar")
+	require.NoError(t, os.WriteFile(customPhar, []byte("<?php echo 'custom';"), 0o644))
+	t.Setenv("TEST_INIT_PHAR_PATH", customPhar)
+
+	require.NoError(t, w.init())
+
+	content, err := os.ReadFile(customPhar)
+	require.NoError(t, err)
+	assert.Equal(t, "<?php echo 'custom';", string(content))
+}
+
 func TestLegacyCLI(t *testing.T) {
 	if len(phar) == 0 || len(phpCLI) == 0 {
 		t.Skip()

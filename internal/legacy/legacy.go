@@ -25,6 +25,9 @@ var phar []byte
 
 var PHPVersion = "0.0.0"
 
+// PHPPath, if set at build time, replaces the embedded PHP binary, e.g. with legacy/scripts/coverage/php for coverage.
+var PHPPath = ""
+
 const configBasename = "config.yaml"
 
 // CLIWrapper wraps the legacy CLI
@@ -93,12 +96,14 @@ func (c *CLIWrapper) init() error {
 	defer fileLock.Unlock() //nolint:errcheck
 
 	g := errgroup.Group{}
-	g.Go(func() error {
-		if err := file.WriteIfNeeded(c.pharPath(cacheDir), phar, 0o644); err != nil {
-			return fmt.Errorf("could not copy phar file: %w", err)
-		}
-		return nil
-	})
+	if c.customPharPath() == "" {
+		g.Go(func() error {
+			if err := file.WriteIfNeeded(c.pharPath(cacheDir), phar, 0o644); err != nil {
+				return fmt.Errorf("could not copy phar file: %w", err)
+			}
+			return nil
+		})
+	}
 	g.Go(func() error {
 		configContent, err := c.Config.Raw()
 		if err != nil {
@@ -190,7 +195,11 @@ func (c *CLIWrapper) makeCmd(ctx context.Context, args []string, cacheDir string
 	}
 	cmdArgs = append(cmdArgs, c.pharPath(cacheDir))
 	cmdArgs = append(cmdArgs, args...)
-	return exec.CommandContext(ctx, phpMgr.binPath(), cmdArgs...) //nolint:gosec
+	bin := phpMgr.binPath()
+	if PHPPath != "" {
+		bin = PHPPath
+	}
+	return exec.CommandContext(ctx, bin, cmdArgs...) //nolint:gosec
 }
 
 // PharPath returns the path to the legacy CLI's Phar file.
@@ -204,9 +213,14 @@ func (c *CLIWrapper) PharPath() (string, error) {
 }
 
 func (c *CLIWrapper) pharPath(cacheDir string) string {
-	if customPath := os.Getenv(c.Config.Application.EnvPrefix + "PHAR_PATH"); customPath != "" {
+	if customPath := c.customPharPath(); customPath != "" {
 		return customPath
 	}
 
 	return filepath.Join(cacheDir, c.Config.Application.Executable+".phar")
+}
+
+// customPharPath returns the path to a phar (or PHP script) to run instead of the embedded phar, if one is set.
+func (c *CLIWrapper) customPharPath() string {
+	return os.Getenv(c.Config.Application.EnvPrefix + "PHAR_PATH")
 }

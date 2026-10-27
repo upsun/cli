@@ -238,6 +238,33 @@ test-integration-coverage: coverage-cli ## Run integration tests with coverage, 
 	cd integration-tests && $(COVERAGE_ENV) go test -count=1 ./...
 	$(MAKE) --no-print-directory coverage-report
 
+# Integration test coverage of the legacy CLI's PHP code: a CLI that runs the legacy source with the system PHP, which
+# must load PCOV, and the line coverage written by its PHP processes.
+PHP_COVERAGE_DIR = $(abspath dist/php-coverage)
+PHP_COVERAGE_ENV = TEST_CLI_PATH=$(PHP_COVERAGE_DIR)/bin/upsun TEST_CLI_PHAR_PATH=$(abspath legacy/bin/platform) \
+	PHP_COVERAGE_DIR=$(PHP_COVERAGE_DIR)/data
+
+# Build the CLI for PHP coverage, and clear previous coverage data. The legacy source needs its dev dependencies, for
+# the report, so they are installed after the phar is built.
+.PHONY: php-coverage-cli
+php-coverage-cli: $(ARCHIVES)/platform.phar $(LEGACY_INDEXES) php
+	$(MAKE) --no-print-directory composer-dev
+	CGO_ENABLED=0 go build -ldflags "-X github.com/upsun/cli/internal/legacy.PHPVersion=$(PHP_VERSION) \
+		-X github.com/upsun/cli/internal/legacy.PHPPath=$(abspath legacy/scripts/coverage/php)" \
+		-o $(PHP_COVERAGE_DIR)/bin/upsun ./cmd/platform
+	rm -rf $(PHP_COVERAGE_DIR)/data $(PHP_COVERAGE_DIR)/html
+	mkdir -p $(PHP_COVERAGE_DIR)/data
+
+# Print a Markdown report of PHP line coverage, and write an HTML report to $(PHP_COVERAGE_DIR)/html.
+.PHONY: php-coverage-report
+php-coverage-report:
+	@cd legacy && php scripts/coverage/report.php $(PHP_COVERAGE_DIR)/data $(PHP_COVERAGE_DIR)/html
+
+.PHONY: test-integration-php-coverage
+test-integration-php-coverage: php-coverage-cli ## Run integration tests with PHP line coverage, and print a report (needs PCOV)
+	cd integration-tests && $(PHP_COVERAGE_ENV) go test -count=1 ./...
+	$(MAKE) --no-print-directory php-coverage-report
+
 .PHONY: lint
 lint: lint-go lint-php ## Run all linters
 

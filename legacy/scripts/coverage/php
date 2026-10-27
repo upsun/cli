@@ -1,0 +1,13 @@
+#!/bin/sh
+# Runs PHP with PCOV, which must be loaded by php.ini, recording line coverage in PHP_COVERAGE_DIR.
+# Drops the -n option given by the CLI, so that php.ini is read. Records nothing if PHP_COVERAGE_DIR is unset, as for
+# tests that run the CLI with a minimal environment.
+set -e
+legacy=$(cd "$(dirname "$0")/../.." && pwd)
+if [ "$1" = "-n" ]; then
+    shift
+fi
+if [ -z "$PHP_COVERAGE_DIR" ]; then
+    exec php "$@"
+fi
+exec php -d pcov.enabled=1 -d "pcov.directory=$legacy/src" -d "auto_prepend_file=$legacy/scripts/coverage/prepend.php" "$@"
