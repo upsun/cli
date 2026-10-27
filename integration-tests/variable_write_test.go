@@ -358,3 +358,29 @@ func jsonField(t *testing.T, data, field string) string {
 	require.Contains(t, m, field)
 	return string(m[field])
 }
+
+// TestVariableDisableEnable checks that the deprecated commands act on the environment-level variable.
+func TestVariableDisableEnable(t *testing.T) {
+	t.Parallel()
+	s := setupVariableTest(t)
+	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
+	f, p := s.factory, s.projectID
+	f.extraEnv = append(f.extraEnv, "COLUMNS=500")
+
+	f.Run("var:create", "-p", p, "-l", "p", "env:FOO", "--value", "p")
+	f.Run("var:create", "-p", p, "-l", "p", "env:PROJECT_ONLY", "--value", "p")
+	f.Run("var:create", "-p", p, "-l", "e", "-e", "main", "env:FOO", "--value", "e")
+
+	_, _, err := f.RunCombinedOutput("variable:disable", "-p", p, "-e", "main", "env:FOO")
+	assert.NoError(t, err)
+	assertTrimmed(t, "false", f.Run("var:get", "-p", p, "-e", "main", "-l", "e", "env:FOO", "-P", "is_enabled"))
+
+	_, _, err = f.RunCombinedOutput("variable:enable", "-p", p, "-e", "main", "env:FOO")
+	assert.NoError(t, err)
+	assertTrimmed(t, "true", f.Run("var:get", "-p", p, "-e", "main", "-l", "e", "env:FOO", "-P", "is_enabled"))
+
+	_, stdErr, err := f.RunCombinedOutput("variable:disable", "-p", p, "-e", "main", "env:PROJECT_ONLY")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, "Variable not found")
+	assert.Empty(t, s.apiHandler.Requests("PATCH", "/projects/*/variables/*"))
+}
