@@ -199,7 +199,7 @@ class AdaptiveTable extends Table
         $remaining = $plainText;
         $lines = [];
         $removedCharacters = [];
-        while (!empty($remaining)) {
+        while ($remaining !== '') {
             if (strlen($remaining) > $maxLength) {
                 $spacePos = strrpos(substr($remaining, 0, $maxLength + 1), ' ');
                 if ($spacePos !== false) {

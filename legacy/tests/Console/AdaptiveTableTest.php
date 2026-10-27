@@ -269,4 +269,9 @@ class AdaptiveTableTest extends TestCase
             'The quick brown fox <options=underscore>jumps</> over the lazy \\<script type="text/javascript">dog\\</script>.',
         );
     }
+
+    public function testWrapWithDecorationKeepsTrailingZero(): void
+    {
+        $this->assertWrappedWithDecoration('<info>abcde0</info>', [5]);
+    }
 }
