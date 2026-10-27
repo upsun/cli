@@ -11,13 +11,12 @@ class TimezoneUtil
      *
      * The timezone is detected with the following priorities:
      *
-     * 1. A value previously set via date_default_timezone_set(), which can
-     *    only be known if it is not the default, UTC.
-     * 2. The value of the ini setting 'date.timezone'.
-     * 3. The value of the TZ environment variable, if set.
-     * 4. A best guess at the system timezone: see self::detectSystemTimezone().
-     * 5. Default to the value of date_default_timezone_get(), which at this
-     *    stage will almost definitely be UTC.
+     * 1. A value previously set via date_default_timezone_set() or the ini
+     *    setting 'date.timezone', which can only be known if it is not the
+     *    default, UTC.
+     * 2. The value of the TZ environment variable, if set.
+     * 3. A best guess at the system timezone: see self::detectSystemTimezone().
+     * 4. Default to UTC.
      *
      * @return string
      */
@@ -28,10 +27,6 @@ class TimezoneUtil
         $currentTz = @date_default_timezone_get();
         if ($currentTz !== 'UTC') {
             return $currentTz;
-        }
-
-        if (ini_get('date.timezone')) {
-            return ini_get('date.timezone');
         }
 
         if (getenv('TZ')) {
@@ -57,21 +52,23 @@ class TimezoneUtil
      * @see date_default_timezone_set()
      *
      * @param string $tz
+     * @param string $zoneinfoDir
      *
      * @return string|false
      *   A string or false if the value cannot be read or is invalid.
      */
-    private static function convertTz(string $tz): string|false
+    private static function convertTz(string $tz, string $zoneinfoDir = '/usr/share/zoneinfo'): string|false
     {
         if (\strlen($tz) > 1 && $tz[0] === ':') {
-            $filename = substr($tz, 1);
-            if ($filename[0] !== '/') {
-                $filename = '/usr/share/zoneinfo/' . $filename;
+            // The ":" form names a zoneinfo file, absolute or relative to the zoneinfo directory.
+            $name = substr($tz, 1);
+            if ($name[0] === '/') {
+                if (!str_starts_with($name, $zoneinfoDir . '/')) {
+                    return false;
+                }
+                $name = substr($name, \strlen($zoneinfoDir) + 1);
             }
-            if (file_exists($filename) && ($data = file_get_contents($filename)) !== false) {
-                return trim($data);
-            }
-            return false;
+            return is_file($zoneinfoDir . '/' . $name) ? $name : false;
         }
         if (preg_match('/^([^:0-9,+-]{3,})(0|[+-]0+|$)/i', $tz, $matches) === 1) {
             return $matches[1];
@@ -88,16 +85,9 @@ class TimezoneUtil
     {
         // Mac OS X (and older Linuxes): /etc/localtime is a symlink to the
         // timezone in /usr/share/zoneinfo or /var/db/timezone/zoneinfo.
-        if (is_link('/etc/localtime') && ($filename = readlink('/etc/localtime'))) {
-            $prefixes = [
-                '/usr/share/zoneinfo/',
-                '/var/db/timezone/zoneinfo/',
-            ];
-            foreach ($prefixes as $prefix) {
-                if (str_starts_with($filename, $prefix)) {
-                    return substr($filename, strlen($prefix));
-                }
-            }
+        if (is_link('/etc/localtime') && ($target = readlink('/etc/localtime'))
+            && ($zone = self::zoneFromLink('/etc/localtime', $target))) {
+            return $zone;
         }
 
         // Ubuntu and Debian.
@@ -116,6 +106,31 @@ class TimezoneUtil
             }
         }
 
+        return false;
+    }
+
+    /**
+     * Finds the timezone name from the target of a symlink to a zoneinfo file.
+     */
+    private static function zoneFromLink(string $link, string $target): string|false
+    {
+        if ($target[0] !== '/') {
+            $target = \dirname($link) . '/' . $target;
+        }
+        $parts = [];
+        foreach (explode('/', $target) as $part) {
+            if ($part === '..') {
+                array_pop($parts);
+            } elseif ($part !== '' && $part !== '.') {
+                $parts[] = $part;
+            }
+        }
+        $path = '/' . implode('/', $parts);
+        foreach (['/usr/share/zoneinfo/', '/var/db/timezone/zoneinfo/'] as $prefix) {
+            if (str_starts_with($path, $prefix)) {
+                return substr($path, \strlen($prefix));
+            }
+        }
         return false;
     }
 }

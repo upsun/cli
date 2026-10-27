@@ -68,3 +68,10 @@ deployment_type	manual
 
 	assert.Equal(t, "New Title\n", f.Run("env:info", "-p", projectID, "-e", ".", "title"))
 }
+
+func TestEnvironmentInfoUsesTZ(t *testing.T) {
+	t.Parallel()
+	p := setUpProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil))
+	p.f.extraEnv = append(p.f.extraEnv, "TZ=Europe/Paris")
+	assert.Equal(t, "2014-04-01T12:00:00+02:00\n", p.f.Run("env:info", "-p", layoutProjectID, "-e", "main", "created_at"))
+}

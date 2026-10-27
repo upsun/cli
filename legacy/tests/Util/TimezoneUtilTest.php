@@ -10,16 +10,13 @@ use Platformsh\Cli\Util\TimezoneUtil;
 class TimezoneUtilTest extends TestCase
 {
     private string $originalSetting;
-    private string $originalIni;
     private string|bool $originalEnv;
 
     public function setUp(): void
     {
         // Reset to PHP defaults.
-        $this->originalIni = ini_get('date.timezone');
         $this->originalSetting = date_default_timezone_get();
         $this->originalEnv = getenv('TZ');
-        ini_set('date.timezone', 'UTC');
         date_default_timezone_set('UTC');
         putenv('TZ=');
     }
@@ -27,25 +24,20 @@ class TimezoneUtilTest extends TestCase
     public function tearDown(): void
     {
         // Reset to original settings.
-        ini_set('date.timezone', $this->originalIni);
         date_default_timezone_set($this->originalSetting);
-        if ($this->originalEnv !== false) {
-            putenv('TZ=' . $this->originalEnv);
-        }
-    }
-
-    public function testGetTimezoneReturnsIni(): void
-    {
-        // Pick a rare timezone.
-        ini_set('date.timezone', 'Pacific/Galapagos');
-        $this->assertEquals('Pacific/Galapagos', TimezoneUtil::getTimezone());
+        putenv($this->originalEnv !== false ? 'TZ=' . $this->originalEnv : 'TZ');
     }
 
     public function testGetTimezoneReturnsCurrent(): void
     {
-        ini_set('date.timezone', 'Antarctica/McMurdo');
         date_default_timezone_set('Antarctica/Troll');
         $this->assertEquals('Antarctica/Troll', TimezoneUtil::getTimezone());
+    }
+
+    public function testGetTimezoneReturnsTzVariable(): void
+    {
+        putenv('TZ=Pacific/Galapagos');
+        $this->assertEquals('Pacific/Galapagos', TimezoneUtil::getTimezone());
     }
 
     public function testGetTimezoneReturnsSomething(): void
@@ -55,9 +47,8 @@ class TimezoneUtilTest extends TestCase
 
     public function testConvertTz(): void
     {
-        $util = new TimezoneUtil();
-        $method = new \ReflectionMethod($util, 'convertTz');
-        $dataDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'data';
+        $method = new \ReflectionMethod(TimezoneUtil::class, 'convertTz');
+        $zoneinfoDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'zoneinfo';
         $cases = [
             'UTC' => 'UTC',
             'GMT' => 'GMT',
@@ -69,12 +60,30 @@ class TimezoneUtilTest extends TestCase
             'UTC+1' => false,
             'name' => 'name',
             'x' => false, // the name must be "three or more characters long"
-            ":$dataDir/tz" => 'Antarctica/Troll',
-            ":$dataDir/tz_" => false,
+            ':Antarctica/Troll' => 'Antarctica/Troll',
+            ":$zoneinfoDir/Antarctica/Troll" => 'Antarctica/Troll',
+            ':Antarctica/Nowhere' => false,
+            ':/etc/Antarctica/Troll' => false,
             ':' => false,
         ];
         foreach ($cases as $input => $expected) {
-            $this->assertEquals($expected, $method->invoke($util, $input), "converting \"$input\"");
+            $this->assertEquals($expected, $method->invoke(null, $input, $zoneinfoDir), "converting \"$input\"");
+        }
+    }
+
+    public function testZoneFromLink(): void
+    {
+        $method = new \ReflectionMethod(TimezoneUtil::class, 'zoneFromLink');
+        $cases = [
+            '/usr/share/zoneinfo/Europe/Paris' => 'Europe/Paris',
+            '../usr/share/zoneinfo/Europe/Paris' => 'Europe/Paris',
+            './../usr/share//zoneinfo/America/New_York' => 'America/New_York',
+            '/var/db/timezone/zoneinfo/Asia/Tokyo' => 'Asia/Tokyo',
+            'zoneinfo/Europe/Paris' => false,
+            '/opt/zoneinfo/Europe/Paris' => false,
+        ];
+        foreach ($cases as $target => $expected) {
+            $this->assertEquals($expected, $method->invoke(null, '/etc/localtime', $target), "resolving \"$target\"");
         }
     }
 }
