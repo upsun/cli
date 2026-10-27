@@ -292,3 +292,17 @@ func TestBackupRestore(t *testing.T) {
 		assert.Len(t, apiHandler.BackupRestores(projectID), len(cases))
 	})
 }
+
+func TestBackupListDeprecatedColumnsIgnoreCase(t *testing.T) {
+	t.Parallel()
+	_, f, projectID := setUpBackups(t)
+	f.extraEnv = append(f.extraEnv, "COLUMNS=500")
+
+	stdout, stderr, err := f.RunCombinedOutput("backups", "-p", projectID, "-e", "main",
+		"-c", "Created,NAME,State", "--format", "csv")
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "The column Created has been replaced by created_at.")
+	assert.Contains(t, stderr, "The column NAME has been replaced by id.")
+	assert.Contains(t, stderr, "The column State has been removed.")
+	assert.True(t, strings.HasPrefix(stdout, "Created,Backup ID,[Deprecated]\n2015-04-01T10:00:00+00:00,456,\n"), stdout)
+}
