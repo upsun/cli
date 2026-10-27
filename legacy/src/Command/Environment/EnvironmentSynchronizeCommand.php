@@ -164,7 +164,8 @@ class EnvironmentSynchronizeCommand extends CommandBase
 
                 if ($syncCode) {
                     $toSync[] = 'code';
-                    if (!$rebase) {
+                    // This is a choice, not a confirmation, so --yes must not select it.
+                    if (!$rebase && $input->isInteractive() && !Option::bool($input, 'yes')) {
                         $rebase = $this->questionHelper->confirm(
                             "Do you want to synchronize code by rebasing instead of merging?",
                             false,

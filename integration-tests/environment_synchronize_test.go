@@ -48,6 +48,16 @@ func TestEnvironmentSynchronize(t *testing.T) {
 			wantBody: map[string]any{"synchronize_code": false, "synchronize_data": true, "rebase": false},
 		},
 		{
+			name:     "--yes merges",
+			args:     []string{"--yes"},
+			wantBody: map[string]any{"synchronize_code": true, "synchronize_data": true, "rebase": false},
+		},
+		{
+			name:     "--yes with --rebase",
+			args:     []string{"--yes", "--rebase"},
+			wantBody: map[string]any{"synchronize_code": true, "synchronize_data": true, "rebase": true},
+		},
+		{
 			name:       "nothing selected",
 			stdin:      "n\nn\n",
 			wantErr:    true,
