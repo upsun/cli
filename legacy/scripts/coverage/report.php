@@ -64,18 +64,30 @@ echo "<details><summary>By directory</summary>\n\n";
 echo "| Directory | Lines | Coverage |\n";
 echo "| --- | ---: | ---: |\n";
 
-// Commands are listed by their subdirectory, other code by its top-level directory.
+// Commands are listed by their subdirectory, other code by its top-level directory, and files outside those as "*.php".
 $rows = [];
-$addRow = static function (Directory $dir, string $name) use (&$rows, $percent): void {
-    $rows[$name] = sprintf("| `%s` | %d | %s |\n", $name, $dir->numberOfExecutableLines(), $percent($dir->numberOfExecutedLines(), $dir->numberOfExecutableLines()));
+$addRow = static function (string $name, int $executed, int $executable) use (&$rows, $percent): void {
+    if ($executable > 0) {
+        $rows[$name] = sprintf("| `%s` | %d | %s |\n", $name, $executable, $percent($executed, $executable));
+    }
 };
+$addFilesRow = static function (Directory $dir, string $name) use ($addRow): void {
+    $executed = $executable = 0;
+    foreach ($dir->files() as $file) {
+        $executed += $file->numberOfExecutedLines();
+        $executable += $file->numberOfExecutableLines();
+    }
+    $addRow($name, $executed, $executable);
+};
+$addFilesRow($report, '*.php');
 foreach ($report->directories() as $dir) {
     if ($dir->name() === 'Command') {
+        $addFilesRow($dir, 'Command/*.php');
         foreach ($dir->directories() as $commandDir) {
-            $addRow($commandDir, 'Command/' . $commandDir->name());
+            $addRow('Command/' . $commandDir->name(), $commandDir->numberOfExecutedLines(), $commandDir->numberOfExecutableLines());
         }
     } else {
-        $addRow($dir, $dir->name());
+        $addRow($dir->name(), $dir->numberOfExecutedLines(), $dir->numberOfExecutableLines());
     }
 }
 ksort($rows);
