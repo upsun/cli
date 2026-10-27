@@ -67,14 +67,13 @@ func TestProjectAndEnvironmentSelection(t *testing.T) {
 
 	t.Run("from the service environment variables", func(t *testing.T) {
 		// The variables are set inside the platform's containers.
-		f := *f
-		f.t = t
-		f.extraEnv = append(f.extraEnv[:len(f.extraEnv):len(f.extraEnv)],
-			"PLATFORM_PROJECT="+layoutProjectID, "PLATFORM_BRANCH=staging")
+		f := f.forSubtest(t)
+		f.extraEnv = append(f.extraEnv, "PLATFORM_PROJECT="+layoutProjectID, "PLATFORM_BRANCH=staging")
 		assert.Equal(t, "staging\n", f.Run("env:info", "id"))
 	})
 
 	t.Run("interactive project choice", func(t *testing.T) {
+		f := f.forSubtest(t)
 		// Projects are listed by title. The second has one environment, which is selected by default.
 		stdOut, stdErr, err := f.RunInteractive("1\n", "env:info", "id")
 		require.NoError(t, err, stdErr)
@@ -84,6 +83,7 @@ func TestProjectAndEnvironmentSelection(t *testing.T) {
 	})
 
 	t.Run("interactive environment choice", func(t *testing.T) {
+		f := f.forSubtest(t)
 		// The project's default environment is the default choice.
 		stdOut, stdErr, err := f.RunInteractive("\n", "env:info", "-p", layoutProjectID, "id")
 		require.NoError(t, err, stdErr)
@@ -130,6 +130,7 @@ func TestProjectAndEnvironmentSelection(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			f := f.forSubtest(t)
 			_, stdErr, err := f.RunCombinedOutput(c.args...)
 			assert.Error(t, err)
 			for _, s := range c.wantErr {
@@ -191,6 +192,7 @@ func TestOrganizationSelection(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			f := f.forSubtest(t)
 			_, stdErr, err := f.RunCombinedOutput(c.args...)
 			assert.Error(t, err)
 			assert.Contains(t, stdErr, c.wantErr)

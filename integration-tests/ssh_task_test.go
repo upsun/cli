@@ -104,6 +104,7 @@ func TestSSHTaskSelection(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			f := f.forSubtest(t)
 			_, stdErr, err := f.RunCombinedOutput(ssh(c.args...)...)
 			assert.Error(t, err)
 			assert.Contains(t, stdErr, c.wantErr)
