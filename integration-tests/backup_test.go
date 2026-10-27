@@ -311,3 +311,25 @@ func TestBackupListDeprecatedColumnsIgnoreCase(t *testing.T) {
 	assert.Contains(t, stderr, "The column State has been removed.")
 	assert.True(t, strings.HasPrefix(stdout, "Created,Backup ID,[Deprecated]\n2015-04-01T10:00:00+00:00,456,\n"), stdout)
 }
+
+// An active environment without the backup operation: only a non-admin is told that they must be an administrator.
+func TestBackupCreateUnavailable(t *testing.T) {
+	t.Parallel()
+	for _, role := range []string{"admin", "viewer"} {
+		t.Run(role, func(t *testing.T) {
+			t.Parallel()
+			p := setUpProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil))
+			p.api.SetUserGrants([]*mockapi.UserGrant{{
+				ResourceID: layoutProjectID, ResourceType: "project", UserID: "my-user-id", Permissions: []string{role},
+			}})
+			_, stdErr, err := p.f.RunCombinedOutput("backup:create", "-p", layoutProjectID, "-e", "main")
+			assertExitCode(t, 1, err)
+			assert.Contains(t, stdErr, "Operation not available: cannot create a backup of main")
+			if role == "admin" {
+				assert.NotContains(t, stdErr, "You must be an administrator")
+			} else {
+				assert.Contains(t, stdErr, "You must be an administrator to create a backup.")
+			}
+		})
+	}
+}
