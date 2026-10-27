@@ -62,8 +62,9 @@ class Csv
         // Cast cell data to a string.
         $cell = (string) $cell;
 
-        // Enclose the cell in double quotes, if necessary.
-        if (strpbrk($cell, '"' . $this->lineBreak . $this->delimiter) !== false) {
+        // Enclose the cell in double quotes, if necessary. Any line break needs
+        // them, as all line breaks are standardized below.
+        if (strpbrk($cell, '"' . $this->lineBreak . $this->delimiter) !== false || preg_match('/\R/u', $cell)) {
             $cell = '"' . str_replace('"', '""', $cell) . '"';
         }
 
