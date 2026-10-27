@@ -44,6 +44,48 @@ func setUpRedeploy(
 	return f, projectID
 }
 
+// The integration activities are waited on separately from the environment activity, and the summary reports
+// their refreshed results.
+func TestActivityMonitorIntegrationActivityResult(t *testing.T) {
+	t.Parallel()
+	f, projectID := setUpRedeploy(t, func(apiHandler *mockapi.Handler, projectID string) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/environments/main/redeploy") {
+				apiHandler.ServeHTTP(w, r)
+				return
+			}
+			now := time.Now().Truncate(time.Second)
+			activity := func(id, typ, state, result string) *mockapi.Activity {
+				a := &mockapi.Activity{
+					ID: id, Type: typ, State: state, Result: result, Project: projectID,
+					Environments: []string{"main"}, Description: "Mock " + typ,
+					CreatedAt: now, StartedAt: now, UpdatedAt: now,
+				}
+				if state == "complete" {
+					a.CompletionPercent = 100
+				}
+				return a
+			}
+			// The activities are complete in the store, but in progress in the response.
+			apiHandler.SetProjectActivities(projectID, []*mockapi.Activity{
+				activity("act1", "environment.redeploy", "complete", "success"),
+				activity("act2", "integration.webhook", "complete", "success"),
+			})
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "OK", "code": 200,
+				"_embedded": map[string]any{"activities": []*mockapi.Activity{
+					activity("act1", "environment.redeploy", "in_progress", ""),
+					activity("act2", "integration.webhook", "in_progress", ""),
+				}},
+			})
+		})
+	})
+	_, stdErr, err := f.RunCombinedOutput("environment:redeploy", "-p", projectID, "-e", "main", "--yes")
+	require.NoError(t, err, stdErr)
+	assert.NotContains(t, stdErr, "unknown result")
+	assert.Contains(t, stdErr, "2/2 activities succeeded")
+}
+
 // When the log stream ends before its seal, it is fetched again, and the replayed items are not printed twice.
 func TestActivityMonitorLogReconnect(t *testing.T) {
 	t.Parallel()
