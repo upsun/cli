@@ -396,10 +396,19 @@ func TestVariableCreateEnvLevelWithoutEnvironment(t *testing.T) {
 	_, stdErr, err := f.RunCombinedOutput("var:create", "-p", p, "-l", "e", "env:FOO", "--value", "x")
 	assert.Error(t, err)
 	assert.NotContains(t, stdErr, "No environment selected")
-	assert.Contains(t, stdErr, "--environment is required")
+	assert.Contains(t, stdErr, "No environment specified.")
 
 	_, stdErr, err = f.RunInteractive("main\n", "var:create", "-p", p, "-l", "e", "env:FOO", "--value", "x")
 	assert.NoError(t, err)
 	assert.Contains(t, stdErr, "Creating variable env:FOO on the environment main")
 	assertTrimmed(t, "x", f.Run("var:get", "-p", p, "-e", "main", "-l", "e", "env:FOO", "-P", "value"))
+
+	// The existing variable is found once the environment is chosen.
+	_, stdErr, err = f.RunInteractive("main\n", "var:create", "-p", p, "-l", "e", "env:FOO", "--value", "y")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, "The variable already exists: env:FOO")
+
+	_, stdErr, err = f.RunInteractive("main\n", "var:create", "-p", p, "-l", "e", "-u", "env:FOO", "--value", "y")
+	assert.NoError(t, err, stdErr)
+	assertTrimmed(t, "y", f.Run("var:get", "-p", p, "-e", "main", "-l", "e", "env:FOO", "-P", "value"))
 }
