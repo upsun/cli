@@ -36,9 +36,19 @@ class TimezoneUtilTest extends TestCase
 
     public function testGetTimezoneReturnsTzVariable(): void
     {
-        foreach (['Pacific/Galapagos', 'America/Port-au-Prince', 'Asia/Ust-Nera', 'Etc/GMT+5'] as $tz) {
+        $cases = [
+            'Pacific/Galapagos' => 'Pacific/Galapagos',
+            'America/Port-au-Prince' => 'America/Port-au-Prince',
+            'Asia/Ust-Nera' => 'Asia/Ust-Nera',
+            'Etc/GMT+5' => 'Etc/GMT+5',
+            'europe/paris' => 'Europe/Paris',
+            'utc' => 'UTC',
+            ':Europe/Paris' => 'Europe/Paris',
+            ':/var/db/timezone/zoneinfo/Asia/Tokyo' => 'Asia/Tokyo',
+        ];
+        foreach ($cases as $tz => $expected) {
             putenv('TZ=' . $tz);
-            $this->assertEquals($tz, TimezoneUtil::getTimezone());
+            $this->assertEquals($expected, TimezoneUtil::getTimezone(), "TZ=$tz");
         }
     }
 
@@ -58,7 +68,6 @@ class TimezoneUtilTest extends TestCase
     public function testConvertTz(): void
     {
         $method = new \ReflectionMethod(TimezoneUtil::class, 'convertTz');
-        $zoneinfoDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'zoneinfo';
         $cases = [
             'UTC' => 'UTC',
             'GMT' => 'GMT',
@@ -71,13 +80,13 @@ class TimezoneUtilTest extends TestCase
             'name' => 'name',
             'x' => false, // the name must be "three or more characters long"
             ':Antarctica/Troll' => 'Antarctica/Troll',
-            ":$zoneinfoDir/Antarctica/Troll" => 'Antarctica/Troll',
-            ':Antarctica/Nowhere' => false,
+            ':/usr/share/zoneinfo/Antarctica/Troll' => 'Antarctica/Troll',
+            ':/var/db/timezone/zoneinfo/Antarctica/Troll' => 'Antarctica/Troll',
             ':/etc/Antarctica/Troll' => false,
             ':' => false,
         ];
         foreach ($cases as $input => $expected) {
-            $this->assertEquals($expected, $method->invoke(null, $input, $zoneinfoDir), "converting \"$input\"");
+            $this->assertEquals($expected, $method->invoke(null, $input), "converting \"$input\"");
         }
     }
 

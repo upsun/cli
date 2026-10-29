@@ -31,28 +31,33 @@ class TimezoneUtil
 
         if ($tz = getenv('TZ')) {
             // A zone name such as America/Port-au-Prince does not fit the POSIX format that convertTz() parses.
-            if (self::isKnown($tz)) {
-                return $tz;
+            if ($name = self::knownName($tz)) {
+                return $name;
             }
             $converted = self::convertTz($tz);
-            if ($converted !== false && self::isKnown($converted)) {
-                return $converted;
+            if ($converted !== false && ($name = self::knownName($converted))) {
+                return $name;
             }
         }
 
-        if (($systemTz = self::detectSystemTimezone()) && self::isKnown($systemTz)) {
-            return $systemTz;
+        if (($systemTz = self::detectSystemTimezone()) && ($name = self::knownName($systemTz))) {
+            return $name;
         }
 
         return $currentTz;
     }
 
     /**
-     * Checks that PHP accepts a timezone name, e.g. for date_default_timezone_set().
+     * Returns a timezone name as PHP lists it, matching case-insensitively as date_default_timezone_set() does.
      */
-    private static function isKnown(string $tz): bool
+    private static function knownName(string $tz): string|false
     {
-        return \in_array($tz, \DateTimeZone::listIdentifiers(\DateTimeZone::ALL_WITH_BC), true);
+        foreach (\DateTimeZone::listIdentifiers(\DateTimeZone::ALL_WITH_BC) as $identifier) {
+            if (strcasecmp($identifier, $tz) === 0) {
+                return $identifier;
+            }
+        }
+        return false;
     }
 
     /**
@@ -64,23 +69,17 @@ class TimezoneUtil
      * @see date_default_timezone_set()
      *
      * @param string $tz
-     * @param string $zoneinfoDir
      *
      * @return string|false
      *   A string or false if the value cannot be read or is invalid.
      */
-    private static function convertTz(string $tz, string $zoneinfoDir = '/usr/share/zoneinfo'): string|false
+    private static function convertTz(string $tz): string|false
     {
         if (\strlen($tz) > 1 && $tz[0] === ':') {
-            // The ":" form names a zoneinfo file, absolute or relative to the zoneinfo directory.
+            // The ":" form names a zoneinfo file, relative to a zoneinfo directory or under one. PHP has its own
+            // timezone database, so the file need not exist.
             $name = substr($tz, 1);
-            if ($name[0] === '/') {
-                if (!str_starts_with($name, $zoneinfoDir . '/')) {
-                    return false;
-                }
-                $name = substr($name, \strlen($zoneinfoDir) + 1);
-            }
-            return is_file($zoneinfoDir . '/' . $name) ? $name : false;
+            return $name[0] === '/' ? self::zoneFromLink('/', $name) : $name;
         }
         if (preg_match('/^([^:0-9,+-]{3,})(0|[+-]0+|$)/i', $tz, $matches) === 1) {
             return $matches[1];
