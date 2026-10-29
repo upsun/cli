@@ -73,7 +73,8 @@ func TestEnvironmentDeployType(t *testing.T) {
 		"Are you sure you want to continue? [Y/n] y\n"+
 		"The deployment type was updated successfully to: automatic\n", stdErr)
 
-	_, stdErr, _ = f.RunCombinedOutput("env:deploy:type", "manual", "-p", projectID, "-e", "dev")
+	_, stdErr, err = f.RunCombinedOutput("env:deploy:type", "manual", "-p", projectID, "-e", "dev")
+	assertExitCode(t, 1, err)
 	assert.Equal(t, "Selected project: "+projectID+"\nSelected environment: dev (type: development)\n\n"+
 		"The manual deployment type is not available as the environment is not active.\n", stdErr)
 }

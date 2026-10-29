@@ -92,8 +92,9 @@ class DomainDeleteCommand extends DomainCommandBase
         $this->stdErr->writeln("The domain <info>$name</info> has been deleted.");
 
         if ($this->activityMonitor->shouldWait($input)) {
-            $activityMonitor = $this->activityMonitor;
-            $activityMonitor->waitMultiple($result->getActivities(), $project);
+            if (!$this->activityMonitor->waitMultiple($result->getActivities(), $project)) {
+                return 1;
+            }
         }
 
         return 0;

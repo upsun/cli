@@ -72,8 +72,9 @@ class CertificateDeleteCommand extends CommandBase
         $this->stdErr->writeln(sprintf('The certificate <info>%s</info> has been deleted.', $certificate->id));
 
         if ($this->activityMonitor->shouldWait($input)) {
-            $activityMonitor = $this->activityMonitor;
-            $activityMonitor->waitMultiple($result->getActivities(), $project);
+            if (!$this->activityMonitor->waitMultiple($result->getActivities(), $project)) {
+                return 1;
+            }
         }
 
         return 0;

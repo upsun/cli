@@ -102,6 +102,11 @@ func TestUserAdd(t *testing.T) {
 			args:       []string{"role@example.com", "-r", "owner"},
 			wantStderr: "Invalid role: owner",
 		},
+		{
+			name:       "empty environment type role",
+			args:       []string{"empty-type-role@example.com", "-r", "viewer", "-r", "production:"},
+			wantStderr: "A role cannot be empty.",
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -127,6 +132,13 @@ func TestUserUpdate(t *testing.T) {
 	assert.Contains(t, stderr, "Access was updated successfully.")
 	assert.Equal(t, "admin\n", f.Run("user:get", "-p", projectID, "-e", "main", "user-id-2@example.com",
 		"--level", "environment", "--pipe"))
+	assert.Equal(t, "viewer\n", f.Run("user:get", "-p", projectID, "-e", "dev", "user-id-2@example.com",
+		"--level", "environment", "--pipe"))
+
+	// An empty role is rejected, not completed to the first role.
+	_, stderr, err = f.RunCombinedOutput("user:update", "-p", projectID, "user-id-2@example.com", "-r", "development:")
+	assert.Error(t, err)
+	assert.Contains(t, stderr, "A role cannot be empty.")
 	assert.Equal(t, "viewer\n", f.Run("user:get", "-p", projectID, "-e", "dev", "user-id-2@example.com",
 		"--level", "environment", "--pipe"))
 

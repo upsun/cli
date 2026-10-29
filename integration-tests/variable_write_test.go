@@ -327,6 +327,29 @@ func TestVariableUpdateToSensitive(t *testing.T) {
 	assert.NotContains(t, f.Run("var:list", "-p", p, "-e", "main", "--format", "tsv"), "token-value")
 }
 
+// TestVariableUpdateJSON checks that the value is validated as JSON only while the variable stays JSON.
+func TestVariableUpdateJSON(t *testing.T) {
+	t.Parallel()
+	s := setupVariableTest(t)
+	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
+	f, p := s.factory, s.projectID
+	f.Run("var:create", "-p", p, "-l", "p", "cfg", "--json", "true", "--value", `{"a":1}`)
+
+	_, stdErr, err := f.RunCombinedOutput("var:update", "-p", p, "-l", "p", "cfg", "--value", "plain text")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, "The value is not valid JSON")
+
+	_, _, err = f.RunCombinedOutput("var:update", "-p", p, "-l", "p", "cfg", "--json", "false", "--value", "plain text")
+	assert.NoError(t, err)
+	assertTrimmed(t, "false", f.Run("var:get", "-p", p, "-l", "p", "cfg", "-P", "is_json"))
+	assertTrimmed(t, "plain text", f.Run("var:get", "-p", p, "-l", "p", "cfg", "-P", "value"))
+
+	_, stdErr, err = f.RunCombinedOutput("var:update", "-p", p, "-l", "p", "cfg", "--json", "true")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, "The value is not valid JSON")
+	assert.Len(t, s.apiHandler.Requests("PATCH", "/projects/*/variables/*"), 1)
+}
+
 // jsonField returns the JSON encoding of a field of a JSON object.
 func jsonField(t *testing.T, data, field string) string {
 	t.Helper()
@@ -334,4 +357,58 @@ func jsonField(t *testing.T, data, field string) string {
 	require.NoError(t, json.Unmarshal([]byte(data), &m))
 	require.Contains(t, m, field)
 	return string(m[field])
+}
+
+// TestVariableDisableEnable checks that the deprecated commands act on the environment-level variable.
+func TestVariableDisableEnable(t *testing.T) {
+	t.Parallel()
+	s := setupVariableTest(t)
+	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
+	f, p := s.factory, s.projectID
+	f.extraEnv = append(f.extraEnv, "COLUMNS=500")
+
+	f.Run("var:create", "-p", p, "-l", "p", "env:FOO", "--value", "p")
+	f.Run("var:create", "-p", p, "-l", "p", "env:PROJECT_ONLY", "--value", "p")
+	f.Run("var:create", "-p", p, "-l", "e", "-e", "main", "env:FOO", "--value", "e")
+
+	_, _, err := f.RunCombinedOutput("variable:disable", "-p", p, "-e", "main", "env:FOO")
+	assert.NoError(t, err)
+	assertTrimmed(t, "false", f.Run("var:get", "-p", p, "-e", "main", "-l", "e", "env:FOO", "-P", "is_enabled"))
+
+	_, _, err = f.RunCombinedOutput("variable:enable", "-p", p, "-e", "main", "env:FOO")
+	assert.NoError(t, err)
+	assertTrimmed(t, "true", f.Run("var:get", "-p", p, "-e", "main", "-l", "e", "env:FOO", "-P", "is_enabled"))
+
+	_, stdErr, err := f.RunCombinedOutput("variable:disable", "-p", p, "-e", "main", "env:PROJECT_ONLY")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, "Variable not found")
+	assert.Empty(t, s.apiHandler.Requests("PATCH", "/projects/*/variables/*"))
+}
+
+// TestVariableCreateEnvLevelWithoutEnvironment checks var:create at the environment level without --environment.
+func TestVariableCreateEnvLevelWithoutEnvironment(t *testing.T) {
+	t.Parallel()
+	s := setupVariableTest(t)
+	s.apiHandler.SetEnvironments([]*mockapi.Environment{s.mainEnv})
+	f, p := s.factory, s.projectID
+	f.extraEnv = append(f.extraEnv, "COLUMNS=500")
+
+	_, stdErr, err := f.RunCombinedOutput("var:create", "-p", p, "-l", "e", "env:FOO", "--value", "x")
+	assert.Error(t, err)
+	assert.NotContains(t, stdErr, "No environment selected")
+	assert.Contains(t, stdErr, "No environment specified.")
+
+	_, stdErr, err = f.RunInteractive("main\n", "var:create", "-p", p, "-l", "e", "env:FOO", "--value", "x")
+	assert.NoError(t, err)
+	assert.Contains(t, stdErr, "Creating variable env:FOO on the environment main")
+	assertTrimmed(t, "x", f.Run("var:get", "-p", p, "-e", "main", "-l", "e", "env:FOO", "-P", "value"))
+
+	// The existing variable is found once the environment is chosen.
+	_, stdErr, err = f.RunInteractive("main\n", "var:create", "-p", p, "-l", "e", "env:FOO", "--value", "y")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, "The variable already exists: env:FOO")
+
+	_, stdErr, err = f.RunInteractive("main\n", "var:create", "-p", p, "-l", "e", "-u", "env:FOO", "--value", "y")
+	assert.NoError(t, err, stdErr)
+	assertTrimmed(t, "y", f.Run("var:get", "-p", p, "-e", "main", "-l", "e", "env:FOO", "-P", "value"))
 }

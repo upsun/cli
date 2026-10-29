@@ -224,7 +224,7 @@ class ActivityMonitor
             }
 
             // Format log items.
-            $formatted = $this->formatLog($data['items'], $timestamps);
+            $formatted = $this->formatLog($items, $timestamps);
 
             // Clear the progress bar and ensure the current line is flushed.
             $bar->clear();
@@ -490,22 +490,22 @@ class ActivityMonitor
             // which are not contained in this list must be refreshed
             // individually.
             $projectActivities = $project->getActivities(0, null, $mostRecentTimestamp ?: null);
-            foreach ($activities as &$activityRef) {
-                $refreshed = false;
+            foreach ($activities as $activity) {
+                $listed = null;
                 foreach ($projectActivities as $projectActivity) {
-                    if ($projectActivity->id === $activityRef->id) {
-                        $activityRef = $projectActivity;
-                        $refreshed = true;
+                    if ($projectActivity->id === $activity->id) {
+                        $listed = $projectActivity;
                         break;
                     }
                 }
-                if (!$refreshed && !$activityRef->isComplete() && $activityRef->state !== Activity::STATE_CANCELLED) {
-                    $activityRef->refresh();
+                // Refresh the given object rather than replacing it, so that the caller sees the final state.
+                if (!$this->isFinished($activity) && ($listed === null || $this->isFinished($listed))) {
+                    $activity->refresh();
                 }
-                if ($activityRef->isComplete() || $activityRef->state === Activity::STATE_CANCELLED) {
+                if ($this->isFinished($activity)) {
                     $done++;
                 }
-                $state = $activityRef->state;
+                $state = $this->isFinished($activity) || $listed === null ? $activity->state : $listed->state;
                 $states[$state] = isset($states[$state]) ? $states[$state] + 1 : 1;
             }
             $bar->advance();
@@ -539,6 +539,11 @@ class ActivityMonitor
         }
 
         return $success;
+    }
+
+    private function isFinished(Activity $activity): bool
+    {
+        return $activity->isComplete() || $activity->state === Activity::STATE_CANCELLED;
     }
 
     /**

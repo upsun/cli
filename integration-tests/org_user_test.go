@@ -73,6 +73,25 @@ user-id-2,user-id-2@example.com,false,billing
 		assert.Contains(t, stderr, "The user's permissions are now: members, plans")
 		assertTrimmed(t, "- members\n- plans",
 			f.Run("org:user:get", "-o", "acme", "user-id-2@example.com", "-P", "permissions"))
+		patches := len(apiHandler.Requests("PATCH", "/organizations/*/members/*"))
+
+		// The same permissions in another order are not a change.
+		_, stderr, err = f.RunCombinedOutput("org:user:update", "-o", "acme", "user-id-2@example.com",
+			"--permission", "plans,members")
+		require.NoError(t, err)
+		assert.Contains(t, stderr, "The user's permissions are already set to: members, plans")
+
+		// Without --permission, the permissions are not replaced with none.
+		_, stderr, err = f.RunCombinedOutput("org:user:update", "-o", "acme", "user-id-2@example.com")
+		assert.Error(t, err)
+		assert.Contains(t, stderr, "The --permission option is required in non-interactive mode.")
+		assert.Len(t, apiHandler.Requests("PATCH", "/organizations/*/members/*"), patches)
+
+		// An explicit empty value removes the permissions.
+		_, stderr, err = f.RunCombinedOutput("org:user:update", "-o", "acme", "user-id-2@example.com", "--permission", "")
+		require.NoError(t, err)
+		assert.Contains(t, stderr, "- members")
+		assert.Contains(t, stderr, "The user's permissions are now: [none]")
 
 		_, stderr, err = f.RunCombinedOutput("org:user:update", "-o", "acme", "my-user-id@example.com",
 			"--permission", "billing")

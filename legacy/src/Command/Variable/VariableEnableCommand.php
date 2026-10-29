@@ -52,6 +52,7 @@ class VariableEnableCommand extends CommandBase
             '--enabled' => 'true',
             '--project' => $selection->getProject()->id,
             '--environment' => $selection->getEnvironment()->id,
+            '--level' => 'environment',
         ] + array_filter([
             '--wait' => Option::bool($input, 'wait'),
             '--no-wait' => Option::bool($input, 'no-wait'),

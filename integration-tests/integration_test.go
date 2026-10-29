@@ -209,3 +209,40 @@ func TestIntegrationValidateErrors(t *testing.T) {
 	assertExitCode(t, 1, err)
 	assert.Contains(t, stderr, "This integration does not support validation.")
 }
+
+func TestIntegrationAddRepositoryURL(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+
+	apiHandler := mockapi.NewHandler(t)
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	projectID := mockapi.ProjectID()
+	apiHandler.SetProjects([]*mockapi.Project{{
+		ID: projectID,
+		Links: mockapi.MakeHALLinks(
+			"self=/projects/"+projectID,
+			"environments=/projects/"+projectID+"/environments",
+			"integrations=/projects/"+projectID+"/integrations",
+		),
+		Repository:    mockapi.ProjectRepository{URL: "git@git.example.com:" + projectID + ".git"},
+		DefaultBranch: "main",
+	}})
+	apiHandler.SetEnvironments([]*mockapi.Environment{makeEnv(projectID, "main", "production", "active", nil)})
+	// Integration types are not restricted.
+	apiHandler.Get("/projects/"+projectID+"/capabilities", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"integrations": map[string]any{"enabled": false}})
+	})
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+
+	for _, repository := range []string{"org/repo", "https://github.com/org/repo", "https://github.com/org/repo.git"} {
+		_, stderr, err := f.RunCombinedOutput("integration:add", "-p", projectID, "--type", "github",
+			"--repository", repository, "--token", "gh-token", "--no-wait")
+		require.NoError(t, err, stderr)
+		body := jsonObject(t, lastRequest(t, apiHandler, "POST", "/projects/*/integrations").Body)
+		assert.Equal(t, "org/repo", body["repository"], repository)
+	}
+}

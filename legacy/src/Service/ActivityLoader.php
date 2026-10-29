@@ -18,6 +18,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 readonly class ActivityLoader
 {
+    private const EXCLUDE_PAGE_SIZE = 100;
+
     private OutputInterface $stdErr;
 
     /**
@@ -68,6 +70,7 @@ readonly class ActivityLoader
             if (empty($toExclude)) {
                 $this->stdErr->writeln('Unrecognized activity type to exclude: <comment>' . $requestedExcludeType . '</comment>');
                 $typesToExclude[] = $requestedExcludeType;
+                $typesToExclude[] = '%.' . $requestedExcludeType;
             } else {
                 $typesToExclude = array_merge($typesToExclude, $toExclude);
             }
@@ -86,9 +89,6 @@ readonly class ActivityLoader
                 $this->stdErr->writeln('The <comment>--exclude-type</comment> and <comment>--type</comment> options conflict.');
             }
         }
-        if (empty($typesFilter) && !empty($typesToExclude)) {
-            $typesFilter = \array_filter($availableTypes, fn($type): bool => !\in_array($type, $typesToExclude, true));
-        }
         if (!empty($typesFilter) && $this->stdErr->isDebug()) {
             $this->stdErr->writeln('<options=reverse>DEBUG</> Selected activity type(s): ' . implode(',', $typesFilter));
         }
@@ -97,7 +97,9 @@ readonly class ActivityLoader
         if ($input->hasOption('start') && ($start = Option::stringOrNull($input, 'start'))) {
             $startsAt = new DateTime($start);
         }
-        $activities = $this->load($apiResource, $limit, $typesFilter, $startsAt, $state, $result);
+        // The API cannot exclude types, so they are excluded here (unless types are included).
+        $excludeTypes = empty($typesFilter) ? $typesToExclude : [];
+        $activities = $this->load($apiResource, $limit, $typesFilter, $startsAt, $state, $result, null, $excludeTypes);
         if ($withOperation) {
             $activities = array_filter($activities, fn(Activity $activity): bool => $activity->operationAvailable($withOperation));
         }
@@ -115,10 +117,12 @@ readonly class ActivityLoader
      * @param string|string[]|null    $result
      * @param callable|null $stopCondition
      *   A test to perform on each activity. If it returns true, loading is stopped.
+     * @param string[] $excludeTypes
+     *   Types to exclude, which may contain wildcards.
      *
      * @return Activity[]
      */
-    public function load(HasActivitiesInterface $apiResource, ?int $limit = null, array $types = [], int|DateTime|null $startsAt = null, array|string|null $state = null, array|string|null $result = null, ?callable $stopCondition = null): array
+    public function load(HasActivitiesInterface $apiResource, ?int $limit = null, array $types = [], int|DateTime|null $startsAt = null, array|string|null $state = null, array|string|null $result = null, ?callable $stopCondition = null, array $excludeTypes = []): array
     {
         $progress = new ProgressBar($this->getProgressOutput());
         $progress->setMessage('Loading activities...');
@@ -126,25 +130,42 @@ readonly class ActivityLoader
         $progress->start($limit);
 
         $activities = [];
+        $seen = [];
+        $last = null;
         while ($limit === null || count($activities) < $limit) {
-            if ($activity = end($activities)) {
-                if (empty($activity->created_at)) {
+            if ($last !== null) {
+                if (empty($last->created_at)) {
                     // Can't advance the cursor without a timestamp; the next
                     // page would be a duplicate of this one.
                     break;
                 }
-                $startsAt = new DateTime($activity->created_at);
+                $startsAt = new DateTime($last->created_at);
             }
-            $nextActivities = $apiResource->getActivities($limit ? $limit - count($activities) : 0, $types, $startsAt, $state, $result);
+            // A next page starts with the last activity seen, so it needs one more.
+            $count = $limit ? $limit - count($activities) + ($last !== null ? 1 : 0) : 0;
+            if ($count && $excludeTypes) {
+                // Fetch larger pages, which excluded activities may fill.
+                $count = max($count, self::EXCLUDE_PAGE_SIZE);
+            }
+            $nextActivities = $apiResource->getActivities($count, $types, $startsAt, $state, $result);
             $new = false;
             foreach ($nextActivities as $activity) {
-                if (!isset($activities[$activity->id])) {
-                    $activities[$activity->id] = $activity;
-                    $new = true;
-                    if (isset($stopCondition) && $stopCondition($activity)) {
-                        $progress->setProgress(count($activities));
-                        break 2;
-                    }
+                if (isset($seen[$activity->id])) {
+                    continue;
+                }
+                $seen[$activity->id] = true;
+                $last = $activity;
+                $new = true;
+                if ($excludeTypes && Wildcard::select([$activity->type], $excludeTypes)) {
+                    continue;
+                }
+                $activities[$activity->id] = $activity;
+                if (isset($stopCondition) && $stopCondition($activity)) {
+                    $progress->setProgress(count($activities));
+                    break 2;
+                }
+                if ($limit && count($activities) >= $limit) {
+                    break;
                 }
             }
             if (!$new) {

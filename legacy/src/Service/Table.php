@@ -114,9 +114,10 @@ class Table implements InputConfiguringInterface
     {
         $stdErr = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;
         $columns = $this->specifiedColumns();
+        $lowerColumns = array_map('strtolower', $columns);
         foreach ($replacements as $old => $new) {
-            if (($pos = \array_search($old, $columns, true)) !== false) {
-                $stdErr->writeln(\sprintf('<options=reverse>DEPRECATED</> The column <comment>%s</comment> has been replaced by <info>%s</info>.', $old, $new));
+            if (($pos = \array_search(strtolower($old), $lowerColumns, true)) !== false) {
+                $stdErr->writeln(\sprintf('<options=reverse>DEPRECATED</> The column <comment>%s</comment> has been replaced by <info>%s</info>.', $columns[$pos], $new));
                 $columns[$pos] = $new;
             }
         }
@@ -137,9 +138,10 @@ class Table implements InputConfiguringInterface
     {
         $stdErr = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;
         $columns = $this->specifiedColumns();
+        $lowerColumns = array_map('strtolower', $columns);
         foreach ($remove as $name) {
-            if (($pos = \array_search($name, $columns, true)) !== false) {
-                $stdErr->writeln(\sprintf('<options=reverse>DEPRECATED</> The column <comment>%s</comment> has been removed.', $name));
+            if (($pos = \array_search(strtolower($name), $lowerColumns, true)) !== false) {
+                $stdErr->writeln(\sprintf('<options=reverse>DEPRECATED</> The column <comment>%s</comment> has been removed.', $columns[$pos]));
                 $columns[$pos] = $placeholder;
             }
         }

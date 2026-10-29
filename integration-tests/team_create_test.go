@@ -39,3 +39,34 @@ func TestTeamCreateNoLabel(t *testing.T) {
 	assert.Contains(t, stderr, "The --label option is required in non-interactive mode.")
 	assert.NotContains(t, stderr, "TypeError")
 }
+
+// TestTeamCreateEmptyRole checks that "production:" is rejected rather than
+// completed to the first role, admin.
+func TestTeamCreateEmptyRole(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+
+	myUserID := "user-for-team-create-empty-role-test"
+
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.SetMyUser(&mockapi.User{ID: myUserID})
+	org := makeOrg("org-id-1", "acme", "ACME Inc.", myUserID, "flexible")
+	org.Capabilities = []string{"teams"}
+	org.Links = mockapi.MakeHALLinks(
+		"self=/organizations/org-id-1",
+		"members=/organizations/org-id-1/members",
+	)
+	apiHandler.SetOrgs([]*mockapi.Org{org})
+
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+
+	_, stderr, err := f.RunCombinedOutput("team:create", "--org", "acme", "--label", "Ops", "--no-check-unique",
+		"-r", "viewer", "-r", "production:")
+	assert.Error(t, err)
+	assert.Contains(t, stderr, "A role cannot be empty.")
+	assert.Empty(t, apiHandler.Requests("POST", "/teams"))
+}

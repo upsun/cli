@@ -173,7 +173,7 @@ class AdaptiveTable extends Table
     {
         $plainText = Helper::removeDecoration($this->outputCopy->getFormatter(), $formattedText);
         if ($plainText === $formattedText) {
-            return wordwrap($plainText, $maxLength, "\n", true);
+            return $this->wordwrap($plainText, $maxLength);
         }
 
         // Find all open and closing tags in the formatted text, with their
@@ -199,18 +199,10 @@ class AdaptiveTable extends Table
         $remaining = $plainText;
         $lines = [];
         $removedCharacters = [];
-        while (!empty($remaining)) {
-            if (strlen($remaining) > $maxLength) {
-                $spacePos = strrpos(substr($remaining, 0, $maxLength + 1), ' ');
-                if ($spacePos !== false) {
-                    $breakPosition = $spacePos + 1;
-                } else {
-                    $breakPosition = $maxLength;
-                    // Adjust for \< which will be converted to < later.
-                    $breakPosition += substr_count($remaining, '\\<', 0, $breakPosition);
-                }
-                $line = substr($remaining, 0, $breakPosition);
-                $remaining = substr($remaining, $breakPosition);
+        while ($remaining !== '') {
+            if (($break = $this->findBreak($remaining, $maxLength)) !== null) {
+                $line = substr($remaining, 0, $break);
+                $remaining = substr($remaining, $break);
             } else {
                 $line = $remaining;
                 $remaining = '';
@@ -251,6 +243,87 @@ class AdaptiveTable extends Table
     }
 
     /**
+     * Wraps text like wordwrap($text, $width, "\n", true), by display width instead of bytes.
+     */
+    private function wordwrap(string $text, int $width): string
+    {
+        $lines = [];
+        $line = '';
+        $lineWidth = 0;
+        // The byte offset and preceding width of the last space that is not at the start of the line.
+        $space = null;
+        foreach ($this->splitCharacters($text) as $char) {
+            if ($char === "\n" || ($char === ' ' && $lineWidth >= $width)) {
+                $lines[] = $line;
+                [$line, $lineWidth, $space] = ['', 0, null];
+                continue;
+            }
+            $charWidth = Helper::width($char);
+            while ($line !== '' && $lineWidth + $charWidth > $width) {
+                if ($space !== null) {
+                    [$offset, $widthBefore] = $space;
+                    $lines[] = substr($line, 0, $offset);
+                    $line = substr($line, $offset + 1);
+                    $lineWidth -= $widthBefore + 1;
+                    $space = null;
+                } else {
+                    $lines[] = $line;
+                    [$line, $lineWidth] = ['', 0];
+                }
+            }
+            if ($char === ' ' && $line !== '') {
+                $space = [\strlen($line), $lineWidth];
+            }
+            $line .= $char;
+            $lineWidth += $charWidth;
+        }
+        $lines[] = $line;
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Finds where to break a line of text so that it fits a display width.
+     *
+     * Breaks after the last space that fits, or else cuts the text at the
+     * width. An escaped tag opening, "\<", counts as one character.
+     *
+     * @return int|null
+     *   The byte offset where the next line starts, or null if the text fits.
+     */
+    private function findBreak(string $text, int $maxWidth): ?int
+    {
+        $width = 0;
+        $offset = 0;
+        $space = null;
+        foreach ($this->splitCharacters($text) as $char) {
+            if ($char === ' ') {
+                $space = $offset;
+            }
+            $charWidth = $char === '\\<' ? 1 : Helper::width($char);
+            if ($width + $charWidth > $maxWidth) {
+                // Cut after at least one character.
+                return $space !== null ? $space + 1 : ($offset ?: \strlen($char));
+            }
+            $width += $charWidth;
+            $offset += \strlen($char);
+        }
+
+        return null;
+    }
+
+    /**
+     * Splits text into characters, keeping an escaped tag opening, "\<", as one.
+     *
+     * @return string[]
+     */
+    private function splitCharacters(string $text): array
+    {
+        // Invalid UTF-8 is split into bytes.
+        return preg_match_all('/\\\\<|./us', $text, $matches) !== false ? $matches[0] : str_split($text);
+    }
+
+    /**
      * Finds the maximum width of each column's content, so that the table fits into the maximum table width.
      *
      * This is similar to a web browser's automatic table layout. Each column
@@ -279,7 +352,7 @@ class AdaptiveTable extends Table
             }
             $columnCount = 0;
             foreach ($row as $column => $cell) {
-                $columnCount += $cell instanceof TableCell ? $cell->getColspan() - 1 : 1;
+                $columnCount += $cell instanceof TableCell ? $cell->getColspan() : 1;
 
                 // The maximum column width is the width of the widest cell.
                 $cellWidth = (int) ceil($this->getCellWidth($cell));

@@ -76,7 +76,7 @@ class EnvironmentDeployTypeCommand extends CommandBase
 
         if ($newType === 'manual' && !$environment->isActive()) {
             $this->stdErr->writeln('The <comment>manual</comment> deployment type is not available as the environment is not active.');
-            return 0;
+            return 1;
         }
 
         $this->stdErr->writeln(sprintf(

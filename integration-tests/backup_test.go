@@ -200,6 +200,11 @@ func TestBackupDelete(t *testing.T) {
 	assertExitCode(t, 1, err)
 	assert.Contains(t, stderr, "Are you sure you want to delete the backup 456")
 	assert.Equal(t, wantStatuses, backupStatuses(apiHandler, projectID))
+
+	apiHandler.SetActivityResult(mockapi.ActivityResultFailure)
+	_, stderr, err = f.RunCombinedOutput("backup:delete", "-p", projectID, "-e", "main", "456")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "The activity failed")
 }
 
 // backupStatuses returns the statuses of a project's backups, keyed by ID.
@@ -291,4 +296,40 @@ func TestBackupRestore(t *testing.T) {
 
 		assert.Len(t, apiHandler.BackupRestores(projectID), len(cases))
 	})
+}
+
+func TestBackupListDeprecatedColumnsIgnoreCase(t *testing.T) {
+	t.Parallel()
+	_, f, projectID := setUpBackups(t)
+	f.extraEnv = append(f.extraEnv, "COLUMNS=500")
+
+	stdout, stderr, err := f.RunCombinedOutput("backups", "-p", projectID, "-e", "main",
+		"-c", "Created,NAME,State", "--format", "csv")
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "The column Created has been replaced by created_at.")
+	assert.Contains(t, stderr, "The column NAME has been replaced by id.")
+	assert.Contains(t, stderr, "The column State has been removed.")
+	assert.True(t, strings.HasPrefix(stdout, "Created,Backup ID,[Deprecated]\n2015-04-01T10:00:00+00:00,456,\n"), stdout)
+}
+
+// An active environment without the backup operation: only a non-admin is told that they must be an administrator.
+func TestBackupCreateUnavailable(t *testing.T) {
+	t.Parallel()
+	for _, role := range []string{"admin", "viewer"} {
+		t.Run(role, func(t *testing.T) {
+			t.Parallel()
+			p := setUpProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil))
+			p.api.SetUserGrants([]*mockapi.UserGrant{{
+				ResourceID: layoutProjectID, ResourceType: "project", UserID: "my-user-id", Permissions: []string{role},
+			}})
+			_, stdErr, err := p.f.RunCombinedOutput("backup:create", "-p", layoutProjectID, "-e", "main")
+			assertExitCode(t, 1, err)
+			assert.Contains(t, stdErr, "Operation not available: cannot create a backup of main")
+			if role == "admin" {
+				assert.NotContains(t, stdErr, "You must be an administrator")
+			} else {
+				assert.Contains(t, stdErr, "You must be an administrator to create a backup.")
+			}
+		})
+	}
 }

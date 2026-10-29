@@ -317,7 +317,8 @@ abstract class IntegrationCommandBase extends CommandBase
                 'validator' => fn($string): bool => substr_count((string) $string, '/', 1) === 1,
                 'normalizer' => function ($string) {
                     if (preg_match('#^https?://#', $string)) {
-                        return parse_url($string, PHP_URL_PATH);
+                        $path = trim((string) parse_url($string, PHP_URL_PATH), '/');
+                        return str_ends_with($path, '.git') ? substr($path, 0, -4) : $path;
                     }
 
                     return $string;

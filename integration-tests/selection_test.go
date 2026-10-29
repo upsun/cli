@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -70,6 +71,11 @@ func TestProjectAndEnvironmentSelection(t *testing.T) {
 		f := f.forSubtest(t)
 		f.extraEnv = append(f.extraEnv, "PLATFORM_PROJECT="+layoutProjectID, "PLATFORM_BRANCH=staging")
 		assert.Equal(t, "staging\n", f.Run("env:info", "id"))
+
+		// The branch variable is ignored for another project, whose only environment is then selected by default.
+		stdOut, stdErr, err := f.RunInteractive("", "env:info", "-p", singleEnvProjectID, "id")
+		require.NoError(t, err, stdErr)
+		assert.Equal(t, "prod\n", stdOut)
 	})
 
 	t.Run("interactive project choice", func(t *testing.T) {
@@ -93,6 +99,13 @@ func TestProjectAndEnvironmentSelection(t *testing.T) {
 		stdOut, stdErr, err = f.RunInteractive("1\n", "env:info", "-p", layoutProjectID, "id")
 		require.NoError(t, err, stdErr)
 		assert.Equal(t, "staging\n", stdOut)
+	})
+
+	t.Run("default environment code", func(t *testing.T) {
+		stdOut, stdErr, err := f.RunCombinedOutput("env:info", "-p", singleEnvProjectID, "-e", ".", "id", "-v")
+		require.NoError(t, err, stdErr)
+		assert.Equal(t, "prod\n", stdOut)
+		assert.Equal(t, 1, strings.Count(stdErr, "Selected environment:"), stdErr)
 	})
 
 	cases := []struct {

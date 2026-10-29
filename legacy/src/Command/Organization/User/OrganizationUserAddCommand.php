@@ -10,6 +10,7 @@ use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\QuestionHelper;
 use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Console\ArrayArgument;
+use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Util\OsUtil;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
@@ -86,8 +87,14 @@ class OrganizationUserAddCommand extends OrganizationUserCommandBase
             return 1;
         }
 
-        $permissions = ArrayArgument::getOption($input, 'permission');
-        if (empty($permissions)) {
+        // An explicit empty value (--permission "") means no permissions.
+        $permissionOption = Option::stringArray($input, 'permission');
+        $permissions = array_values(array_unique(ArrayArgument::split($permissionOption)));
+        if ($update && empty($permissionOption) && !$input->isInteractive()) {
+            $this->stdErr->writeln('The --permission option is required in non-interactive mode.');
+            return 1;
+        }
+        if (empty($permissionOption)) {
             $this->stdErr->writeln('A user may have any of the following permissions: ' . $this->listPermissions() . '.');
             if ($existingMember) {
                 $this->stdErr->writeln(sprintf('The user <info>%s</info> currently has the following permissions: %s.', $this->memberLabel($existingMember), $this->listPermissions($existingMember->permissions)));
@@ -112,8 +119,12 @@ class OrganizationUserAddCommand extends OrganizationUserCommandBase
         }
 
         if ($update) {
-            if ($existingMember->permissions == $permissions) {
-                $this->stdErr->writeln(\sprintf("The user's permissions are already set to: %s", $this->listPermissions($permissions)));
+            $sortedExisting = $existingMember->permissions;
+            $sortedNew = $permissions;
+            sort($sortedExisting);
+            sort($sortedNew);
+            if ($sortedExisting === $sortedNew) {
+                $this->stdErr->writeln(\sprintf("The user's permissions are already set to: %s", $this->listPermissions($existingMember->permissions)));
                 return 0;
             }
 

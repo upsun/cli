@@ -74,8 +74,9 @@ class BackupDeleteCommand extends CommandBase
         $this->stdErr->writeln(sprintf('The backup <info>%s</info> has been deleted.', $this->labelBackup($backup)));
 
         if ($this->activityMonitor->shouldWait($input)) {
-            $activityMonitor = $this->activityMonitor;
-            $activityMonitor->waitMultiple($result->getActivities(), $selection->getProject());
+            if (!$this->activityMonitor->waitMultiple($result->getActivities(), $selection->getProject())) {
+                return 1;
+            }
         }
 
         return 0;

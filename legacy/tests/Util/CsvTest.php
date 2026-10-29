@@ -42,6 +42,13 @@ class CsvTest extends TestCase
         $this->assertEquals($expected, $actual);
     }
 
+    public function testQuotesCellsWithAnyLineBreak(): void
+    {
+        $data = [['a', "b\rc", "d\u{2028}e", "f\vg"]];
+        $this->assertEquals("a,\"b\nc\",\"d\ne\",\"f\ng\"", (new Csv(',', "\n"))->format($data, false));
+        $this->assertEquals("a,\"b\r\nc\",\"d\r\ne\",\"f\r\ng\"", (new Csv())->format($data, false));
+    }
+
     public function testPlain(): void
     {
         $expected = "Year\tMake\tModel\tDescription\tPrice\n"

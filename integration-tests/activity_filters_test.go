@@ -219,3 +219,47 @@ func TestActivityCancelFilters(t *testing.T) {
 		})
 	}
 }
+
+// TestActivityListExcludeType checks that --exclude-type keeps types the CLI does not know, and fills the --limit.
+func TestActivityListExcludeType(t *testing.T) {
+	t.Parallel()
+	p := setUpProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil))
+	start, _ := time.Parse(time.RFC3339, "2014-04-01T10:00:00Z")
+	activity := func(id, typ string, minutesAgo int) *mockapi.Activity {
+		created := start.Add(-time.Duration(minutesAgo) * time.Minute)
+		return &mockapi.Activity{
+			ID: id, Type: typ, State: "complete", Result: "success", CompletionPercent: 100, Project: layoutProjectID,
+			Environments: []string{"main"}, Description: "Mock " + typ, CreatedAt: created, UpdatedAt: created,
+		}
+	}
+	p.api.SetProjectActivities(layoutProjectID, []*mockapi.Activity{
+		activity("new1", "environment.some_new_type", 1),
+		activity("cron1", "environment.cron", 2),
+		activity("cron2", "environment.cron", 3),
+		activity("cron3", "environment.cron", 4),
+		activity("push", "environment.push", 5),
+		activity("new2", "environment.some_new_type", 6),
+	})
+
+	cases := []struct {
+		args       []string
+		wantOut    string
+		wantStdErr string
+	}{
+		{args: []string{"-x", "cron"}, wantOut: "new1\npush\nnew2"},
+		{args: []string{"-x", "cron", "--limit", "2"}, wantOut: "new1\npush"},
+		{
+			args:       []string{"-x", "some_new_type,push"},
+			wantOut:    "cron1\ncron2\ncron3",
+			wantStdErr: "Unrecognized activity type to exclude: some_new_type",
+		},
+	}
+	for _, c := range cases {
+		args := append([]string{"activity:list", "-p", layoutProjectID, "--all",
+			"--format", "plain", "--columns", "id", "--no-header"}, c.args...)
+		stdout, stderr, err := p.f.RunCombinedOutput(args...)
+		require.NoError(t, err, stderr)
+		assertTrimmed(t, c.wantOut, stdout)
+		assert.Contains(t, stderr, c.wantStdErr)
+	}
+}
