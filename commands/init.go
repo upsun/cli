@@ -175,6 +175,12 @@ func runInitCommand(
 		return err
 	}
 
+	initOptions.IsInteractive = isInteractive
+	initOptions.Yes = viper.GetBool("yes")
+	if ok, err := _init.ConfirmOverwrite(initOptions, gitRoot, stderr); err != nil || !ok {
+		return err
+	}
+
 	debugLogf("Analyzing repository")
 	dg, err := generateDigest(cmd.Context(), gitRoot)
 	if err != nil {
@@ -184,8 +190,6 @@ func runInitCommand(
 	initOptions.HTTPClient = ia.httpClient
 	initOptions.APIURL = ia.apiURL
 	initOptions.UserAgent = cnf.UserAgent()
-	initOptions.IsInteractive = isInteractive
-	initOptions.Yes = viper.GetBool("yes")
 	initOptions.IsDebug = viper.GetBool("debug")
 	initOptions.DebugLogFunc = debugLogf
 

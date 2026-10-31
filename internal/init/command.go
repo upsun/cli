@@ -43,7 +43,8 @@ type Options struct {
 	DebugLogFunc  func(fmt string, args ...any)
 }
 
-// RunAIConfig runs the command to generate configuration for a project using AI.
+// RunAIConfig runs the command to generate configuration for a project using AI. It does not prompt before its
+// request, so that it can be run again after a login; call ConfirmOverwrite first.
 func RunAIConfig(
 	ctx context.Context,
 	cnf *config.Config,
@@ -66,15 +67,8 @@ func RunAIConfig(
 		return fmt.Errorf("only local file paths are supported")
 	}
 
-	var (
-		configRelativePath = filepath.Join(".upsun", "config.yaml")
-		configAbsPath      = filepath.Join(path, configRelativePath)
-	)
-	if res, err := confirmOverwrite(opts, configAbsPath, stderr); err != nil {
-		return err
-	} else if !res {
-		return nil
-	}
+	configRelativePath := filepath.Join(".upsun", "config.yaml")
+	configAbsPath := filepath.Join(path, configRelativePath)
 
 	bodyBytes, err := json.Marshal(Input{
 		Digest:         dg,
@@ -235,7 +229,9 @@ func confirm(stderr io.Writer, promptText string) (result bool, err error) {
 	return
 }
 
-func confirmOverwrite(opts *Options, absPath string, stderr io.Writer) (bool, error) {
+// ConfirmOverwrite asks whether to overwrite the configuration file in a directory, if it exists.
+func ConfirmOverwrite(opts *Options, dir string, stderr io.Writer) (bool, error) {
+	absPath := filepath.Join(dir, ".upsun", "config.yaml")
 	if _, err := os.Stat(absPath); err == nil {
 		if !opts.IsInteractive && !opts.Yes {
 			return false, fmt.Errorf("the configuration file already exists: %s", absPath)
