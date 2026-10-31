@@ -128,3 +128,50 @@ func TestInit_StepUp(t *testing.T) {
 		})
 	}
 }
+
+// TestInit_Unauthorized checks that a request rejected with a new token reports that login is required, as in the
+// legacy CLI.
+func TestInit_Unauthorized(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("the repository digest fails on Windows: whatsun opens its embedded rules with OS-specific paths")
+	}
+	cases := []struct {
+		name     string
+		apiToken bool
+		want     string
+	}{
+		{name: "session", want: "Please log in by running:\n    platform-test login"},
+		{name: "API token", apiToken: true, want: "The API token was rejected. It may be invalid or revoked."},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			authServer := mockapi.NewAuthServer(t)
+			defer authServer.Close()
+			apiHandler := mockapi.NewHandler(t)
+			for range 2 {
+				apiHandler.FailNext("POST", "/ai/generate-configuration", http.StatusUnauthorized,
+					mockapi.Problem(http.StatusUnauthorized, "Invalid token."))
+			}
+			apiServer := httptest.NewServer(apiHandler)
+			defer apiServer.Close()
+
+			f := newInitRepo(t, apiServer.URL, authServer.URL)
+			f.extraEnv = append(f.extraEnv, EnvPrefix+"GO_AUTH=1")
+			if !c.apiToken {
+				f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
+				authServer.AddRefreshToken("refresh-token")
+				writeOAuthSession(t, f.home, "default", map[string]any{
+					"accessToken": "valid-token", "expires": time.Now().Add(time.Hour).Unix(),
+					"refreshToken": "refresh-token",
+				})
+			}
+			_, stderr, err := f.RunCombinedOutput("init", "--ai=true")
+			assertExitCode(t, 3, err)
+			assert.Contains(t, stderr, c.want)
+			assert.NotContains(t, stderr, "API error")
+			assert.Len(t, apiHandler.Requests("POST", "/ai/generate-configuration"), 2)
+		})
+	}
+}
