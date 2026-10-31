@@ -138,6 +138,57 @@ func authChannelChild(t *testing.T) {
 		env("TEST_API_TOKEN"))
 }
 
+// TestServeListener_AcceptError checks that the channel keeps listening after an error from Accept.
+func TestServeListener_AcceptError(t *testing.T) {
+	t.Setenv("TEST_HOME", t.TempDir())
+	t.Setenv("TEST_API_DISABLE_CREDENTIAL_HELPERS", "1")
+	cmd := &exec.Cmd{}
+	l, err := listenAuthChannel(testConfig(), cmd)
+	require.NoError(t, err)
+	s := &authChannelServer{cnf: testConfig(), stderr: io.Discard, managers: map[string]*auth.Manager{}}
+	ctx, cancel := context.WithCancel(context.Background())
+	pid := make(chan int, 1)
+	pid <- os.Getpid()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.serveListener(ctx, &failOnceListener{Listener: l}, pid)
+	}()
+	defer func() {
+		cancel()
+		_ = l.Close()
+		<-done
+	}()
+	env := map[string]string{}
+	for _, e := range cmd.Env {
+		name, value, _ := strings.Cut(e, "=")
+		env[name] = value
+	}
+
+	conn, err := dialAuthChannel(func(name string) string { return env[name] })
+	require.NoError(t, err)
+	defer conn.Close()
+	_, err = conn.Write([]byte(`{"command": "other", "session_id": "default"}` + "\n"))
+	require.NoError(t, err)
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(10*time.Second)))
+	line, err := bufio.NewReader(conn).ReadString('\n')
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"error": "unknown command: other"}`, line)
+}
+
+type failOnceListener struct {
+	net.Listener
+	failed bool
+}
+
+func (l *failOnceListener) Accept() (net.Conn, error) {
+	if !l.failed {
+		l.failed = true
+		return nil, errors.New("transient")
+	}
+	return l.Listener.Accept()
+}
+
 func TestWithoutEnv(t *testing.T) {
 	env := []string{"TEST_TOKEN=a", "TEST_API_TOKEN=b", "TEST_API_ACCESS_TOKEN=c", "TEST_TOKEN_OTHER=d", "OTHER_TOKEN=e",
 		"TEST_SESSION_ID=f", "test_Token=g"}

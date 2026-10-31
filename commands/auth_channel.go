@@ -118,7 +118,13 @@ func (s *authChannelServer) serveListener(ctx context.Context, l net.Listener, p
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			return
+			if ctx.Err() != nil {
+				return
+			}
+			// Other errors can be transient, e.g. a client that disconnects while it connects.
+			debugLogf("Auth channel: %s", err)
+			time.Sleep(10 * time.Millisecond)
+			continue
 		}
 		// The child may connect before this process has its PID.
 		if childPID == 0 {
