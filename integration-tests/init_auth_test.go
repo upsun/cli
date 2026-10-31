@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -65,4 +66,46 @@ func TestInit_LoginRequired(t *testing.T) {
 	assertExitCode(t, 3, err)
 	assert.Contains(t, stderr, "Authentication is required.")
 	assert.Empty(t, apiHandler.Requests("POST", "/ai/generate-configuration"))
+}
+
+// TestInit_StepUp checks that a step-up authentication challenge (RFC 9470) for the AI configuration request reports
+// the required login, as in other commands.
+func TestInit_StepUp(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("the repository digest fails on Windows: whatsun opens its embedded rules with OS-specific paths")
+	}
+	cases := []struct {
+		name     string
+		apiToken bool
+		want     string
+	}{
+		{name: "session", want: "Please log in by running:\n    platform-test login --method mfa"},
+		{name: "API token", apiToken: true, want: "The API token may need to be re-created after enabling MFA."},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			authServer := mockapi.NewAuthServer(t)
+			defer authServer.Close()
+			apiHandler := mockapi.NewHandler(t)
+			apiHandler.RequireStepUp([]string{"mfa"})
+			apiServer := httptest.NewServer(apiHandler)
+			defer apiServer.Close()
+
+			f := newInitRepo(t, apiServer.URL, authServer.URL)
+			f.extraEnv = append(f.extraEnv, EnvPrefix+"GO_AUTH=1")
+			if !c.apiToken {
+				f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
+				writeOAuthSession(t, f.home, "default", map[string]any{
+					"accessToken": "valid-token", "expires": time.Now().Add(time.Hour).Unix(),
+				})
+			}
+			_, stderr, err := f.RunCombinedOutput("init", "--ai=true")
+			assertExitCode(t, 3, err)
+			assert.Contains(t, stderr, "Multi-factor authentication (MFA) is required.")
+			assert.Contains(t, stderr, c.want)
+			assert.NotContains(t, stderr, "Error:")
+		})
+	}
 }

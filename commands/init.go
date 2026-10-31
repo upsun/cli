@@ -190,7 +190,10 @@ func runInitCommand(
 	initOptions.IsDebug = viper.GetBool("debug")
 	initOptions.DebugLogFunc = debugLogf
 
-	return _init.RunAIConfig(cmd.Context(), cnf, dg, gitRoot, initOptions, cmd.OutOrStdout(), cmd.ErrOrStderr())
+	// The request can get a step-up authentication challenge.
+	return ia.withLogin(func() error {
+		return _init.RunAIConfig(cmd.Context(), cnf, dg, gitRoot, initOptions, cmd.OutOrStdout(), cmd.ErrOrStderr())
+	})
 }
 
 // initAuth provides authentication for init, using Go auth or the legacy CLI.
