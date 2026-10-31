@@ -64,6 +64,11 @@ func TestLoginRequiredMessage(t *testing.T) {
 				"The API token may need to be re-created after enabling MFA.",
 		},
 		{
+			name: "API token",
+			err:  auth.LoginRequiredError{Notice: "The API token is invalid.", HasAPIToken: true},
+			want: "Authentication is required.\n\nCheck the API token, or create a new one.",
+		},
+		{
 			name: "SSO with an API token",
 			err:  auth.LoginRequiredError{AuthMethods: []string{"sso:acme"}, HasAPIToken: true},
 			want: "Single sign-on (SSO) is required.",

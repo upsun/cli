@@ -31,7 +31,9 @@ func TestAuthLoginRequired_ConfiguredToken(t *testing.T) {
 		"Multi-factor authentication (MFA) is required.",
 		"The API token may need to be re-created after enabling MFA.",
 	}
-	invalidMessage := []string{"The API token is invalid."}
+	invalidMessage := []string{
+		"The API token is invalid.", "Authentication is required.", "Check the API token, or create a new one.",
+	}
 
 	cases := []struct {
 		name    string
