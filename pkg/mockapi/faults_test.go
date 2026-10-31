@@ -19,7 +19,7 @@ func TestFailNext(t *testing.T) {
 	defer server.Close()
 
 	get := func(path string) (int, string, string) {
-		req, err := http.NewRequest("GET", server.URL+path, nil)
+		req, err := http.NewRequest("GET", server.URL+path, http.NoBody)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", "Bearer token")
 		resp, err := http.DefaultClient.Do(req)

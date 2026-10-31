@@ -132,9 +132,6 @@ func TestWriteCommandAPIErrors(t *testing.T) {
 		api, f, projectID := setUpDomains(t)
 		return f, api, projectID
 	}
-	users := func(t *testing.T) (*cmdFactory, *mockapi.Handler, string) {
-		return setupProjectUsers(t)
-	}
 	teams := func(t *testing.T) (*cmdFactory, *mockapi.Handler, string) {
 		f, api := setupTeams(t)
 		return f, api, ""
@@ -197,7 +194,7 @@ func TestWriteCommandAPIErrors(t *testing.T) {
 			method: "POST", path: "/projects/*/environments/main/domains", success: "added",
 		},
 		{
-			name: "user:add", setup: users,
+			name: "user:add", setup: setupProjectUsers,
 			args:   []string{"user:add", "-p", "PROJECT", "new@example.com", "-r", "viewer", "-r", "development:viewer"},
 			method: "POST", path: "/projects/*/invitations", success: "invited",
 			// The invitation is sent again, with "force".

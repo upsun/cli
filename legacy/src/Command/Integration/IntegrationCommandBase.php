@@ -748,7 +748,12 @@ abstract class IntegrationCommandBase extends CommandBase
         if ($e->getResponse()->getStatusCode() === 400) {
             $data = json_decode((string) $e->getResponse()->getBody(), true);
             if (\is_array($data) && !empty($data['detail']) && \is_array($data['detail'])) {
-                return $data['detail'];
+                $errors = [];
+                foreach ($data['detail'] as $key => $value) {
+                    $errors[\is_int($key) ? $key : (string) $key] = \is_string($value) ? $value : (string) json_encode($value);
+                }
+
+                return $errors;
             }
         }
 
