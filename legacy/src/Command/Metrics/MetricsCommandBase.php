@@ -54,6 +54,9 @@ abstract class MetricsCommandBase extends CommandBase
     // Data points that started within this many seconds of now may still be missing services.
     private const LATEST_SETTLE_TIME = 120;
 
+    /** Seconds per duration unit. */
+    private const DURATION_UNITS = ['d' => 86400, 'h' => 3600, 'm' => 60, 's' => 1];
+
     /**
      * @var bool whether services have been identified that use high memory
      */
@@ -438,17 +441,28 @@ abstract class MetricsCommandBase extends CommandBase
      */
     private function parseDuration(string $value): ?int
     {
+        $value = \trim($value);
         if (\ctype_digit($value)) {
             return (int) $value;
         }
         // Colon notation is [hours:]minutes:seconds, as in Khill\Duration.
-        if (\preg_match('/^(?:(\d+):)?(\d+):(\d+(?:\.\d+)?)$/', \trim($value), $matches)) {
-            return (int) \round((int) $matches[1] * 3600 + (int) $matches[2] * 60 + (float) $matches[3]);
+        if (\preg_match('/^(?:(?<h>\d+):)?(?<m>\d+):(?<s>\d+(?:\.\d+)?)$/D', $value, $matches)) {
+            return (int) \round((int) $matches['h'] * 3600 + (int) $matches['m'] * 60 + (float) $matches['s']);
         }
-        if ($value === '' || !\preg_match('/^(?:(\d+(?:\.\d+)?)\s?d)?\s*(?:(\d+(?:\.\d+)?)\s?h)?\s*(?:(\d+(?:\.\d+)?)\s?m)?\s*(?:(\d+(?:\.\d+)?)\s?s)?$/i', \trim($value), $matches)) {
+        // Units in order, each with an optional space before it, e.g. "1d 2h", "1.5h" or "30 m".
+        $pattern = '/^
+            (?:(?<d>\d+(?:\.\d+)?)\s?d)? \s*
+            (?:(?<h>\d+(?:\.\d+)?)\s?h)? \s*
+            (?:(?<m>\d+(?:\.\d+)?)\s?m)? \s*
+            (?:(?<s>\d+(?:\.\d+)?)\s?s)?
+        $/ixD';
+        if ($value === '' || !\preg_match($pattern, $value, $matches)) {
             return null;
         }
-        $seconds = (float) ($matches[1] ?? 0) * 86400 + (float) ($matches[2] ?? 0) * 3600 + (float) ($matches[3] ?? 0) * 60 + (float) ($matches[4] ?? 0);
+        $seconds = 0.0;
+        foreach (self::DURATION_UNITS as $unit => $factor) {
+            $seconds += (float) ($matches[$unit] ?? 0) * $factor;
+        }
 
         return (int) \round($seconds);
     }
