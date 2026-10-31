@@ -107,6 +107,8 @@ func TestVariableCreateOptions(t *testing.T) {
 			if c.wantErr != "" {
 				assertExitCode(t, 1, err)
 				assert.Contains(t, stderr, c.wantErr)
+				assert.NotContains(t, stderr, ".php line", "an exception was rendered")
+				assert.NotContains(t, stderr, "[-h|--help]", "the usage was shown")
 				assert.Equal(t, before, countPosts())
 				return
 			}
@@ -207,6 +209,8 @@ func TestVariableUpdateOptions(t *testing.T) {
 					assertExitCode(t, c.wantCode, err)
 				}
 				assert.Contains(t, stderr, c.wantErr)
+				assert.NotContains(t, stderr, ".php line", "an exception was rendered")
+				assert.NotContains(t, stderr, "[-h|--help]", "the usage was shown")
 				assert.Empty(t, patches)
 				return
 			}

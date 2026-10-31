@@ -290,6 +290,8 @@ func TestProjectCreateOptions(t *testing.T) {
 			if c.wantErr != "" {
 				assertExitCode(t, 1, err)
 				assert.Contains(t, stderr, c.wantErr)
+				assert.NotContains(t, stderr, ".php line", "an exception was rendered")
+				assert.NotContains(t, stderr, "[-h|--help]", "the usage was shown")
 				assert.Len(t, requests, before)
 				return
 			}
