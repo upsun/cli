@@ -4,6 +4,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/upsun/cli/pkg/mockapi"
 )
 
@@ -21,9 +24,8 @@ func TestUserList(t *testing.T) {
 	apiServer := httptest.NewServer(apiHandler)
 	defer apiServer.Close()
 
-	apiHandler.SetOrgs([]*mockapi.Org{
-		makeOrg("org-id-1", "org-1", "Org 1", myUserID, "flexible"),
-	})
+	org := makeOrg("org-id-1", "org-1", "Org 1", myUserID, "flexible")
+	apiHandler.SetOrgs([]*mockapi.Org{org})
 	apiHandler.SetProjects([]*mockapi.Project{
 		makeProject(projectID, "org-id-1", vendor, "Project 1", "region-1"),
 	})
@@ -76,4 +78,13 @@ my-user-id@example.com	User my-user-id	admin	my-user-id	admin
 user-id-2@example.com	User user-id-2	viewer	user-id-2	viewer, development:viewer
 user-id-3@example.com	User user-id-3	viewer	user-id-3	viewer, production:viewer, development:admin, staging:contributor
 `, f.Run("users", "-p", projectID, "--format", "plain", "--columns", "+perm%"))
+
+	// With teams, the command suggests listing them. A new factory avoids the cached organization.
+	org.Capabilities = []string{"teams"}
+	org.Links["members"] = mockapi.HALLink{HREF: "/organizations/org-id-1/members"}
+	apiHandler.SetOrgs([]*mockapi.Org{org})
+	f = newCommandFactory(t, apiServer.URL, authServer.URL)
+	_, stderr, err := f.RunCombinedOutput("users", "-p", projectID)
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "To list teams with access to the project, run: platform-test teams -p "+projectID)
 }

@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -165,5 +166,62 @@ func TestAuthLogout_Other(t *testing.T) {
 	} else {
 		// "default" session file must still exist. An empty sess-other directory may be left behind.
 		assert.FileExists(t, filepath.Join(sessDir, "sess-default", "sess-default.json"))
+	}
+}
+
+// TestAuthLogout_RevokeFailure checks that a logout retries a revocation once after a transient error, and deletes
+// the session with a warning if revocation fails.
+func TestAuthLogout_RevokeFailure(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name        string
+		failures    int
+		status      int
+		wantRevoked []string
+		wantStderr  []string
+	}{
+		{
+			name: "retried", failures: 1, status: http.StatusServiceUnavailable,
+			wantRevoked: []string{"default-refresh", "default-access"},
+		},
+		{
+			name: "failed", failures: 3, status: http.StatusServiceUnavailable,
+			wantRevoked: []string{"default-access"},
+			wantStderr:  []string{"Warning: failed to revoke the refresh token: token revocation failed with status 503"},
+		},
+		{
+			name: "not retried", failures: 2, status: http.StatusBadRequest, wantRevoked: []string{},
+			wantStderr: []string{
+				"Warning: failed to revoke the refresh token: token revocation failed with status 400",
+				"Warning: failed to revoke the access token: token revocation failed with status 400",
+			},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			authServer := mockapi.NewAuthServer(t)
+			defer authServer.Close()
+			authServer.SetRevokeFailures(c.failures, c.status)
+
+			f := newGoAuthCommandFactory(t, "", authServer.URL)
+			f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
+			writeOAuthSession(t, f.home, "default", map[string]any{
+				"accessToken": "default-access", "refreshToken": "default-refresh",
+				"expires": time.Now().Add(time.Hour).Unix(),
+			})
+
+			_, stderr, err := f.RunCombinedOutput("auth:logout")
+			require.NoError(t, err, "stderr: %s", stderr)
+			assert.Contains(t, stderr, "You are now logged out.")
+			assert.Equal(t, c.wantRevoked, authServer.RevokedTokens())
+			for _, s := range c.wantStderr {
+				assert.Contains(t, stderr, s)
+			}
+			if len(c.wantStderr) == 0 {
+				assert.NotContains(t, stderr, "Warning")
+			}
+			assert.NoFileExists(t, filepath.Join(f.home, ".platform-test-cli", "auth", "default.json"))
+		})
 	}
 }

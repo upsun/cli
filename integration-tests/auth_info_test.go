@@ -162,4 +162,34 @@ func TestAuthInfo_DeprecatedAliases(t *testing.T) {
 	// mail is deprecated alias for email.
 	out = f.Run("auth:info", "-P", "mail")
 	assert.Equal(t, "foo@example.com\n", out)
+
+	stdout, stderr, err := f.RunCombinedOutput("auth:info", "-P", "uuid")
+	require.NoError(t, err)
+	assert.Equal(t, "uid-1\n", stdout)
+	assert.Contains(t, stderr, `the "uuid" property is now named "id".`)
+
+	_, stderr, err = f.RunCombinedOutput("auth:info", "-P", "nonexistent")
+	assert.Error(t, err)
+	assert.Contains(t, stderr, "Property not found: nonexistent")
+
+	_, stderr, err = f.RunCombinedOutput("auth:info", "email", "-P", "id")
+	assert.Error(t, err)
+	assert.Contains(t, stderr, "You cannot use both the <property> argument and the --property option")
+}
+
+// TestAuthInfo_SessionID checks that a session switched with session:switch is shown.
+func TestAuthInfo_SessionID(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.SetMyUser(&mockapi.User{ID: "uid-1"})
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+
+	f.Run("session:switch", "work")
+	_, stderr, err := f.RunCombinedOutput("auth:info")
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "The current session ID is: work\nChange this using: platform-test session:switch")
 }

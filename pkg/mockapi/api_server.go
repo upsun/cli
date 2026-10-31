@@ -79,6 +79,7 @@ func NewHandler(t *testing.T) *Handler {
 	h.Get("/users/me", h.handleUsersMe)
 	h.Get("/me", h.handleMe)
 	h.Get("/users/{user_id}/extended-access", h.handleUserExtendedAccess)
+	h.Get("/users/{user_id}", h.handleGetUser)
 	h.Get("/ref/users", h.handleUserRefs)
 	h.Post("/me/verification", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"state": false, "type": ""})
@@ -126,6 +127,7 @@ func NewHandler(t *testing.T) *Handler {
 	h.Delete("/organizations/{organization_id}", h.handleDeleteOrg)
 	h.Get("/users/{user_id}/organizations", h.handleListOrgs)
 	h.Get("/ref/organizations", h.handleOrgRefs)
+	h.Get("/organizations/{organization_id}/projects", h.handleListOrgProjects)
 
 	h.Post("/organizations/{organization_id}/subscriptions", h.handleCreateSubscription)
 	h.Get("/organizations/{organization_id}/subscriptions", h.handleListOrgSubscriptions)

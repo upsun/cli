@@ -2,12 +2,14 @@ package tests
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -431,4 +433,134 @@ func TestAuthAccessTokenOverridesStoredAPIToken(t *testing.T) {
 	f.extraEnv = append(f.extraEnv, EnvPrefix+"API_TOKEN=from-env")
 	assert.Equal(t, "success", f.Run("api:curl", "/curl-test"))
 	assert.Equal(t, "Bearer from-env", lastRequest(t, apiHandler, "GET", "/curl-test").Header.Get("Authorization"))
+}
+
+// TestAuthLogin_DeclinePromptWithSessions checks the login prompt in a Go command, after a session expired, when
+// there are other sessions.
+func TestAuthLogin_DeclinePromptWithSessions(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+
+	f := newInteractiveGoAuthFactory(t, "", authServer.URL)
+	f.fakeBrowser()
+	future := time.Now().Add(time.Hour).Unix()
+	for _, id := range []string{"work", "personal"} {
+		writeOAuthSession(t, f.home, id, map[string]any{"accessToken": id + "-token", "expires": future})
+	}
+	// An expired session without a refresh token.
+	writeOAuthSession(t, f.home, "default", map[string]any{
+		"accessToken": "expired-token", "expires": time.Now().Add(-time.Hour).Unix(),
+	})
+	f.stdin = strings.NewReader("n\n")
+
+	_, stderr, err := f.RunCombinedOutput("auth:token", "--no-warn")
+	assertExitCode(t, 3, err)
+	assert.Contains(t, stderr, "Your session has expired. You have been logged out.\n\n"+
+		"Authentication is required.\n\n"+
+		"The current session ID is: default\n"+
+		"To switch sessions, run: platform-test session:switch\n\n"+
+		"Log in via a browser? [Y/n] "+
+		"Authentication is required.\n\nPlease log in by running:\n    platform-test login\n")
+}
+
+// TestAuthToken_ANSIFlag checks that the legacy CLI's --ansi option is accepted by Go commands, and forces colors.
+func TestAuthToken_ANSIFlag(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+
+	f := newGoAuthCommandFactory(t, "", authServer.URL)
+	_, stderr, err := f.RunCombinedOutput("auth:token")
+	require.NoError(t, err)
+	assert.Equal(t, "Warning: keep access tokens secret.\n", stderr)
+
+	_, stderr, err = f.RunCombinedOutput("auth:token", "--ansi")
+	require.NoError(t, err)
+	assert.Equal(t, "\x1b[33mWarning: keep access tokens secret.\x1b[0m\n", stderr)
+}
+
+// TestAuthRefresh_LocksDisabled checks that a refresh warns once when locks are disabled.
+func TestAuthRefresh_LocksDisabled(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	authServer.AddRefreshToken("initial-refresh-token")
+
+	f := newGoAuthCommandFactory(t, "", authServer.URL)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=", EnvPrefix+"API_DISABLE_LOCKS=1")
+	writeOAuthSession(t, f.home, "default", map[string]any{
+		"accessToken":  "expired-token",
+		"expires":      time.Now().Add(-time.Hour).Unix(),
+		"refreshToken": "initial-refresh-token",
+	})
+
+	stdout, stderr, err := f.RunCombinedOutput("auth:token", "--no-warn")
+	require.NoError(t, err, "stderr: %s", stderr)
+	assert.Equal(t, "access-token-1", stdout)
+	assert.Equal(t, 1, strings.Count(stderr,
+		"Warning: locks are disabled (api.disable_locks). Concurrent commands can end the session.\n"))
+	assert.Equal(t, 1, authServer.RefreshRequests())
+	assert.NoFileExists(t, filepath.Join(f.home, ".platform-test-cli", "auth", "default.lock"))
+}
+
+// TestAuthInternal_AccessTokenExpiry checks that the expiry of a JWT access token set via config is passed on.
+func TestAuthInternal_AccessTokenExpiry(t *testing.T) {
+	t.Parallel()
+	expires := time.Now().Add(time.Hour).Truncate(time.Second)
+	cases := []struct {
+		name  string
+		token string
+		want  string
+	}{
+		{name: "JWT", token: mockapi.JWTAccessToken("a", expires),
+			want: `{"access_token": %q, "expires": ` + strconv.FormatInt(expires.Unix(), 10) + `}`},
+		{name: "opaque", token: "opaque-token", want: `{"access_token": %q}`},
+		{name: "JWT without expiry", token: "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1MSJ9.c2ln", want: `{"access_token": %q}`},
+		{name: "invalid JWT", token: "a.!.c", want: `{"access_token": %q}`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			f := newGoAuthCommandFactory(t, "", "")
+			f.extraEnv = append(f.extraEnv, EnvPrefix+"API_ACCESS_TOKEN="+c.token)
+			assert.JSONEq(t, fmt.Sprintf(c.want, c.token), f.Run("auth:internal", "token"))
+		})
+	}
+}
+
+// TestAuthKeychainUnavailable checks that a session in a keychain that cannot be used is reported, and replaced by a
+// login.
+func TestAuthKeychainUnavailable(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS != "linux" {
+		t.Skip("the keychain is made unavailable via D-Bus")
+	}
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiServer := newMyUserAPI(t)
+	defer apiServer.Close()
+
+	f := newInteractiveLoginFactory(t, apiServer.URL, authServer.URL)
+	f.extraEnv = append(f.extraEnv, "DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent/dbus")
+	authDir := filepath.Join(f.home, ".platform-test-cli", "auth")
+	require.NoError(t, os.MkdirAll(authDir, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(authDir, ".migrated"), []byte("{}"), 0o600))
+	sessionFile := filepath.Join(authDir, "default.json")
+	require.NoError(t, os.WriteFile(sessionFile, []byte(`{"backend":"keychain","account":"default-1"}`), 0o600))
+
+	_, stderr, err := f.RunCombinedOutput("auth:token", "--no-warn")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "Error: failed to load credentials in the keychain: ")
+	assert.Contains(t, stderr,
+		"Check that the keychain is unlocked, or log in again to store credentials in a file instead.")
+
+	_, stderr, err = f.RunCombinedOutput("auth:browser-login")
+	require.NoError(t, err, "stderr: %s", stderr)
+	assert.Contains(t, stderr, "Warning: failed to load credentials in the keychain: ")
+	assert.Contains(t, stderr, "You are logged in.")
+	assert.Equal(t, "access-token-1", f.Run("auth:token", "--no-warn"))
+	b, err := os.ReadFile(sessionFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(b), `"backend":"file"`)
 }

@@ -22,6 +22,8 @@ type accessStore struct {
 const (
 	invitationPending = "pending"
 	roleAdmin         = "admin"
+	fieldCreatedAt    = "created_at"
+	fieldUpdatedAt    = "updated_at"
 )
 
 // InvitationPermission is an environment type role in a project invitation.
@@ -299,8 +301,8 @@ func (h *Handler) handleCreateProjectInvitation(w http.ResponseWriter, req *http
 		"environments": environments,
 		"email":        inv.Email,
 		"owner":        h.invitationOwner(),
-		"created_at":   inv.CreatedAt,
-		"updated_at":   inv.CreatedAt,
+		fieldCreatedAt: inv.CreatedAt,
+		fieldUpdatedAt: inv.CreatedAt,
 		"finished_at":  nil,
 	})
 }
@@ -322,7 +324,10 @@ func (h *Handler) findOrgMember(orgID, userID string) int {
 	return slices.IndexFunc(h.orgMembers[orgID], func(m *OrgMember) bool { return m.UserID == userID })
 }
 
+// handleListOrgMembers lists an organization's members. Like the API, it sorts by "created_at" or "updated_at"
+// ("-" for descending), and paginates (at most 100 per page).
 func (h *Handler) handleListOrgMembers(w http.ResponseWriter, req *http.Request) {
+	query := req.URL.Query()
 	h.RLock()
 	defer h.RUnlock()
 	orgID := chi.URLParam(req, "organization_id")
@@ -330,24 +335,40 @@ func (h *Handler) handleListOrgMembers(w http.ResponseWriter, req *http.Request)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	items := make([]*orgMember, 0, len(h.orgMembers[orgID]))
-	userIDs := make([]string, 0, len(h.orgMembers[orgID]))
-	for _, m := range h.orgMembers[orgID] {
+	members := slices.Clone(h.orgMembers[orgID])
+	sort := query.Get("sort")
+	switch strings.TrimPrefix(sort, "-") {
+	case "":
+	case fieldCreatedAt:
+		slices.SortStableFunc(members, func(a, b *OrgMember) int { return timeCompare(a.CreatedAt, b.CreatedAt) })
+	case fieldUpdatedAt:
+		slices.SortStableFunc(members, func(a, b *OrgMember) int { return timeCompare(a.UpdatedAt, b.UpdatedAt) })
+	default:
+		writeProblem(w, http.StatusBadRequest, errors.New("invalid sort field: "+sort))
+		return
+	}
+	if strings.HasPrefix(sort, "-") {
+		slices.Reverse(members)
+	}
+	count := len(members)
+	links := MakeHALLinks("self=/organizations/" + url.PathEscape(orgID) + "/members")
+	members, ok := paginate(w, req, members, 100, links)
+	if !ok {
+		return
+	}
+
+	items := make([]*orgMember, 0, len(members))
+	userIDs := make([]string, 0, len(members))
+	for _, m := range members {
 		items = append(items, newOrgMember(m))
 		userIDs = append(userIDs, m.UserID)
 	}
+	links["ref:users:0"] = HALLink{HREF: "/ref/users?in=" + strings.Join(userIDs, ",") + refSig}
 	_ = json.NewEncoder(w).Encode(struct {
 		Count int          `json:"count"`
 		Items []*orgMember `json:"items"`
 		Links HalLinks     `json:"_links,omitempty"`
-	}{
-		Count: len(items),
-		Items: items,
-		Links: MakeHALLinks(
-			"self=/organizations/"+url.PathEscape(orgID)+"/members",
-			"ref:users:0=/ref/users?in="+strings.Join(userIDs, ",")+refSig,
-		),
-	})
+	}{Count: count, Items: items, Links: links})
 }
 
 func (h *Handler) handleGetOrgMember(w http.ResponseWriter, req *http.Request) {
@@ -459,8 +480,8 @@ func (h *Handler) handleCreateOrgInvitation(w http.ResponseWriter, req *http.Req
 		"organization_id": inv.OrganizationID,
 		"permissions":     inv.Permissions,
 		"owner":           h.invitationOwner(),
-		"created_at":      inv.CreatedAt,
-		"updated_at":      inv.CreatedAt,
+		fieldCreatedAt:    inv.CreatedAt,
+		fieldUpdatedAt:    inv.CreatedAt,
 		"finished_at":     nil,
 	})
 }

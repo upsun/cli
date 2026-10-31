@@ -243,11 +243,6 @@ func (m *Manager) SessionIDs(ctx context.Context) ([]string, error) {
 	return out, nil
 }
 
-// Load returns the stored entry for a session, or nil.
-func (m *Manager) Load(ctx context.Context, sessionID string) (*store.Entry, error) {
-	return m.load(ctx, sessionID)
-}
-
 func (m *Manager) load(ctx context.Context, id string) (*store.Entry, error) {
 	if err := m.migrate(ctx); err != nil {
 		return nil, err
