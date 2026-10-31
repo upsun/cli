@@ -1,11 +1,13 @@
 package tests
 
 import (
+	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,31 +26,48 @@ func newInitRepo(t *testing.T, apiURL, authURL string) *cmdFactory {
 	return f
 }
 
-// TestInit_AIRequestIsAuthenticated checks that the AI configuration request is sent with the user's token.
+// TestInit_AIRequestIsAuthenticated checks that the AI configuration request is sent with the user's token, with Go
+// auth and with legacy auth (which needs a JWT access token).
 func TestInit_AIRequestIsAuthenticated(t *testing.T) {
 	t.Parallel()
-	if !goAuthMode() {
-		t.Skip("with legacy auth, init needs a JWT access token, and the mock auth server issues opaque ones")
-	}
 	if runtime.GOOS == "windows" {
 		t.Skip("the repository digest fails on Windows: whatsun opens its embedded rules with OS-specific paths")
 	}
-	authServer := mockapi.NewAuthServer(t)
-	defer authServer.Close()
-	apiHandler := mockapi.NewHandler(t)
-	apiHandler.Post("/ai/generate-configuration", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Retry-After", "5")
-		w.WriteHeader(http.StatusTooManyRequests)
-	})
-	apiServer := httptest.NewServer(apiHandler)
-	defer apiServer.Close()
+	for _, goAuth := range []string{"1", "0"} {
+		t.Run("GO_AUTH="+goAuth, func(t *testing.T) {
+			t.Parallel()
+			authServer := mockapi.NewAuthServer(t)
+			defer authServer.Close()
+			authServer.SetJWTAccessTokens(true)
+			apiHandler := mockapi.NewHandler(t)
+			apiHandler.Post("/ai/generate-configuration", func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Retry-After", "5")
+				w.WriteHeader(http.StatusTooManyRequests)
+			})
+			apiServer := httptest.NewServer(apiHandler)
+			defer apiServer.Close()
 
-	f := newInitRepo(t, apiServer.URL, authServer.URL)
-	_, stderr, err := f.RunCombinedOutput("init", "--ai=true")
-	assertExitCode(t, 1, err)
-	assert.Contains(t, stderr, "rate limit exceeded: please try again after 5 seconds")
-	assert.Equal(t, "Bearer access-token-1",
-		lastRequest(t, apiHandler, "POST", "/ai/generate-configuration").Header.Get("Authorization"))
+			f := newInitRepo(t, apiServer.URL, authServer.URL)
+			f.extraEnv = append(f.extraEnv, EnvPrefix+"GO_AUTH="+goAuth)
+			_, stderr, err := f.RunCombinedOutput("init", "--ai=true")
+			assertExitCode(t, 1, err)
+			assert.Contains(t, stderr, "rate limit exceeded: please try again after 5 seconds")
+			header := lastRequest(t, apiHandler, "POST", "/ai/generate-configuration").Header.Get("Authorization")
+			token, ok := strings.CutPrefix(header, "Bearer ")
+			require.True(t, ok, "header: %s", header)
+			assert.Equal(t, "access-token-1", jwtClaims(t, token)["jti"])
+		})
+	}
+}
+
+// jwtClaims decodes a JWT's claims, without verifying it.
+func jwtClaims(t *testing.T, token string) map[string]any {
+	t.Helper()
+	parts := strings.Split(token, ".")
+	require.Len(t, parts, 3, "token: %s", token)
+	b, err := base64.RawURLEncoding.DecodeString(parts[1])
+	require.NoError(t, err)
+	return jsonObject(t, string(b))
 }
 
 // TestInit_LoginRequired checks that init reports that login is required before sending the AI configuration request.

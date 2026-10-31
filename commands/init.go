@@ -207,6 +207,11 @@ type initAuth struct {
 
 func newInitAuth(cmd *cobra.Command, cnf *config.Config) (*initAuth, error) {
 	if !cnf.GoAuthEnabled() {
+		// The settings apply the user's config file and environment, as the legacy CLI does.
+		settings, err := cnf.Auth()
+		if err != nil {
+			return nil, err
+		}
 		legacyCLIClient, err := auth.NewLegacyCLIClient(cmd.Context(),
 			makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), cmd.ErrOrStderr(), cmd.InOrStdin()))
 		if err != nil {
@@ -214,7 +219,7 @@ func newInitAuth(cmd *cobra.Command, cnf *config.Config) (*initAuth, error) {
 		}
 		return &initAuth{
 			httpClient:          legacyCLIClient.HTTPClient,
-			apiURL:              cnf.API.BaseURL,
+			apiURL:              settings.BaseURL,
 			ensureAuthenticated: func() error { return legacyCLIClient.EnsureAuthenticated(cmd.Context()) },
 			withLogin:           func(fn func() error) error { return fn() },
 		}, nil
