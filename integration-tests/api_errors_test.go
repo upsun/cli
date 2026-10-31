@@ -1,7 +1,10 @@
 package tests
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -104,4 +107,167 @@ func TestAPIErrorOutput(t *testing.T) {
 		"-l", "project", "--name", "foo", "--value", "bar")
 	assertExitCode(t, 255, err)
 	assert.Contains(t, stderr, "resulted in a `409 Conflict` response")
+}
+
+// TestWriteCommandAPIErrors checks how write commands report a failed write request.
+func TestWriteCommandAPIErrors(t *testing.T) {
+	t.Parallel()
+
+	// Each setup returns a factory, the mock API, and a project ID.
+	type setup func(t *testing.T) (*cmdFactory, *mockapi.Handler, string)
+	project := func(t *testing.T) (*cmdFactory, *mockapi.Handler, string) {
+		main := makeEnv(layoutProjectID, "main", "production", "active", nil)
+		main.AddOperations("branch")
+		main.Links["#backup"] = mockapi.HALLink{HREF: "/projects/" + layoutProjectID + "/environments/main/backups"}
+		dev := makeEnv(layoutProjectID, "dev", "development", "active", "main")
+		dev.AddOperations("deactivate")
+		p := setUpProject(t, main, dev)
+		p.api.SetProjectVariables(layoutProjectID, []*mockapi.Variable{{Name: "env:FOO", Value: "foo",
+			Links: mockapi.MakeHALLinks("self=/projects/"+layoutProjectID+"/variables/env:FOO",
+				"#edit=/projects/"+layoutProjectID+"/variables/env:FOO")}})
+		return p.f, p.api, layoutProjectID
+	}
+	domains := func(t *testing.T) (*cmdFactory, *mockapi.Handler, string) {
+		api, f, projectID := setUpDomains(t)
+		return f, api, projectID
+	}
+	users := func(t *testing.T) (*cmdFactory, *mockapi.Handler, string) {
+		return setupProjectUsers(t)
+	}
+	teams := func(t *testing.T) (*cmdFactory, *mockapi.Handler, string) {
+		f, api := setupTeams(t)
+		return f, api, ""
+	}
+	integrations := func(t *testing.T) (*cmdFactory, *mockapi.Handler, string) {
+		p := setUpProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil))
+		p.api.Get("/projects/"+layoutProjectID+"/capabilities", func(w http.ResponseWriter, _ *http.Request) {
+			_ = json.NewEncoder(w).Encode(map[string]any{"integrations": map[string]any{
+				"enabled": true,
+				"config":  map[string]any{"webhook": map[string]any{"enabled": true}},
+			}})
+		})
+		return p.f, p.api, layoutProjectID
+	}
+
+	type outcome struct {
+		code int
+		want string
+	}
+	// The PROJECT argument is replaced by the project ID.
+	cases := []struct {
+		name    string
+		setup   setup
+		args    []string
+		method  string
+		path    string
+		success string // A message claiming success.
+		reports bool   // Whether the command reports API errors itself, and exits with 1.
+		handled map[int]outcome
+	}{
+		{
+			name: "environment:branch", setup: project,
+			args:   []string{"environment:branch", "-p", "PROJECT", "-e", "main", "feature"},
+			method: "POST", path: "/projects/*/environments/main/branch", success: "branched",
+		},
+		{
+			name: "environment:delete", setup: project,
+			args:   []string{"environment:delete", "-p", "PROJECT", "dev"},
+			method: "POST", path: "/projects/*/environments/dev/deactivate", success: "deactivated",
+			reports: true,
+		},
+		{
+			name: "variable:update", setup: project,
+			args:   []string{"variable:update", "-p", "PROJECT", "-l", "project", "env:FOO", "--value", "bar"},
+			method: "PATCH", path: "/projects/*/variables/env:FOO", success: "updated",
+		},
+		{
+			name: "domain:add", setup: domains,
+			args:   []string{"domain:add", "-p", "PROJECT", "-e", "main", "example.com"},
+			method: "POST", path: "/projects/*/environments/main/domains", success: "added",
+		},
+		{
+			name: "user:add", setup: users,
+			args:   []string{"user:add", "-p", "PROJECT", "new@example.com", "-r", "viewer", "-r", "development:viewer"},
+			method: "POST", path: "/projects/*/invitations", success: "invited",
+			// The invitation is sent again, with "force".
+			handled: map[int]outcome{http.StatusConflict: {0, "A new invitation has been sent to new@example.com"}},
+		},
+		{
+			name: "team:create", setup: teams,
+			args:   []string{"team:create", "-o", "acme", "--label", "Ops", "--no-check-unique"},
+			method: "POST", path: "/teams", success: "Created",
+			handled: map[int]outcome{http.StatusConflict: {1, "A team already exists with the same label: Ops"}},
+		},
+		{
+			name: "team:update", setup: teams,
+			args:   []string{"team:update", "-t", "team-dev", "--label", "Devs"},
+			method: "PATCH", path: "/teams/team-dev", success: "updated",
+		},
+		{
+			name: "project:create", setup: teams,
+			args:   []string{"project:create", "--org", "acme", "--title", "T", "--region", "test-region"},
+			method: "POST", path: "/organizations/*/subscriptions", success: "created",
+		},
+		{
+			name: "backup:create", setup: project,
+			args:   []string{"backup:create", "-p", "PROJECT", "-e", "main"},
+			method: "POST", path: "/projects/*/environments/main/backups", success: "Created",
+		},
+		{
+			name: "integration:add", setup: integrations,
+			args:   []string{"integration:add", "-p", "PROJECT", "--type", "webhook", "--url", "https://hooks.example.com/a"},
+			method: "POST", path: "/projects/*/integrations", success: "Created",
+		},
+	}
+	statuses := []struct {
+		status int
+		body   string
+		want   outcome
+	}{
+		{http.StatusForbidden, mockapi.Problem(http.StatusForbidden, "Access denied."),
+			outcome{6, "Access denied."}},
+		{http.StatusNotFound, mockapi.Problem(http.StatusNotFound, "Not here."), outcome{255, "404 Not Found"}},
+		{http.StatusConflict, mockapi.Problem(http.StatusConflict, "Conflicting change."),
+			outcome{255, "409 Conflict"}},
+		{http.StatusInternalServerError, `{"status":"error","code":500,"message":"Internal Server Error"}`,
+			outcome{255, "500 Internal Server Error"}},
+		{http.StatusBadGateway, "<html><body><h1>502 Bad Gateway</h1></body></html>",
+			outcome{255, "502 Bad Gateway"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			f, api, projectID := c.setup(t)
+			args := slices.Clone(c.args)
+			if i := slices.Index(args, "PROJECT"); i >= 0 {
+				args[i] = projectID
+			}
+			for _, s := range statuses {
+				t.Run(http.StatusText(s.status), func(t *testing.T) {
+					want, handled := c.handled[s.status]
+					switch {
+					case handled:
+					case c.reports:
+						want = outcome{1, fmt.Sprintf("The API returned %d %s for %s", s.status,
+							http.StatusText(s.status), c.method)}
+					default:
+						want = s.want
+					}
+					before := len(api.Requests(c.method, c.path))
+					api.FailNext(c.method, c.path, s.status, s.body)
+					stdout, stderr, err := f.forSubtest(t).RunCombinedOutput(args...)
+					assert.Greater(t, len(api.Requests(c.method, c.path)), before, "the write request was made")
+					assert.Contains(t, stderr, want.want)
+					assertCleanAPIError(t, stderr)
+					if want.code == 0 {
+						assert.NoError(t, err)
+						return
+					}
+					assertExitCode(t, want.code, err)
+					assert.NotContains(t, stderr, c.success)
+					assert.Empty(t, stdout)
+				})
+			}
+		})
+	}
 }
