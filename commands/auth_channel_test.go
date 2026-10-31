@@ -5,13 +5,19 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -59,35 +65,77 @@ func TestAuthChannelServer(t *testing.T) {
 	<-done
 }
 
-// TestPrepareAuthChannel checks that a child process can send requests on the inherited descriptor, and that it does
-// not inherit the token variables, or the channel variables of a parent wrapper.
+// TestPrepareAuthChannel checks that a child process can send requests on the channel, one connection for each, that
+// connections from other processes are refused, and that the child does not inherit the token variables, or the
+// channel variables of a parent wrapper.
 func TestPrepareAuthChannel(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("see TestWindowsAuthChannel")
+	if os.Getenv("TEST_AUTH_CHANNEL_CHILD") == "1" {
+		authChannelChild(t)
+		return
 	}
 	t.Setenv("TEST_HOME", t.TempDir())
 	t.Setenv("TEST_API_DISABLE_CREDENTIAL_HELPERS", "1")
 	t.Setenv("TEST_API_ACCESS_TOKEN", "raw-token")
 	t.Setenv("TEST_API_TOKEN", "raw-token")
 
-	cmd := exec.Command("sh", "-c", `printf '%s\n' "$REQUEST" >&"$TEST_WRAPPER_AUTH_FD"
-head -n 1 <&"$TEST_WRAPPER_AUTH_FD"
-echo "$TEST_WRAPPER_PID $TEST_WRAPPER_HAS_TOKEN" "${TEST_API_ACCESS_TOKEN-unset}" \
-	"${TEST_TOKEN-unset}" "${TEST_API_TOKEN-unset}" "${TEST_WRAPPER_AUTH_PIPE-unset}"`)
-	cmd.Env = append(os.Environ(), `REQUEST={"command": "token", "session_id": "default"}`,
+	cmd := exec.Command(os.Args[0], "-test.run=^TestPrepareAuthChannel$") //nolint:gosec
+	cmd.Env = append(os.Environ(), "TEST_AUTH_CHANNEL_CHILD=1", "TEST_WRAPPER_AUTH_SOCKET=parent",
 		"TEST_WRAPPER_AUTH_PIPE=parent")
 	var out bytes.Buffer
 	cmd.Stdout = &out
+	cmd.Stderr = &out
 	started, done, err := prepareAuthChannel(testConfig(), io.Discard)(cmd)
 	require.NoError(t, err)
+	defer done()
+	env := map[string]string{}
+	for _, e := range cmd.Env {
+		name, value, _ := strings.Cut(e, "=")
+		env[name] = value
+	}
+
+	// A connection from another process (here, this one) is closed.
+	other, err := dialAuthChannel(func(name string) string { return env[name] })
+	require.NoError(t, err)
+	defer other.Close()
 	require.NoError(t, cmd.Start())
 	started()
-	err = cmd.Wait()
+	require.NoError(t, other.SetReadDeadline(time.Now().Add(10*time.Second)))
+	_, err = other.Read(make([]byte, 1))
+	var netErr net.Error
+	assert.Error(t, err)
+	assert.False(t, errors.As(err, &netErr) && netErr.Timeout(), "the connection must be closed: %v", err)
+
+	require.NoError(t, cmd.Wait(), "output: %s", out.String())
+	token := `{"result":{"access_token":"raw-token"}}` + "\n"
+	assert.Contains(t, out.String(), token+token+strconv.Itoa(os.Getpid())+" 1 unset unset unset\n")
+
 	done()
-	require.NoError(t, err)
-	assert.Equal(t,
-		`{"result":{"access_token":"raw-token"}}`+"\n"+strconv.Itoa(os.Getpid())+" 1 unset unset unset unset\n",
-		out.String())
+	if runtime.GOOS != "windows" {
+		_, err := os.Stat(filepath.Dir(env["TEST_WRAPPER_AUTH_SOCKET"]))
+		assert.ErrorIs(t, err, fs.ErrNotExist, "the socket's directory must be removed")
+	}
+}
+
+// authChannelChild sends two requests as the legacy CLI does, and prints the responses and the relevant variables.
+func authChannelChild(t *testing.T) {
+	for range 2 {
+		conn, err := dialAuthChannel(os.Getenv)
+		require.NoError(t, err)
+		_, err = conn.Write([]byte(`{"command": "token", "session_id": "default"}` + "\n"))
+		require.NoError(t, err)
+		line, err := bufio.NewReader(conn).ReadString('\n')
+		require.NoError(t, err)
+		require.NoError(t, conn.Close())
+		fmt.Print(line)
+	}
+	env := func(name string) string {
+		if v, ok := os.LookupEnv(name); ok {
+			return v
+		}
+		return "unset"
+	}
+	fmt.Println(env("TEST_WRAPPER_PID"), env("TEST_WRAPPER_HAS_TOKEN"), env("TEST_API_ACCESS_TOKEN"), env("TEST_TOKEN"),
+		env("TEST_API_TOKEN"))
 }
 
 func TestWithoutEnv(t *testing.T) {

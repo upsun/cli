@@ -347,7 +347,7 @@ func TestAuthChannel(t *testing.T) {
 }
 
 // TestAuthChannel_TokenNotInherited checks that processes started by the legacy CLI, such as Git hooks, do not inherit
-// the API token, and that a CLI command run by them does not use other credentials instead.
+// the API token or the auth channel, and that a CLI command run by them does not use other credentials instead.
 func TestAuthChannel_TokenNotInherited(t *testing.T) {
 	t.Parallel()
 	if !goAuthMode() {
@@ -362,9 +362,11 @@ func TestAuthChannel_TokenNotInherited(t *testing.T) {
 	})
 	tmp := t.TempDir()
 	envFile, nestedFile := filepath.Join(tmp, "env"), filepath.Join(tmp, "nested")
+	socketsFile := filepath.Join(tmp, "sockets")
 	hooksDir := filepath.Join(repo, ".git", "hooks")
 	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
 	hook := []byte("#!/bin/sh\nenv > '" + envFile + "'\n" +
+		"for fd in $(seq 3 64); do [ -S /dev/fd/$fd ] && echo $fd; done > '" + socketsFile + "'\n" +
 		`"$` + EnvPrefix + `WRAPPER_EXECUTABLE" auth:token -W > '` + nestedFile + `' 2>&1; echo "exit $?" >> '` +
 		nestedFile + "'\n")
 	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "pre-push"), hook, 0o755))
@@ -383,6 +385,10 @@ func TestAuthChannel_TokenNotInherited(t *testing.T) {
 		}
 	}
 	assert.Equal(t, map[string]string{EnvPrefix + "WRAPPER_HAS_TOKEN": "1", "CLI_SSH_NO_REFRESH": "1"}, env)
+
+	b, err = os.ReadFile(socketsFile)
+	require.NoError(t, err)
+	assert.Empty(t, string(b), "the hook must not inherit sockets")
 
 	b, err = os.ReadFile(nestedFile)
 	require.NoError(t, err)

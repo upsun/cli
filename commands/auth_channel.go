@@ -36,21 +36,22 @@ type authChannelResponse struct {
 // authChannelTimeout bounds each request, as a refresh can wait for another process's lock.
 const authChannelTimeout = 5 * time.Minute
 
-// prepareAuthChannel gives a legacy CLI command a channel to this process (openAuthChannel), and serves auth requests
-// on it while the command runs. This replaces running the auth:internal command for each request.
+// prepareAuthChannel listens for connections from a legacy CLI command (listenAuthChannel), and serves auth requests on
+// them while the command runs. This replaces running the auth:internal command for each request.
 //
-// This process's ID is also passed in an environment variable: the legacy CLI only uses the channel in the process
-// that this one started, not in processes it forks. If it cannot use the channel, or if a request fails, it runs
-// auth:internal instead.
+// The legacy CLI connects for each request, so that the processes it starts (e.g. Git hooks) do not inherit a
+// connection, and only connections from the process that this one started are accepted. This process's ID is also
+// passed in an environment variable: the legacy CLI only uses the channel in its process, not in processes it forks.
+// If it cannot use the channel, or if a request fails, it runs auth:internal instead.
 //
 // The legacy CLI does not need the API token or access token while it can use the channel, so they are removed from its
-// environment, and so from the processes it starts (e.g. Git hooks). Whether one is set is passed instead.
+// environment, and so from the processes it starts. Whether one is set is passed instead.
 func prepareAuthChannel(cnf *config.Config, stderr io.Writer) func(cmd *exec.Cmd) (func(), func(), error) {
 	noop := func() {}
 	return func(cmd *exec.Cmd) (func(), func(), error) {
 		prefix := cnf.Application.EnvPrefix
 		// A parent wrapper's channel would refuse this child, or be closed.
-		cmd.Env = withoutEnv(cmd.Env, prefix+"WRAPPER_AUTH_FD", prefix+"WRAPPER_AUTH_PIPE", prefix+"WRAPPER_PID")
+		cmd.Env = withoutEnv(cmd.Env, prefix+"WRAPPER_AUTH_SOCKET", prefix+"WRAPPER_AUTH_PIPE", prefix+"WRAPPER_PID")
 		m, err := newAuthManager(cnf, stderr)
 		if err != nil {
 			debugLogf("Auth channel not available: %s", err)
@@ -58,7 +59,7 @@ func prepareAuthChannel(cnf *config.Config, stderr io.Writer) func(cmd *exec.Cmd
 		}
 		env := cmd.Env
 		cmd.Env = withoutEnv(cmd.Env, prefix+"TOKEN", prefix+"API_TOKEN", prefix+"API_ACCESS_TOKEN")
-		ch, err := openAuthChannel(cnf, cmd)
+		l, err := listenAuthChannel(cnf, cmd)
 		if err != nil {
 			debugLogf("Auth channel not available: %s", err)
 			cmd.Env = env
@@ -79,28 +80,15 @@ func prepareAuthChannel(cnf *config.Config, stderr io.Writer) func(cmd *exec.Cmd
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			conn, err := ch.accept(pid)
-			if err != nil {
-				debugLogf("Auth channel not available: %s", err)
-				return
-			}
-			s.serve(ctx, conn)
+			s.serveListener(ctx, l, pid)
 		}()
 		started := func() { pid <- cmd.Process.Pid }
 		return started, func() {
 			cancel()
-			_ = ch.Close()
+			_ = l.Close()
 			<-done
 		}, nil
 	}
-}
-
-// authChannel is this process's end of a channel to a child process.
-type authChannel interface {
-	// accept waits for the child process to connect. Its ID is sent on pid once it has started.
-	accept(pid <-chan int) (net.Conn, error)
-	// Close stops listening, and closes the connection.
-	Close() error
 }
 
 // withoutEnv returns env without the named variables.
@@ -121,6 +109,36 @@ type authChannelServer struct {
 
 	mu       sync.Mutex
 	managers map[string]*auth.Manager // By session ID.
+}
+
+// serveListener serves connections from the child process, whose ID is sent on pid once it has started, until the
+// listener is closed. Connections from other processes, such as those that the child starts, are closed.
+func (s *authChannelServer) serveListener(ctx context.Context, l net.Listener, pid <-chan int) {
+	childPID := 0
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			return
+		}
+		// The child may connect before this process has its PID.
+		if childPID == 0 {
+			select {
+			case childPID = <-pid:
+			case <-ctx.Done():
+				_ = conn.Close()
+				return
+			}
+		}
+		if p, err := peerPID(conn); err != nil || p != childPID {
+			debugLogf("Auth channel: refused a connection from process %d (%v)", p, err)
+			_ = conn.Close()
+			continue
+		}
+		stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
+		s.serve(ctx, conn)
+		stop()
+		_ = conn.Close()
+	}
 }
 
 // serve answers requests in order, each as a line of JSON, until the connection is closed.
