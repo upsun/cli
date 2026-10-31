@@ -181,6 +181,14 @@ func patchSpec(doc *openapi3.T) error { //nolint:funlen // A list of patches.
 			ref.Value.Properties["type"] = typ.NewRef()
 		}
 	}
+	// Log forwarding integrations have a redaction setting (set by integration:add --redaction), missing from the spec.
+	for _, prefix := range []string{"HttpLog", "NewRelic", "OtlpLog", "Splunk", "Sumologic", "Syslog"} {
+		for _, suffix := range []string{"Integration", "IntegrationCreateInput", "IntegrationCreateCreateInput", "IntegrationPatch"} {
+			if s, ok := schemas[prefix+suffix]; ok {
+				s.Value.WithPropertyRef("redaction", openapi3.NewBoolSchema().NewRef())
+			}
+		}
+	}
 	// An update can leave out properties, including the type (and secrets, which the client can't read).
 	integrationPatch := schemas["IntegrationPatch"].Value
 	for _, ref := range integrationPatch.OneOf {
