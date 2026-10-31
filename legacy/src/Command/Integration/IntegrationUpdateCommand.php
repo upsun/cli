@@ -76,6 +76,8 @@ class IntegrationUpdateCommand extends IntegrationCommandBase
                 $field->validate($value);
                 $value = $field->getFinalValue($value);
                 $form::setNestedArrayValue($newValues, $parents, $value, true);
+                // Later fields' conditions depend on the new value.
+                $form::setNestedArrayValue($values, $parents, $value, true);
             }
         }
 

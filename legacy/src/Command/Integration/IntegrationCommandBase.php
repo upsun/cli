@@ -119,6 +119,21 @@ abstract class IntegrationCommandBase extends CommandBase
             ));
             return 1;
         }
+        foreach ($conditions as $conditionKey => $condition) {
+            $conditionField = $this->getForm()->getField($conditionKey);
+            if ($conditionKey === 'type' || !is_bool($condition) || $conditionField === false) {
+                continue;
+            }
+            if (!isset($previousValues[$conditionKey]) || $previousValues[$conditionKey] !== $condition) {
+                $this->stdErr->writeln(\sprintf(
+                    'The option <error>--%s</error> can only be used if <comment>--%s</comment> is %s.',
+                    $field->getOptionName(),
+                    $conditionField->getOptionName(),
+                    $condition ? 'true' : 'false',
+                ));
+                return 1;
+            }
+        }
         throw $e;
     }
 
@@ -650,13 +665,14 @@ abstract class IntegrationCommandBase extends CommandBase
                     $uniqueNames = [];
                     foreach ($headers as $header) {
                         $parts = \explode(':', $header, 2);
-                        if (isset($uniqueNames[$parts[0]])) {
+                        $name = $parts[0];
+                        if (isset($uniqueNames[$name])) {
                             return 'Duplicate header name: ' . $parts[0];
                         }
                         if (!isset($parts[1])) {
                             return 'Invalid header (no value): ' . $header;
                         }
-                        $uniqueNames[$parts[0]] = true;
+                        $uniqueNames[$name] = true;
                     }
                     return true;
                 },
