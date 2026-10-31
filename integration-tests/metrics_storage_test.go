@@ -42,11 +42,13 @@ func filterServices(req *http.Request, services map[string]any) map[string]any {
 	return filtered
 }
 
-func setupMetricsTest(t *testing.T, withStorage, withStorageMount bool) (f *cmdFactory, projectID string) {
+func setupMetricsTest(t *testing.T, withStorage, withStorageMount bool) (
+	f *cmdFactory, apiHandler *mockapi.Handler, projectID string,
+) {
 	authServer := mockapi.NewAuthServer(t)
 	t.Cleanup(authServer.Close)
 
-	apiHandler := mockapi.NewHandler(t)
+	apiHandler = mockapi.NewHandler(t)
 	apiServer := httptest.NewServer(apiHandler)
 	t.Cleanup(apiServer.Close)
 
@@ -127,7 +129,7 @@ func setupMetricsTest(t *testing.T, withStorage, withStorageMount bool) (f *cmdF
 		})
 	})
 
-	return newCommandFactory(t, apiServer.URL, authServer.URL), projectID
+	return newCommandFactory(t, apiServer.URL, authServer.URL), apiHandler, projectID
 }
 
 func TestMetricsStorage(t *testing.T) {
@@ -204,7 +206,7 @@ func TestMetricsStorage(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			f, projectID := setupMetricsTest(t, c.withStorage, c.withStorageMount)
+			f, _, projectID := setupMetricsTest(t, c.withStorage, c.withStorageMount)
 			f.extraEnv = c.env
 			args := append([]string{}, c.args...)
 			args = append(args, "-p", projectID, "-e", "main")
@@ -223,7 +225,7 @@ func TestMetricsStorage(t *testing.T) {
 
 func TestMetricsStorageDisabledColumn(t *testing.T) {
 	t.Parallel()
-	f, projectID := setupMetricsTest(t, true, false)
+	f, _, projectID := setupMetricsTest(t, true, false)
 	f.extraEnv = []string{"TEST_CLI_API_METRICS_STORAGE=0"}
 
 	_, stderr, err := f.RunCombinedOutput("disk", "-1", "-c", "storage_used", "-p", projectID, "-e", "main")
