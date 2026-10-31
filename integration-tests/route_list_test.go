@@ -146,6 +146,21 @@ func TestRouteGetOptions(t *testing.T) {
 		{name: "unknown original URL", args: []string{"https://nope.{default}/"},
 			wantErr: "No route found for original URL: https://nope.{default}/"},
 		{
+			name:    "id and route",
+			args:    []string{"--id", "api", "http://www.{default}/"},
+			wantErr: "Specify only one of the route argument, the --id option, or the --primary option.",
+		},
+		{
+			name:    "id and primary",
+			args:    []string{"--id", "api", "--primary"},
+			wantErr: "Specify only one of the route argument, the --id option, or the --primary option.",
+		},
+		{
+			name:    "primary and route",
+			args:    []string{"--primary", "http://www.{default}/"},
+			wantErr: "Specify only one of the route argument, the --id option, or the --primary option.",
+		},
+		{
 			name:    "no selection",
 			args:    nil,
 			wantErr: "You must specify a route via the route argument, the --id option, or the --primary option.",

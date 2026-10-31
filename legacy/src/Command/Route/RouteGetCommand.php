@@ -48,6 +48,15 @@ class RouteGetCommand extends CommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $selectors = (int) !in_array(Argument::stringOrNull($input, 'route'), [null, ''], true)
+            + (int) (Option::stringOrNull($input, 'id') !== null)
+            + (int) Option::bool($input, 'primary');
+        if ($selectors > 1) {
+            $this->stdErr->writeln('Specify only one of the <comment>route</comment> argument, the <comment>--id</comment> option, or the <comment>--primary</comment> option.');
+
+            return 1;
+        }
+
         // Allow override via PLATFORM_ROUTES.
         $prefix = $this->config->getStr('service.env_prefix');
         if (getenv($prefix . 'ROUTES') && !LocalHost::conflictsWithCommandLineOptions($input, $prefix)) {
