@@ -446,13 +446,11 @@ func TestActivityWaitTransientErrors(t *testing.T) {
 	}
 	// Several activities are polled through the project's activity list.
 	t.Run("multiple", func(t *testing.T) {
-		envs := []*mockapi.Environment{makeEnv(layoutProjectID, "main", "production", "active", nil)}
-		for _, id := range []string{"dev1", "dev2"} {
-			e := makeEnv(layoutProjectID, id, "development", "active", "main")
-			e.AddOperations("deactivate")
-			envs = append(envs, e)
-		}
-		p := setUpProject(t, envs...)
+		dev1 := makeEnv(layoutProjectID, "dev1", "development", "active", "main")
+		dev1.AddOperations("deactivate")
+		dev2 := makeEnv(layoutProjectID, "dev2", "development", "active", "main")
+		dev2.AddOperations("deactivate")
+		p := setUpProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil), dev1, dev2)
 		p.api.FailNext("GET", "/projects/"+layoutProjectID+"/activities", http.StatusServiceUnavailable, "<html></html>")
 		_, stderr, err := p.f.forSubtest(t).RunCombinedOutput("environment:delete", "-p", layoutProjectID, "dev1", "dev2")
 		require.NoError(t, err, stderr)

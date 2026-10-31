@@ -14,9 +14,9 @@ class LoginRequiredException extends HttpException
     private readonly Config $config;
 
     public function __construct(
-        $message = null,
+        ?string $message = null,
         ?Config $config = null,
-        $previous = null,
+        ?\Throwable $previous = null,
         bool $loginAdvice = true,
     ) {
         $message = $message ?: $this->message;
