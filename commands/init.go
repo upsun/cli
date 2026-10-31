@@ -25,7 +25,6 @@ import (
 	"github.com/upsun/cli/internal/legacy"
 
 	"github.com/upsun/cli/internal/api"
-	"github.com/upsun/cli/internal/auth"
 	"github.com/upsun/cli/internal/config"
 	_init "github.com/upsun/cli/internal/init"
 )
@@ -110,7 +109,7 @@ func runInitCommand(
 		return platformify.Run(cnf, platformify.Options{Dir: gitRoot, Stdout: cmd.OutOrStdout(), Stderr: cmd.ErrOrStderr()})
 	}
 
-	ia, err := newInitAuth(cmd, cnf)
+	ia, err := newAPIAuth(cmd, cnf)
 	if err != nil {
 		return err
 	}
@@ -190,52 +189,9 @@ func runInitCommand(
 	initOptions.IsDebug = viper.GetBool("debug")
 	initOptions.DebugLogFunc = debugLogf
 
-	// The request can get a step-up authentication challenge.
 	return ia.withLogin(func() error {
 		return _init.RunAIConfig(cmd.Context(), cnf, dg, gitRoot, initOptions, cmd.OutOrStdout(), cmd.ErrOrStderr())
 	})
-}
-
-// initAuth provides authentication for init, using Go auth or the legacy CLI.
-type initAuth struct {
-	httpClient          *http.Client
-	apiURL              string
-	ensureAuthenticated func() error
-	// withLogin runs a function, and with Go auth, offers a login and runs it again if login is required.
-	withLogin func(fn func() error) error
-}
-
-func newInitAuth(cmd *cobra.Command, cnf *config.Config) (*initAuth, error) {
-	if !cnf.GoAuthEnabled() {
-		// The settings apply the user's config file and environment, as the legacy CLI does.
-		settings, err := cnf.Auth()
-		if err != nil {
-			return nil, err
-		}
-		legacyCLIClient, err := auth.NewLegacyCLIClient(cmd.Context(),
-			makeLegacyCLIWrapper(cnf, cmd.OutOrStdout(), cmd.ErrOrStderr(), cmd.InOrStdin()))
-		if err != nil {
-			return nil, err
-		}
-		return &initAuth{
-			httpClient:          legacyCLIClient.HTTPClient,
-			apiURL:              settings.BaseURL,
-			ensureAuthenticated: func() error { return legacyCLIClient.EnsureAuthenticated(cmd.Context()) },
-			withLogin:           func(fn func() error) error { return fn() },
-		}, nil
-	}
-	m, err := newAuthManager(cnf, cmd.ErrOrStderr())
-	if err != nil {
-		return nil, err
-	}
-	withLoginFn := func(fn func() error) error { return withLogin(cmd, cnf, m, fn) }
-	ensureAuthenticated := func() error { return m.EnsureAuthenticated(cmd.Context()) }
-	return &initAuth{
-		httpClient:          auth.NewClient(m, auth.NewHTTPClient(cnf, m.Settings).Transport),
-		apiURL:              m.Settings.BaseURL,
-		ensureAuthenticated: func() error { return withLoginFn(ensureAuthenticated) },
-		withLogin:           withLoginFn,
-	}, nil
 }
 
 // handleOrganizations manages organization selection and validation.
