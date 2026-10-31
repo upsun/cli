@@ -252,7 +252,8 @@ func TestOrgUserAddInvitationState(t *testing.T) {
 		wantStderr string
 	}{
 		{state: "accepted", wantStderr: "The user has been successfully added to the organization."},
-		{state: "cancelled", wantErr: true, wantStderr: "The invitation inv-1 was cancelled."}, //nolint:misspell // The API's spelling.
+		//nolint:misspell // The API's spelling.
+		{state: "cancelled", wantErr: true, wantStderr: "The invitation inv-1 was cancelled."},
 		{state: "error", wantErr: true, wantStderr: "The invitation inv-1 errored."},
 	}
 	for _, c := range cases {
@@ -294,7 +295,7 @@ func TestOrgUserList(t *testing.T) {
 	apiHandler.SetOrgMembers(org.ID, members)
 
 	ids := func(n int) string {
-		var s []string
+		s := make([]string, 0, n)
 		for i := range n {
 			s = append(s, fmt.Sprintf("user-%03d", i))
 		}

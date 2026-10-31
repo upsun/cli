@@ -23,6 +23,8 @@ type accessStore struct {
 const (
 	invitationPending = "pending"
 	roleAdmin         = "admin"
+	fieldCreatedAt    = "created_at"
+	fieldUpdatedAt    = "updated_at"
 )
 
 // InvitationPermission is an environment type role in a project invitation.
@@ -300,8 +302,8 @@ func (h *Handler) handleCreateProjectInvitation(w http.ResponseWriter, req *http
 		"environments": environments,
 		"email":        inv.Email,
 		"owner":        h.invitationOwner(),
-		"created_at":   inv.CreatedAt,
-		"updated_at":   inv.CreatedAt,
+		fieldCreatedAt: inv.CreatedAt,
+		fieldUpdatedAt: inv.CreatedAt,
 		"finished_at":  nil,
 	})
 }
@@ -356,9 +358,9 @@ func (h *Handler) handleListOrgMembers(w http.ResponseWriter, req *http.Request)
 	sort := query.Get("sort")
 	switch strings.TrimPrefix(sort, "-") {
 	case "":
-	case "created_at":
+	case fieldCreatedAt:
 		slices.SortStableFunc(members, func(a, b *OrgMember) int { return timeCompare(a.CreatedAt, b.CreatedAt) })
-	case "updated_at":
+	case fieldUpdatedAt:
 		slices.SortStableFunc(members, func(a, b *OrgMember) int { return timeCompare(a.UpdatedAt, b.UpdatedAt) })
 	default:
 		writeProblem(w, http.StatusBadRequest, errors.New("invalid sort field: "+sort))
@@ -503,8 +505,8 @@ func (h *Handler) handleCreateOrgInvitation(w http.ResponseWriter, req *http.Req
 		"organization_id": inv.OrganizationID,
 		"permissions":     inv.Permissions,
 		"owner":           h.invitationOwner(),
-		"created_at":      inv.CreatedAt,
-		"updated_at":      inv.CreatedAt,
+		fieldCreatedAt:    inv.CreatedAt,
+		fieldUpdatedAt:    inv.CreatedAt,
 		"finished_at":     nil,
 	})
 }
