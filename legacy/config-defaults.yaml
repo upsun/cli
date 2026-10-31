@@ -207,6 +207,10 @@ api:
   # Overridden by the {application.env_prefix}DEFAULT_TIMEOUT env var.
   default_timeout: 30
 
+  # How long to retry transient API errors (502, 503, 504, or connection failures) while waiting for activities, in
+  # seconds. Overridden by the {application.env_prefix}API_RETRY_TIMEOUT env var.
+  retry_timeout: 60
+
   # The User-Agent header sent in API requests, as a template. Possible replacement values are:
   #   {APP_NAME}: the CLI application.name
   #   {APP_SLUG}: the CLI application.slug

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/upsun/cli/pkg/mockapi"
 )
@@ -404,4 +405,55 @@ func TestWriteCommandUnauthorizedSession(t *testing.T) {
 	assertCleanAPIError(t, stderr)
 	assert.Len(t, p.api.Requests("POST", path), 4, "the request is sent again once")
 	assert.False(t, authServer.ReuseDetected())
+}
+
+// TestActivityWaitTransientErrors checks that waiting for activities survives transient API errors, for a while.
+func TestActivityWaitTransientErrors(t *testing.T) {
+	t.Parallel()
+	main := makeEnv(layoutProjectID, "main", "production", "active", nil)
+	main.AddOperations("redeploy")
+	proj := setUpProject(t, main)
+	f := proj.f.forSubtest(t)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"API_RETRY_TIMEOUT=3")
+	activity := "/projects/" + layoutProjectID + "/activities/*"
+
+	cases := []struct {
+		name     string
+		failures []int
+		wantCode int
+	}{
+		{"one", []int{http.StatusServiceUnavailable}, 0},
+		{"several", []int{http.StatusBadGateway, http.StatusGatewayTimeout}, 0},
+		{"persistent", slices.Repeat([]int{http.StatusServiceUnavailable}, 20), 1},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			for _, status := range c.failures {
+				proj.api.FailNext("GET", activity, status, "<html>Unavailable</html>")
+			}
+			_, stderr, err := f.forSubtest(t).RunCombinedOutput("redeploy", "-p", layoutProjectID, "-e", "main")
+			if c.wantCode == 0 {
+				require.NoError(t, err, stderr)
+				assert.Contains(t, stderr, "The activity succeeded")
+				return
+			}
+			assertExitCode(t, c.wantCode, err)
+			assert.Contains(t, stderr, "The API returned 503 Service Unavailable for GET")
+			assertCleanAPIError(t, stderr)
+		})
+	}
+	// Several activities are polled through the project's activity list.
+	t.Run("multiple", func(t *testing.T) {
+		envs := []*mockapi.Environment{makeEnv(layoutProjectID, "main", "production", "active", nil)}
+		for _, id := range []string{"dev1", "dev2"} {
+			e := makeEnv(layoutProjectID, id, "development", "active", "main")
+			e.AddOperations("deactivate")
+			envs = append(envs, e)
+		}
+		p := setUpProject(t, envs...)
+		p.api.FailNext("GET", "/projects/"+layoutProjectID+"/activities", http.StatusServiceUnavailable, "<html></html>")
+		_, stderr, err := p.f.forSubtest(t).RunCombinedOutput("environment:delete", "-p", layoutProjectID, "dev1", "dev2")
+		require.NoError(t, err, stderr)
+		assert.Len(t, p.api.Requests("GET", "/projects/"+layoutProjectID+"/activities"), 2)
+	})
 }
