@@ -168,6 +168,10 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 		c.Version,
 		PHPVersion,
 	))
+	// Signals are caught from before PrepareCmd, which may create files to remove, and passed on once PHP has started.
+	sigs := make(chan os.Signal, 3)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	defer signal.Stop(sigs)
 	started := func() {}
 	if c.PrepareCmd != nil {
 		s, done, err := c.PrepareCmd(cmd)
@@ -181,7 +185,7 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 		return fmt.Errorf("could not run PHP CLI command: %w", err)
 	}
 	started()
-	stop := relaySignals(cmd.Process)
+	stop := relaySignals(cmd.Process, sigs)
 	err = cmd.Wait()
 	stop()
 	if err != nil {
@@ -193,24 +197,19 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 
 // relaySignals passes the signals that would end this process on to the PHP process instead, so that this one can
 // clean up after PHP exits. PHP may also get an interrupt (e.g. Ctrl+C) from the terminal: it exits on the first.
-func relaySignals(p *os.Process) (stop func()) {
-	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+func relaySignals(p *os.Process, sigs <-chan os.Signal) (stop func()) {
 	done := make(chan struct{})
 	go func() {
 		for {
 			select {
-			case sig := <-ch:
+			case sig := <-sigs:
 				_ = p.Signal(sig)
 			case <-done:
 				return
 			}
 		}
 	}()
-	return func() {
-		signal.Stop(ch)
-		close(done)
-	}
+	return func() { close(done) }
 }
 
 // makeCmd makes a legacy CLI command with the given context and arguments.
