@@ -431,7 +431,8 @@ abstract class MetricsCommandBase extends CommandBase
     }
 
     /**
-     * Parses a duration in seconds, or with hour, minute and second units (e.g. "1h30m"), to a number of seconds.
+     * Parses a duration in seconds, with day, hour, minute and second units (e.g. "1h30m"), or in colon notation
+     * (e.g. "1:30:00"), to a number of seconds.
      *
      * Returns null if the duration is invalid.
      */
@@ -440,10 +441,14 @@ abstract class MetricsCommandBase extends CommandBase
         if (\preg_match('/^\d+$/', $value)) {
             return (int) $value;
         }
-        if ($value === '' || !\preg_match('/^(?:(\d+(?:\.\d+)?)h)?\s*(?:(\d+(?:\.\d+)?)m)?\s*(?:(\d+(?:\.\d+)?)s)?$/i', \trim($value), $matches)) {
+        // Colon notation is [hours:]minutes:seconds, as in Khill\Duration.
+        if (\preg_match('/^(?:(\d+):)?(\d+):(\d+(?:\.\d+)?)$/', \trim($value), $matches)) {
+            return (int) \round((int) $matches[1] * 3600 + (int) $matches[2] * 60 + (float) $matches[3]);
+        }
+        if ($value === '' || !\preg_match('/^(?:(\d+(?:\.\d+)?)d)?\s*(?:(\d+(?:\.\d+)?)h)?\s*(?:(\d+(?:\.\d+)?)m)?\s*(?:(\d+(?:\.\d+)?)s)?$/i', \trim($value), $matches)) {
             return null;
         }
-        $seconds = (float) ($matches[1] ?? 0) * 3600 + (float) ($matches[2] ?? 0) * 60 + (float) ($matches[3] ?? 0);
+        $seconds = (float) ($matches[1] ?? 0) * 86400 + (float) ($matches[2] ?? 0) * 3600 + (float) ($matches[3] ?? 0) * 60 + (float) ($matches[4] ?? 0);
 
         return (int) \round($seconds);
     }
