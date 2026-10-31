@@ -79,6 +79,7 @@ func NewHandler(t *testing.T) *Handler {
 	h.Get("/users/me", h.handleUsersMe)
 	h.Get("/me", h.handleMe)
 	h.Get("/users/{user_id}/extended-access", h.handleUserExtendedAccess)
+	h.Get("/users/{user_id}", h.handleGetUser)
 	h.Get("/ref/users", h.handleUserRefs)
 	h.Post("/me/verification", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"state": false, "type": ""})
