@@ -287,3 +287,36 @@ func TestWriteCommandAPIErrors(t *testing.T) {
 		})
 	}
 }
+
+// TestAPIErrorHTMLBodies checks errors with an HTML body, e.g. from a proxy, in commands that read the API's errors.
+func TestAPIErrorHTMLBodies(t *testing.T) {
+	t.Parallel()
+	api, domainsFactory, domainsProjectID := setUpDomains(t)
+	cases := []struct {
+		name   string
+		f      *cmdFactory
+		h      *mockapi.Handler
+		args   []string
+		method string
+		path   string
+		status int
+	}{
+		{"domain:add 400", domainsFactory, api, []string{"domain:add", "-p", domainsProjectID, "-e", "main", "example.com"},
+			"POST", "/projects/*/environments/main/domains", http.StatusBadRequest},
+		{"domain:add 402", domainsFactory, api, []string{"domain:add", "-p", domainsProjectID, "-e", "main", "example.com"},
+			"POST", "/projects/*/environments/main/domains", http.StatusPaymentRequired},
+		{"domain:add 409", domainsFactory, api, []string{"domain:add", "-p", domainsProjectID, "-e", "main", "example.com"},
+			"POST", "/projects/*/environments/main/domains", http.StatusConflict},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			c.h.FailNext(c.method, c.path, c.status, "<html><body>Error</body></html>")
+			_, stderr, err := c.f.forSubtest(t).RunCombinedOutput(c.args...)
+			assertExitCode(t, 255, err)
+			assert.Contains(t, stderr, fmt.Sprintf("The API returned %d %s for %s", c.status, http.StatusText(c.status),
+				c.method))
+			assert.NotContains(t, stderr, "json_decode")
+			assertCleanAPIError(t, stderr)
+		})
+	}
+}
