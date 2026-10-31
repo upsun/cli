@@ -81,6 +81,11 @@ func TestVariableCreateOptions(t *testing.T) {
 			wantErr: "The variable name must not contain a space.",
 		},
 		{
+			name:    "prefix and a prefixed name",
+			args:    []string{"-l", "p", "--name", "env:P9", "--prefix", "env"},
+			wantErr: "The option --prefix cannot be used, as the name already has a prefix: env:P9",
+		},
+		{
 			name:    "name argument and option",
 			args:    []string{"-l", "p", "P8", "--name", "P8"},
 			wantErr: "You cannot use both the name argument and --name option.",

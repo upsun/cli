@@ -151,6 +151,13 @@ class VariableCreateCommand extends CommandBase
                 ));
                 return 1;
             }
+            if ($field->getOptionName() === 'prefix' && isset($previousValues['name'])) {
+                $this->stdErr->writeln(\sprintf(
+                    'The option <error>--prefix</error> cannot be used, as the name already has a prefix: <comment>%s</comment>',
+                    $previousValues['name'],
+                ));
+                return 1;
+            }
             throw $e;
         }
 
