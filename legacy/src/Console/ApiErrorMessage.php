@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Console;
 
 use GuzzleHttp\Exception\BadResponseException;
-use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Exception\TransferException;
 use GuzzleHttp\Psr7\Utils;
 use Platformsh\Cli\Exception\HttpException;
 use Psr\Http\Message\ResponseInterface;
@@ -37,7 +37,7 @@ final class ApiErrorMessage
 
             return $detail === '' ? $message : $message . "\n" . $detail;
         }
-        if ($e instanceof GuzzleException) {
+        if ($e instanceof TransferException) {
             return $e->getMessage();
         }
 
