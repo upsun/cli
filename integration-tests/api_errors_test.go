@@ -292,6 +292,21 @@ func TestWriteCommandAPIErrors(t *testing.T) {
 func TestAPIErrorHTMLBodies(t *testing.T) {
 	t.Parallel()
 	api, domainsFactory, domainsProjectID := setUpDomains(t)
+	p := setUpProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil))
+	p.api.Get("/projects/"+layoutProjectID+"/capabilities", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"integrations": map[string]any{
+			"enabled": true,
+			"config":  map[string]any{"webhook": map[string]any{"enabled": true}},
+		}})
+	})
+	integrationsPath := "/projects/" + layoutProjectID + "/integrations/"
+	p.api.SetProjectIntegrations(layoutProjectID, []*mockapi.Integration{
+		{ID: "hook", Type: "webhook", URL: "https://hooks.example.com/a",
+			Links: mockapi.MakeHALLinks("self="+integrationsPath+"hook", "#edit="+integrationsPath+"hook")},
+		{ID: "gl", Type: "gitlab",
+			Links: mockapi.MakeHALLinks("self="+integrationsPath+"gl", "#validate="+integrationsPath+"gl/validate")},
+	})
+
 	cases := []struct {
 		name   string
 		f      *cmdFactory
@@ -307,6 +322,12 @@ func TestAPIErrorHTMLBodies(t *testing.T) {
 			"POST", "/projects/*/environments/main/domains", http.StatusPaymentRequired},
 		{"domain:add 409", domainsFactory, api, []string{"domain:add", "-p", domainsProjectID, "-e", "main", "example.com"},
 			"POST", "/projects/*/environments/main/domains", http.StatusConflict},
+		{"integration:add 400", p.f, p.api, []string{"integration:add", "-p", layoutProjectID, "--type", "webhook",
+			"--url", "https://hooks.example.com/b"}, "POST", "/projects/*/integrations", http.StatusBadRequest},
+		{"integration:update 400", p.f, p.api, []string{"integration:update", "-p", layoutProjectID, "hook",
+			"--url", "https://hooks.example.com/c"}, "PATCH", "/projects/*/integrations/hook", http.StatusBadRequest},
+		{"integration:validate 400", p.f, p.api, []string{"integration:validate", "-p", layoutProjectID, "gl"},
+			"POST", "/projects/*/integrations/gl/validate", http.StatusBadRequest},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

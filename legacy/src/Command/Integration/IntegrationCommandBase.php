@@ -737,6 +737,25 @@ abstract class IntegrationCommandBase extends CommandBase
     }
 
     /**
+     * Returns the validation errors in an API error, or rethrows it.
+     *
+     * Unlike Integration::listValidationErrors(), this accepts a body that is not JSON, e.g. from a proxy.
+     *
+     * @return array<int|string, string>
+     */
+    protected function validationErrors(BadResponseException $e): array
+    {
+        if ($e->getResponse()->getStatusCode() === 400) {
+            $data = json_decode((string) $e->getResponse()->getBody(), true);
+            if (\is_array($data) && !empty($data['detail']) && \is_array($data['detail'])) {
+                return $data['detail'];
+            }
+        }
+
+        throw $e;
+    }
+
+    /**
      * Lists validation errors found in an integration.
      *
      * @param array<int|string, string> $errors

@@ -86,15 +86,12 @@ class IntegrationAddCommand extends IntegrationCommandBase
         try {
             $result = $project->addIntegration($values['type'], $values);
         } catch (BadResponseException $e) {
-            if ($errors = Integration::listValidationErrors($e)) {
-                $this->stdErr->writeln('<error>The integration is invalid.</error>');
-                $this->stdErr->writeln('');
-                $this->listValidationErrors($errors, $output);
+            $errors = $this->validationErrors($e);
+            $this->stdErr->writeln('<error>The integration is invalid.</error>');
+            $this->stdErr->writeln('');
+            $this->listValidationErrors($errors, $output);
 
-                return 4;
-            }
-
-            throw $e;
+            return 4;
         }
 
         /** @var Integration $integration */
