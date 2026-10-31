@@ -185,4 +185,5 @@ func TestRouteGetOptions(t *testing.T) {
 	_, stderr, err := withRoutes(t, routes).RunCombinedOutput("route:get", "--primary")
 	assertExitCode(t, 1, err)
 	assert.Contains(t, stderr, "No primary route found.")
+	assert.NotContains(t, stderr, "[-h|--help]", "the usage was shown")
 }

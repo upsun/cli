@@ -103,7 +103,9 @@ class RouteGetCommand extends CommandBase
                 }
             }
             if (!$selectedRoute) {
-                throw new \RuntimeException('No primary route found.');
+                $this->stdErr->writeln('No primary route found.');
+
+                return 1;
             }
         }
 
