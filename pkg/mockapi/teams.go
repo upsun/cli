@@ -12,6 +12,12 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// Maximum page sizes, as in the spec: team members' is not documented, so it is assumed to be like project access'.
+const (
+	maxTeamsPageSize      = 100
+	maxTeamAccessPageSize = 200
+)
+
 // teamStore holds teams, their members and their project access.
 type teamStore struct {
 	teams        map[string]*Team
@@ -157,14 +163,19 @@ func (h *Handler) handleListTeams(w http.ResponseWriter, req *http.Request) {
 	if strings.HasPrefix(sort, "-") {
 		slices.Reverse(items)
 	}
+	links := MakeHALLinks(
+		"self=/teams",
+		"ref:organizations:0=/ref/organizations?in="+strings.Join(orgIDs.keys(), ",")+refSig,
+	)
+	page, ok := paginate(w, req, items, maxTeamsPageSize, links)
+	if !ok {
+		return
+	}
 	_ = json.NewEncoder(w).Encode(struct {
 		Items []*Team  `json:"items"`
 		Count int      `json:"count"`
 		Links HalLinks `json:"_links,omitempty"`
-	}{Items: items, Count: len(items), Links: MakeHALLinks(
-		"self=/teams",
-		"ref:organizations:0=/ref/organizations?in="+strings.Join(orgIDs.keys(), ",")+refSig,
-	)})
+	}{Items: page, Count: len(items), Links: links})
 }
 
 // handleCreateTeam creates a team. Like the API, it does not require a unique label.
@@ -264,21 +275,23 @@ func (h *Handler) handleListTeamMembers(w http.ResponseWriter, req *http.Request
 		return
 	}
 	items := make([]*TeamMember, 0, len(h.teamMembers[teamID]))
-	userIDs := make([]string, 0, len(h.teamMembers[teamID]))
 	for _, m := range h.teamMembers[teamID] {
 		items = append(items, teamMemberResponse(m, true))
+	}
+	links := MakeHALLinks("self=/teams/" + url.PathEscape(teamID) + "/members")
+	page, ok := paginate(w, req, items, maxTeamAccessPageSize, links)
+	if !ok {
+		return
+	}
+	userIDs := make([]string, 0, len(page))
+	for _, m := range page {
 		userIDs = append(userIDs, m.UserID)
 	}
+	links["ref:users:0"] = HALLink{HREF: "/ref/users?in=" + strings.Join(userIDs, ",") + refSig}
 	_ = json.NewEncoder(w).Encode(struct {
 		Items []*TeamMember `json:"items"`
 		Links HalLinks      `json:"_links,omitempty"`
-	}{
-		Items: items,
-		Links: MakeHALLinks(
-			"self=/teams/"+url.PathEscape(teamID)+"/members",
-			"ref:users:0=/ref/users?in="+strings.Join(userIDs, ",")+refSig,
-		),
-	})
+	}{Items: page, Links: links})
 }
 
 func (h *Handler) handleGetTeamMember(w http.ResponseWriter, req *http.Request) {
@@ -350,13 +363,11 @@ func (h *Handler) handleListTeamProjects(w http.ResponseWriter, req *http.Reques
 		return
 	}
 	items := make([]*TeamProjectAccess, 0, len(h.teamProjects[teamID]))
-	projectIDs := make([]string, 0, len(h.teamProjects[teamID]))
 	for _, p := range h.teamProjects[teamID] {
 		path := "/teams/" + url.PathEscape(teamID) + "/project-access/" + url.PathEscape(p.ProjectID)
 		c := *p
 		c.Links = MakeHALLinks("self="+path, "delete="+path)
 		items = append(items, &c)
-		projectIDs = append(projectIDs, p.ProjectID)
 	}
 	sort := req.URL.Query().Get("sort")
 	switch strings.TrimPrefix(sort, "-") {
@@ -375,14 +386,23 @@ func (h *Handler) handleListTeamProjects(w http.ResponseWriter, req *http.Reques
 	if strings.HasPrefix(sort, "-") {
 		slices.Reverse(items)
 	}
+	links := MakeHALLinks(
+		"self=/teams/"+url.PathEscape(teamID)+"/project-access",
+		"ref:organizations:0=/ref/organizations?in="+url.QueryEscape(t.OrganizationID)+refSig,
+	)
+	page, ok := paginate(w, req, items, maxTeamAccessPageSize, links)
+	if !ok {
+		return
+	}
+	projectIDs := make([]string, 0, len(page))
+	for _, p := range page {
+		projectIDs = append(projectIDs, p.ProjectID)
+	}
+	links["ref:projects:0"] = HALLink{HREF: "/ref/projects?in=" + strings.Join(projectIDs, ",") + refSig}
 	_ = json.NewEncoder(w).Encode(struct {
 		Items []*TeamProjectAccess `json:"items"`
 		Links HalLinks             `json:"_links,omitempty"`
-	}{Items: items, Links: MakeHALLinks(
-		"self=/teams/"+url.PathEscape(teamID)+"/project-access",
-		"ref:projects:0=/ref/projects?in="+strings.Join(projectIDs, ",")+refSig,
-		"ref:organizations:0=/ref/organizations?in="+url.QueryEscape(t.OrganizationID)+refSig,
-	)})
+	}{Items: page, Links: links})
 }
 
 // handleAddTeamProjects adds projects to a team. Like the API, it adds all of them or none.
