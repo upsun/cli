@@ -49,10 +49,12 @@ func startBrowserLogin(t *testing.T, f *cmdFactory, args ...string) *runningLogi
 		}
 	})
 	re := regexp.MustCompile(`http://127\.0\.0\.1:\d+`)
-	require.Eventually(t, func() bool {
+	if !assert.Eventually(t, func() bool {
 		l.localURL = re.FindString(l.stdout.String() + l.stderr.String())
 		return l.localURL != ""
-	}, 20*time.Second, 50*time.Millisecond, "no local URL found in the output: %s", l.stderr.String())
+	}, 20*time.Second, 50*time.Millisecond) {
+		t.Fatalf("no local URL found in the output: %s", l.stderr.String())
+	}
 	return l
 }
 
