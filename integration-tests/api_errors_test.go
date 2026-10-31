@@ -356,14 +356,16 @@ func TestWriteCommandUnauthorized(t *testing.T) {
 	assert.Len(t, p.api.Requests("POST", path), 2)
 	assertTrimmed(t, "bar", p.f.Run("variable:get", "-p", layoutProjectID, "-l", "project", "foo", "-P", "value"))
 
-	// Login is required if the API keeps rejecting tokens.
+	// The API token is reported as rejected if the API keeps rejecting access tokens.
 	for range 2 {
 		p.api.FailNext("POST", path, http.StatusUnauthorized, unauthorized)
 	}
 	_, stderr, err = p.f.RunCombinedOutput(append(args, "--name", "bar")...)
 	assertExitCode(t, 3, err)
-	assert.Equal(t, "Unauthorized.", errorLines(stderr)[1])
-	assert.Contains(t, stderr, "Please log in by running:")
+	assert.Equal(t, []string{
+		"The API token was rejected. It may be invalid or revoked.",
+		"Check the API token, or create a new one.",
+	}, errorLines(stderr)[1:])
 	assertCleanAPIError(t, stderr)
 	assert.Len(t, p.api.Requests("POST", path), 4, "the request is sent again once")
 }
