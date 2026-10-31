@@ -366,7 +366,8 @@ func TestAuthChannel_TokenNotInherited(t *testing.T) {
 	hooksDir := filepath.Join(repo, ".git", "hooks")
 	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
 	hook := []byte("#!/bin/sh\nenv > '" + envFile + "'\n" +
-		"for fd in $(seq 3 64); do [ -S /dev/fd/$fd ] && echo $fd; done > '" + socketsFile + "'\n" +
+		"lsof -a -p $$ -U > '" + socketsFile + "' || command -v lsof > /dev/null || echo 'no lsof' > '" + socketsFile +
+		"'\n" +
 		`"$` + EnvPrefix + `WRAPPER_EXECUTABLE" auth:token -W > '` + nestedFile + `' 2>&1; echo "exit $?" >> '` +
 		nestedFile + "'\n")
 	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "pre-push"), hook, 0o755))
@@ -388,7 +389,7 @@ func TestAuthChannel_TokenNotInherited(t *testing.T) {
 
 	b, err = os.ReadFile(socketsFile)
 	require.NoError(t, err)
-	assert.Empty(t, string(b), "the hook must not inherit sockets")
+	assert.Empty(t, string(b), "the hook must not inherit Unix sockets")
 
 	b, err = os.ReadFile(nestedFile)
 	require.NoError(t, err)
