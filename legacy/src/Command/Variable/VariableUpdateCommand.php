@@ -13,6 +13,7 @@ use Platformsh\Cli\Selector\Selector;
 use Platformsh\Cli\Service\ActivityMonitor;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\VariableCommandUtil;
+use Platformsh\Client\Model\ProjectLevelVariable;
 use Platformsh\ConsoleForm\Form;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
@@ -64,14 +65,29 @@ class VariableUpdateCommand extends CommandBase
             return 1;
         }
 
+        $variableLevel = $variable instanceof ProjectLevelVariable ? VariableCommandUtil::LEVEL_PROJECT : VariableCommandUtil::LEVEL_ENVIRONMENT;
         $values = [];
         $fields = $this->form->getFields();
-        foreach ($variable->getProperties() as $property => $value) {
-            if (isset($fields[$property])) {
-                $newValue = $fields[$property]->getValueFromInput($input);
-                if ($newValue !== null && $newValue !== $value) {
-                    $values[$property] = $newValue;
-                }
+        foreach ($fields as $property => $field) {
+            $rawValue = $field->getValueFromInput($input, false);
+            if ($rawValue === null) {
+                continue;
+            }
+            $conditions = $field->getConditions();
+            if (isset($conditions['level']) && is_string($conditions['level']) && $conditions['level'] !== $variableLevel) {
+                $this->stdErr->writeln(\sprintf(
+                    'The option <error>--%s</error> can only be used for variables at the <comment>%s</comment> level, not at the <comment>%s</comment> level.',
+                    $field->getOptionName(),
+                    $conditions['level'],
+                    $variableLevel,
+                ));
+
+                return 1;
+            }
+            $field->validate($rawValue, true);
+            $newValue = $field->getFinalValue($rawValue);
+            if ($variable->hasProperty($property) && $newValue !== $variable->getProperty($property)) {
+                $values[$property] = $newValue;
             }
         }
 

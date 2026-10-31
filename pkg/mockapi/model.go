@@ -469,7 +469,8 @@ type Integration struct {
 	Token      string `json:"-"` // Write-only in the API.
 	Repository string `json:"repository,omitempty"`
 
-	BuildPullRequests bool `json:"build_pull_requests,omitempty"`
+	BuildPullRequests      bool `json:"build_pull_requests,omitempty"`
+	BuildDraftPullRequests bool `json:"build_draft_pull_requests,omitempty"`
 
 	URL    string   `json:"url,omitempty"`
 	Events []string `json:"events,omitempty"`

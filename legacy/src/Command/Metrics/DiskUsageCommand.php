@@ -63,7 +63,7 @@ class DiskUsageCommand extends MetricsCommandBase
     protected function configure(): void
     {
         $this->addOption('bytes', 'B', InputOption::VALUE_NONE, 'Show sizes in bytes')
-            ->addOption('tmp', null, InputOption::VALUE_NONE, 'Report temporary disk usage (shows columns: ' . implode(', ', $this->tmpReportColumns) . ')');
+            ->addOption('tmp', null, InputOption::VALUE_NONE, 'Report temporary disk usage (shows columns: ' . implode(', ', $this->tmpReportColumns) . ', unless --columns is used)');
         $this->addMetricsOptions();
         $this->selector->addProjectOption($this->getDefinition());
         $this->selector->addEnvironmentOption($this->getDefinition());
@@ -74,7 +74,8 @@ class DiskUsageCommand extends MetricsCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        if (Option::bool($input, 'tmp')) {
+        // --tmp sets the default columns, which --columns overrides.
+        if (Option::bool($input, 'tmp') && Option::stringArray($input, 'columns') === []) {
             $input->setOption('columns', $this->tmpReportColumns);
         }
         $this->table->removeDeprecatedColumns(['interval'], '', $input, $output);

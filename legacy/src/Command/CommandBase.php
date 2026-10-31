@@ -8,10 +8,12 @@ use Platformsh\Cli\Console\CompleterInterface;
 use Platformsh\Cli\Console\HiddenAliases;
 use Platformsh\Cli\Console\HiddenInputOption;
 use Platformsh\Cli\Service\Config;
+use Platformsh\ConsoleForm\Exception\InvalidValueException;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Completion\CompletionInput;
 use Symfony\Component\Console\Completion\CompletionSuggestions;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
@@ -81,6 +83,18 @@ abstract class CommandBase extends Command implements MultiAwareInterface
         return $this->hiddenInList
             || !in_array($this->stability, [self::STABILITY_STABLE, self::STABILITY_BETA])
             || $this->config->isCommandHidden((string) $this->getName());
+    }
+
+    public function run(InputInterface $input, OutputInterface $output): int
+    {
+        try {
+            return parent::run($input, $output);
+        } catch (InvalidValueException $e) {
+            // An invalid option value is an input error: show its message, without the exception or usage.
+            $this->stdErr->writeln(OutputFormatter::escape($e->getMessage()));
+
+            return 1;
+        }
     }
 
     protected function initialize(InputInterface $input, OutputInterface $output): void

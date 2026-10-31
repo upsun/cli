@@ -2,6 +2,7 @@ package tests
 
 import (
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -60,4 +61,14 @@ func TestMulti(t *testing.T) {
 	assert.Contains(t, stdErr, "Project ID(s) not found")
 	assert.Contains(t, stdErr, "nonexistent-id")
 	assert.NotContains(t, stdOut, "Project One")
+
+	// An exception stops the command, unless --continue is used.
+	_, stdErr, err = f.RunCombinedOutput("multi", "-p", projectID1+","+projectID2, "--", "pro:info", "nope")
+	assertExitCode(t, 1, err)
+	assert.Equal(t, 1, strings.Count(stdErr, "Property not found: nope"))
+	assert.NotContains(t, stdErr, "("+projectID2+")")
+
+	_, stdErr, err = f.RunCombinedOutput("multi", "-p", projectID1+","+projectID2, "--continue", "--", "pro:info", "nope")
+	assertExitCode(t, 1, err)
+	assert.Equal(t, 2, strings.Count(stdErr, "Property not found: nope"))
 }

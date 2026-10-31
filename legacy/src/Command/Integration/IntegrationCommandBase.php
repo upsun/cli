@@ -119,6 +119,21 @@ abstract class IntegrationCommandBase extends CommandBase
             ));
             return 1;
         }
+        foreach ($conditions as $conditionKey => $condition) {
+            $conditionField = $this->getForm()->getField($conditionKey);
+            if ($conditionKey === 'type' || !is_bool($condition) || $conditionField === false) {
+                continue;
+            }
+            if (!isset($previousValues[$conditionKey]) || $previousValues[$conditionKey] !== $condition) {
+                $this->stdErr->writeln(\sprintf(
+                    'The option <error>--%s</error> can only be used if <comment>--%s</comment> is %s.',
+                    $field->getOptionName(),
+                    $conditionField->getOptionName(),
+                    $condition ? 'true' : 'false',
+                ));
+                return 1;
+            }
+        }
         throw $e;
     }
 
@@ -160,7 +175,7 @@ abstract class IntegrationCommandBase extends CommandBase
             $map = [];
             foreach ($values['headers'] as $header) {
                 $parts = explode(':', (string) $header, 2);
-                $map[$parts[0]] = isset($parts[1]) ? ltrim($parts[1]) : '';
+                $map[trim($parts[0])] = isset($parts[1]) ? ltrim($parts[1]) : '';
             }
             $values['headers'] = $map;
         }
@@ -585,7 +600,7 @@ abstract class IntegrationCommandBase extends CommandBase
                 'conditions' => ['type' => ['syslog']],
                 'description' => 'Syslog relay/collector port',
                 'autoCompleterValues' => ['6514'],
-                'validator' => fn($value) => is_numeric($value) && $value >= 0 && $value <= 65535 ? true : "Invalid port number: $value",
+                'validator' => fn($value) => (is_int($value) || (is_string($value) && ctype_digit($value))) && $value >= 1 && $value <= 65535 ? true : "Invalid port number: $value",
             ]),
             'facility' => new Field('Facility', [
                 'conditions' => ['type' => ['syslog']],
@@ -593,7 +608,7 @@ abstract class IntegrationCommandBase extends CommandBase
                 'default' => 1,
                 'required' => false,
                 'avoidQuestion' => true,
-                'validator' => fn($value) => is_numeric($value) && $value >= 0 && $value <= 23 ? true : "Invalid syslog facility code: $value",
+                'validator' => fn($value) => (is_int($value) || (is_string($value) && ctype_digit($value))) && $value <= 23 ? true : "Invalid syslog facility code: $value",
             ]),
             'message_format' => new OptionsField('Message format', [
                 'conditions' => ['type' => ['syslog']],
@@ -650,13 +665,15 @@ abstract class IntegrationCommandBase extends CommandBase
                     $uniqueNames = [];
                     foreach ($headers as $header) {
                         $parts = \explode(':', $header, 2);
-                        if (isset($uniqueNames[$parts[0]])) {
+                        // Header names are case-insensitive.
+                        $name = \strtolower(\trim($parts[0]));
+                        if (isset($uniqueNames[$name])) {
                             return 'Duplicate header name: ' . $parts[0];
                         }
                         if (!isset($parts[1])) {
                             return 'Invalid header (no value): ' . $header;
                         }
-                        $uniqueNames[$parts[0]] = true;
+                        $uniqueNames[$name] = true;
                     }
                     return true;
                 },

@@ -117,6 +117,15 @@ func TestBackupCreate(t *testing.T) {
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
 
 	f.Run("backup", "-p", projectID, "-e", ".")
+	_, stderr, err := f.RunCombinedOutput("backup:create", "-p", projectID, "-e", "main", "--live")
+	require.NoError(t, err, stderr)
+	assert.Contains(t, stderr, "Creating a live backup of main")
+
+	backups := apiHandler.ProjectBackups(projectID)
+	require.Len(t, backups, 2)
+	safe := []bool{backups[0].Safe, backups[1].Safe}
+	assert.ElementsMatch(t, []bool{true, false}, safe)
+	assert.JSONEq(t, `{"safe": false}`, lastRequest(t, apiHandler, "POST", "/projects/*/environments/main/backups").Body)
 
 	assert.NotEmpty(t, f.Run("backups", "-p", projectID, "-e", "."))
 }

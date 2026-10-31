@@ -380,9 +380,9 @@ abstract class MetricsCommandBase extends CommandBase
      */
     protected function validateTimeInput(InputInterface $input): false|TimeSpec
     {
-        if ($to = Option::stringOrNull($input, 'to')) {
+        if (($to = Option::stringOrNull($input, 'to')) !== null) {
             $endTime = \strtotime($to);
-            if (!$endTime) {
+            if ($endTime === false) {
                 $this->stdErr->writeln('Failed to parse --to time: ' . $to);
 
                 return false;
@@ -390,9 +390,9 @@ abstract class MetricsCommandBase extends CommandBase
         } else {
             $endTime = time();
         }
-        if ($rangeStr = Option::stringOrNull($input, 'range')) {
-            $rangeSeconds = (new Duration())->toSeconds($rangeStr);
-            if (empty($rangeSeconds)) {
+        if (($rangeStr = Option::stringOrNull($input, 'range')) !== null) {
+            $rangeSeconds = $this->parseDuration($rangeStr);
+            if (!$rangeSeconds) {
                 $this->stdErr->writeln('Invalid --range: <error>' . $rangeStr . '</error>');
 
                 return false;
@@ -401,7 +401,6 @@ abstract class MetricsCommandBase extends CommandBase
 
                 return false;
             }
-            $rangeSeconds = (int) $rangeSeconds;
         } else {
             $rangeSeconds = self::DEFAULT_RANGE;
         }
@@ -409,11 +408,14 @@ abstract class MetricsCommandBase extends CommandBase
         $startTime = $endTime - $rangeSeconds;
         $interval = null;
 
-        if ($intervalString = Option::stringOrNull($input, 'interval')) {
-            $interval = (int) (new Duration())->toSeconds($intervalString);
-
-            if (empty($interval)) {
+        if (($intervalString = Option::stringOrNull($input, 'interval')) !== null) {
+            $interval = $this->parseDuration($intervalString);
+            if (!$interval) {
                 $this->stdErr->writeln('Invalid --interval: <error>' . $intervalString . '</error>');
+
+                return false;
+            } elseif ($interval < self::MIN_INTERVAL) {
+                $this->stdErr->writeln(\sprintf('The --interval <error>%s</error> is too short: it must be at least %d seconds (%s).', $intervalString, self::MIN_INTERVAL, (new Duration())->humanize(self::MIN_INTERVAL)));
 
                 return false;
             }
@@ -426,6 +428,24 @@ abstract class MetricsCommandBase extends CommandBase
         }
 
         return new TimeSpec($startTime, $endTime, $interval);
+    }
+
+    /**
+     * Parses a duration in seconds, or with hour, minute and second units (e.g. "1h30m"), to a number of seconds.
+     *
+     * Returns null if the duration is invalid.
+     */
+    private function parseDuration(string $value): ?int
+    {
+        if (\preg_match('/^\d+$/', $value)) {
+            return (int) $value;
+        }
+        if ($value === '' || !\preg_match('/^(?:(\d+(?:\.\d+)?)h)?\s*(?:(\d+(?:\.\d+)?)m)?\s*(?:(\d+(?:\.\d+)?)s)?$/i', \trim($value), $matches)) {
+            return null;
+        }
+        $seconds = (float) ($matches[1] ?? 0) * 3600 + (float) ($matches[2] ?? 0) * 60 + (float) ($matches[3] ?? 0);
+
+        return (int) \round($seconds);
     }
 
     /**

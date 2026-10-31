@@ -44,11 +44,12 @@ final class Sort
      */
     public static function sortObjects(array &$objects, string $property, bool $reverse = false): void
     {
-        uasort($objects, function ($a, $b) use ($property, $reverse) {
-            if (!property_exists($a, $property) || !property_exists($b, $property)) {
+        // Check every object, as uasort() compares nothing if there is only one.
+        foreach ($objects as $object) {
+            if (!property_exists($object, $property)) {
                 throw new \InvalidArgumentException('Cannot sort: property not found: ' . $property);
             }
-            return self::compare($a->$property, $b->$property, $reverse);
-        });
+        }
+        uasort($objects, fn($a, $b): int => self::compare($a->$property, $b->$property, $reverse));
     }
 }

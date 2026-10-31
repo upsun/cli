@@ -1423,6 +1423,14 @@ class Api
      */
     public static function sortResources(array &$resources, string $propertyPath, bool $reverse = false): void
     {
+        // Check every resource, as uasort() compares nothing if there is only one.
+        foreach ($resources as $resource) {
+            try {
+                static::getNestedProperty($resource, $propertyPath, false);
+            } catch (\InvalidArgumentException) {
+                throw new \InvalidArgumentException('Cannot sort: property not found: ' . $propertyPath);
+            }
+        }
         uasort($resources, fn(ApiResource $a, ApiResource $b) => Sort::compare(
             static::getNestedProperty($a, $propertyPath, false),
             static::getNestedProperty($b, $propertyPath, false),
