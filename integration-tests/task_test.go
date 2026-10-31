@@ -86,6 +86,19 @@ func TestTaskRun(t *testing.T) {
 		assert.Equal(t, "migrate", ranTask.Load())
 	})
 
+	t.Run("run with variables", func(t *testing.T) {
+		_, stderr, err := f.RunCombinedOutput("task:run", "migrate", "-p", projectID, "-e", "main", "--yes",
+			"--variable", "env:FOO=bar", "--variable", "env:URL=https://example.com/?a=1&b=2", "--variable", "php:memory_limit=1G")
+		require.NoError(t, err, stderr)
+		assert.JSONEq(t, `{"variables": {"env": {"FOO": "bar", "URL": "https://example.com/?a=1&b=2"}, "php": {"memory_limit": "1G"}}}`,
+			lastRequest(t, apiHandler, "POST", envPath+"/tasks/migrate/run").Body)
+
+		_, stderr, err = f.RunCombinedOutput("task:run", "migrate", "-p", projectID, "-e", "main", "--yes",
+			"--variable", "FOO=bar")
+		assert.Error(t, err)
+		assert.Contains(t, stderr, "Variables must be defined as type:name=value.")
+	})
+
 	for _, result := range []string{mockapi.ActivityResultSuccess, mockapi.ActivityResultFailure} {
 		t.Run("run_wait_"+result, func(t *testing.T) {
 			apiHandler.SetActivityResult(result)
