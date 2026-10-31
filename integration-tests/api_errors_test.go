@@ -370,6 +370,27 @@ func TestWriteCommandUnauthorized(t *testing.T) {
 	assert.Len(t, p.api.Requests("POST", path), 4, "the request is sent again once")
 }
 
+// TestWriteCommandUnauthorizedStoredToken checks that a rejected API token stored by auth:api-token-login can be
+// replaced by logging in, unlike one set via config.
+func TestWriteCommandUnauthorizedStoredToken(t *testing.T) {
+	t.Parallel()
+	p := setUpProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil))
+	f := p.f.forSubtest(t)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
+	_, stderr, err := f.RunInteractive(mockapi.ValidAPITokens[0]+"\n", "auth:api-token-login")
+	require.NoError(t, err, stderr)
+	path := "/projects/" + layoutProjectID + "/variables"
+	for range 2 {
+		p.api.FailNext("POST", path, http.StatusUnauthorized, `{"error":"invalid_token"}`)
+	}
+	_, stderr, err = f.RunCombinedOutput("variable:create", "-p", layoutProjectID, "-l", "project", "--name", "foo",
+		"--value", "bar")
+	assertExitCode(t, 3, err)
+	assert.Contains(t, stderr, "Please log in by running:")
+	assert.NotContains(t, stderr, "was rejected")
+	assertCleanAPIError(t, stderr)
+}
+
 // TestWriteCommandUnauthorizedSession checks a write request rejected with 401 with a Go auth session.
 func TestWriteCommandUnauthorizedSession(t *testing.T) {
 	t.Parallel()

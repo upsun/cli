@@ -46,14 +46,14 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if IsStepUpChallenge(resp) {
 		return nil, t.stepUpError(ctx, resp)
 	}
-	return nil, t.unauthorizedError(ctx, resp)
+	return nil, t.unauthorizedError(resp)
 }
 
 // unauthorizedError reports that login is required, as the legacy CLI does, for a 401 response to a new token.
-func (t *Transport) unauthorizedError(ctx context.Context, resp *http.Response) error {
+func (t *Transport) unauthorizedError(resp *http.Response) error {
 	flush(resp.Body)
-	hasAPIToken, _ := t.Manager.HasAPIToken(ctx)
-	if hasAPIToken {
+	// Logging in would not help while a token is set via config, but replaces a stored one.
+	if configured, _ := t.Manager.HasConfiguredToken(); configured {
 		return &LoginRequiredError{Notice: "The API token was rejected. It may be invalid or revoked.", HasAPIToken: true}
 	}
 	return &LoginRequiredError{}

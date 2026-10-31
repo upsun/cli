@@ -74,8 +74,8 @@ readonly class EventSubscriber implements EventSubscriberInterface
                 ));
                 $event->stopPropagation();
             } elseif ($response->getStatusCode() === 401) {
-                // Logging in would not help while an API token is configured.
-                $event->setError(($this->getApi)()->hasApiToken() ? new LoginRequiredException(
+                // Logging in would not help while a token is set via config, but replaces a stored one.
+                $event->setError(($this->getApi)()->hasApiToken(false) ? new LoginRequiredException(
                     "The API token was rejected. It may be invalid or revoked.\nCheck the API token, or create a new one.",
                     $this->config,
                     $error,

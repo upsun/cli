@@ -137,12 +137,14 @@ func TestInit_Unauthorized(t *testing.T) {
 		t.Skip("the repository digest fails on Windows: whatsun opens its embedded rules with OS-specific paths")
 	}
 	cases := []struct {
-		name     string
-		apiToken bool
-		want     string
+		name        string
+		apiToken    bool
+		storedToken bool
+		want        string
 	}{
 		{name: "session", want: "Please log in by running:\n    platform-test login"},
 		{name: "API token", apiToken: true, want: "The API token was rejected. It may be invalid or revoked."},
+		{name: "stored API token", storedToken: true, want: "Please log in by running:\n    platform-test login"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -159,7 +161,12 @@ func TestInit_Unauthorized(t *testing.T) {
 
 			f := newInitRepo(t, apiServer.URL, authServer.URL)
 			f.extraEnv = append(f.extraEnv, EnvPrefix+"GO_AUTH=1")
-			if !c.apiToken {
+			switch {
+			case c.storedToken:
+				f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
+				_, stderr, err := f.RunInteractive(mockapi.ValidAPITokens[0]+"\n", "auth:api-token-login")
+				require.NoError(t, err, stderr)
+			case !c.apiToken:
 				f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
 				authServer.AddRefreshToken("refresh-token")
 				writeOAuthSession(t, f.home, "default", map[string]any{
