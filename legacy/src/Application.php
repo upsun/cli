@@ -9,6 +9,7 @@ use Platformsh\Cli\Command\HelpCommand;
 use Platformsh\Cli\Command\ListCommand;
 use Platformsh\Cli\Command\WelcomeCommand;
 use Platformsh\Cli\Command\MultiAwareInterface;
+use Platformsh\Cli\Console\ApiErrorMessage;
 use Platformsh\Cli\Console\EventSubscriber;
 use Platformsh\Cli\Console\EnabledCommandLoader;
 use Platformsh\Cli\Console\HiddenAliasesCommandLoader;
@@ -275,6 +276,25 @@ class Application extends ParentApplication
                 $suggestions->suggestValue(new Suggestion($alias, $command->getDescription()));
             }
         }
+    }
+
+    /**
+     * @inheritdoc
+     *
+     * Renders API errors once, without the command's usage, which is for input errors. Verbose output keeps the
+     * HTTP client's details.
+     */
+    public function renderThrowable(\Throwable $e, OutputInterface $output): void
+    {
+        $message = $output->isVerbose() ? null : ApiErrorMessage::fromThrowable($e);
+        if ($message === null) {
+            parent::renderThrowable($e, $output);
+
+            return;
+        }
+        $output->writeln('', OutputInterface::VERBOSITY_QUIET);
+        // A console exception is rendered without its file and line.
+        $this->doRenderThrowable(new class ($message) extends \RuntimeException implements ConsoleExceptionInterface {}, $output);
     }
 
     /**

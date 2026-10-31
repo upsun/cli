@@ -80,7 +80,12 @@ readonly class EventSubscriber implements EventSubscriberInterface
                 ));
                 $event->stopPropagation();
             } elseif ($response->getStatusCode() === 403) {
-                $event->setError(new PermissionDeniedException($this->permissionDeniedMessage($request), $error));
+                $message = $this->permissionDeniedMessage($request);
+                $detail = ApiErrorMessage::detail($response);
+                if ($detail !== '') {
+                    $message .= "\n" . $detail;
+                }
+                $event->setError(new PermissionDeniedException($message, $error));
                 $event->stopPropagation();
             }
         }
