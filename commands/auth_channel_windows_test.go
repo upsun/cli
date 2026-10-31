@@ -26,6 +26,7 @@ func TestWindowsAuthChannel(t *testing.T) {
 		authChannelChild(t)
 		return
 	}
+	t.Logf("Elevated: %v", windows.GetCurrentProcessToken().IsElevated())
 	t.Setenv("TEST_HOME", t.TempDir())
 	t.Setenv("TEST_API_DISABLE_CREDENTIAL_HELPERS", "1")
 	t.Setenv("TEST_API_ACCESS_TOKEN", "raw-token")
@@ -91,8 +92,17 @@ func authChannelChild(t *testing.T) {
 func TestWindowsPipeSDDL(t *testing.T) {
 	sid, err := windows.StringToSid("S-1-5-21-1-2-3-1001")
 	require.NoError(t, err)
-	sddl := pipeSDDL(sid)
-	assert.Equal(t, "O:S-1-5-21-1-2-3-1001D:P(A;;GA;;;S-1-5-21-1-2-3-1001)", sddl)
-	_, err = windows.SecurityDescriptorFromString(sddl)
-	assert.NoError(t, err)
+	cases := []struct {
+		elevated bool
+		want     string
+	}{
+		{false, "O:S-1-5-21-1-2-3-1001D:P(A;;GA;;;S-1-5-21-1-2-3-1001)"},
+		{true, "O:S-1-5-21-1-2-3-1001D:P(A;;GA;;;S-1-5-21-1-2-3-1001)S:(ML;;NW;;;HI)"},
+	}
+	for _, c := range cases {
+		sddl := pipeSDDL(sid, c.elevated)
+		assert.Equal(t, c.want, sddl)
+		_, err = windows.SecurityDescriptorFromString(sddl)
+		assert.NoError(t, err)
+	}
 }

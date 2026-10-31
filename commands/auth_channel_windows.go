@@ -17,13 +17,15 @@ import (
 // openAuthChannel listens on a new named pipe, whose name is passed to cmd in <PREFIX>WRAPPER_AUTH_PIPE, as processes
 // cannot inherit extra file descriptors on Windows.
 func openAuthChannel(cnf *config.Config, cmd *exec.Cmd) (authChannel, error) {
-	user, err := windows.GetCurrentProcessToken().GetTokenUser()
+	token := windows.GetCurrentProcessToken()
+	user, err := token.GetTokenUser()
 	if err != nil {
 		return nil, fmt.Errorf("could not get the current user: %w", err)
 	}
 	// Not named after the slug, which may contain characters that the legacy CLI does not accept in the name.
 	name := "cli-auth-" + rand.Text()
-	l, err := winio.ListenPipe(`\\.\pipe\`+name, &winio.PipeConfig{SecurityDescriptor: pipeSDDL(user.User.Sid)})
+	sddl := pipeSDDL(user.User.Sid, token.IsElevated())
+	l, err := winio.ListenPipe(`\\.\pipe\`+name, &winio.PipeConfig{SecurityDescriptor: sddl})
 	if err != nil {
 		return nil, err
 	}
@@ -33,8 +35,15 @@ func openAuthChannel(cnf *config.Config, cmd *exec.Cmd) (authChannel, error) {
 
 // pipeSDDL gives the user full access to the pipe, and no one else: the default DACL gives Everyone read access.
 // go-winio also rejects remote clients, and fails if a pipe with the name exists.
-func pipeSDDL(sid *windows.SID) string {
-	return "O:" + sid.String() + "D:P(A;;GA;;;" + sid.String() + ")"
+//
+// If elevated, the pipe gets a high integrity label: without one, the user's processes that are not elevated could also
+// open it or create instances of it.
+func pipeSDDL(sid *windows.SID, elevated bool) string {
+	sddl := "O:" + sid.String() + "D:P(A;;GA;;;" + sid.String() + ")"
+	if elevated {
+		sddl += "S:(ML;;NW;;;HI)"
+	}
+	return sddl
 }
 
 type pipeChannel struct {
