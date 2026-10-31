@@ -191,8 +191,8 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 	return nil
 }
 
-// relaySignals stops the signals that end the PHP process from also ending this one, so that it can clean up after the
-// PHP process exits: an interrupt (e.g. Ctrl+C) reaches PHP from the terminal, and other signals are passed on to it.
+// relaySignals passes the signals that would end this process on to the PHP process instead, so that this one can
+// clean up after PHP exits. PHP may also get an interrupt (e.g. Ctrl+C) from the terminal: it exits on the first.
 func relaySignals(p *os.Process) (stop func()) {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
@@ -201,9 +201,7 @@ func relaySignals(p *os.Process) (stop func()) {
 		for {
 			select {
 			case sig := <-ch:
-				if sig != os.Interrupt {
-					_ = p.Signal(sig)
-				}
+				_ = p.Signal(sig)
 			case <-done:
 				return
 			}
