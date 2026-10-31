@@ -9,5 +9,6 @@ namespace Platformsh\Cli\Exception;
  */
 class ApiErrorException extends HttpException
 {
+    /** @var int */
     protected $code = 1;
 }
