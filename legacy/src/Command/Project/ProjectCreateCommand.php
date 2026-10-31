@@ -571,13 +571,13 @@ class ProjectCreateCommand extends CommandBase
                 'optionName' => 'environments',
                 'description' => 'The number of environments',
                 'default' => 3,
-                'validator' => fn($value): bool => is_numeric($value) && $value > 0 && $value < 50,
+                'validator' => fn($value): bool => (is_int($value) || (is_string($value) && ctype_digit($value))) && $value > 0 && $value < 50,
                 'avoidQuestion' => true,
             ]),
             'storage' => new Field('Storage', [
                 'description' => 'The amount of storage per environment, in GiB',
                 'default' => 5,
-                'validator' => fn($value): bool => is_numeric($value) && $value > 0 && $value < 1024,
+                'validator' => fn($value): bool => (is_int($value) || (is_string($value) && ctype_digit($value))) && $value > 0 && $value < 1024,
                 'avoidQuestion' => true,
             ]),
             'default_branch' => new Field('Default branch', [

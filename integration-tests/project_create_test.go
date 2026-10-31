@@ -227,3 +227,76 @@ func TestProjectCreate_CanCreateError(t *testing.T) {
 		})
 	}
 }
+
+func TestProjectCreateOptions(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.SetOrgs([]*mockapi.Org{
+		makeOrg("cli-test-id", "cli-tests", "CLI Test Org", "my-user-id", "flexible"),
+	})
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+
+	cases := []struct {
+		name     string
+		args     []string
+		wantBody map[string]any
+		wantErr  string
+	}{
+		{
+			name: "defaults",
+			wantBody: map[string]any{
+				"project_title": "Untitled Project", "default_branch": "main", "environments": 3.0, "storage": 5120.0,
+			},
+		},
+		{
+			name: "options",
+			args: []string{"--title", "Shop", "--default-branch", "production", "--environments", "10", "--storage", "50"},
+			wantBody: map[string]any{
+				"project_title": "Shop", "default_branch": "production", "environments": 10.0, "storage": 51200.0,
+			},
+		},
+		{name: "zero environments", args: []string{"--environments", "0"}, wantErr: "Invalid value for --environments: 0"},
+		{name: "too many environments", args: []string{"--environments", "50"}, wantErr: "Invalid value for --environments: 50"},
+		{name: "fractional environments", args: []string{"--environments", "2.5"}, wantErr: "Invalid value for --environments: 2.5"},
+		{name: "fractional storage", args: []string{"--storage", "0.5"}, wantErr: "Invalid value for --storage: 0.5"},
+		{name: "storage exponent", args: []string{"--storage", "1e2"}, wantErr: "Invalid value for --storage: 1e2"},
+		{name: "too much storage", args: []string{"--storage", "1024"}, wantErr: "Invalid value for --storage: 1024"},
+		{
+			name:    "init-repo without HTTPS",
+			args:    []string{"--init-repo", "http://git.example.com/repo.git"},
+			wantErr: `The initialize repository URL must start with "https://".`,
+		},
+		{
+			name:    "set-remote outside a repository",
+			args:    []string{"--set-remote"},
+			wantErr: "The --set-remote option can only be used inside a Git repository directory.",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f := f.forSubtest(t)
+			before := len(apiHandler.Requests("POST", "/organizations/*/subscriptions"))
+			args := append([]string{"project:create", "--region", "test-region", "--org", "cli-tests"}, c.args...)
+			_, stderr, err := f.RunCombinedOutput(args...)
+			requests := apiHandler.Requests("POST", "/organizations/*/subscriptions")
+			if c.wantErr != "" {
+				assertExitCode(t, 1, err)
+				assert.Contains(t, stderr, c.wantErr)
+				assert.Len(t, requests, before)
+				return
+			}
+			require.NoError(t, err, stderr)
+			require.Len(t, requests, before+1)
+			body := jsonObject(t, requests[before].Body)
+			for k, v := range c.wantBody {
+				assert.Equal(t, v, body[k], k)
+			}
+		})
+	}
+}
