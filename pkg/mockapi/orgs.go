@@ -32,14 +32,18 @@ func (h *Handler) handleOrgRefs(w http.ResponseWriter, req *http.Request) {
 	_ = json.NewEncoder(w).Encode(refs)
 }
 
-func (h *Handler) handleListOrgs(w http.ResponseWriter, _ *http.Request) {
+func (h *Handler) handleListOrgs(w http.ResponseWriter, req *http.Request) {
 	h.RLock()
 	defer h.RUnlock()
 	var (
 		orgs     = make([]*Org, 0, len(h.orgs))
 		ownerIDs = make(uniqueMap)
+		ownerID  = req.URL.Query().Get("filter[owner_id][eq]")
 	)
 	for _, o := range h.orgs {
+		if ownerID != "" && o.Owner != ownerID {
+			continue
+		}
 		orgs = append(orgs, o)
 		ownerIDs[o.Owner] = struct{}{}
 	}
