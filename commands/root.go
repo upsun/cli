@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/fatih/color"
@@ -335,6 +336,10 @@ func exitWithError(err error) {
 	var execErr *exec.ExitError
 	if errors.As(err, &execErr) {
 		exitCode := execErr.ExitCode()
+		// A process ended by a signal has no exit code: use the status that shells report.
+		if ws, ok := execErr.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
+			exitCode = 128 + int(ws.Signal())
+		}
 		debugLogf(err.Error())
 		waitForUpdateCheck()
 		os.Exit(exitCode)
