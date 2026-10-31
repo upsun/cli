@@ -547,7 +547,7 @@ func TestMigrator(t *testing.T) {
 	ids, err = newManager().SessionIDs(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, []string{"default", "other"}, ids)
-	e, err := newManager().Load(context.Background(), "default")
+	e, err := newManager().load(context.Background(), "default")
 	require.NoError(t, err)
 	assert.Equal(t, &store.Entry{AccessToken: "a", RefreshToken: "r", TokenType: "bearer", Expires: 123}, e)
 	assert.Equal(t, 2, exports)
