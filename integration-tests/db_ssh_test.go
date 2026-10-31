@@ -90,10 +90,12 @@ func TestDbDump(t *testing.T) {
 
 	// Another schema.
 	output = f.Run(append([]string{"db:dump", "-r", "database", "--stdout", "--schema", "other"}, args...)...)
-	assert.Equal(t, "mariadb-dump --single-transaction --user=user --password= --host=database.internal --port=3306 other\n",
+	assert.Equal(t,
+		"mariadb-dump --single-transaction --user=user --password= --host=database.internal --port=3306 other\n",
 		output)
 	output = f.Run(append([]string{"db:dump", "-r", "pg", "--stdout", "--schema", "other"}, args...)...)
-	assert.Equal(t, "pg_dump --no-owner --if-exists --clean --blobs postgresql://main:secret@pg.internal:5432/other\n", output)
+	assert.Equal(t, "pg_dump --no-owner --if-exists --clean --blobs postgresql://main:secret@pg.internal:5432/other\n",
+		output)
 
 	// A timestamp is inserted before the file extension.
 	timestampDir := t.TempDir()

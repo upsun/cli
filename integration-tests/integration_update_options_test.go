@@ -46,8 +46,10 @@ func TestIntegrationUpdateOptions(t *testing.T) {
 	path := "/projects/" + projectID + "/integrations/"
 	reset := func() {
 		apiHandler.SetProjectIntegrations(projectID, []*mockapi.Integration{
-			{ID: "pr-off", Type: "github", Repository: "org/repo", Links: mockapi.MakeHALLinks("self="+path+"pr-off", "#edit="+path+"pr-off")},
-			{ID: "pr-on", Type: "github", Repository: "org/repo", BuildPullRequests: true, Links: mockapi.MakeHALLinks("self="+path+"pr-on", "#edit="+path+"pr-on")},
+			{ID: "pr-off", Type: "github", Repository: "org/repo", Links: mockapi.MakeHALLinks("self="+path+"pr-off",
+				"#edit="+path+"pr-off")},
+			{ID: "pr-on", Type: "github", Repository: "org/repo", BuildPullRequests: true,
+				Links: mockapi.MakeHALLinks("self="+path+"pr-on", "#edit="+path+"pr-on")},
 		})
 	}
 
@@ -154,27 +156,36 @@ func TestIntegrationUpdateTypeOptions(t *testing.T) {
 				"build_wip_merge_requests": false, "merge_requests_clone_parent_data": false,
 			},
 		},
-		{name: "gitlab project without a namespace", args: []string{"gl", "--server-project", "repo"}, wantErr: "Invalid value for 'Project': repo"},
+		{name: "gitlab project without a namespace", args: []string{"gl", "--server-project", "repo"},
+			wantErr: "Invalid value for 'Project': repo"},
 		{name: "invalid base URL", args: []string{"gl", "--base-url", "not a url"}, wantErr: "Invalid URL"},
 		{
 			name: "github build options",
-			args: []string{"gh", "--build-pull-requests=true", "--build-pull-requests-post-merge=true", "--pull-requests-clone-parent-data=false", "--fetch-branches=true", "--prune-branches=false"},
+			args: []string{"gh", "--build-pull-requests=true", "--build-pull-requests-post-merge=true",
+				"--pull-requests-clone-parent-data=false", "--fetch-branches=true", "--prune-branches=false"},
 			wantPatch: map[string]any{
 				"build_pull_requests": true, "build_pull_requests_post_merge": true, "pull_requests_clone_parent_data": false,
 				"fetch_branches": true, "prune_branches": false,
 			},
 		},
 		{
-			name:      "webhook",
-			args:      []string{"hook", "--events", "environment.push,environment.branch", "--environments", "main", "--shared-key", "secret"},
-			wantPatch: map[string]any{"events": []any{"environment.push", "environment.branch"}, "environments": []any{"main"}, "shared_key": "secret"},
+			name: "webhook",
+			args: []string{"hook", "--events", "environment.push,environment.branch", "--environments", "main",
+				"--shared-key", "secret"},
+			wantPatch: map[string]any{"events": []any{"environment.push", "environment.branch"}, "environments": []any{"main"},
+				"shared_key": "secret"},
 		},
-		{name: "email from address", args: []string{"mail", "--from-address", "alerts@example.com"}, wantPatch: map[string]any{"from_address": "alerts@example.com"}},
-		{name: "invalid email from address", args: []string{"mail", "--from-address", "not-an-email"}, wantErr: "not-an-email"},
-		{name: "script file", args: []string{"script", "--file", scriptFile}, wantPatch: map[string]any{"script": "console.log('hi');\n"}},
+		{name: "email from address", args: []string{"mail", "--from-address", "alerts@example.com"},
+			wantPatch: map[string]any{"from_address": "alerts@example.com"}},
+		{name: "invalid email from address", args: []string{"mail", "--from-address", "not-an-email"},
+			wantErr: "not-an-email"},
+		{name: "script file", args: []string{"script", "--file", scriptFile},
+			wantPatch: map[string]any{"script": "console.log('hi');\n"}},
 		{name: "missing script file", args: []string{"script", "--file", scriptFile + ".missing"}, wantErr: "File not found"},
-		{name: "redaction of another type", args: []string{"hook", "--redaction=true"}, wantErr: "The option --redaction cannot be used with the integration type webhook."},
-		{name: "type", args: []string{"hook", "--type", "slack", "--shared-key", "other"}, wantPatch: map[string]any{"shared_key": "other"}},
+		{name: "redaction of another type", args: []string{"hook", "--redaction=true"},
+			wantErr: "The option --redaction cannot be used with the integration type webhook."},
+		{name: "type", args: []string{"hook", "--type", "slack", "--shared-key", "other"},
+			wantPatch: map[string]any{"shared_key": "other"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

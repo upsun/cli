@@ -88,9 +88,11 @@ func TestTaskRun(t *testing.T) {
 
 	t.Run("run with variables", func(t *testing.T) {
 		_, stderr, err := f.RunCombinedOutput("task:run", "migrate", "-p", projectID, "-e", "main", "--yes",
-			"--variable", "env:FOO=bar", "--variable", "env:URL=https://example.com/?a=1&b=2", "--variable", "php:memory_limit=1G")
+			"--variable", "env:FOO=bar", "--variable", "env:URL=https://example.com/?a=1&b=2",
+			"--variable", "php:memory_limit=1G")
 		require.NoError(t, err, stderr)
-		assert.JSONEq(t, `{"variables": {"env": {"FOO": "bar", "URL": "https://example.com/?a=1&b=2"}, "php": {"memory_limit": "1G"}}}`,
+		assert.JSONEq(t,
+			`{"variables": {"env": {"FOO": "bar", "URL": "https://example.com/?a=1&b=2"}, "php": {"memory_limit": "1G"}}}`,
 			lastRequest(t, apiHandler, "POST", envPath+"/tasks/migrate/run").Body)
 
 		_, stderr, err = f.RunCombinedOutput("task:run", "migrate", "-p", projectID, "-e", "main", "--yes",

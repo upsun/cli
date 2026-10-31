@@ -213,9 +213,10 @@ func TestEnvironmentPushOptions(t *testing.T) {
 			},
 		},
 		{
-			name:       "activate without cloning the parent's data",
-			args:       []string{"--target", "feature", "--activate", "--no-clone-parent"},
-			wantStdErr: []string{"GIT_PUSH_OPTION_0=environment.status=active", "GIT_PUSH_OPTION_1=environment.clone_parent_on_create=false"},
+			name: "activate without cloning the parent's data",
+			args: []string{"--target", "feature", "--activate", "--no-clone-parent"},
+			wantStdErr: []string{"GIT_PUSH_OPTION_0=environment.status=active",
+				"GIT_PUSH_OPTION_1=environment.clone_parent_on_create=false"},
 			check: func(t *testing.T, p *gitProject, repo string) {
 				assert.Equal(t, gitRef(t, repo, "HEAD"), gitRef(t, p.repo, "refs/heads/feature"))
 			},

@@ -110,8 +110,9 @@ func TestProjectListOptions(t *testing.T) {
 		makeProject("project-b", "org-id-2", "test-vendor", "shop 2", "us-1.example.com"),
 		makeProject("project-c", "org-id-2", "test-vendor", "Blog", "eu-1.example.com"),
 	})
-	var grants []*mockapi.UserGrant
-	for _, p := range []struct{ id, org string }{{"project-a", orgID1}, {"project-b", "org-id-2"}, {"project-c", "org-id-2"}} {
+	grants := make([]*mockapi.UserGrant, 0, 3)
+	for _, p := range []struct{ id, org string }{{"project-a", orgID1}, {"project-b", "org-id-2"}, {"project-c",
+		"org-id-2"}} {
 		grants = append(grants, &mockapi.UserGrant{
 			ResourceID: p.id, ResourceType: "project", OrganizationID: p.org, UserID: myUserID, Permissions: []string{"admin"},
 		})

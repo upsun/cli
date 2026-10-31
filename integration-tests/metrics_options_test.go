@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -29,7 +30,8 @@ func TestMetricsTimeOptions(t *testing.T) {
 		{name: "range in hours and minutes", args: []string{"--range", "1h30m"}, wantRange: 5400},
 		{name: "range in fractional hours", args: []string{"--range", "1.5h"}, wantRange: 5400},
 		{name: "interval", args: []string{"--range", "1h", "--interval", "5m"}, wantRange: 3600, wantGrain: "300"},
-		{name: "interval in seconds", args: []string{"--range", "1h", "--interval", "120s"}, wantRange: 3600, wantGrain: "120"},
+		{name: "interval in seconds", args: []string{"--range", "1h", "--interval", "120s"}, wantRange: 3600,
+			wantGrain: "120"},
 		{name: "invalid range", args: []string{"--range", "abc"}, wantErr: "Invalid --range: abc"},
 		{name: "invalid range unit", args: []string{"--range", "10x"}, wantErr: "Invalid --range: 10x"},
 		{name: "negative range", args: []string{"--range=-10m"}, wantErr: "Invalid --range: -10m"},
@@ -81,9 +83,12 @@ func TestMetricsServiceOptions(t *testing.T) {
 		{name: "services with a wildcard", args: []string{"-s", "a*,router"}, wantServices: []string{"app", "router"}},
 		{name: "type without a version", args: []string{"--type", "mariadb"}, wantServices: []string{"db"}},
 		{name: "type with a version", args: []string{"--type", "php:8.4"}, wantServices: []string{"app"}},
-		{name: "service takes precedence over type", args: []string{"--service", "app", "--type", "mariadb"}, wantServices: []string{"app"}},
-		{name: "unknown service", args: []string{"--service", "nope"}, wantErr: "No services were found matching the name(s): nope"},
-		{name: "unknown type", args: []string{"--type", "nope"}, wantErr: "No services were found matching the type(s): nope"},
+		{name: "service takes precedence over type", args: []string{"--service", "app", "--type", "mariadb"},
+			wantServices: []string{"app"}},
+		{name: "unknown service", args: []string{"--service", "nope"},
+			wantErr: "No services were found matching the name(s): nope"},
+		{name: "unknown type", args: []string{"--type", "nope"},
+			wantErr: "No services were found matching the type(s): nope"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -141,7 +146,7 @@ func TestMetricsDisplayOptions(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			f, _, projectID := setupMetricsTest(t, false, false)
-			args := append(c.args, "-p", projectID, "-e", "main", "--format", "csv", "--date-fmt", "c")
+			args := append(slices.Clone(c.args), "-p", projectID, "-e", "main", "--format", "csv", "--date-fmt", "c")
 			stdout, stderr, err := f.RunCombinedOutput(args...)
 			require.NoError(t, err, stderr)
 			assert.Equal(t, c.want, stdout)

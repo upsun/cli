@@ -23,8 +23,9 @@ func TestVariableCreateOptions(t *testing.T) {
 		wantErr  string
 	}{
 		{
-			name:     "environment level",
-			args:     []string{"-l", "e", "-e", "main", "--name", "E1", "--prefix", "env", "--enabled", "false", "--inheritable", "no", "--visible-build", "true", "--visible-runtime", "false"},
+			name: "environment level",
+			args: []string{"-l", "e", "-e", "main", "--name", "E1", "--prefix", "env", "--enabled", "false", "--inheritable",
+				"no", "--visible-build", "true", "--visible-runtime", "false"},
 			wantPath: "/projects/*/environments/main/variables",
 			wantBody: map[string]any{
 				"name": "env:E1", "is_enabled": false, "is_inheritable": false, "visible_build": true, "visible_runtime": false,
@@ -35,7 +36,8 @@ func TestVariableCreateOptions(t *testing.T) {
 			args:     []string{"-l", "e", "-e", "main", "--name", "E2"},
 			wantPath: "/projects/*/environments/main/variables",
 			// The API's defaults for visibility are left out.
-			wantBody: map[string]any{"name": "E2", "is_enabled": true, "is_inheritable": true, "visible_build": nil, "visible_runtime": nil},
+			wantBody: map[string]any{"name": "E2", "is_enabled": true, "is_inheritable": true, "visible_build": nil,
+				"visible_runtime": nil},
 		},
 		{
 			name:     "project level defaults",
@@ -61,9 +63,10 @@ func TestVariableCreateOptions(t *testing.T) {
 			wantErr: "The option --enabled can only be used for variables at the environment level, not at the project level.",
 		},
 		{
-			name:    "inheritable at the project level",
-			args:    []string{"-l", "p", "--name", "P5", "--inheritable", "true"},
-			wantErr: "The option --inheritable can only be used for variables at the environment level, not at the project level.",
+			name: "inheritable at the project level",
+			args: []string{"-l", "p", "--name", "P5", "--inheritable", "true"},
+			wantErr: "The option --inheritable can only be used for variables at the environment level, not at the project " +
+				"level.",
 		},
 		{
 			name:    "invalid boolean",
@@ -138,8 +141,9 @@ func TestVariableUpdateOptions(t *testing.T) {
 		wantCode  int
 	}{
 		{
-			name:      "environment level",
-			args:      []string{"-l", "e", "-e", "main", "env:ENV", "--enabled", "false", "--inheritable", "no", "--visible-build", "yes"},
+			name: "environment level",
+			args: []string{"-l", "e", "-e", "main", "env:ENV", "--enabled", "false", "--inheritable", "no",
+				"--visible-build", "yes"},
 			wantPatch: map[string]any{"is_enabled": false, "is_inheritable": false, "visible_build": true},
 		},
 		{
@@ -160,9 +164,10 @@ func TestVariableUpdateOptions(t *testing.T) {
 			wantCode: 1,
 		},
 		{
-			name:     "inheritable at the project level",
-			args:     []string{"-l", "p", "env:PROJ", "--inheritable", "false"},
-			wantErr:  "The option --inheritable can only be used for variables at the environment level, not at the project level.",
+			name: "inheritable at the project level",
+			args: []string{"-l", "p", "env:PROJ", "--inheritable", "false"},
+			wantErr: "The option --inheritable can only be used for variables at the environment level, not at the project " +
+				"level.",
 			wantCode: 1,
 		},
 		{

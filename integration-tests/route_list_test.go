@@ -127,7 +127,8 @@ func TestRouteGetOptions(t *testing.T) {
 			"primary": true, "id": "main", "type": "upstream", "original_url": "https://www.{default}/", "upstream": "app:http",
 		},
 		"http://www.example.com/": map[string]any{
-			"primary": false, "id": nil, "type": "redirect", "original_url": "http://www.{default}/", "to": "https://www.example.com/",
+			"primary": false, "id": nil, "type": "redirect", "original_url": "http://www.{default}/",
+			"to": "https://www.example.com/",
 		},
 	}
 	f := withRoutes(t, routes)
@@ -142,7 +143,8 @@ func TestRouteGetOptions(t *testing.T) {
 		{name: "primary", args: []string{"--primary"}, want: "https://www.{default}/\n"},
 		{name: "original URL", args: []string{"http://www.{default}/"}, want: "http://www.{default}/\n"},
 		{name: "unknown id", args: []string{"--id", "nope"}, wantErr: "No route found with ID: nope"},
-		{name: "unknown original URL", args: []string{"https://nope.{default}/"}, wantErr: "No route found for original URL: https://nope.{default}/"},
+		{name: "unknown original URL", args: []string{"https://nope.{default}/"},
+			wantErr: "No route found for original URL: https://nope.{default}/"},
 		{
 			name:    "no selection",
 			args:    nil,
