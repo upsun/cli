@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -326,27 +325,9 @@ func (h *Handler) findOrgMember(orgID, userID string) int {
 }
 
 // handleListOrgMembers lists an organization's members. Like the API, it sorts by "created_at" or "updated_at"
-// ("-" for descending), and paginates with "page[size]" (at most 100) and an opaque "page[after]" cursor.
+// ("-" for descending), and paginates (at most 100 per page).
 func (h *Handler) handleListOrgMembers(w http.ResponseWriter, req *http.Request) {
 	query := req.URL.Query()
-	size := 100
-	if s := query.Get("page[size]"); s != "" {
-		n, err := strconv.Atoi(s)
-		if err != nil || n < 1 || n > 100 {
-			writeProblem(w, http.StatusBadRequest, errors.New("invalid page size"))
-			return
-		}
-		size = n
-	}
-	var after string
-	if c := query.Get("page[after]"); c != "" {
-		var ok bool
-		if after, ok = decodeCursor(c); !ok {
-			writeProblem(w, http.StatusBadRequest, errors.New("invalid cursor"))
-			return
-		}
-	}
-
 	h.RLock()
 	defer h.RUnlock()
 	orgID := chi.URLParam(req, "organization_id")
@@ -370,16 +351,10 @@ func (h *Handler) handleListOrgMembers(w http.ResponseWriter, req *http.Request)
 		slices.Reverse(members)
 	}
 	count := len(members)
-	if after != "" {
-		i := slices.IndexFunc(members, func(m *OrgMember) bool { return m.UserID == after })
-		members = members[i+1:]
-	}
-	collectionPath := "/organizations/" + url.PathEscape(orgID) + "/members"
-	links := MakeHALLinks("self=" + collectionPath)
-	if len(members) > size {
-		members = members[:size]
-		query.Set("page[after]", encodeCursor(members[size-1].UserID))
-		links["next"] = HALLink{HREF: collectionPath + "?" + query.Encode()}
+	links := MakeHALLinks("self=/organizations/" + url.PathEscape(orgID) + "/members")
+	members, ok := paginate(w, req, members, 100, links)
+	if !ok {
+		return
 	}
 
 	items := make([]*orgMember, 0, len(members))
