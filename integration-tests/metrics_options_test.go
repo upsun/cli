@@ -111,3 +111,40 @@ func TestMetricsServiceOptions(t *testing.T) {
 		})
 	}
 }
+
+func TestMetricsDisplayOptions(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{
+			name: "all in bytes",
+			args: []string{"metrics:all", "--bytes", "--no-header", "-c", "service,mem_used,disk_used,tmp_disk_limit"},
+			want: "app,256,100,1000\ndb,256,250,1000\n",
+		},
+		{
+			name: "all in units",
+			args: []string{"metrics:all", "--no-header", "-c", "service,mem_used,disk_used"},
+			want: "app,256 B,100 B\ndb,256 B,250 B\n",
+		},
+		{
+			name: "temporary disk usage",
+			args: []string{"disk", "--tmp", "--bytes"},
+			want: "Timestamp,Service,/tmp used,/tmp limit,/tmp %,/tmp inodes %\n" +
+				"2026-09-23T19:00:00+00:00,app,500,1000,50.0%,4.0%\n" +
+				"2026-09-23T19:00:00+00:00,db,10,1000,1.0%,0.1%\n",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			f, _, projectID := setupMetricsTest(t, false, false)
+			args := append(c.args, "-p", projectID, "-e", "main", "--format", "csv", "--date-fmt", "c")
+			stdout, stderr, err := f.RunCombinedOutput(args...)
+			require.NoError(t, err, stderr)
+			assert.Equal(t, c.want, stdout)
+		})
+	}
+}
