@@ -213,3 +213,36 @@ func TestRuntimeOperationRunWithWorker(t *testing.T) {
 	body = jsonObject(t, lastRequest(t, apiHandler, "POST", deploymentPath+"/operations").Body)
 	assert.Equal(t, "app--queue", body["service"])
 }
+
+// TestRuntimeOperationListOptions checks that operation:list filters by --app and --worker.
+func TestRuntimeOperationListOptions(t *testing.T) {
+	t.Parallel()
+	f, _, projectID, _ := setUpRuntimeOperations(t, "app", "app--queue", "other")
+
+	cases := []struct {
+		name    string
+		args    []string
+		want    string
+		wantErr string
+	}{
+		{name: "all", want: "app,migrate\nother,migrate\napp--queue,migrate\n"},
+		{name: "app", args: []string{"--app", "other"}, want: "other,migrate\n"},
+		{name: "worker", args: []string{"--worker", "app--queue"}, want: "app--queue,migrate\n"},
+		{name: "unknown worker", args: []string{"--worker", "app--nope"}, wantErr: "Worker not found: app--nope"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f := f.forSubtest(t)
+			args := append([]string{"operation:list", "-p", projectID, "-e", "main", "--format", "csv", "--no-header",
+				"--columns", "service,name"}, c.args...)
+			stdout, stderr, err := f.RunCombinedOutput(args...)
+			if c.wantErr != "" {
+				assertExitCode(t, 1, err)
+				assert.Contains(t, stderr, c.wantErr)
+				return
+			}
+			require.NoError(t, err, stderr)
+			assert.Equal(t, c.want, stdout)
+		})
+	}
+}
