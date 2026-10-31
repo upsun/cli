@@ -181,7 +181,7 @@ func patchSpec(doc *openapi3.T) error { //nolint:funlen // A list of patches.
 			ref.Value.Properties["type"] = typ.NewRef()
 		}
 	}
-	// Log forwarding integrations have a redaction setting (set by integration:add --redaction), missing from the spec.
+	// The API supports a redaction setting on log forwarding integrations, but the published spec lags behind.
 	for _, prefix := range []string{"HttpLog", "NewRelic", "OtlpLog", "Splunk", "Sumologic", "Syslog"} {
 		for _, suffix := range []string{"Integration", "IntegrationCreateInput", "IntegrationCreateCreateInput",
 			"IntegrationPatch"} {
