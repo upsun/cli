@@ -34,8 +34,9 @@ type store struct {
 	projectSettingsPatches map[string][]map[string]any
 	autoscalingPatches     map[string][]map[string]any
 
-	sshKeySource string
-	sshKeys      []*SSHKey
+	sshKeySource     string
+	sshKeys          []*SSHKey
+	otherUserSSHKeys []string
 }
 
 func (s *store) SetEnvironments(envs []*Environment) {

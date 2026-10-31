@@ -59,6 +59,13 @@ func (s *store) SetSSHKeys(keys []*SSHKey) {
 	s.sshKeys = keys
 }
 
+// SetOtherUserSSHKeys sets the values of SSH keys registered by other users.
+func (s *store) SetOtherUserSSHKeys(values []string) {
+	s.Lock()
+	defer s.Unlock()
+	s.otherUserSSHKeys = values
+}
+
 // SSHKeys returns copies of the SSH keys in the current user's account.
 func (s *store) SSHKeys() []*SSHKey {
 	s.RLock()
@@ -150,8 +157,9 @@ func (h *Handler) handleCreateSSHKey(source string) http.HandlerFunc {
 		}
 		h.Lock()
 		defer h.Unlock()
-		// Like the API, reject a key that is already registered.
-		if slices.ContainsFunc(h.sshKeys, func(k *SSHKey) bool { return k.Value == body.Value }) {
+		// Like the API, reject a key that is already registered, by anyone.
+		if slices.ContainsFunc(h.sshKeys, func(k *SSHKey) bool { return k.Value == body.Value }) ||
+			slices.Contains(h.otherUserSSHKeys, body.Value) {
 			writeError(w, http.StatusConflict, "The SSH key is already registered", nil)
 			return
 		}

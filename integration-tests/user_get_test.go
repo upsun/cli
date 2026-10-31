@@ -111,3 +111,29 @@ func TestUserGet(t *testing.T) {
 		})
 	}
 }
+
+func TestUserGetRoles(t *testing.T) {
+	t.Parallel()
+	f, _, projectID := setupProjectUsers(t)
+
+	// Without --pipe, the user's roles are summarized.
+	stdout, stderr, err := f.RunCombinedOutput("user:get", "-p", projectID, "user-id-2@example.com")
+	require.NoError(t, err)
+	assert.Empty(t, stdout)
+	assert.Contains(t, stderr, "Current role(s) of User user-id-2 (user-id-2@example.com) on Project 1")
+	assert.Contains(t, stderr, "  Project role: viewer\n"+
+		"    Role on environment type development: viewer\n"+
+		"    Role on environment type production: [none]\n"+
+		"    Role on environment type staging: [none]")
+
+	_, stderr, err = f.RunCombinedOutput("user:role", "-p", projectID, "user-id-2@example.com", "--pipe")
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "The user:role command is deprecated. Use user:get or user:update instead.")
+
+	// Without an email address, the user is chosen interactively.
+	stdout, stderr, err = f.RunInteractive("1\n", "user:get", "-p", projectID, "--pipe")
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "Enter a number to choose a user:")
+	assert.Contains(t, stderr, "[1] User user-id-2 (user-id-2@example.com)")
+	assert.Equal(t, "viewer\n", stdout)
+}
