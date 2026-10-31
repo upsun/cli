@@ -550,6 +550,12 @@ func TestTeamProjectList(t *testing.T) {
 			wantStderr: []string{"The --count must be a number between 1 and 200, or 0 to disable pagination."},
 		},
 		{
+			name:       "fractional count",
+			args:       []string{"--count", "1.5"},
+			wantErr:    true,
+			wantStderr: []string{"The --count must be a number between 1 and 200, or 0 to disable pagination."},
+		},
+		{
 			name:       "count too large",
 			args:       []string{"--count", "201"},
 			wantErr:    true,
@@ -695,6 +701,12 @@ func TestTeamUserList(t *testing.T) {
 		{
 			name:       "invalid count",
 			args:       []string{"--count", "abc"},
+			wantErr:    true,
+			wantStderr: "The --count must be a number between 1 and 50, or 0 to disable pagination.",
+		},
+		{
+			name:       "fractional count",
+			args:       []string{"--count", "1.5"},
 			wantErr:    true,
 			wantStderr: "The --count must be a number between 1 and 50, or 0 to disable pagination.",
 		},

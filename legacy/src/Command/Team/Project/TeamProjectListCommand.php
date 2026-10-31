@@ -60,7 +60,7 @@ class TeamProjectListCommand extends TeamCommandBase
         $count = Option::stringOrNull($input, 'count');
         $itemsPerPage = max(1, min($this->config->getInt('pagination.count'), self::MAX_COUNT));
         if ($count !== null && $count !== '0') {
-            if (!\is_numeric($count) || $count < 1 || $count > self::MAX_COUNT) {
+            if (!\preg_match('/^\d+$/', $count) || $count < 1 || $count > self::MAX_COUNT) {
                 $this->stdErr->writeln('The --count must be a number between 1 and ' . self::MAX_COUNT . ', or 0 to disable pagination.');
                 return 1;
             }

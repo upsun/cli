@@ -322,8 +322,8 @@ func TestOrgUserList(t *testing.T) {
 	assert.Equal(t, "user-100\nuser-099", list("--count", "2", "--sort", "updated_at"))
 	assert.Equal(t, "user-000\nuser-001", list("--count", "2", "--sort", "updated_at", "--reverse"))
 
-	for _, count := range []string{"abc", "101"} {
-		_, stderr, err := f.RunCombinedOutput("org:user:list", "-o", "acme", "--count", count)
+	for _, count := range []string{"abc", "101", "-1", "1.5", "1e1"} {
+		_, stderr, err := f.RunCombinedOutput("org:user:list", "-o", "acme", "--count="+count)
 		assert.Error(t, err)
 		assert.Contains(t, stderr, "The --count must be a number between 1 and 100, or 0 to disable pagination.")
 	}
