@@ -445,7 +445,7 @@ abstract class MetricsCommandBase extends CommandBase
         if (\preg_match('/^(?:(\d+):)?(\d+):(\d+(?:\.\d+)?)$/', \trim($value), $matches)) {
             return (int) \round((int) $matches[1] * 3600 + (int) $matches[2] * 60 + (float) $matches[3]);
         }
-        if ($value === '' || !\preg_match('/^(?:(\d+(?:\.\d+)?)d)?\s*(?:(\d+(?:\.\d+)?)h)?\s*(?:(\d+(?:\.\d+)?)m)?\s*(?:(\d+(?:\.\d+)?)s)?$/i', \trim($value), $matches)) {
+        if ($value === '' || !\preg_match('/^(?:(\d+(?:\.\d+)?)\s?d)?\s*(?:(\d+(?:\.\d+)?)\s?h)?\s*(?:(\d+(?:\.\d+)?)\s?m)?\s*(?:(\d+(?:\.\d+)?)\s?s)?$/i', \trim($value), $matches)) {
             return null;
         }
         $seconds = (float) ($matches[1] ?? 0) * 86400 + (float) ($matches[2] ?? 0) * 3600 + (float) ($matches[3] ?? 0) * 60 + (float) ($matches[4] ?? 0);
