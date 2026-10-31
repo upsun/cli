@@ -2,6 +2,7 @@ package tests
 
 import (
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -84,13 +85,26 @@ func TestEnvironmentListOptions(t *testing.T) {
 		},
 	})
 
-	// The list is cached unless refreshed.
-	count := func() int { return len(apiHandler.Requests("GET", "/projects/*/environments")) }
-	before := count()
-	f.Run(list("--refresh", "0")...)
-	assert.Equal(t, before, count())
-	f.Run(list()...)
-	assert.Equal(t, before+1, count())
+	assertRefreshOption(t, f, list(), func() int { return len(apiHandler.Requests("GET", "/projects/*/environments")) })
+}
+
+// assertRefreshOption checks that a list is cached unless refreshed, and that --refresh takes boolean values.
+func assertRefreshOption(t *testing.T, f *cmdFactory, args []string, count func() int) {
+	t.Helper()
+	f.Run(args...)
+	for _, value := range []string{"0", "false", "no", "N"} {
+		before := count()
+		f.Run(append(slices.Clone(args), "--refresh", value)...)
+		assert.Equal(t, before, count(), value)
+	}
+	for _, value := range []string{"1", "true", "yes"} {
+		before := count()
+		f.Run(append(slices.Clone(args), "--refresh", value)...)
+		assert.Equal(t, before+1, count(), value)
+	}
+	_, stderr, err := f.RunCombinedOutput(append(slices.Clone(args), "--refresh", "maybe")...)
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "The --refresh value must be true or false (or 1 or 0).")
 }
 
 func TestProjectListOptions(t *testing.T) {
@@ -147,6 +161,10 @@ func TestProjectListOptions(t *testing.T) {
 			args:    list("--title", "Blog", "--sort", "nope"),
 			wantErr: "Cannot sort: property not found: nope",
 		},
+	})
+
+	assertRefreshOption(t, f, list(), func() int {
+		return len(apiHandler.Requests("GET", "/users/*/extended-access"))
 	})
 }
 
