@@ -218,11 +218,27 @@ class GoAuth
                 && posix_getppid() === (int) $wrapperPid) {
                 self::$channel = @fopen('php://fd/' . $fd, 'r+');
             } elseif (is_string($pipe) && preg_match('/^[\w-]+$/', $pipe)) {
-                self::$channel = @fopen('\\\\.\\pipe\\' . $pipe, 'r+');
+                self::$channel = $this->openPipe('\\\\.\\pipe\\' . $pipe);
             }
         }
 
         return self::$channel ?: null;
+    }
+
+    /**
+     * Opens the wrapper's named pipe, retrying for up to a second: it can only be opened while the wrapper waits for a
+     * connection, and fopen() does not wait.
+     *
+     * @return resource|false
+     */
+    private function openPipe(string $path): mixed
+    {
+        $deadline = microtime(true) + 1;
+        while (($handle = @fopen($path, 'r+')) === false && microtime(true) < $deadline) {
+            usleep(10000);
+        }
+
+        return $handle;
     }
 
     /**
