@@ -76,7 +76,12 @@ func TestEnvironmentListOptions(t *testing.T) {
 		{name: "types", args: list("--type", "production,staging"), want: "staging\nmain\n"},
 		{name: "unknown type", args: list("--type", "qa"), want: ""},
 		{name: "type and status", args: list("--type", "development", "--status", "active"), want: "dev-10\n"},
-		{name: "unknown sort property", args: list("--sort", "nope"), wantErr: "nope"},
+		{name: "unknown sort property", args: list("--sort", "nope"), wantErr: "Cannot sort: property not found: nope"},
+		{
+			name:    "unknown sort property with one item",
+			args:    list("--type", "production", "--sort", "nope"),
+			wantErr: "Cannot sort: property not found: nope",
+		},
 	})
 
 	// The list is cached unless refreshed.
@@ -137,6 +142,11 @@ func TestProjectListOptions(t *testing.T) {
 		{name: "org by ID", args: list("--org", orgID1), want: "project-a\n"},
 		{name: "unknown org", args: list("--org", "org-3"), want: ""},
 		{name: "unknown sort property", args: list("--sort", "nope"), wantErr: "Cannot sort: property not found: nope"},
+		{
+			name:    "unknown sort property with one item",
+			args:    list("--title", "Blog", "--sort", "nope"),
+			wantErr: "Cannot sort: property not found: nope",
+		},
 	})
 }
 
@@ -168,6 +178,11 @@ func TestOrganizationListOptions(t *testing.T) {
 		{name: "my", args: list("--my"), want: "acme\nbeta\n"},
 		{name: "type", args: list("--type", "fixed"), want: "beta\nduff\n"},
 		{name: "my and type", args: list("--my", "--type", "fixed"), want: "beta\n"},
-		{name: "unknown sort property", args: list("--sort", "nope"), wantErr: "nope"},
+		{name: "unknown sort property", args: list("--sort", "nope"), wantErr: "Cannot sort: property not found: nope"},
+		{
+			name:    "unknown sort property with one item",
+			args:    list("--type", "flexible", "--sort", "nope"),
+			wantErr: "Cannot sort: property not found: nope",
+		},
 	})
 }
