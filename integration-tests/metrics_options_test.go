@@ -141,6 +141,11 @@ func TestMetricsDisplayOptions(t *testing.T) {
 				"2026-09-23T19:00:00+00:00,app,500,1000,50.0%,4.0%\n" +
 				"2026-09-23T19:00:00+00:00,db,10,1000,1.0%,0.1%\n",
 		},
+		{
+			name: "temporary disk usage with columns",
+			args: []string{"disk", "--tmp", "--bytes", "--no-header", "--columns", "service,tmp_used,tmp_iused"},
+			want: "app,500,40\ndb,10,1\n",
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
