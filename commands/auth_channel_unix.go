@@ -3,64 +3,56 @@
 package commands
 
 import (
+	"errors"
+	"fmt"
 	"net"
 	"os"
 	"os/exec"
-	"strconv"
-	"syscall"
+	"path/filepath"
 
 	"github.com/upsun/cli/internal/config"
 )
 
-// openAuthChannel gives cmd one end of a socket pair, as an inherited file descriptor whose number is passed in
-// <PREFIX>WRAPPER_AUTH_FD.
-func openAuthChannel(cnf *config.Config, cmd *exec.Cmd) (authChannel, error) {
-	conn, child, err := newSocketPair()
+// listenAuthChannel listens on a Unix socket in a new temporary directory, which only the current user can access. Its
+// path is passed to cmd in <PREFIX>WRAPPER_AUTH_SOCKET.
+func listenAuthChannel(cnf *config.Config, cmd *exec.Cmd) (net.Listener, error) {
+	dir, err := os.MkdirTemp("", "cli-auth-")
 	if err != nil {
 		return nil, err
 	}
-	fd := 3 + len(cmd.ExtraFiles)
-	cmd.ExtraFiles = append(cmd.ExtraFiles, child)
-	cmd.Env = append(cmd.Env, cnf.Application.EnvPrefix+"WRAPPER_AUTH_FD="+strconv.Itoa(fd))
-	return &socketPairChannel{conn: conn, child: child}, nil
-}
-
-type socketPairChannel struct {
-	conn  net.Conn
-	child *os.File
-}
-
-// accept returns the connection: only the child process has the other end.
-func (c *socketPairChannel) accept(<-chan int) (net.Conn, error) {
-	return c.conn, nil
-}
-
-func (c *socketPairChannel) Close() error {
-	_ = c.child.Close()
-	return c.conn.Close()
-}
-
-// newSocketPair returns a connected pair of Unix sockets: a connection for this process, and a file to pass to a
-// child process.
-func newSocketPair() (net.Conn, *os.File, error) {
-	// The fork lock stops other goroutines starting processes that would inherit the descriptors, before they are
-	// marked close-on-exec (macOS has no SOCK_CLOEXEC).
-	syscall.ForkLock.RLock()
-	fds, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
-	if err == nil {
-		syscall.CloseOnExec(fds[0])
-		syscall.CloseOnExec(fds[1])
-	}
-	syscall.ForkLock.RUnlock()
+	path := filepath.Join(dir, "s")
+	l, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
 	if err != nil {
-		return nil, nil, os.NewSyscallError("socketpair", err)
+		_ = os.RemoveAll(dir)
+		return nil, err
 	}
-	f := os.NewFile(uintptr(fds[0]), "auth-channel")
-	defer f.Close()
-	conn, err := net.FileConn(f)
+	cmd.Env = append(cmd.Env, cnf.Application.EnvPrefix+"WRAPPER_AUTH_SOCKET="+path)
+	return &unixAuthListener{UnixListener: l, dir: dir}, nil
+}
+
+type unixAuthListener struct {
+	*net.UnixListener
+	dir string
+}
+
+func (l *unixAuthListener) Close() error {
+	return errors.Join(l.UnixListener.Close(), os.RemoveAll(l.dir))
+}
+
+// peerPID returns the ID of the process at the other end of a Unix socket connection.
+func peerPID(conn net.Conn) (int, error) {
+	uc, ok := conn.(*net.UnixConn)
+	if !ok {
+		return 0, fmt.Errorf("unexpected connection type: %T", conn)
+	}
+	rc, err := uc.SyscallConn()
 	if err != nil {
-		_ = syscall.Close(fds[1])
-		return nil, nil, err
+		return 0, err
 	}
-	return conn, os.NewFile(uintptr(fds[1]), "auth-channel"), nil
+	var pid int
+	var pidErr error
+	if err := rc.Control(func(fd uintptr) { pid, pidErr = socketPeerPID(int(fd)) }); err != nil {
+		return 0, err
+	}
+	return pid, pidErr
 }
