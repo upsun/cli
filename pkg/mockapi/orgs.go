@@ -3,11 +3,13 @@ package mockapi
 import (
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"path"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/oklog/ulid/v2"
@@ -119,3 +121,60 @@ func (h *Handler) handlePatchOrg(w http.ResponseWriter, req *http.Request) {
 	h.orgs[orgID] = &patched
 	_ = json.NewEncoder(w).Encode(&patched)
 }
+
+// OrgProject is a project in an organization's project list.
+type OrgProject struct {
+	ID             string    `json:"id"`
+	OrganizationID string    `json:"organization_id"`
+	Title          string    `json:"title"`
+	Region         string    `json:"region"`
+	Vendor         string    `json:"vendor"`
+	Status         string    `json:"status"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	Links          HalLinks  `json:"_links"`
+}
+
+// handleListOrgProjects lists an organization's projects by ID. They all have the same status, orgProjectStatus.
+func (h *Handler) handleListOrgProjects(w http.ResponseWriter, req *http.Request) {
+	h.RLock()
+	defer h.RUnlock()
+	orgID := chi.URLParam(req, "organization_id")
+	if _, ok := h.orgs[orgID]; !ok {
+		writeProblem(w, http.StatusNotFound, errors.New("organization not found"))
+		return
+	}
+	items := make([]*OrgProject, 0)
+	in := req.URL.Query().Get("filter[status][in]")
+	if in == "" || slices.Contains(strings.Split(in, ","), orgProjectStatus) {
+		for _, p := range h.projects {
+			if p.Organization != orgID {
+				continue
+			}
+			items = append(items, &OrgProject{
+				ID:             p.ID,
+				OrganizationID: orgID,
+				Title:          p.Title,
+				Region:         p.Region,
+				Vendor:         p.Vendor,
+				Status:         orgProjectStatus,
+				CreatedAt:      p.CreatedAt,
+				UpdatedAt:      p.UpdatedAt,
+				Links:          MakeHALLinks("self=/organizations/" + url.PathEscape(orgID) + "/projects/" + url.PathEscape(p.ID)),
+			})
+		}
+	}
+	slices.SortFunc(items, func(a, b *OrgProject) int { return strings.Compare(a.ID, b.ID) })
+	links := MakeHALLinks("self=/organizations/" + url.PathEscape(orgID) + "/projects")
+	page, ok := paginate(w, req, items, maxOrgProjectsPageSize, links)
+	if !ok {
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{"count": len(items), "items": page, "_links": links})
+}
+
+const (
+	orgProjectStatus = "active"
+	// maxOrgProjectsPageSize is the maximum page size of an organization's project list, as in the spec.
+	maxOrgProjectsPageSize = 100
+)
