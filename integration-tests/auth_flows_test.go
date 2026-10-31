@@ -17,6 +17,13 @@ import (
 // newInteractiveLoginFactory returns a command factory for a user who is not logged in, in an interactive terminal
 // with a browser that completes the login.
 func newInteractiveLoginFactory(t *testing.T, apiURL, authURL string) *cmdFactory {
+	f := newInteractiveGoAuthFactory(t, apiURL, authURL)
+	f.fakeBrowserThatLogsIn()
+	return f
+}
+
+// newInteractiveGoAuthFactory returns a command factory for a user who is not logged in, in an interactive terminal.
+func newInteractiveGoAuthFactory(t *testing.T, apiURL, authURL string) *cmdFactory {
 	f := newGoAuthCommandFactory(t, apiURL, authURL)
 	f.extraEnv = append(f.extraEnv,
 		EnvPrefix+"TOKEN=",
@@ -25,7 +32,6 @@ func newInteractiveLoginFactory(t *testing.T, apiURL, authURL string) *cmdFactor
 		// Do not ask whether to write ~/.ssh/config.
 		EnvPrefix+"API_WRITE_USER_SSH_CONFIG=0",
 	)
-	f.fakeBrowserThatLogsIn()
 	return f
 }
 

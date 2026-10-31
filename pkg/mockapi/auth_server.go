@@ -31,8 +31,10 @@ var accessTokens = []string{"access-token-1", "access-token-2"}
 // rotated refresh token revokes all refresh tokens from the same login.
 type AuthServer struct {
 	*httptest.Server
-	revokedMu     sync.Mutex
-	revokedTokens []string
+	revokedMu      sync.Mutex
+	revokedTokens  []string
+	revokeFailures int
+	revokeStatus   int
 
 	authorizeMu      sync.Mutex
 	authorizePrompts []string
@@ -46,6 +48,7 @@ type AuthServer struct {
 	exchanges       int
 	tokenLifetime   time.Duration
 	uniqueTokens    bool
+	jwtTokens       bool
 	accessCount     int
 	reuseDetected   bool
 	revokedFamilies map[string]bool
@@ -101,18 +104,39 @@ func (s *AuthServer) SetUniqueAccessTokens(unique bool) {
 	s.uniqueTokens = unique
 }
 
+// SetJWTAccessTokens makes the server issue access tokens as unsigned JWTs, whose "jti" claim is the token that it
+// would otherwise issue, and whose "exp" claim is the token's expiry.
+func (s *AuthServer) SetJWTAccessTokens(jwt bool) {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	s.jwtTokens = jwt
+}
+
+// JWTAccessToken returns an unsigned JWT with the given "jti" and "exp" claims.
+func JWTAccessToken(id string, expires time.Time) string {
+	enc := base64.RawURLEncoding
+	header := enc.EncodeToString([]byte(`{"alg":"none","typ":"JWT"}`))
+	payload := enc.EncodeToString(fmt.Appendf(nil, `{"jti":%q,"exp":%d}`, id, expires.Unix()))
+	return header + "." + payload + "." + enc.EncodeToString([]byte("signature"))
+}
+
 func (s *AuthServer) newAccessToken() string {
 	return s.newAccessTokenAt(0)
 }
 
 func (s *AuthServer) newAccessTokenAt(i int) string {
+	lifetime := time.Duration(s.expiresIn()) * time.Second
 	s.refreshMu.Lock()
 	defer s.refreshMu.Unlock()
-	if !s.uniqueTokens {
-		return accessTokens[i]
+	token := accessTokens[i]
+	if s.uniqueTokens {
+		s.accessCount++
+		token = fmt.Sprintf("access-token-%d", s.accessCount)
 	}
-	s.accessCount++
-	return fmt.Sprintf("access-token-%d", s.accessCount)
+	if s.jwtTokens {
+		return JWTAccessToken(token, time.Now().Add(lifetime))
+	}
+	return token
 }
 
 // SetRefreshFailures makes the next n refresh requests fail with a 503 error.
@@ -207,6 +231,14 @@ func (s *AuthServer) rotateRefreshToken(token string) (newToken, errCode string)
 	return s.issueRefreshToken(rt.family), ""
 }
 
+// SetRevokeFailures makes the next n revocation requests fail with an HTTP status.
+func (s *AuthServer) SetRevokeFailures(n, status int) {
+	s.revokedMu.Lock()
+	defer s.revokedMu.Unlock()
+	s.revokeFailures = n
+	s.revokeStatus = status
+}
+
 // AuthorizePrompts returns the "prompt" parameter of each authorization request.
 func (s *AuthServer) AuthorizePrompts() []string {
 	s.authorizeMu.Lock()
@@ -214,7 +246,7 @@ func (s *AuthServer) AuthorizePrompts() []string {
 	return slices.Clone(s.authorizePrompts)
 }
 
-// RevokedTokens returns a copy of all tokens that have been revoked.
+// RevokedTokens returns a copy of all tokens that have been revoked, excluding failed revocations.
 func (s *AuthServer) RevokedTokens() []string {
 	s.revokedMu.Lock()
 	defer s.revokedMu.Unlock()
@@ -342,8 +374,13 @@ func NewAuthServer(t *testing.T) *AuthServer {
 		require.NoError(t, req.ParseForm())
 		token := req.Form.Get("token")
 		srv.revokedMu.Lock()
+		defer srv.revokedMu.Unlock()
+		if srv.revokeFailures > 0 {
+			srv.revokeFailures--
+			w.WriteHeader(srv.revokeStatus)
+			return
+		}
 		srv.revokedTokens = append(srv.revokedTokens, token)
-		srv.revokedMu.Unlock()
 		w.WriteHeader(http.StatusOK)
 	})
 
