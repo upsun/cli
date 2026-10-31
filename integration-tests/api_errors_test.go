@@ -149,6 +149,16 @@ func TestWriteCommandAPIErrors(t *testing.T) {
 		return p.f, p.api, layoutProjectID
 	}
 
+	orgUsers := func(t *testing.T) (*cmdFactory, *mockapi.Handler, string) {
+		f, api, projectID := setupProjectUsers(t)
+		org := makeOrg("org-id-1", "org-1", "Org 1", "my-user-id", "flexible")
+		org.Links["members"] = mockapi.HALLink{HREF: "/organizations/org-id-1/members"}
+		org.Links["invitations"] = mockapi.HALLink{HREF: "/organizations/org-id-1/invitations"}
+		api.SetOrgs([]*mockapi.Org{org})
+		api.SetOrgMembers("org-id-1", []*mockapi.OrgMember{{UserID: "my-user-id", Owner: true, Permissions: []string{}}})
+		return f, api, projectID
+	}
+
 	type outcome struct {
 		code int
 		want string
@@ -202,6 +212,12 @@ func TestWriteCommandAPIErrors(t *testing.T) {
 			name: "team:update", setup: teams,
 			args:   []string{"team:update", "-t", "team-dev", "--label", "Devs"},
 			method: "PATCH", path: "/teams/team-dev", success: "updated",
+		},
+		{
+			name: "organization:user:add", setup: orgUsers,
+			args:   []string{"organization:user:add", "-o", "org-1", "new@example.com"},
+			method: "POST", path: "/organizations/*/invitations", success: "invited",
+			handled: map[int]outcome{http.StatusConflict: {1, "An invitation has already been sent to new@example.com"}},
 		},
 		{
 			name: "project:create", setup: teams,
