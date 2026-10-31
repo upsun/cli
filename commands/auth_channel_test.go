@@ -60,7 +60,7 @@ func TestAuthChannelServer(t *testing.T) {
 }
 
 // TestPrepareAuthChannel checks that a child process can send requests on the inherited descriptor, and that it does
-// not inherit the token variables.
+// not inherit the token variables, or the channel variables of a parent wrapper.
 func TestPrepareAuthChannel(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("see TestWindowsAuthChannel")
@@ -73,8 +73,9 @@ func TestPrepareAuthChannel(t *testing.T) {
 	cmd := exec.Command("sh", "-c", `printf '%s\n' "$REQUEST" >&"$TEST_WRAPPER_AUTH_FD"
 head -n 1 <&"$TEST_WRAPPER_AUTH_FD"
 echo "$TEST_WRAPPER_PID $TEST_WRAPPER_HAS_TOKEN" "${TEST_API_ACCESS_TOKEN-unset}" \
-	"${TEST_TOKEN-unset}" "${TEST_API_TOKEN-unset}"`)
-	cmd.Env = append(os.Environ(), `REQUEST={"command": "token", "session_id": "default"}`)
+	"${TEST_TOKEN-unset}" "${TEST_API_TOKEN-unset}" "${TEST_WRAPPER_AUTH_PIPE-unset}"`)
+	cmd.Env = append(os.Environ(), `REQUEST={"command": "token", "session_id": "default"}`,
+		"TEST_WRAPPER_AUTH_PIPE=parent")
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	started, done, err := prepareAuthChannel(testConfig(), io.Discard)(cmd)
@@ -84,17 +85,18 @@ echo "$TEST_WRAPPER_PID $TEST_WRAPPER_HAS_TOKEN" "${TEST_API_ACCESS_TOKEN-unset}
 	err = cmd.Wait()
 	done()
 	require.NoError(t, err)
-	assert.Equal(t, `{"result":{"access_token":"raw-token"}}`+"\n"+strconv.Itoa(os.Getpid())+" 1 unset unset unset\n",
+	assert.Equal(t,
+		`{"result":{"access_token":"raw-token"}}`+"\n"+strconv.Itoa(os.Getpid())+" 1 unset unset unset unset\n",
 		out.String())
 }
 
-func TestWithoutTokenEnv(t *testing.T) {
+func TestWithoutEnv(t *testing.T) {
 	env := []string{"TEST_TOKEN=a", "TEST_API_TOKEN=b", "TEST_API_ACCESS_TOKEN=c", "TEST_TOKEN_OTHER=d", "OTHER_TOKEN=e",
 		"TEST_SESSION_ID=f", "test_Token=g"}
 	want := []string{"TEST_TOKEN_OTHER=d", "OTHER_TOKEN=e", "TEST_SESSION_ID=f"}
 	if runtime.GOOS != "windows" {
 		want = append(want, "test_Token=g")
 	}
-	assert.Equal(t, want, withoutTokenEnv(env, "TEST_"))
+	assert.Equal(t, want, withoutEnv(env, "TEST_TOKEN", "TEST_API_TOKEN", "TEST_API_ACCESS_TOKEN"))
 	assert.Len(t, env, 7, "the input must not be changed")
 }

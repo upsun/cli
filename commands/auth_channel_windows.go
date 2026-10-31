@@ -21,7 +21,8 @@ func openAuthChannel(cnf *config.Config, cmd *exec.Cmd) (authChannel, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not get the current user: %w", err)
 	}
-	name := cnf.Application.Slug + "-auth-" + rand.Text()
+	// Not named after the slug, which may contain characters that the legacy CLI does not accept in the name.
+	name := "cli-auth-" + rand.Text()
 	l, err := winio.ListenPipe(`\\.\pipe\`+name, &winio.PipeConfig{SecurityDescriptor: pipeSDDL(user.User.Sid)})
 	if err != nil {
 		return nil, err

@@ -48,14 +48,16 @@ const authChannelTimeout = 5 * time.Minute
 func prepareAuthChannel(cnf *config.Config, stderr io.Writer) func(cmd *exec.Cmd) (func(), func(), error) {
 	noop := func() {}
 	return func(cmd *exec.Cmd) (func(), func(), error) {
+		prefix := cnf.Application.EnvPrefix
+		// A parent wrapper's channel would refuse this child, or be closed.
+		cmd.Env = withoutEnv(cmd.Env, prefix+"WRAPPER_AUTH_FD", prefix+"WRAPPER_AUTH_PIPE", prefix+"WRAPPER_PID")
 		m, err := newAuthManager(cnf, stderr)
 		if err != nil {
 			debugLogf("Auth channel not available: %s", err)
 			return noop, noop, nil
 		}
-		prefix := cnf.Application.EnvPrefix
 		env := cmd.Env
-		cmd.Env = withoutTokenEnv(cmd.Env, prefix)
+		cmd.Env = withoutEnv(cmd.Env, prefix+"TOKEN", prefix+"API_TOKEN", prefix+"API_ACCESS_TOKEN")
 		ch, err := openAuthChannel(cnf, cmd)
 		if err != nil {
 			debugLogf("Auth channel not available: %s", err)
@@ -101,15 +103,15 @@ type authChannel interface {
 	Close() error
 }
 
-// withoutTokenEnv returns env without the variables that can set an API token or access token.
-func withoutTokenEnv(env []string, prefix string) []string {
+// withoutEnv returns env without the named variables.
+func withoutEnv(env []string, names ...string) []string {
 	return slices.DeleteFunc(slices.Clone(env), func(e string) bool {
 		name, _, _ := strings.Cut(e, "=")
 		// Variable names are case-insensitive on Windows.
 		if runtime.GOOS == "windows" {
-			name = strings.ToUpper(name)
+			return slices.ContainsFunc(names, func(n string) bool { return strings.EqualFold(n, name) })
 		}
-		return name == prefix+"TOKEN" || name == prefix+"API_TOKEN" || name == prefix+"API_ACCESS_TOKEN"
+		return slices.Contains(names, name)
 	})
 }
 

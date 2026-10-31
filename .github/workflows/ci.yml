@@ -392,4 +392,4 @@ jobs:
         shell: bash
         env:
           CLI_TEST_MODIFY_CERT_STORE: '1'
-        run: go test -v -count=1 -timeout 3m -run 'TestWindows|TestWithoutTokenEnv' ./internal/legacy/ ./commands/
+        run: go test -v -count=1 -timeout 3m -run 'TestWindows|TestWithoutEnv' ./internal/legacy/ ./commands/
