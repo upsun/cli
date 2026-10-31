@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 )
 
@@ -14,6 +15,9 @@ type Resource interface {
 // HALLinks represents the HAL links on a resource.
 // Most are an object containing a single "href", but some are arrays e.g. "curies".
 type HALLinks map[string]any
+
+// maxErrorBody is the length of an error response's body that is kept for the error message.
+const maxErrorBody = 1024
 
 // getResource fetches an API resource from a URL and decodes it into an interface.
 func (c *Client) getResource(ctx context.Context, urlStr string, r any) error {
@@ -27,7 +31,8 @@ func (c *Client) getResource(ctx context.Context, urlStr string, r any) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return Error{Response: resp, URL: urlStr}
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBody))
+		return Error{Response: resp, URL: urlStr, Body: body}
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
 		return Error{Original: err, Response: resp, URL: urlStr}

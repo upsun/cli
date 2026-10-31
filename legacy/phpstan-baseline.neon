@@ -3427,30 +3427,6 @@ parameters:
 			path: src/Exception/InvalidConfigException.php
 
 		-
-			message: '#^Binary operation "\.\=" between mixed and non\-falsy\-string results in an error\.$#'
-			identifier: assignOp.invalid
-			count: 1
-			path: src/Exception/LoginRequiredException.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Exception\\LoginRequiredException\:\:__construct\(\) has parameter \$message with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: src/Exception/LoginRequiredException.php
-
-		-
-			message: '#^Method Platformsh\\Cli\\Exception\\LoginRequiredException\:\:__construct\(\) has parameter \$previous with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: src/Exception/LoginRequiredException.php
-
-		-
-			message: '#^Parameter \#2 \$previous of method Platformsh\\Cli\\Exception\\HttpException\:\:__construct\(\) expects Throwable\|null, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Exception/LoginRequiredException.php
-
-		-
 			message: '#^Property Platformsh\\Cli\\Exception\\LoginRequiredException\:\:\$code has no type specified\.$#'
 			identifier: missingType.property
 			count: 1

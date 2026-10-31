@@ -11,7 +11,7 @@ import (
 // Transport is an HTTP RoundTripper that adds an access token to requests.
 //
 // On a 401 response it refreshes the token and retries the request once. A step-up authentication challenge
-// (RFC 9470) returns a *LoginRequiredError instead.
+// (RFC 9470), or a 401 response to the new token, returns a *LoginRequiredError instead.
 type Transport struct {
 	Base    http.RoundTripper
 	Manager *Manager
@@ -40,10 +40,23 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 	resp, err = t.base().RoundTrip(withToken(req, tok, body))
-	if err == nil && IsStepUpChallenge(resp) {
+	if err != nil || resp.StatusCode != http.StatusUnauthorized {
+		return resp, err
+	}
+	if IsStepUpChallenge(resp) {
 		return nil, t.stepUpError(ctx, resp)
 	}
-	return resp, err
+	return nil, t.unauthorizedError(ctx, resp)
+}
+
+// unauthorizedError reports that login is required, as the legacy CLI does, for a 401 response to a new token.
+func (t *Transport) unauthorizedError(ctx context.Context, resp *http.Response) error {
+	flush(resp.Body)
+	hasAPIToken, _ := t.Manager.HasAPIToken(ctx)
+	if hasAPIToken {
+		return &LoginRequiredError{Notice: "The API token was rejected. It may be invalid or revoked.", HasAPIToken: true}
+	}
+	return &LoginRequiredError{}
 }
 
 func (t *Transport) stepUpError(ctx context.Context, resp *http.Response) error {

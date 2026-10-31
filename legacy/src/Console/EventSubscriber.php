@@ -9,6 +9,7 @@ use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\ServerException;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
+use Platformsh\Cli\Exception\ApiErrorException;
 use Platformsh\Cli\Exception\ConnectionFailedException;
 use Platformsh\Cli\Exception\LoginRequiredException;
 use Platformsh\Cli\Exception\PermissionDeniedException;
@@ -73,15 +74,29 @@ readonly class EventSubscriber implements EventSubscriberInterface
                 ));
                 $event->stopPropagation();
             } elseif ($response->getStatusCode() === 401) {
-                $event->setError(new LoginRequiredException(
+                // Logging in would not help while an API token is configured.
+                $event->setError(($this->getApi)()->hasApiToken() ? new LoginRequiredException(
+                    "The API token was rejected. It may be invalid or revoked.\nCheck the API token, or create a new one.",
+                    $this->config,
+                    $error,
+                    false,
+                ) : new LoginRequiredException(
                     'Unauthorized.',
                     $this->config,
                     $error,
                 ));
                 $event->stopPropagation();
             } elseif ($response->getStatusCode() === 403) {
-                $event->setError(new PermissionDeniedException($this->permissionDeniedMessage($request), $error));
+                $message = $this->permissionDeniedMessage($request);
+                $detail = ApiErrorMessage::detail($response);
+                if ($detail !== '') {
+                    $message .= "\n" . $detail;
+                }
+                $event->setError(new PermissionDeniedException($message, $error));
                 $event->stopPropagation();
+            } else {
+                // Symfony would exit with the HTTP status, capped at 255 like a PHP fatal error.
+                $event->setError(new ApiErrorException((string) ApiErrorMessage::fromThrowable($error), $error));
             }
         }
 

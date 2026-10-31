@@ -65,9 +65,5 @@ func (h *Handler) handlePatchBillingProfile(w http.ResponseWriter, req *http.Req
 func writeProblem(w http.ResponseWriter, status int, err error) {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"status": status,
-		"title":  http.StatusText(status),
-		"detail": err.Error(),
-	})
+	_, _ = w.Write([]byte(Problem(status, err.Error())))
 }

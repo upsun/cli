@@ -12,6 +12,7 @@ use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Console\ArrayArgument;
 use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Util\OsUtil;
+use Platformsh\Client\Model\Organization\Invitation\AlreadyInvitedException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Input\InputArgument;
@@ -165,7 +166,12 @@ class OrganizationUserAddCommand extends OrganizationUserCommandBase
         } elseif (!$this->questionHelper->confirm(\sprintf('Are you sure you want to invite <info>%s</info> to the organization %s?', $email, $this->api->getOrganizationLabel($organization)))) {
             return 1;
         } else {
-            $invitation = $organization->inviteMemberByEmail($email, $permissions);
+            try {
+                $invitation = $organization->inviteMemberByEmail($email, $permissions);
+            } catch (AlreadyInvitedException $e) {
+                $this->stdErr->writeln(sprintf('An invitation has already been sent to <comment>%s</comment>', $e->getEmail()));
+                return 1;
+            }
 
             switch ($invitation->state) {
                 case 'accepted':

@@ -37,6 +37,8 @@ class LoginRequiredEvent extends Event
         if ($this->hasApiToken) {
             if ($this->authMethods === ['mfa']) {
                 $message .= "\n\nThe API token may need to be re-created after enabling MFA.";
+            } elseif (count($this->authMethods) === 0 && $this->maxAge === null) {
+                $message .= "\n\nCheck the API token, or create a new one.";
             }
             return $message;
         }
