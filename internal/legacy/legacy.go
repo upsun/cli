@@ -9,8 +9,10 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gofrs/flock"
@@ -179,11 +181,36 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 		return fmt.Errorf("could not run PHP CLI command: %w", err)
 	}
 	started()
-	if err := cmd.Wait(); err != nil {
+	stop := relaySignals(cmd.Process)
+	err = cmd.Wait()
+	stop()
+	if err != nil {
 		return fmt.Errorf("could not run PHP CLI command: %w", err)
 	}
 
 	return nil
+}
+
+// relaySignals passes the signals that would end this process on to the PHP process instead, so that this one can
+// clean up after PHP exits. PHP may also get an interrupt (e.g. Ctrl+C) from the terminal: it exits on the first.
+func relaySignals(p *os.Process) (stop func()) {
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case sig := <-ch:
+				_ = p.Signal(sig)
+			case <-done:
+				return
+			}
+		}
+	}()
+	return func() {
+		signal.Stop(ch)
+		close(done)
+	}
 }
 
 // makeCmd makes a legacy CLI command with the given context and arguments.

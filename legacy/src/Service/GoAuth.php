@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Service;
 
 use Platformsh\Cli\Exception\GoLoginRequiredException;
+use Platformsh\Cli\Util\OsUtil;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -13,10 +14,10 @@ use Symfony\Component\Process\Process;
 /**
  * Gets tokens and auth state from the Go wrapper, which is the only component that stores or refreshes credentials.
  *
- * Requests are sent over a socket that the wrapper passes as an inherited file descriptor, whose number is in the
- * {prefix}WRAPPER_AUTH_FD environment variable, or on Windows over a named pipe, whose name is in
- * {prefix}WRAPPER_AUTH_PIPE. Otherwise, e.g. in a forked process, the wrapper's hidden auth:internal command is run,
- * using the executable path in the {prefix}WRAPPER_EXECUTABLE environment variable.
+ * Requests are sent over a connection to the wrapper for each, on a Unix socket whose path is in the
+ * {prefix}WRAPPER_AUTH_SOCKET environment variable, or on Windows a named pipe whose name is in {prefix}WRAPPER_AUTH_PIPE.
+ * Otherwise, e.g. in a forked process, the wrapper's hidden auth:internal command is run, using the executable path in
+ * the {prefix}WRAPPER_EXECUTABLE environment variable.
  */
 class GoAuth
 {
@@ -34,10 +35,10 @@ class GoAuth
     /** @var array<string, array{access_token: string, expires?: int}> */
     private static array $tokens = [];
 
-    /** @var resource|false|null The wrapper's auth channel, false if it cannot be used, or null if not opened yet. */
-    private static mixed $channel = null;
+    /** The wrapper's auth channel (a socket path or a pipe path), false if it cannot be used, or null if not known yet. */
+    private static string|false|null $channel = null;
 
-    /** The ID of the process that opened the channel. */
+    /** The ID of the process that found the channel. */
     private static ?int $channelPid = null;
 
     private readonly OutputInterface $stdErr;
@@ -197,12 +198,10 @@ class GoAuth
     /**
      * Returns the wrapper's auth channel, if this process can use it.
      *
-     * The channel is only used by the process that the wrapper started: a process forked by it shares the socket, but
-     * may outlive the wrapper. On Windows, the wrapper refuses a connection to the pipe from other processes.
-     *
-     * @return resource|null
+     * The channel is only used by the process that the wrapper started, which is the only one whose connections it
+     * accepts: a process forked by it may also outlive the wrapper.
      */
-    private function channel(): mixed
+    private function channel(): ?string
     {
         if (self::$channelPid !== null && self::$channelPid !== (int) getmypid()) {
             return null;
@@ -211,14 +210,14 @@ class GoAuth
             self::$channel = false;
             self::$channelPid = (int) getmypid();
             $prefix = $this->config->getStr('application.env_prefix');
-            $fd = getenv($prefix . 'WRAPPER_AUTH_FD');
+            $socket = getenv($prefix . 'WRAPPER_AUTH_SOCKET');
             $pipe = getenv($prefix . 'WRAPPER_AUTH_PIPE');
             $wrapperPid = getenv($prefix . 'WRAPPER_PID');
-            if (is_string($fd) && ctype_digit($fd) && is_string($wrapperPid) && function_exists('posix_getppid')
+            if (is_string($socket) && $socket !== '' && is_string($wrapperPid) && function_exists('posix_getppid')
                 && posix_getppid() === (int) $wrapperPid) {
-                self::$channel = @fopen('php://fd/' . $fd, 'r+');
+                self::$channel = $socket;
             } elseif (is_string($pipe) && preg_match('/^[\w-]+$/', $pipe)) {
-                self::$channel = $this->openPipe('\\\\.\\pipe\\' . $pipe);
+                self::$channel = '\\\\.\\pipe\\' . $pipe;
             }
         }
 
@@ -226,39 +225,57 @@ class GoAuth
     }
 
     /**
-     * Opens the wrapper's named pipe, retrying for up to a second: it can only be opened while the wrapper waits for a
-     * connection, and fopen() does not wait.
+     * Connects to the wrapper's auth channel.
+     *
+     * The connection is closed after each request, so that the processes that this one starts do not inherit it.
      *
      * @return resource|false
      */
-    private function openPipe(string $path): mixed
+    private function connect(string $channel): mixed
     {
+        if (!OsUtil::isWindows()) {
+            $conn = @stream_socket_client('unix://' . $channel, $errno, $errstr, 5);
+            // A request can wait for another process to refresh the token.
+            if ($conn !== false) {
+                stream_set_timeout($conn, 600);
+            }
+
+            return $conn;
+        }
+        // A named pipe can only be opened while the wrapper waits for a connection, and fopen() does not wait.
         $deadline = microtime(true) + 1;
-        while (($handle = @fopen($path, 'r+')) === false && microtime(true) < $deadline) {
+        while (($conn = @fopen($channel, 'r+')) === false && microtime(true) < $deadline) {
             usleep(10000);
         }
 
-        return $handle;
+        return $conn;
     }
 
     /**
      * Sends a request over the wrapper's auth channel, which answers with one line of JSON.
      *
-     * @param resource $channel
      * @param string|null $rejected An access token that the API rejected.
      *
      * @return array<mixed>|null The response, or null if the channel is closed.
      */
-    private function request(mixed $channel, string $command, ?string $rejected): ?array
+    private function request(string $channel, string $command, ?string $rejected): ?array
     {
         $request = ['command' => $command, 'session_id' => $this->config->getSessionId()];
         if ($rejected !== null) {
             $request['rejected'] = $rejected;
         }
-        if (@fwrite($channel, json_encode($request, JSON_THROW_ON_ERROR) . "\n") === false) {
+        $conn = $this->connect($channel);
+        if ($conn === false) {
             return null;
         }
-        $line = @fgets($channel);
+        try {
+            if (@fwrite($conn, json_encode($request, JSON_THROW_ON_ERROR) . "\n") === false) {
+                return null;
+            }
+            $line = @fgets($conn);
+        } finally {
+            fclose($conn);
+        }
         if (!is_string($line)) {
             return null;
         }
