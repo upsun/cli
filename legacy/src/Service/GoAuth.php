@@ -14,8 +14,9 @@ use Symfony\Component\Process\Process;
  * Gets tokens and auth state from the Go wrapper, which is the only component that stores or refreshes credentials.
  *
  * Requests are sent over a socket that the wrapper passes as an inherited file descriptor, whose number is in the
- * {prefix}WRAPPER_AUTH_FD environment variable. Otherwise, e.g. on Windows or in a forked process, the wrapper's hidden
- * auth:internal command is run, using the executable path in the {prefix}WRAPPER_EXECUTABLE environment variable.
+ * {prefix}WRAPPER_AUTH_FD environment variable, or on Windows over a named pipe, whose name is in
+ * {prefix}WRAPPER_AUTH_PIPE. Otherwise, e.g. in a forked process, the wrapper's hidden auth:internal command is run,
+ * using the executable path in the {prefix}WRAPPER_EXECUTABLE environment variable.
  */
 class GoAuth
 {
@@ -197,7 +198,7 @@ class GoAuth
      * Returns the wrapper's auth channel, if this process can use it.
      *
      * The channel is only used by the process that the wrapper started: a process forked by it shares the socket, but
-     * may outlive the wrapper.
+     * may outlive the wrapper. On Windows, the wrapper refuses a connection to the pipe from other processes.
      *
      * @return resource|null
      */
@@ -211,10 +212,13 @@ class GoAuth
             self::$channelPid = (int) getmypid();
             $prefix = $this->config->getStr('application.env_prefix');
             $fd = getenv($prefix . 'WRAPPER_AUTH_FD');
+            $pipe = getenv($prefix . 'WRAPPER_AUTH_PIPE');
             $wrapperPid = getenv($prefix . 'WRAPPER_PID');
             if (is_string($fd) && ctype_digit($fd) && is_string($wrapperPid) && function_exists('posix_getppid')
                 && posix_getppid() === (int) $wrapperPid) {
                 self::$channel = @fopen('php://fd/' . $fd, 'r+');
+            } elseif (is_string($pipe) && preg_match('/^[\w-]+$/', $pipe)) {
+                self::$channel = @fopen('\\\\.\\pipe\\' . $pipe, 'r+');
             }
         }
 

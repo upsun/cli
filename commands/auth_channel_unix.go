@@ -5,8 +5,40 @@ package commands
 import (
 	"net"
 	"os"
+	"os/exec"
+	"strconv"
 	"syscall"
+
+	"github.com/upsun/cli/internal/config"
 )
+
+// openAuthChannel gives cmd one end of a socket pair, as an inherited file descriptor whose number is passed in
+// <PREFIX>WRAPPER_AUTH_FD.
+func openAuthChannel(cnf *config.Config, cmd *exec.Cmd) (authChannel, error) {
+	conn, child, err := newSocketPair()
+	if err != nil {
+		return nil, err
+	}
+	fd := 3 + len(cmd.ExtraFiles)
+	cmd.ExtraFiles = append(cmd.ExtraFiles, child)
+	cmd.Env = append(cmd.Env, cnf.Application.EnvPrefix+"WRAPPER_AUTH_FD="+strconv.Itoa(fd))
+	return &socketPairChannel{conn: conn, child: child}, nil
+}
+
+type socketPairChannel struct {
+	conn  net.Conn
+	child *os.File
+}
+
+// accept returns the connection: only the child process has the other end.
+func (c *socketPairChannel) accept(<-chan int) (net.Conn, error) {
+	return c.conn, nil
+}
+
+func (c *socketPairChannel) Close() error {
+	_ = c.child.Close()
+	return c.conn.Close()
+}
 
 // newSocketPair returns a connected pair of Unix sockets: a connection for this process, and a file to pass to a
 // child process.

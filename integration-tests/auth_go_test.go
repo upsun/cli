@@ -329,12 +329,10 @@ func TestErrorOutput_QuietOverride(t *testing.T) {
 	}
 }
 
-// TestAuthChannel checks that the legacy CLI gets tokens from the wrapper over the inherited socket.
+// TestAuthChannel checks that the legacy CLI gets tokens from the wrapper over its channel (an inherited socket, or a
+// named pipe on Windows), rather than by running auth:internal.
 func TestAuthChannel(t *testing.T) {
 	t.Parallel()
-	if runtime.GOOS == "windows" {
-		t.Skip("the legacy CLI runs auth:internal on Windows")
-	}
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiServer := newMyUserAPI(t)

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -62,7 +63,7 @@ func TestAuthChannelServer(t *testing.T) {
 // not inherit the token variables.
 func TestPrepareAuthChannel(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("the auth channel is not used on Windows")
+		t.Skip("see TestWindowsAuthChannel")
 	}
 	t.Setenv("TEST_HOME", t.TempDir())
 	t.Setenv("TEST_API_DISABLE_CREDENTIAL_HELPERS", "1")
@@ -74,13 +75,17 @@ head -n 1 <&"$TEST_WRAPPER_AUTH_FD"
 echo "$TEST_WRAPPER_PID $TEST_WRAPPER_HAS_TOKEN" "${TEST_API_ACCESS_TOKEN-unset}" \
 	"${TEST_TOKEN-unset}" "${TEST_API_TOKEN-unset}"`)
 	cmd.Env = append(os.Environ(), `REQUEST={"command": "token", "session_id": "default"}`)
-	done, err := prepareAuthChannel(testConfig(), io.Discard)(cmd)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	started, done, err := prepareAuthChannel(testConfig(), io.Discard)(cmd)
 	require.NoError(t, err)
-	out, err := cmd.Output()
+	require.NoError(t, cmd.Start())
+	started()
+	err = cmd.Wait()
 	done()
 	require.NoError(t, err)
 	assert.Equal(t, `{"result":{"access_token":"raw-token"}}`+"\n"+strconv.Itoa(os.Getpid())+" 1 unset unset unset\n",
-		string(out))
+		out.String())
 }
 
 func TestWithoutTokenEnv(t *testing.T) {
