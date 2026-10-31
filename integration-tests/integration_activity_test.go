@@ -79,6 +79,7 @@ func TestIntegrationActivity(t *testing.T) {
 		{"exclude type", []string{"-x", "integration.script"}, "act2\nact1"},
 		{"state", []string{"--state", mockapi.ActivityStateCancelled}, "scr3"},
 		{"result", []string{"--result", "success"}, "act1"},
+		{"start", []string{"--start", "2024-06-01T10:01:30Z"}, "act2\nact1"},
 	}
 	for _, c := range listCases {
 		t.Run("list "+c.name, func(t *testing.T) {
@@ -93,6 +94,16 @@ func TestIntegrationActivity(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, stderr, "Activities on the project "+projectID+", integration hook1 (webhook):")
 	assert.Contains(t, stdout, "| act2 | complete  | failure |")
+
+	_, stderr, err = f.RunCombinedOutput("integration:activity:list", "-p", projectID, "hook1", "--incomplete")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "No activities found")
+	assert.Equal(t, []string{"in_progress", "pending"},
+		lastRequest(t, apiHandler, "GET", "/projects/*/integrations/hook1/activities").Query["state"])
+
+	_, stderr, err = f.RunCombinedOutput("integration:activity:list", "-p", projectID, "hook1", "--start", "not a date")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "Invalid --start date: not a date")
 
 	_, stderr, err = f.RunCombinedOutput("integration:activity:list", "-p", projectID, "quiet")
 	assertExitCode(t, 1, err)

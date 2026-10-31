@@ -107,6 +107,12 @@ func TestActivityFilters(t *testing.T) {
 			wantOut: "redeploy\nenvvar\npush2",
 		},
 		{
+			name:       "list invalid start",
+			args:       []string{"activity:list", "--start", "not a date"},
+			wantErr:    true,
+			wantStdErr: "Invalid --start date: not a date",
+		},
+		{
 			name:       "list conflicting types",
 			args:       []string{"activity:list", "--type", "push", "--exclude-type", "push"},
 			wantOut:    "push1\npush2",

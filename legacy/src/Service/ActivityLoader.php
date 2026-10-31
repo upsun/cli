@@ -10,6 +10,7 @@ use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Util\Wildcard;
 use Platformsh\Client\Model\Activities\HasActivitiesInterface;
 use Platformsh\Client\Model\Activity;
+use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
@@ -95,7 +96,11 @@ readonly class ActivityLoader
         $result = $input->hasOption('result') ? Option::stringOrNull($input, 'result') : null;
         $startsAt = null;
         if ($input->hasOption('start') && ($start = Option::stringOrNull($input, 'start'))) {
-            $startsAt = new DateTime($start);
+            try {
+                $startsAt = new DateTime($start);
+            } catch (\Exception) {
+                throw new InvalidArgumentException('Invalid --start date: ' . $start);
+            }
         }
         // The API cannot exclude types, so they are excluded here (unless types are included).
         $excludeTypes = empty($typesFilter) ? $typesToExclude : [];
