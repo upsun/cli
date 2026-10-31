@@ -7,6 +7,7 @@ import (
 	"net"
 	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/Microsoft/go-winio"
 	"golang.org/x/sys/windows"
@@ -36,8 +37,8 @@ func openAuthChannel(cnf *config.Config, cmd *exec.Cmd) (authChannel, error) {
 // pipeSDDL gives the user full access to the pipe, and no one else: the default DACL gives Everyone read access.
 // go-winio also rejects remote clients, and fails if a pipe with the name exists.
 //
-// If elevated, the pipe gets a high integrity label: without one, the user's processes that are not elevated could also
-// open it or create instances of it.
+// If elevated, the pipe gets a high integrity label, so that the user's processes that are not elevated cannot write to
+// it or create instances of it.
 func pipeSDDL(sid *windows.SID, elevated bool) string {
 	sddl := "O:" + sid.String() + "D:P(A;;GA;;;" + sid.String() + ")"
 	if elevated {
@@ -62,7 +63,15 @@ func (c *pipeChannel) accept(pid <-chan int) (net.Conn, error) {
 	for {
 		conn, err := c.listener.Accept()
 		if err != nil {
-			return nil, err
+			select {
+			case <-c.closed:
+				return nil, err
+			default:
+			}
+			// Other errors can be transient, e.g. a client that disconnects while it connects.
+			debugLogf("Auth channel: %s", err)
+			time.Sleep(10 * time.Millisecond)
+			continue
 		}
 		// The child may connect before this process has its PID.
 		if childPID == 0 {

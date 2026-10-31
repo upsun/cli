@@ -89,6 +89,52 @@ func authChannelChild(t *testing.T) {
 	fmt.Println(env("TEST_WRAPPER_HAS_TOKEN"), env("TEST_API_ACCESS_TOKEN"), env("TEST_TOKEN"), env("TEST_API_TOKEN"))
 }
 
+// TestWindowsAuthChannel_AcceptError checks that the channel keeps listening after an error from Accept.
+func TestWindowsAuthChannel_AcceptError(t *testing.T) {
+	cmd := &exec.Cmd{}
+	ch, err := openAuthChannel(testConfig(), cmd)
+	require.NoError(t, err)
+	defer ch.Close()
+	c, ok := ch.(*pipeChannel)
+	require.True(t, ok)
+	c.listener = &failOnceListener{Listener: c.listener}
+	var name string
+	for _, e := range cmd.Env {
+		if v, ok := strings.CutPrefix(e, "TEST_WRAPPER_AUTH_PIPE="); ok {
+			name = v
+		}
+	}
+
+	// A pipe instance only exists while Accept waits.
+	dialed := make(chan error, 1)
+	go func() {
+		client, err := winio.DialPipe(`\\.\pipe\`+name, nil)
+		if err == nil {
+			t.Cleanup(func() { _ = client.Close() })
+		}
+		dialed <- err
+	}()
+	pid := make(chan int, 1)
+	pid <- os.Getpid()
+	conn, err := c.accept(pid)
+	require.NoError(t, err)
+	assert.NotNil(t, conn)
+	assert.NoError(t, <-dialed)
+}
+
+type failOnceListener struct {
+	net.Listener
+	failed bool
+}
+
+func (l *failOnceListener) Accept() (net.Conn, error) {
+	if !l.failed {
+		l.failed = true
+		return nil, errors.New("transient")
+	}
+	return l.Listener.Accept()
+}
+
 func TestWindowsPipeSDDL(t *testing.T) {
 	sid, err := windows.StringToSid("S-1-5-21-1-2-3-1001")
 	require.NoError(t, err)
