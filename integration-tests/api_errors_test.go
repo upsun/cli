@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -340,4 +341,70 @@ func TestAPIErrorHTMLBodies(t *testing.T) {
 			assertCleanAPIError(t, stderr)
 		})
 	}
+}
+
+// TestWriteCommandUnauthorized checks a write request rejected with 401, after other requests succeeded.
+func TestWriteCommandUnauthorized(t *testing.T) {
+	t.Parallel()
+	p := setUpProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil))
+	path := "/projects/" + layoutProjectID + "/variables"
+	unauthorized := `{"error":"invalid_token"}`
+	args := []string{"variable:create", "-p", layoutProjectID, "-l", "project", "--value", "bar"}
+
+	// The token is renewed, and the request sent again.
+	p.api.FailNext("POST", path, http.StatusUnauthorized, unauthorized)
+	_, stderr, err := p.f.RunCombinedOutput(append(args, "--name", "foo")...)
+	assert.NoError(t, err, stderr)
+	assert.Len(t, p.api.Requests("POST", path), 2)
+	assertTrimmed(t, "bar", p.f.Run("variable:get", "-p", layoutProjectID, "-l", "project", "foo", "-P", "value"))
+
+	// Login is required if the API keeps rejecting tokens.
+	for range 2 {
+		p.api.FailNext("POST", path, http.StatusUnauthorized, unauthorized)
+	}
+	_, stderr, err = p.f.RunCombinedOutput(append(args, "--name", "bar")...)
+	assertExitCode(t, 3, err)
+	assert.Equal(t, "Unauthorized.", errorLines(stderr)[1])
+	assert.Contains(t, stderr, "Please log in by running:")
+	assertCleanAPIError(t, stderr)
+	assert.Len(t, p.api.Requests("POST", path), 4, "the request is sent again once")
+}
+
+// TestWriteCommandUnauthorizedSession checks a write request rejected with 401 with a Go auth session.
+func TestWriteCommandUnauthorizedSession(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	authServer.SetUniqueAccessTokens(true)
+	authServer.AddRefreshToken("initial-refresh-token")
+	p := setUpProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil))
+	f := newGoAuthCommandFactory(t, p.f.apiURL, authServer.URL)
+	f.extraEnv = append(f.extraEnv, EnvPrefix+"TOKEN=")
+	writeOAuthSession(t, f.home, "default", map[string]any{
+		"accessToken":  "initial-token",
+		"expires":      time.Now().Add(time.Hour).Unix(),
+		"refreshToken": "initial-refresh-token",
+	})
+	path := "/projects/" + layoutProjectID + "/variables"
+	unauthorized := `{"error":"invalid_token"}`
+	args := []string{"variable:create", "-p", layoutProjectID, "-l", "project", "--value", "bar"}
+
+	// The token is refreshed, and the request sent again.
+	p.api.FailNext("POST", path, http.StatusUnauthorized, unauthorized)
+	_, stderr, err := f.RunCombinedOutput(append(args, "--name", "foo")...)
+	assert.NoError(t, err, stderr)
+	assert.Equal(t, 1, authServer.RefreshRequests())
+	assert.Len(t, p.api.Requests("POST", path), 2)
+	assertTrimmed(t, "bar", f.Run("variable:get", "-p", layoutProjectID, "-l", "project", "foo", "-P", "value"))
+
+	// Login is required if the API keeps rejecting tokens.
+	for range 2 {
+		p.api.FailNext("POST", path, http.StatusUnauthorized, unauthorized)
+	}
+	_, stderr, err = f.RunCombinedOutput(append(args, "--name", "bar")...)
+	assertExitCode(t, 3, err)
+	assert.Contains(t, stderr, "Please log in by running:")
+	assertCleanAPIError(t, stderr)
+	assert.Len(t, p.api.Requests("POST", path), 4, "the request is sent again once")
+	assert.False(t, authServer.ReuseDetected())
 }
