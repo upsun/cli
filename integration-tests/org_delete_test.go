@@ -85,7 +85,12 @@ Subscription ID,Project ID,Title,Region
 	require.NoError(t, err, stderr)
 	assert.Contains(t, stderr, "No subscriptions were found belonging to the organization Org 2 (org-2).")
 
-	_, stderr, err = f.RunCombinedOutput("org:subs", "-o", "org-1", "--count", "101")
+	for _, count := range []string{"101", "1.5", "1e1"} {
+		_, stderr, err = f.RunCombinedOutput("org:subs", "-o", "org-1", "--count", count)
+		assertExitCode(t, 1, err)
+		assert.Contains(t, stderr, "The --count must be a number between 1 and 100")
+	}
+	_, stderr, err = f.RunCombinedOutput("org:subs", "-o", "org-1", "--page", "1.5")
 	assertExitCode(t, 1, err)
-	assert.Contains(t, stderr, "The --count must be a number between 1 and 100")
+	assert.Contains(t, stderr, "The --page must be a number greater than 0.")
 }

@@ -88,6 +88,31 @@ func TestDbDump(t *testing.T) {
 	assert.Equal(t, "pg_dump --no-owner --if-exists --clean --blobs postgresql://main:secret@pg.internal:5432/main"+
 		" --schema-only --table=users --exclude-table=cache --encoding=UTF8\n", output)
 
+	// Another schema.
+	output = f.Run(append([]string{"db:dump", "-r", "database", "--stdout", "--schema", "other"}, args...)...)
+	assert.Equal(t,
+		"mariadb-dump --single-transaction --user=user --password= --host=database.internal --port=3306 other\n",
+		output)
+	output = f.Run(append([]string{"db:dump", "-r", "pg", "--stdout", "--schema", "other"}, args...)...)
+	assert.Equal(t, "pg_dump --no-owner --if-exists --clean --blobs postgresql://main:secret@pg.internal:5432/other\n",
+		output)
+
+	// A timestamp is inserted before the file extension.
+	timestampDir := t.TempDir()
+	_, stdErr, err = f.RunCombinedOutput(append([]string{"db:dump", "-r", "database", "--timestamp",
+		"-f", filepath.Join(timestampDir, "dump.sql")}, args...)...)
+	require.NoError(t, err, stdErr)
+	matches, err := filepath.Glob(filepath.Join(timestampDir, "dump--[0-9]*-[0-9]*-*.sql"))
+	require.NoError(t, err)
+	require.Len(t, matches, 1)
+	assert.Contains(t, stdErr, "Creating SQL dump file: "+matches[0])
+	_, stdErr, err = f.RunCombinedOutput(append([]string{"db:dump", "-r", "database", "-t", "--schema", "other",
+		"-d", timestampDir}, args...)...)
+	require.NoError(t, err, stdErr)
+	matches, err = filepath.Glob(filepath.Join(timestampDir, layoutProjectID+"--main-xyz--db--other--dump--*.sql"))
+	require.NoError(t, err)
+	assert.Len(t, matches, 1)
+
 	// The remote exit code is returned.
 	failing := setUpDBProject(t, map[string]string{"mariadb-dump": "echo 'dump failed' >&2; exit 3"})
 	_, stdErr, err = failing.f.RunCombinedOutput(append([]string{"db:dump", "-r", "database", "--stdout"}, args...)...)

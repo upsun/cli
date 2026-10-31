@@ -76,6 +76,8 @@ class IntegrationUpdateCommand extends IntegrationCommandBase
                 $field->validate($value);
                 $value = $field->getFinalValue($value);
                 $form::setNestedArrayValue($newValues, $parents, $value, true);
+                // Later fields' conditions depend on the new value.
+                $form::setNestedArrayValue($values, $parents, $value, true);
             }
         }
 
@@ -102,20 +104,16 @@ class IntegrationUpdateCommand extends IntegrationCommandBase
         try {
             $result = $integration->update($newValues);
         } catch (BadResponseException $e) {
-            $errors = $integration->listValidationErrors($e);
-            if ($errors) {
-                $this->stdErr->writeln(sprintf(
-                    'The integration <error>%s</error> (type: %s) is invalid.',
-                    $integration->id,
-                    $integration->type,
-                ));
-                $this->stdErr->writeln('');
-                $this->listValidationErrors($errors, $output);
+            $errors = $this->validationErrors($e);
+            $this->stdErr->writeln(sprintf(
+                'The integration <error>%s</error> (type: %s) is invalid.',
+                $integration->id,
+                $integration->type,
+            ));
+            $this->stdErr->writeln('');
+            $this->listValidationErrors($errors, $output);
 
-                return 4;
-            }
-
-            throw $e;
+            return 4;
         }
 
         $this->stdErr->writeln("Integration <info>{$integration->id}</info> (<info>{$integration->type}</info>) updated");

@@ -254,8 +254,11 @@ func hasConfiguredToken(m *auth.Manager) bool {
 func loginRequiredMessage(cnf *config.Config, lerr *auth.LoginRequiredError) string {
 	msg := lerr.Message()
 	if lerr.HasAPIToken {
-		if len(lerr.AuthMethods) == 1 && lerr.AuthMethods[0] == "mfa" {
+		switch {
+		case len(lerr.AuthMethods) == 1 && lerr.AuthMethods[0] == "mfa":
 			msg += "\n\nThe API token may need to be re-created after enabling MFA."
+		case len(lerr.AuthMethods) == 0 && lerr.MaxAge == nil:
+			msg += "\n\nCheck the API token, or create a new one."
 		}
 		return msg
 	}

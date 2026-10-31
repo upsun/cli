@@ -54,6 +54,9 @@ abstract class MetricsCommandBase extends CommandBase
     // Data points that started within this many seconds of now may still be missing services.
     private const LATEST_SETTLE_TIME = 120;
 
+    /** Seconds per duration unit. */
+    private const DURATION_UNITS = ['d' => 86400, 'h' => 3600, 'm' => 60, 's' => 1];
+
     /**
      * @var bool whether services have been identified that use high memory
      */
@@ -380,9 +383,9 @@ abstract class MetricsCommandBase extends CommandBase
      */
     protected function validateTimeInput(InputInterface $input): false|TimeSpec
     {
-        if ($to = Option::stringOrNull($input, 'to')) {
+        if (($to = Option::stringOrNull($input, 'to')) !== null) {
             $endTime = \strtotime($to);
-            if (!$endTime) {
+            if ($endTime === false) {
                 $this->stdErr->writeln('Failed to parse --to time: ' . $to);
 
                 return false;
@@ -390,9 +393,9 @@ abstract class MetricsCommandBase extends CommandBase
         } else {
             $endTime = time();
         }
-        if ($rangeStr = Option::stringOrNull($input, 'range')) {
-            $rangeSeconds = (new Duration())->toSeconds($rangeStr);
-            if (empty($rangeSeconds)) {
+        if (($rangeStr = Option::stringOrNull($input, 'range')) !== null) {
+            $rangeSeconds = $this->parseDuration($rangeStr);
+            if (!$rangeSeconds) {
                 $this->stdErr->writeln('Invalid --range: <error>' . $rangeStr . '</error>');
 
                 return false;
@@ -401,7 +404,6 @@ abstract class MetricsCommandBase extends CommandBase
 
                 return false;
             }
-            $rangeSeconds = (int) $rangeSeconds;
         } else {
             $rangeSeconds = self::DEFAULT_RANGE;
         }
@@ -409,11 +411,14 @@ abstract class MetricsCommandBase extends CommandBase
         $startTime = $endTime - $rangeSeconds;
         $interval = null;
 
-        if ($intervalString = Option::stringOrNull($input, 'interval')) {
-            $interval = (int) (new Duration())->toSeconds($intervalString);
-
-            if (empty($interval)) {
+        if (($intervalString = Option::stringOrNull($input, 'interval')) !== null) {
+            $interval = $this->parseDuration($intervalString);
+            if (!$interval) {
                 $this->stdErr->writeln('Invalid --interval: <error>' . $intervalString . '</error>');
+
+                return false;
+            } elseif ($interval < self::MIN_INTERVAL) {
+                $this->stdErr->writeln(\sprintf('The --interval <error>%s</error> is too short: it must be at least %d seconds (%s).', $intervalString, self::MIN_INTERVAL, (new Duration())->humanize(self::MIN_INTERVAL)));
 
                 return false;
             }
@@ -426,6 +431,40 @@ abstract class MetricsCommandBase extends CommandBase
         }
 
         return new TimeSpec($startTime, $endTime, $interval);
+    }
+
+    /**
+     * Parses a duration in seconds, with day, hour, minute and second units (e.g. "1h30m"), or in colon notation
+     * (e.g. "1:30:00"), to a number of seconds.
+     *
+     * Returns null if the duration is invalid.
+     */
+    private function parseDuration(string $value): ?int
+    {
+        $value = \trim($value);
+        if (\ctype_digit($value)) {
+            return (int) $value;
+        }
+        // Colon notation is [hours:]minutes:seconds, as in Khill\Duration.
+        if (\preg_match('/^(?:(?<h>\d+):)?(?<m>\d+):(?<s>\d+(?:\.\d+)?)$/D', $value, $matches)) {
+            return (int) \round((int) $matches['h'] * 3600 + (int) $matches['m'] * 60 + (float) $matches['s']);
+        }
+        // Units in order, each with an optional space before it, e.g. "1d 2h", "1.5h" or "30 m".
+        $pattern = '/^
+            (?:(?<d>\d+(?:\.\d+)?)\s?d)? \s*
+            (?:(?<h>\d+(?:\.\d+)?)\s?h)? \s*
+            (?:(?<m>\d+(?:\.\d+)?)\s?m)? \s*
+            (?:(?<s>\d+(?:\.\d+)?)\s?s)?
+        $/ixD';
+        if ($value === '' || !\preg_match($pattern, $value, $matches)) {
+            return null;
+        }
+        $seconds = 0.0;
+        foreach (self::DURATION_UNITS as $unit => $factor) {
+            $seconds += (float) ($matches[$unit] ?? 0) * $factor;
+        }
+
+        return (int) \round($seconds);
     }
 
     /**

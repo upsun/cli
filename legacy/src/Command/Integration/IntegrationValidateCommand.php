@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Integration;
 
+use GuzzleHttp\Exception\BadResponseException;
 use Platformsh\Cli\Console\Argument;
 use Platformsh\Cli\Selector\Selector;
 use Platformsh\Client\Exception\OperationUnavailableException;
@@ -58,12 +59,16 @@ class IntegrationValidateCommand extends IntegrationCommandBase
             $integration->type,
         ));
 
+        // Integration::validate() fails on an error that is not JSON.
         try {
-            $errors = $integration->validate();
+            $integration->runOperation('validate');
+            $errors = [];
         } catch (OperationUnavailableException) {
             $this->stdErr->writeln('This integration does not support validation.');
 
             return 1;
+        } catch (BadResponseException $e) {
+            $errors = $this->validationErrors($e);
         }
         if (empty($errors)) {
             $this->stdErr->writeln('The integration is valid.');

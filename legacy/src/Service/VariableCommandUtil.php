@@ -191,11 +191,11 @@ class VariableCommandUtil
                 }
                 foreach ($values as $value) {
                     if (!in_array($value, $appNames, true)) {
-                        throw new InvalidArgumentException(sprintf(
+                        return sprintf(
                             'The app, worker, or task "%s" was not found. Valid names are: %s',
                             $value,
                             implode(', ', $appNames)
-                        ));
+                        );
                     }
                 }
                 return true;

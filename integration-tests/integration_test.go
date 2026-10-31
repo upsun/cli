@@ -72,6 +72,13 @@ func TestIntegrationList(t *testing.T) {
 	assert.Contains(t, output, "int2")
 	assert.Contains(t, output, "webhook")
 
+	// Filter by type.
+	assertTrimmed(t, "int2,webhook", f.Run("integrations", "-p", projectID, "--type", "webhook",
+		"--format", "csv", "--no-header", "--columns", "id,type"))
+	_, stderr, err := f.RunCombinedOutput("integrations", "-p", projectID, "--type", "gitlab")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "No integrations found of type: gitlab")
+
 	// Get a specific integration.
 	assertTrimmed(t, "github", f.Run("integration:get", "-p", projectID, "int1", "-P", "type"))
 	assertTrimmed(t, "org/repo", f.Run("integration:get", "-p", projectID, "int1", "-P", "repository"))

@@ -37,6 +37,16 @@ class VariableTest extends TestCase
             ['empty', 'value', ''],
             (new Variable())->parse('empty:value='),
         );
+
+        $this->assertEquals(
+            ['env', 'QUERY', 'a=1&b=2'],
+            (new Variable())->parse('env:QUERY=a=1&b=2'),
+        );
+
+        $this->assertEquals(
+            ['env', 'SECRET', 'YWJj=='],
+            (new Variable())->parse('env:SECRET=YWJj=='),
+        );
     }
 
     public function testParseMultiple(): void

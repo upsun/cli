@@ -105,6 +105,12 @@ class MountDownloadCommand extends CommandBase
             return 1;
         }
 
+        if (!$all && Option::bool($input, 'source-path')) {
+            $this->stdErr->writeln('The <error>--source-path</error> option can only be used with <comment>--all</comment>.');
+
+            return 1;
+        }
+
         $target = null;
         if ($targetOption = Option::stringOrNull($input, 'target')) {
             $target = $targetOption;

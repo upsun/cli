@@ -196,6 +196,32 @@ func TestEnvironmentPushOptions(t *testing.T) {
 			},
 		},
 		{
+			name:       "deploy strategy",
+			args:       []string{"--target", "dev", "--deploy-strategy", "rolling"},
+			wantStdErr: []string{"Deployment strategy: rolling", "GIT_PUSH_OPTION_0=deploy.strategy=rolling"},
+			check: func(t *testing.T, p *gitProject, repo string) {
+				assert.Equal(t, gitRef(t, repo, "HEAD"), gitRef(t, p.repo, "refs/heads/dev"))
+			},
+		},
+		{
+			name:       "invalid deploy strategy",
+			args:       []string{"--target", "dev", "--deploy-strategy", "fast"},
+			wantErr:    true,
+			wantStdErr: []string{`Invalid deploy strategy fast, should be "rolling" or "stopstart"`},
+			check: func(t *testing.T, p *gitProject, _ string) {
+				assert.Empty(t, gitRef(t, p.repo, "refs/heads/dev"))
+			},
+		},
+		{
+			name: "activate without cloning the parent's data",
+			args: []string{"--target", "feature", "--activate", "--no-clone-parent"},
+			wantStdErr: []string{"GIT_PUSH_OPTION_0=environment.status=active",
+				"GIT_PUSH_OPTION_1=environment.clone_parent_on_create=false"},
+			check: func(t *testing.T, p *gitProject, repo string) {
+				assert.Equal(t, gitRef(t, repo, "HEAD"), gitRef(t, p.repo, "refs/heads/feature"))
+			},
+		},
+		{
 			name:       "set upstream",
 			args:       []string{"-p", layoutProjectID, "--target", "main", "--set-upstream"},
 			noRemote:   true,

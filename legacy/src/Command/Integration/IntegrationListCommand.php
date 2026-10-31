@@ -40,14 +40,13 @@ class IntegrationListCommand extends IntegrationCommandBase
 
         $integrations = $selection->getProject()
                         ->getIntegrations();
-        if (!$integrations) {
-            $this->stdErr->writeln('No integrations found');
-
-            return 1;
-        }
-
         if ($type = Option::stringOrNull($input, 'type')) {
             $integrations = array_filter($integrations, fn(Integration $i): bool => $i->type === $type);
+        }
+        if (!$integrations) {
+            $this->stdErr->writeln($type ? sprintf('No integrations found of type: <comment>%s</comment>', $type) : 'No integrations found');
+
+            return 1;
         }
         $rows = [];
 

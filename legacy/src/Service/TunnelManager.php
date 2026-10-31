@@ -253,7 +253,8 @@ class TunnelManager
             }
         }
         $pidFile = $this->getPidFilename($tunnel);
-        if (file_exists($pidFile) && !unlink($pidFile)) {
+        // The process may delete its own PID file as it exits.
+        if (!@unlink($pidFile) && file_exists($pidFile)) {
             throw new \RuntimeException(sprintf(
                 'Failed to delete file: %s',
                 $pidFile,

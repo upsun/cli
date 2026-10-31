@@ -20,7 +20,7 @@ class Variable
      */
     public function parse(string $variable): array
     {
-        if (!preg_match('#^([^:=]+) ?: ?([^=]+) ?= ?([^=]*)$#', $variable, $matches)) {
+        if (!preg_match('#^([^:=]+) ?: ?([^=]+) ?= ?(.*)$#s', $variable, $matches)) {
             throw new \InvalidArgumentException('Variables must be defined as type:name=value.');
         }
         [, $type, $name, $value] = $matches;

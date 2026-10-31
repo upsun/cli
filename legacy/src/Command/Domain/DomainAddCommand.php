@@ -11,7 +11,6 @@ use Platformsh\Cli\Service\ActivityMonitor;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\QuestionHelper;
 use GuzzleHttp\Exception\ClientException;
-use GuzzleHttp\Utils;
 use Platformsh\Cli\Model\EnvironmentDomain;
 use Platformsh\Client\Model\Environment;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -81,7 +80,7 @@ class DomainAddCommand extends DomainCommandBase
         } catch (ClientException $e) {
             $code = $e->getResponse()->getStatusCode();
             if ($code === 402) {
-                $data = (array) Utils::jsonDecode((string) $e->getResponse()->getBody(), true);
+                $data = (array) json_decode((string) $e->getResponse()->getBody(), true);
                 if (isset($data['message'], $data['detail']['environments_with_domains_limit'], $data['detail']['environments_with_domains'])) {
                     $this->stdErr->writeln('');
                     $this->stdErr->writeln($data['message']);
@@ -92,7 +91,7 @@ class DomainAddCommand extends DomainCommandBase
                 }
             }
             if ($code === 409) {
-                $data = (array) Utils::jsonDecode((string) $e->getResponse()->getBody(), true);
+                $data = (array) json_decode((string) $e->getResponse()->getBody(), true);
                 if (isset($data['message'], $data['detail']['conflicting_domain']) && str_contains((string) $data['message'], 'already has a domain with the same replacement_for')) {
                     $this->stdErr->writeln('');
                     $this->stdErr->writeln(sprintf(

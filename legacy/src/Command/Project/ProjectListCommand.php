@@ -87,7 +87,7 @@ class ProjectListCommand extends CommandBase
     {
         $this->io->warnAboutDeprecatedOptions(['host'], 'The option --host is deprecated and replaced by --region. It will be removed in a future version.');
 
-        $refresh = $input->hasOption('refresh') && Option::string($input, 'refresh');
+        $refresh = $input->hasOption('refresh') && Option::boolValue($input, 'refresh');
         $pageOption = Option::intOrNull($input, 'page');
         $countOption = Option::intOrNull($input, 'count');
 

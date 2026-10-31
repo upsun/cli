@@ -3,7 +3,6 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"path"
 	"strings"
@@ -35,6 +34,7 @@ type Error struct {
 	Original error
 	URL      string
 	Response *http.Response
+	Body     []byte // The start of an error response's body.
 }
 
 // Unwrap returns the original error, e.g. a login-required error from the HTTP client's transport.
@@ -52,10 +52,8 @@ func (e Error) Error() string {
 	default:
 		msg = fmt.Sprintf("API error: %s", e.URL)
 	}
-	if e.Response != nil && e.Response.StatusCode != http.StatusNotFound {
-		defer e.Response.Body.Close()
-		d, _ := httputil.DumpResponse(e.Response, false)
-		msg += "\n\nFull response:\n\n" + strings.TrimSpace(string(d)) + "\n"
+	if body := strings.TrimSpace(string(e.Body)); body != "" {
+		msg += "\n" + body
 	}
 	return msg
 }

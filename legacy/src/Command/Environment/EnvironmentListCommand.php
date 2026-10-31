@@ -159,7 +159,7 @@ class EnvironmentListCommand extends CommandBase
     {
         $selection = $this->selector->getSelection($input);
 
-        $refresh = $input->hasOption('refresh') && Option::string($input, 'refresh');
+        $refresh = $input->hasOption('refresh') && Option::boolValue($input, 'refresh');
 
         $progress = new ProgressMessage($output);
         $progress->showIfOutputDecorated('Loading environments...');

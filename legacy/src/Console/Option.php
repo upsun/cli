@@ -39,6 +39,26 @@ final class Option
     }
 
     /**
+     * Gets the value of an option that takes a boolean value, like the form fields' booleans.
+     *
+     * @throws InvalidArgumentException if the value is not a boolean
+     */
+    public static function boolValue(InputInterface $input, string $name): bool
+    {
+        $value = $input->getOption($name);
+        if (is_bool($value)) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^(1|true|yes|y)$/i', $value)) {
+            return true;
+        }
+        if (is_string($value) && preg_match('/^(0|false|no|n)$/i', $value)) {
+            return false;
+        }
+        throw new InvalidArgumentException(sprintf('The --%s value must be true or false (or 1 or 0).', $name));
+    }
+
+    /**
      * Gets the value of a non-negative integer option.
      *
      * @throws InvalidArgumentException if the value is not a non-negative integer
@@ -49,7 +69,7 @@ final class Option
         if (is_int($value) && $value >= 0) {
             return $value;
         }
-        if (!is_string($value) || !preg_match('/^[0-9]+$/', $value)) {
+        if (!is_string($value) || !ctype_digit($value)) {
             throw new InvalidArgumentException(sprintf('The --%s value must be a non-negative integer.', $name));
         }
 

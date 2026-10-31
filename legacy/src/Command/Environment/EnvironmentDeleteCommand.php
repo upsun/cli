@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Command\Environment;
 
+use Platformsh\Cli\Console\ApiErrorMessage;
 use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\ProjectSshInfo;
@@ -440,7 +441,7 @@ class EnvironmentDeleteCommand extends CommandBase
                 $deactivateActivities = array_merge($deactivateActivities, $environment->runOperation('deactivate')->getActivities());
                 $deactivated++;
             } catch (\Exception $e) {
-                $this->stdErr->writeln($e->getMessage());
+                $this->stdErr->writeln(ApiErrorMessage::fromThrowable($e) ?? $e->getMessage());
             }
         }
 
@@ -468,7 +469,7 @@ class EnvironmentDeleteCommand extends CommandBase
                 $environment->delete();
                 $deleted++;
             } catch (\Exception $e) {
-                $this->stdErr->writeln($e->getMessage());
+                $this->stdErr->writeln(ApiErrorMessage::fromThrowable($e) ?? $e->getMessage());
             }
         }
 

@@ -109,3 +109,81 @@ func mockRoutes() map[string]any {
 		},
 	}
 }
+
+func TestRouteGetOptions(t *testing.T) {
+	t.Parallel()
+	withRoutes := func(t *testing.T, routes map[string]any) *cmdFactory {
+		f := &cmdFactory{t: t}
+		b, err := json.Marshal(routes)
+		require.NoError(t, err)
+		f.extraEnv = []string{"PLATFORM_ROUTES=" + base64.StdEncoding.EncodeToString(b)}
+		return f
+	}
+	routes := map[string]any{
+		"https://api.example.com/": map[string]any{
+			"primary": false, "id": "api", "type": "upstream", "original_url": "https://api.{default}/", "upstream": "api:http",
+		},
+		"https://www.example.com/": map[string]any{
+			"primary": true, "id": "main", "type": "upstream", "original_url": "https://www.{default}/", "upstream": "app:http",
+		},
+		"http://www.example.com/": map[string]any{
+			"primary": false, "id": nil, "type": "redirect", "original_url": "http://www.{default}/",
+			"to": "https://www.example.com/",
+		},
+	}
+	f := withRoutes(t, routes)
+
+	cases := []struct {
+		name    string
+		args    []string
+		want    string
+		wantErr string
+	}{
+		{name: "id", args: []string{"--id", "api"}, want: "https://api.{default}/\n"},
+		{name: "primary", args: []string{"--primary"}, want: "https://www.{default}/\n"},
+		{name: "original URL", args: []string{"http://www.{default}/"}, want: "http://www.{default}/\n"},
+		{name: "unknown id", args: []string{"--id", "nope"}, wantErr: "No route found with ID: nope"},
+		{name: "unknown original URL", args: []string{"https://nope.{default}/"},
+			wantErr: "No route found for original URL: https://nope.{default}/"},
+		{
+			name:    "id and route",
+			args:    []string{"--id", "api", "http://www.{default}/"},
+			wantErr: "Specify only one of the route argument, the --id option, or the --primary option.",
+		},
+		{
+			name:    "id and primary",
+			args:    []string{"--id", "api", "--primary"},
+			wantErr: "Specify only one of the route argument, the --id option, or the --primary option.",
+		},
+		{
+			name:    "primary and route",
+			args:    []string{"--primary", "http://www.{default}/"},
+			wantErr: "Specify only one of the route argument, the --id option, or the --primary option.",
+		},
+		{
+			name:    "no selection",
+			args:    nil,
+			wantErr: "You must specify a route via the route argument, the --id option, or the --primary option.",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f := f.forSubtest(t)
+			stdout, stderr, err := f.RunCombinedOutput(append([]string{"route:get", "-P", "original_url"}, c.args...)...)
+			if c.wantErr != "" {
+				assertExitCode(t, 1, err)
+				assert.Contains(t, stderr, c.wantErr)
+				return
+			}
+			require.NoError(t, err, stderr)
+			assert.Equal(t, c.want, stdout)
+		})
+	}
+
+	// Without a primary route.
+	delete(routes, "https://www.example.com/")
+	_, stderr, err := withRoutes(t, routes).RunCombinedOutput("route:get", "--primary")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "No primary route found.")
+	assert.NotContains(t, stderr, "[-h|--help]", "the usage was shown")
+}

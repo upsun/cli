@@ -66,7 +66,7 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
         $count = Option::stringOrNull($input, 'count');
         $itemsPerPage = max(1, min($this->config->getInt('pagination.count'), self::MAX_COUNT));
         if ($count !== null && $count !== '0') {
-            if (!\is_numeric($count) || $count < 1 || $count > self::MAX_COUNT) {
+            if (!\ctype_digit($count) || $count < 1 || $count > self::MAX_COUNT) {
                 $this->stdErr->writeln('The --count must be a number between 1 and ' . self::MAX_COUNT . ', or 0 to disable pagination.');
                 return 1;
             }
@@ -82,7 +82,7 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
 
         $requestedPage = 1;
         if (($pageOption = Option::stringOrNull($input, 'page')) !== null) {
-            if (!\is_numeric($pageOption) || $pageOption < 1) {
+            if (!\ctype_digit($pageOption) || $pageOption < 1) {
                 $this->stdErr->writeln('The --page must be a number greater than 0.');
                 return 1;
             }

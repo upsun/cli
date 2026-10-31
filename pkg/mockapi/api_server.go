@@ -25,6 +25,7 @@ type Handler struct {
 	stepUpAMR      []string
 	rejectedTokens []string
 	requests       []Request
+	faults         []fault
 }
 
 // RejectAccessToken makes requests with an access token fail with a 401 error, as if it were revoked.
@@ -74,6 +75,7 @@ func NewHandler(t *testing.T) *Handler {
 		})
 	})
 
+	h.Use(h.injectFaults)
 	h.Use(validateOpenAPI(t))
 
 	h.Get("/users/me", h.handleUsersMe)

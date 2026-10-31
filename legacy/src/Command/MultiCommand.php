@@ -58,6 +58,8 @@ class MultiCommand extends CommandBase
         $application = new Application();
         $application->setRunningViaMulti();
         $application->setAutoExit(false);
+        // Exceptions are handled below, according to --continue.
+        $application->setCatchExceptions(false);
         $application->setIO($input, $output);
         $command = $application->find($commandName);
         if ($command instanceof LazyCommand) {

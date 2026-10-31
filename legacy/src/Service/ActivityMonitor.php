@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Platformsh\Cli\Service;
 
+use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Exception\ServerException;
 use Platformsh\Cli\Console\Option;
 use Platformsh\Cli\Util\CurlStream;
 use Platformsh\Client\Model\Activity;
@@ -153,7 +155,7 @@ class ActivityMonitor
             // If $pollInterval has passed, or if the stream has ended, then
             // refresh the activity.
             if ($seal || microtime(true) - $lastRefresh >= $pollInterval) {
-                $activity->refresh();
+                $this->withRetry(fn() => $activity->refresh());
                 $overrideState = '';
                 $lastRefresh = microtime(true);
             }
@@ -489,7 +491,7 @@ class ActivityMonitor
             // Get a list of activities on the project. Any of our activities
             // which are not contained in this list must be refreshed
             // individually.
-            $projectActivities = $project->getActivities(0, null, $mostRecentTimestamp ?: null);
+            $projectActivities = $this->withRetry(fn() => $project->getActivities(0, null, $mostRecentTimestamp ?: null));
             foreach ($activities as $activity) {
                 $listed = null;
                 foreach ($projectActivities as $projectActivity) {
@@ -500,7 +502,7 @@ class ActivityMonitor
                 }
                 // Refresh the given object rather than replacing it, so that the caller sees the final state.
                 if (!$this->isFinished($activity) && ($listed === null || $this->isFinished($listed))) {
-                    $activity->refresh();
+                    $this->withRetry(fn() => $activity->refresh());
                 }
                 if ($this->isFinished($activity)) {
                     $done++;
@@ -726,6 +728,36 @@ class ActivityMonitor
             $bar->advance();
             \usleep((int) ($interval * 1000000));
             $bar->advance();
+        }
+    }
+
+    /**
+     * Runs an API request, retrying transient errors (a 502, 503 or 504 response, or a connection failure) with
+     * backoff, for up to api.retry_timeout seconds.
+     *
+     * @template T
+     * @param callable(): T $request
+     * @return T
+     */
+    private function withRetry(callable $request): mixed
+    {
+        $start = \microtime(true);
+        $delay = 1;
+        while (true) {
+            try {
+                return $request();
+            } catch (ConnectException|ServerException $e) {
+                if ($e instanceof ServerException && !\in_array($e->getResponse()->getStatusCode(), [502, 503, 504], true)) {
+                    throw $e;
+                }
+                $remaining = $this->config->getInt('api.retry_timeout') - (\microtime(true) - $start);
+                if ($remaining <= 0) {
+                    throw $e;
+                }
+                $this->io->debug('Retrying after a transient error: ' . $e->getMessage());
+                \usleep((int) (\min($delay, $remaining) * 1000000));
+                $delay = \min($delay * 2, 15);
+            }
         }
     }
 }

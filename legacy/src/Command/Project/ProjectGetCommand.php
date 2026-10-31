@@ -258,7 +258,7 @@ class ProjectGetCommand extends CommandBase
     private function validateDepth(InputInterface $input): void
     {
         $depth = Option::stringOrNull($input, 'depth');
-        if ($depth !== null && !preg_match('/^[0-9]+$/', $depth)) {
+        if ($depth !== null && !ctype_digit($depth)) {
             throw new InvalidArgumentException('The --depth value must be an integer.');
         }
     }
