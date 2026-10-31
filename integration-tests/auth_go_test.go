@@ -367,8 +367,9 @@ func TestAuthChannel_TokenNotInherited(t *testing.T) {
 	hooksDir := filepath.Join(repo, ".git", "hooks")
 	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
 	hook := []byte("#!/bin/sh\nenv > '" + envFile + "'\n" +
-		"lsof -a -p $$ -U > '" + socketsFile + "' || command -v lsof > /dev/null || echo 'no lsof' > '" + socketsFile +
-		"'\n" +
+		// lsof exits with 1 if it finds no Unix socket, so it is checked first with the hook's stdin.
+		"if lsof -a -p $$ -d 0 > /dev/null; then lsof -a -p $$ -U > '" + socketsFile + "'; " +
+		"else echo 'lsof failed' > '" + socketsFile + "'; fi\n" +
 		`"$` + EnvPrefix + `WRAPPER_EXECUTABLE" auth:token -W > '` + nestedFile + `' 2>&1; echo "exit $?" >> '` +
 		nestedFile + "'\n")
 	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "pre-push"), hook, 0o755))
