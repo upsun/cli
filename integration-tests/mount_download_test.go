@@ -90,4 +90,10 @@ func TestMountDownloadToNewRelativeTarget(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, stdErr, "Downloading files from var/log to dl-source/logs")
 	assert.FileExists(t, filepath.Join(f.dir, "dl-source", "logs", "app.log"))
+
+	_, stdErr, err = f.RunCombinedOutput("mount:download", "-p", projectID, "-e", "main", "-m", "var/log",
+		"--source-path", "--target", "dl-one-source", "--yes")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stdErr, "The --source-path option can only be used with --all.")
+	assert.NoDirExists(t, filepath.Join(f.dir, "dl-one-source"))
 }
