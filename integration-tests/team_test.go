@@ -705,6 +705,12 @@ func TestTeamUserList(t *testing.T) {
 			wantStderr: "The --count must be a number between 1 and 50, or 0 to disable pagination.",
 		},
 		{
+			name:       "negative count",
+			args:       []string{"--count=-1"},
+			wantErr:    true,
+			wantStderr: "The --count must be a number between 1 and 50, or 0 to disable pagination.",
+		},
+		{
 			name:       "one page",
 			args:       []string{"--count", "1"},
 			wantStdout: "user-id-2\n",
