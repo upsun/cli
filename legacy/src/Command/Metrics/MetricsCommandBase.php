@@ -438,7 +438,7 @@ abstract class MetricsCommandBase extends CommandBase
      */
     private function parseDuration(string $value): ?int
     {
-        if (\preg_match('/^\d+$/', $value)) {
+        if (\ctype_digit($value)) {
             return (int) $value;
         }
         // Colon notation is [hours:]minutes:seconds, as in Khill\Duration.

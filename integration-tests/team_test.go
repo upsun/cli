@@ -711,6 +711,12 @@ func TestTeamUserList(t *testing.T) {
 			wantStderr: "The --count must be a number between 1 and 50, or 0 to disable pagination.",
 		},
 		{
+			name:       "count with a trailing newline",
+			args:       []string{"--count", "5\n"},
+			wantErr:    true,
+			wantStderr: "The --count must be a number between 1 and 50, or 0 to disable pagination.",
+		},
+		{
 			name:       "count too large",
 			args:       []string{"--count", "51"},
 			wantErr:    true,

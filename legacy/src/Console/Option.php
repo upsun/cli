@@ -69,7 +69,7 @@ final class Option
         if (is_int($value) && $value >= 0) {
             return $value;
         }
-        if (!is_string($value) || !preg_match('/^[0-9]+$/', $value)) {
+        if (!is_string($value) || !ctype_digit($value)) {
             throw new InvalidArgumentException(sprintf('The --%s value must be a non-negative integer.', $name));
         }
 

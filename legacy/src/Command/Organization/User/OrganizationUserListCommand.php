@@ -71,7 +71,7 @@ class OrganizationUserListCommand extends OrganizationCommandBase
         $count = Option::stringOrNull($input, 'count');
         $itemsPerPage = $this->config->getInt('pagination.count');
         if ($count !== null && $count !== '0') {
-            if (!\preg_match('/^\d+$/', $count) || $count < 1 || $count > 100) {
+            if (!\ctype_digit($count) || $count < 1 || $count > 100) {
                 $this->stdErr->writeln('The --count must be a number between 1 and 100, or 0 to disable pagination.');
                 return 1;
             }
