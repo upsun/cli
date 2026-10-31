@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -104,6 +105,10 @@ type authChannel interface {
 func withoutTokenEnv(env []string, prefix string) []string {
 	return slices.DeleteFunc(slices.Clone(env), func(e string) bool {
 		name, _, _ := strings.Cut(e, "=")
+		// Variable names are case-insensitive on Windows.
+		if runtime.GOOS == "windows" {
+			name = strings.ToUpper(name)
+		}
 		return name == prefix+"TOKEN" || name == prefix+"API_TOKEN" || name == prefix+"API_ACCESS_TOKEN"
 	})
 }

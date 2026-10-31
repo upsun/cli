@@ -90,7 +90,11 @@ echo "$TEST_WRAPPER_PID $TEST_WRAPPER_HAS_TOKEN" "${TEST_API_ACCESS_TOKEN-unset}
 
 func TestWithoutTokenEnv(t *testing.T) {
 	env := []string{"TEST_TOKEN=a", "TEST_API_TOKEN=b", "TEST_API_ACCESS_TOKEN=c", "TEST_TOKEN_OTHER=d", "OTHER_TOKEN=e",
-		"TEST_SESSION_ID=f"}
-	assert.Equal(t, []string{"TEST_TOKEN_OTHER=d", "OTHER_TOKEN=e", "TEST_SESSION_ID=f"}, withoutTokenEnv(env, "TEST_"))
-	assert.Len(t, env, 6, "the input must not be changed")
+		"TEST_SESSION_ID=f", "test_Token=g"}
+	want := []string{"TEST_TOKEN_OTHER=d", "OTHER_TOKEN=e", "TEST_SESSION_ID=f"}
+	if runtime.GOOS != "windows" {
+		want = append(want, "test_Token=g")
+	}
+	assert.Equal(t, want, withoutTokenEnv(env, "TEST_"))
+	assert.Len(t, env, 7, "the input must not be changed")
 }
