@@ -16,7 +16,12 @@ import (
 // listenAuthChannel listens on a Unix socket in a new temporary directory, which only the current user can access. Its
 // path is passed to cmd in <PREFIX>WRAPPER_AUTH_SOCKET.
 func listenAuthChannel(cnf *config.Config, cmd *exec.Cmd) (net.Listener, error) {
-	dir, err := os.MkdirTemp("", "cli-auth-")
+	// A socket's path is limited to 104 bytes on macOS, and 108 on Linux.
+	tmp := os.TempDir()
+	if len(tmp) > 64 {
+		tmp = "/tmp"
+	}
+	dir, err := os.MkdirTemp(tmp, "cli-auth-")
 	if err != nil {
 		return nil, err
 	}
