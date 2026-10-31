@@ -51,35 +51,35 @@ func TestAPIErrorOutput(t *testing.T) {
 			name:     "problem",
 			status:   http.StatusNotFound,
 			body:     mockapi.Problem(http.StatusNotFound, "The project was not found."),
-			wantCode: 255,
+			wantCode: 1,
 			want:     []string{"The API returned 404 Not Found for " + request, "The project was not found."},
 		},
 		{
 			name:     "legacy shape",
 			status:   http.StatusConflict,
 			body:     `{"status":"error","code":409,"message":"Conflict","detail":"Variable already exists"}`,
-			wantCode: 255,
+			wantCode: 1,
 			want:     []string{"The API returned 409 Conflict for " + request, "Variable already exists"},
 		},
 		{
 			name:     "detail per property",
 			status:   http.StatusBadRequest,
 			body:     `{"status":"error","code":400,"message":"Bad Request","detail":{"name":"Invalid name"}}`,
-			wantCode: 255,
+			wantCode: 1,
 			want:     []string{"The API returned 400 Bad Request for " + request, "name: Invalid name"},
 		},
 		{
 			name:     "message repeating the status",
 			status:   http.StatusInternalServerError,
 			body:     `{"status":"error","code":500,"message":"Internal Server Error"}`,
-			wantCode: 255,
+			wantCode: 1,
 			want:     []string{"The API returned 500 Internal Server Error for " + request},
 		},
 		{
 			name:     "proxy error page",
 			status:   http.StatusBadGateway,
 			body:     "<html><body><h1>502 Bad Gateway</h1></body></html>",
-			wantCode: 255,
+			wantCode: 1,
 			want:     []string{"The API returned 502 Bad Gateway for " + request},
 		},
 		{
@@ -106,7 +106,7 @@ func TestAPIErrorOutput(t *testing.T) {
 	p.api.FailNext("POST", path, http.StatusConflict, mockapi.Problem(http.StatusConflict, "Variable already exists"))
 	_, stderr, err := p.f.RunCombinedOutput("variable:create", "-v", "-p", layoutProjectID,
 		"-l", "project", "--name", "foo", "--value", "bar")
-	assertExitCode(t, 255, err)
+	assertExitCode(t, 1, err)
 	assert.Contains(t, stderr, "resulted in a `409 Conflict` response")
 }
 
@@ -240,13 +240,13 @@ func TestWriteCommandAPIErrors(t *testing.T) {
 	}{
 		{http.StatusForbidden, mockapi.Problem(http.StatusForbidden, "Access denied."),
 			outcome{6, "Access denied."}},
-		{http.StatusNotFound, mockapi.Problem(http.StatusNotFound, "Not here."), outcome{255, "404 Not Found"}},
+		{http.StatusNotFound, mockapi.Problem(http.StatusNotFound, "Not here."), outcome{1, "404 Not Found"}},
 		{http.StatusConflict, mockapi.Problem(http.StatusConflict, "Conflicting change."),
-			outcome{255, "409 Conflict"}},
+			outcome{1, "409 Conflict"}},
 		{http.StatusInternalServerError, `{"status":"error","code":500,"message":"Internal Server Error"}`,
-			outcome{255, "500 Internal Server Error"}},
+			outcome{1, "500 Internal Server Error"}},
 		{http.StatusBadGateway, "<html><body><h1>502 Bad Gateway</h1></body></html>",
-			outcome{255, "502 Bad Gateway"}},
+			outcome{1, "502 Bad Gateway"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -331,7 +331,7 @@ func TestAPIErrorHTMLBodies(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			c.h.FailNext(c.method, c.path, c.status, "<html><body>Error</body></html>")
 			_, stderr, err := c.f.forSubtest(t).RunCombinedOutput(c.args...)
-			assertExitCode(t, 255, err)
+			assertExitCode(t, 1, err)
 			assert.Contains(t, stderr, fmt.Sprintf("The API returned %d %s for %s", c.status, http.StatusText(c.status),
 				c.method))
 			assert.NotContains(t, stderr, "json_decode")

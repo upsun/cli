@@ -9,6 +9,7 @@ use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\ServerException;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
+use Platformsh\Cli\Exception\ApiErrorException;
 use Platformsh\Cli\Exception\ConnectionFailedException;
 use Platformsh\Cli\Exception\LoginRequiredException;
 use Platformsh\Cli\Exception\PermissionDeniedException;
@@ -87,6 +88,9 @@ readonly class EventSubscriber implements EventSubscriberInterface
                 }
                 $event->setError(new PermissionDeniedException($message, $error));
                 $event->stopPropagation();
+            } else {
+                // Symfony would exit with the HTTP status, capped at 255 like a PHP fatal error.
+                $event->setError(new ApiErrorException((string) ApiErrorMessage::fromThrowable($error), $error));
             }
         }
 
