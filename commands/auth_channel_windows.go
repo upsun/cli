@@ -70,9 +70,13 @@ func (c *pipeChannel) accept(pid <-chan int) (net.Conn, error) {
 			default:
 			}
 			// Other errors can be transient, e.g. a client that disconnects while it connects.
-			delay = min(max(2*delay, 10*time.Millisecond), time.Second)
+			delay = min(max(2*delay, 10*time.Millisecond), 250*time.Millisecond)
 			debugLogf("Auth channel: %s (retrying in %s)", err, delay)
-			time.Sleep(delay)
+			select {
+			case <-time.After(delay):
+			case <-c.closed:
+				return nil, net.ErrClosed
+			}
 			continue
 		}
 		delay = 0
