@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/upsun/cli/internal/auth"
+	"github.com/upsun/cli/internal/config"
 )
 
 func TestAuthChannelServer(t *testing.T) {
@@ -226,6 +227,38 @@ func (l *failOnceListener) Accept() (net.Conn, error) {
 		return nil, errors.New("transient")
 	}
 	return l.Listener.Accept()
+}
+
+// TestPrepareAuthChannel_ListenError checks that a token set in the environment is not passed on if the channel cannot
+// be created.
+func TestPrepareAuthChannel_ListenError(t *testing.T) {
+	t.Setenv("TEST_HOME", t.TempDir())
+	t.Setenv("TEST_API_DISABLE_CREDENTIAL_HELPERS", "1")
+	orig := listenAuth
+	t.Cleanup(func() { listenAuth = orig })
+	listenAuth = func(*config.Config, *exec.Cmd) (net.Listener, error) {
+		return nil, errors.New("no socket")
+	}
+
+	cases := []struct {
+		env     []string
+		wantErr string
+	}{
+		{env: []string{"OTHER=a", "TEST_TOKEN="}},
+		{env: []string{"OTHER=a", "TEST_API_TOKEN=secret"}, wantErr: "TEST_API_TOKEN"},
+	}
+	for _, c := range cases {
+		cmd := &exec.Cmd{Env: c.env}
+		_, _, err := prepareAuthChannel(testConfig(), io.Discard)(cmd)
+		if c.wantErr != "" {
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), c.wantErr)
+			assert.Contains(t, err.Error(), "no socket")
+			continue
+		}
+		require.NoError(t, err)
+		assert.Equal(t, c.env, cmd.Env)
+	}
 }
 
 func TestWithoutEnv(t *testing.T) {

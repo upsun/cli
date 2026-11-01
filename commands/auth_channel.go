@@ -60,10 +60,22 @@ func prepareAuthChannel(cnf *config.Config, stderr io.Writer) func(cmd *exec.Cmd
 			debugLogf("Auth channel not available: %s", err)
 			return noop, noop, nil
 		}
+		tokenVars := []string{prefix + "TOKEN", prefix + "API_TOKEN", prefix + "API_ACCESS_TOKEN"}
+		setTokenVars := slices.DeleteFunc(slices.Clone(tokenVars), func(name string) bool {
+			return !slices.ContainsFunc(cmd.Env, func(e string) bool {
+				n, v, _ := strings.Cut(e, "=")
+				return v != "" && sameEnvName(n, name)
+			})
+		})
 		env := cmd.Env
-		cmd.Env = withoutEnv(cmd.Env, prefix+"TOKEN", prefix+"API_TOKEN", prefix+"API_ACCESS_TOKEN")
-		l, err := listenAuthChannel(cnf, cmd)
+		cmd.Env = withoutEnv(cmd.Env, tokenVars...)
+		l, err := listenAuth(cnf, cmd)
 		if err != nil {
+			// The token is not passed on in the environment instead.
+			if len(setTokenVars) > 0 {
+				return nil, nil, fmt.Errorf("could not create the channel that passes the token set in %s to the "+
+					"legacy CLI: %w", strings.Join(setTokenVars, ", "), err)
+			}
 			debugLogf("Auth channel not available: %s", err)
 			cmd.Env = env
 			return noop, noop, nil
@@ -94,16 +106,23 @@ func prepareAuthChannel(cnf *config.Config, stderr io.Writer) func(cmd *exec.Cmd
 	}
 }
 
+// listenAuth is listenAuthChannel, which tests replace.
+var listenAuth = listenAuthChannel
+
 // withoutEnv returns env without the named variables.
 func withoutEnv(env []string, names ...string) []string {
 	return slices.DeleteFunc(slices.Clone(env), func(e string) bool {
 		name, _, _ := strings.Cut(e, "=")
-		// Variable names are case-insensitive on Windows.
-		if runtime.GOOS == "windows" {
-			return slices.ContainsFunc(names, func(n string) bool { return strings.EqualFold(n, name) })
-		}
-		return slices.Contains(names, name)
+		return slices.ContainsFunc(names, func(n string) bool { return sameEnvName(n, name) })
 	})
+}
+
+// sameEnvName reports whether two environment variable names are the same: they are case-insensitive on Windows.
+func sameEnvName(a, b string) bool {
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(a, b)
+	}
+	return a == b
 }
 
 type authChannelServer struct {

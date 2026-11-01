@@ -35,6 +35,24 @@ func TestListenAuthChannel_LongTempDir(t *testing.T) {
 	require.NoError(t, l.Close())
 }
 
+// TestListenAuthChannel_UnusableTempDir checks that the CLI's temporary directory is used if the system's cannot be.
+func TestListenAuthChannel_UnusableTempDir(t *testing.T) {
+	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
+	cliTemp := t.TempDir()
+	t.Setenv("TEST_TMP", cliTemp)
+	cmd := &exec.Cmd{}
+	l, err := listenAuthChannel(testConfig(), cmd)
+	require.NoError(t, err)
+	defer l.Close()
+	var socket string
+	for _, e := range cmd.Env {
+		if v, ok := strings.CutPrefix(e, "TEST_WRAPPER_AUTH_SOCKET="); ok {
+			socket = v
+		}
+	}
+	assert.True(t, strings.HasPrefix(socket, cliTemp+string(filepath.Separator)), "socket: %s", socket)
+}
+
 // TestRemoveStaleAuthDirs checks that only the directories of channels that are no longer used are removed.
 func TestRemoveStaleAuthDirs(t *testing.T) {
 	// A short path, for the socket.

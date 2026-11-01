@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -31,28 +32,50 @@ const staleAuthDirAge = time.Minute
 // The directory is removed when the listener is closed. Directories that are left over, if this process is ended by a
 // signal, are removed by a later one, while the legacy CLI runs.
 func listenAuthChannel(cnf *config.Config, cmd *exec.Cmd) (net.Listener, error) {
-	// A socket's path is limited to 104 bytes on macOS, and 108 on Linux.
-	tmp := os.TempDir()
-	if len(tmp) > 64 {
-		tmp = "/tmp"
+	parents := authSocketParents(cnf)
+	var errs []error
+	for _, parent := range parents {
+		dir, err := os.MkdirTemp(parent, authDirPrefix+strconv.Itoa(os.Getpid())+"-")
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		path := filepath.Join(dir, "s")
+		l, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
+		if err != nil {
+			_ = os.RemoveAll(dir)
+			errs = append(errs, err)
+			continue
+		}
+		cmd.Env = append(cmd.Env, cnf.Application.EnvPrefix+"WRAPPER_AUTH_SOCKET="+path)
+		swept := make(chan struct{})
+		go func() {
+			defer close(swept)
+			for _, p := range parents {
+				removeStaleAuthDirs(p)
+			}
+		}()
+		return &unixAuthListener{UnixListener: l, dir: dir, swept: swept}, nil
 	}
-	dir, err := os.MkdirTemp(tmp, authDirPrefix+strconv.Itoa(os.Getpid())+"-")
-	if err != nil {
-		return nil, err
+	return nil, errors.Join(errs...)
+}
+
+// authSocketParents returns the directories in which to try to create the socket's directory: the system's temporary
+// directory, the CLI's own (which the legacy CLI needs anyway), then /tmp.
+func authSocketParents(cnf *config.Config) []string {
+	var dirs []string
+	add := func(dir string) {
+		// A socket's path is limited to 104 bytes on macOS, and 108 on Linux.
+		if dir != "" && len(dir) <= 64 && !slices.Contains(dirs, dir) {
+			dirs = append(dirs, dir)
+		}
 	}
-	path := filepath.Join(dir, "s")
-	l, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
-	if err != nil {
-		_ = os.RemoveAll(dir)
-		return nil, err
+	add(os.TempDir())
+	if dir, err := cnf.TempDir(); err == nil {
+		add(dir)
 	}
-	cmd.Env = append(cmd.Env, cnf.Application.EnvPrefix+"WRAPPER_AUTH_SOCKET="+path)
-	swept := make(chan struct{})
-	go func() {
-		defer close(swept)
-		removeStaleAuthDirs(tmp)
-	}()
-	return &unixAuthListener{UnixListener: l, dir: dir, swept: swept}, nil
+	add("/tmp")
+	return dirs
 }
 
 type unixAuthListener struct {
