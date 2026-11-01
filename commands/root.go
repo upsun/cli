@@ -340,7 +340,7 @@ func exitWithError(err error) {
 		if ws, ok := execErr.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
 			exitCode = 128 + int(ws.Signal())
 		}
-		debugLogf(err.Error())
+		debugLogf("%s", err)
 		waitForUpdateCheck()
 		os.Exit(exitCode)
 	}

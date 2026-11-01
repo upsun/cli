@@ -10,6 +10,8 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+const authChannelSupported = true
+
 // dialAuthChannel connects to the named pipe, as the legacy CLI does.
 func dialAuthChannel(getenv func(string) string) (net.Conn, error) {
 	return winio.DialPipe(`\\.\pipe\`+getenv("TEST_WRAPPER_AUTH_PIPE"), nil)

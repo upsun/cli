@@ -31,6 +31,9 @@ type authChannelResponse struct {
 	Result        any                      `json:"result,omitempty"`
 	LoginRequired *auth.LoginRequiredError `json:"login_required,omitempty"`
 	Error         string                   `json:"error,omitempty"`
+	// Refused is set for a connection from another process than the legacy CLI command (e.g. one that it started, and
+	// that inherited its environment), which then runs auth:internal instead.
+	Refused bool `json:"refused,omitempty"`
 }
 
 // authChannelTimeout bounds each request, as a refresh can wait for another process's lock.
@@ -42,7 +45,7 @@ const authChannelTimeout = 5 * time.Minute
 // The legacy CLI connects for each request, so that the processes it starts (e.g. Git hooks) do not inherit a
 // connection, and only connections from the process that this one started are accepted. This process's ID is also
 // passed in an environment variable: the legacy CLI only uses the channel in its process, not in processes it forks.
-// If it cannot use the channel, or if a request fails, it runs auth:internal instead.
+// If it cannot use the channel, or if its connection is refused, it runs auth:internal instead.
 //
 // The legacy CLI does not need the API token or access token while it can use the channel, so they are removed from its
 // environment, and so from the processes it starts. Whether one is set is passed instead.
@@ -144,7 +147,7 @@ func (s *authChannelServer) serveListener(ctx context.Context, l net.Listener, p
 		}
 		if p, err := peerPID(conn); err != nil || p != childPID {
 			debugLogf("Auth channel: refused a connection from process %d (%v)", p, err)
-			_ = conn.Close()
+			refuse(conn)
 			continue
 		}
 		stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
@@ -152,6 +155,19 @@ func (s *authChannelServer) serveListener(ctx context.Context, l net.Listener, p
 		stop()
 		_ = conn.Close()
 	}
+}
+
+// refuseTimeout bounds the time spent on a refused connection.
+const refuseTimeout = time.Second
+
+// refuse answers a connection's first request with a refusal, and closes it. The request is read first, so that it
+// does not reset the connection before the answer is read.
+func refuse(conn net.Conn) {
+	_ = conn.SetReadDeadline(time.Now().Add(refuseTimeout))
+	_, _ = bufio.NewReader(conn).ReadBytes('\n')
+	_ = conn.SetWriteDeadline(time.Now().Add(refuseTimeout))
+	_ = json.NewEncoder(conn).Encode(&authChannelResponse{Refused: true})
+	_ = conn.Close()
 }
 
 // serve answers requests in order, each as a line of JSON, until the connection is closed.

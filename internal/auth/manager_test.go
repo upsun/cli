@@ -567,6 +567,59 @@ func TestMigrator(t *testing.T) {
 	assert.JSONEq(t, `{}`, string(b))
 }
 
+// TestMigrator_Interrupted checks that a step interrupted by a cancellation (e.g. when the legacy CLI command that
+// requested a token exits) is returned, and retried at once rather than after a delay, also by the same manager.
+func TestMigrator_Interrupted(t *testing.T) {
+	cases := []struct {
+		name        string
+		del         bool // Whether the deletion is interrupted, rather than the export.
+		wantExports int
+		wantDeletes int
+	}{
+		{name: "export", wantExports: 2, wantDeletes: 1},
+		// Only the deletion is retried.
+		{name: "deletion", del: true, wantExports: 1, wantDeletes: 2},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			writableDir := t.TempDir()
+			f := filepath.Join(writableDir, ".session", "sess-default", "sess-default.json")
+			require.NoError(t, os.MkdirAll(filepath.Dir(f), 0o700))
+			require.NoError(t, os.WriteFile(f, nil, 0o600))
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			fail := true
+			var exports, deletes int
+			var stderr strings.Builder
+			m := newTestManager(newTestAuthServer(t), filepath.Join(writableDir, "auth"), &config.Auth{})
+			m.Stderr = &stderr
+			m.Migrator = &Migrator{Export: func(_ context.Context, del bool) ([]byte, error) {
+				if del {
+					deletes++
+				} else {
+					exports++
+				}
+				if fail && del == c.del {
+					cancel()
+					return nil, errors.New("killed")
+				}
+				return []byte(`{"default": {"access_token": "a"}}`), nil
+			}}
+
+			_, err := m.SessionIDs(ctx)
+			assert.Error(t, err)
+			assert.Empty(t, stderr.String(), "an interruption must not be reported as a failure")
+
+			fail = false
+			ids, err := m.SessionIDs(context.Background())
+			require.NoError(t, err)
+			assert.Equal(t, []string{"default"}, ids)
+			assert.Equal(t, c.wantExports, exports)
+			assert.Equal(t, c.wantDeletes, deletes)
+		})
+	}
+}
+
 func TestMigrator_SkipsUnneededExports(t *testing.T) {
 	cases := []struct {
 		name        string
