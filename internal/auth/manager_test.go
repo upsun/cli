@@ -158,7 +158,7 @@ func TestManager_Token(t *testing.T) {
 		name          string
 		entry         *store.Entry
 		settings      config.Auth
-		rejected      string
+		rejected      string // The SHA-256 hash of a rejected token.
 		setup         func(s *testAuthServer)
 		wantToken     string
 		wantRefreshes int
@@ -189,14 +189,14 @@ func TestManager_Token(t *testing.T) {
 		{
 			name:          "rejected token",
 			entry:         &store.Entry{AccessToken: "stored", RefreshToken: "rt-0", Expires: future},
-			rejected:      "stored",
+			rejected:      TokenHash("stored"),
 			wantToken:     "at-1",
 			wantRefreshes: 1,
 		},
 		{
 			name:      "rejected token already replaced",
 			entry:     &store.Entry{AccessToken: "newer", RefreshToken: "rt-0", Expires: future},
-			rejected:  "older",
+			rejected:  TokenHash("older"),
 			wantToken: "newer",
 		},
 		{

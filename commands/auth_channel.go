@@ -24,7 +24,7 @@ import (
 type authChannelRequest struct {
 	Command   string `json:"command"` // "token" or "status"
 	SessionID string `json:"session_id"`
-	Rejected  string `json:"rejected,omitempty"`
+	Rejected  string `json:"rejected_sha256,omitempty"` // The hex SHA-256 hash of an access token the API rejected.
 }
 
 type authChannelResponse struct {

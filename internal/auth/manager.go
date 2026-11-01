@@ -173,7 +173,8 @@ func (m *Manager) apiToken(ctx context.Context) (string, error) {
 // The credentials are used in order of precedence: an API token set via config, an access token set via config, an
 // API token stored by auth:api-token-login, then the session's tokens.
 //
-// If rejected is set (an access token the API rejected), and it is still the stored token, the token is refreshed.
+// If rejected is set (the hex SHA-256 hash of an access token the API rejected), and it is still the stored token, the
+// token is refreshed. A hash is passed so that the legacy CLI does not send a token that may still be valid.
 func (m *Manager) Token(ctx context.Context, rejected string) (*Token, error) {
 	if m.Settings.TokenWithheld {
 		// Other credentials, e.g. a stored session, may be for a different user.
@@ -371,10 +372,19 @@ func (m *Manager) afterConcurrentRefresh(ctx context.Context, id string, old *st
 
 // usable reports whether an entry's access token can be used without refreshing.
 func usable(e *store.Entry, rejected string) bool {
-	if e.AccessToken == "" || e.AccessToken == rejected {
+	if e.AccessToken == "" {
+		return false
+	}
+	if rejected != "" && TokenHash(e.AccessToken) == rejected {
 		return false
 	}
 	return e.Expires == 0 || time.Unix(e.Expires, 0).After(time.Now().Add(expiryMargin))
+}
+
+// TokenHash returns the hex SHA-256 hash of an access token, which identifies a rejected token in Token.
+func TokenHash(token string) string {
+	h := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(h[:])
 }
 
 func tokenFromEntry(e *store.Entry) *Token {
