@@ -60,6 +60,7 @@ type pipeChannel struct {
 func (c *pipeChannel) accept(pid <-chan int) (net.Conn, error) {
 	defer c.listener.Close()
 	childPID := 0
+	var delay time.Duration
 	for {
 		conn, err := c.listener.Accept()
 		if err != nil {
@@ -69,10 +70,12 @@ func (c *pipeChannel) accept(pid <-chan int) (net.Conn, error) {
 			default:
 			}
 			// Other errors can be transient, e.g. a client that disconnects while it connects.
-			debugLogf("Auth channel: %s", err)
-			time.Sleep(10 * time.Millisecond)
+			delay = min(max(2*delay, 10*time.Millisecond), time.Second)
+			debugLogf("Auth channel: %s (retrying in %s)", err, delay)
+			time.Sleep(delay)
 			continue
 		}
+		delay = 0
 		// The child may connect before this process has its PID.
 		if childPID == 0 {
 			select {
