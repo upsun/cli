@@ -431,12 +431,18 @@ func TestAuthChannel_Terminated(t *testing.T) {
 	// A short path, so that the CLI does not use another directory for the socket.
 	tmp, err := os.MkdirTemp("/tmp", "cli-test-")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmp)
+	t.Cleanup(func() { _ = os.RemoveAll(tmp) })
 
 	f := newGoAuthCommandFactory(t, apiServer.URL, authServer.URL)
 	f.extraEnv = append(f.extraEnv, "TMPDIR="+tmp)
 	cmd := f.buildCommand("auth:info", "id", "--refresh")
 	require.NoError(t, cmd.Start())
+	t.Cleanup(func() {
+		if cmd.ProcessState == nil {
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+		}
+	})
 	select {
 	case <-requested:
 	case <-time.After(30 * time.Second):
@@ -448,7 +454,8 @@ func TestAuthChannel_Terminated(t *testing.T) {
 	require.Len(t, sockets, 1)
 
 	require.NoError(t, cmd.Process.Signal(syscall.SIGTERM))
-	// PHP handles the signal after the request, which is answered once the wrapper has passed the signal on.
+	// PHP handles the signal after the request, which is answered once the wrapper has likely passed the signal on. If
+	// PHP exits first, the wrapper is ended by the signal anyway.
 	time.Sleep(time.Second)
 	close(release)
 	// The wrapper is ended by the signal, after PHP exits, so that a Go command that runs PHP does not carry on.

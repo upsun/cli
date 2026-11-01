@@ -202,11 +202,22 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 	started()
 	stop := relaySignals(cmd.Process, sigs)
 	err = cmd.Wait()
-	sig := stop()
+	relayed, late := stop()
+	signal.Stop(sigs)
+	if late == nil {
+		select {
+		case late = <-sigs:
+		default:
+		}
+	}
 	done()
-	// If PHP was ended by the signal, it then ends this process too, so that a Go command that ran PHP does not carry on.
-	if endedBySignal(sig, cmd.ProcessState.ExitCode()) {
-		raise(sig)
+	// A signal that PHP did not handle, or that arrived after it exited, then ends this process too, so that a Go
+	// command that ran PHP does not carry on.
+	if late != nil {
+		raise(late)
+	}
+	if endedBySignal(relayed, cmd.ProcessState.ExitCode()) {
+		raise(relayed)
 	}
 	if err != nil {
 		return fmt.Errorf("could not run PHP CLI command: %w", err)
@@ -217,31 +228,31 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 
 // relaySignals passes the signals that would end this process on to the PHP process instead, so that this one can
 // clean up after PHP exits. PHP may also get an interrupt (e.g. Ctrl+C) from the terminal: it exits on the first.
-// The returned function stops relaying, and returns the last signal received, if any.
-func relaySignals(p *os.Process, sigs <-chan os.Signal) (stop func() os.Signal) {
+// The returned function stops relaying, and returns the last signal passed on, and the last one received after PHP
+// exited, if any.
+func relaySignals(p *os.Process, sigs <-chan os.Signal) (stop func() (relayed, late os.Signal)) {
 	done := make(chan struct{})
-	last := make(chan os.Signal, 1)
+	result := make(chan [2]os.Signal, 1)
 	go func() {
-		var received os.Signal
+		var relayed, late os.Signal
 		for {
 			select {
 			case sig := <-sigs:
-				received = sig
-				_ = p.Signal(sig)
-			case <-done:
-				// A signal may arrive as PHP exits.
-				select {
-				case received = <-sigs:
-				default:
+				if err := p.Signal(sig); errors.Is(err, os.ErrProcessDone) {
+					late = sig
+				} else {
+					relayed = sig
 				}
-				last <- received
+			case <-done:
+				result <- [2]os.Signal{relayed, late}
 				return
 			}
 		}
 	}()
-	return func() os.Signal {
+	return func() (os.Signal, os.Signal) {
 		close(done)
-		return <-last
+		r := <-result
+		return r[0], r[1]
 	}
 }
 
