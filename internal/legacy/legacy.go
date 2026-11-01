@@ -170,24 +170,35 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 	))
 	// Signals are caught from before PrepareCmd, which may create files to remove, and passed on once PHP has started.
 	sigs := make(chan os.Signal, 3)
-	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	// Ignored signals (e.g. SIGHUP with nohup) are left ignored, so that PHP inherits that.
+	for _, sig := range []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGHUP} {
+		if !signal.Ignored(sig) {
+			signal.Notify(sigs, sig)
+		}
+	}
 	defer signal.Stop(sigs)
-	started := func() {}
+	started, done := func() {}, func() {}
 	if c.PrepareCmd != nil {
-		s, done, err := c.PrepareCmd(cmd)
+		s, d, err := c.PrepareCmd(cmd)
 		if err != nil {
 			return err
 		}
-		defer done()
-		started = s
+		started, done = s, d
 	}
 	if err := cmd.Start(); err != nil {
+		done()
 		return fmt.Errorf("could not run PHP CLI command: %w", err)
 	}
 	started()
 	stop := relaySignals(cmd.Process, sigs)
 	err = cmd.Wait()
-	stop()
+	sig := stop()
+	done()
+	// The signal then ends this process, as it would have if it had not been caught, so that a Go command that ran PHP
+	// does not carry on.
+	if sig != nil {
+		raise(sig)
+	}
 	if err != nil {
 		return fmt.Errorf("could not run PHP CLI command: %w", err)
 	}
@@ -197,19 +208,32 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 
 // relaySignals passes the signals that would end this process on to the PHP process instead, so that this one can
 // clean up after PHP exits. PHP may also get an interrupt (e.g. Ctrl+C) from the terminal: it exits on the first.
-func relaySignals(p *os.Process, sigs <-chan os.Signal) (stop func()) {
+// The returned function stops relaying, and returns the last signal received, if any.
+func relaySignals(p *os.Process, sigs <-chan os.Signal) (stop func() os.Signal) {
 	done := make(chan struct{})
+	last := make(chan os.Signal, 1)
 	go func() {
+		var received os.Signal
 		for {
 			select {
 			case sig := <-sigs:
+				received = sig
 				_ = p.Signal(sig)
 			case <-done:
+				// A signal may arrive as PHP exits.
+				select {
+				case received = <-sigs:
+				default:
+				}
+				last <- received
 				return
 			}
 		}
 	}()
-	return func() { close(done) }
+	return func() os.Signal {
+		close(done)
+		return <-last
+	}
 }
 
 // makeCmd makes a legacy CLI command with the given context and arguments.

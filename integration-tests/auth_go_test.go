@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -400,8 +401,8 @@ func TestAuthChannel_TokenNotInherited(t *testing.T) {
 	assert.NotContains(t, string(b), "stored-token")
 }
 
-// TestAuthChannel_Terminated checks that the wrapper passes SIGTERM on to the legacy CLI, and removes the auth
-// channel's socket when it exits.
+// TestAuthChannel_Terminated checks that the wrapper passes SIGTERM on to the legacy CLI, removes the auth channel's
+// socket when it exits, and is then ended by the signal.
 func TestAuthChannel_Terminated(t *testing.T) {
 	t.Parallel()
 	if !goAuthMode() {
@@ -450,7 +451,12 @@ func TestAuthChannel_Terminated(t *testing.T) {
 	// PHP handles the signal after the request, which is answered once the wrapper has passed the signal on.
 	time.Sleep(time.Second)
 	close(release)
-	assertExitCode(t, 128+int(syscall.SIGTERM), cmd.Wait())
+	// The wrapper is ended by the signal, after PHP exits, so that a Go command that runs PHP does not carry on.
+	var exitErr *exec.ExitError
+	require.ErrorAs(t, cmd.Wait(), &exitErr)
+	ws, ok := exitErr.Sys().(syscall.WaitStatus)
+	require.True(t, ok)
+	assert.True(t, ws.Signaled() && ws.Signal() == syscall.SIGTERM, "status: %v", ws)
 	sockets, err = filepath.Glob(filepath.Join(tmp, "cli-auth-*"))
 	require.NoError(t, err)
 	assert.Empty(t, sockets, "the socket's directory must be removed")
