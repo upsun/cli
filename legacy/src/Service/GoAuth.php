@@ -76,9 +76,11 @@ class GoAuth
         if ($cached !== null && $rejected === null && !$this->expiresSoon($cached)) {
             return $cached;
         }
-        // The rejected token is passed via stdin, to keep it out of process listings.
+        // Only the rejected token's hash is sent, as the token may still be valid.
         /** @var array{access_token: string, expires?: int} $token */
-        $token = $rejected !== null ? $this->run(['token', '--rejected'], $rejected) : $this->run(['token']);
+        $token = $rejected !== null
+            ? $this->run(['token', '--rejected'], hash('sha256', $rejected))
+            : $this->run(['token']);
 
         return self::$tokens[$sessionId] = $token;
     }
@@ -254,15 +256,15 @@ class GoAuth
     /**
      * Sends a request over the wrapper's auth channel, which answers with one line of JSON.
      *
-     * @param string|null $rejected An access token that the API rejected.
+     * @param string|null $rejectedHash The SHA-256 hash of an access token that the API rejected.
      *
      * @return array<mixed>|null The response, or null if the channel is closed.
      */
-    private function request(string $channel, string $command, ?string $rejected): ?array
+    private function request(string $channel, string $command, ?string $rejectedHash): ?array
     {
         $request = ['command' => $command, 'session_id' => $this->config->getSessionId()];
-        if ($rejected !== null) {
-            $request['rejected'] = $rejected;
+        if ($rejectedHash !== null) {
+            $request['rejected_sha256'] = $rejectedHash;
         }
         $conn = $this->connect($channel);
         if ($conn === false) {
