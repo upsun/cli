@@ -428,6 +428,9 @@ func TestAuthChannel_Terminated(t *testing.T) {
 		apiHandler.ServeHTTP(w, req)
 	}))
 	defer apiServer.Close()
+	// The handler must be released before the server can close, also if the test fails.
+	releaseOnce := sync.OnceFunc(func() { close(release) })
+	defer releaseOnce()
 	// A short path, so that the CLI does not use another directory for the socket.
 	tmp, err := os.MkdirTemp("/tmp", "cli-test-")
 	require.NoError(t, err)
@@ -446,7 +449,7 @@ func TestAuthChannel_Terminated(t *testing.T) {
 	select {
 	case <-requested:
 	case <-time.After(30 * time.Second):
-		close(release)
+		releaseOnce()
 		require.Fail(t, "no user request")
 	}
 	sockets, err := filepath.Glob(filepath.Join(tmp, "cli-auth-*"))
@@ -457,7 +460,7 @@ func TestAuthChannel_Terminated(t *testing.T) {
 	// PHP handles the signal after the request, which is answered once the wrapper has likely passed the signal on. If
 	// PHP exits first, the wrapper is ended by the signal anyway.
 	time.Sleep(time.Second)
-	close(release)
+	releaseOnce()
 	// The wrapper is ended by the signal, after PHP exits, so that a Go command that runs PHP does not carry on.
 	var exitErr *exec.ExitError
 	require.ErrorAs(t, cmd.Wait(), &exitErr)
