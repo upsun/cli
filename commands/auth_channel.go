@@ -115,6 +115,7 @@ type authChannelServer struct {
 // listener is closed. Connections from other processes, such as those that the child starts, are closed.
 func (s *authChannelServer) serveListener(ctx context.Context, l net.Listener, pid <-chan int) {
 	childPID := 0
+	var delay time.Duration
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -122,10 +123,12 @@ func (s *authChannelServer) serveListener(ctx context.Context, l net.Listener, p
 				return
 			}
 			// Other errors can be transient, e.g. a client that disconnects while it connects.
-			debugLogf("Auth channel: %s", err)
-			time.Sleep(10 * time.Millisecond)
+			delay = min(max(2*delay, 10*time.Millisecond), time.Second)
+			debugLogf("Auth channel: %s (retrying in %s)", err, delay)
+			time.Sleep(delay)
 			continue
 		}
+		delay = 0
 		// The child may connect before this process has its PID.
 		if childPID == 0 {
 			select {
