@@ -177,16 +177,26 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 		}
 	}
 	defer signal.Stop(sigs)
+	// A signal received before PHP starts ends this process, as it would have if it had not been caught.
+	raisePending := func() {
+		select {
+		case sig := <-sigs:
+			raise(sig)
+		default:
+		}
+	}
 	started, done := func() {}, func() {}
 	if c.PrepareCmd != nil {
 		s, d, err := c.PrepareCmd(cmd)
 		if err != nil {
+			raisePending()
 			return err
 		}
 		started, done = s, d
 	}
 	if err := cmd.Start(); err != nil {
 		done()
+		raisePending()
 		return fmt.Errorf("could not run PHP CLI command: %w", err)
 	}
 	started()
@@ -194,9 +204,8 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 	err = cmd.Wait()
 	sig := stop()
 	done()
-	// The signal then ends this process, as it would have if it had not been caught, so that a Go command that ran PHP
-	// does not carry on.
-	if sig != nil {
+	// If PHP was ended by the signal, it then ends this process too, so that a Go command that ran PHP does not carry on.
+	if endedBySignal(sig, cmd.ProcessState.ExitCode()) {
 		raise(sig)
 	}
 	if err != nil {
@@ -234,6 +243,13 @@ func relaySignals(p *os.Process, sigs <-chan os.Signal) (stop func() os.Signal) 
 		close(done)
 		return <-last
 	}
+}
+
+// endedBySignal reports whether PHP was ended by sig, rather than handling it and exiting with a status of its choice:
+// it is ended by its default action, or the legacy CLI exits with 128 plus the signal number.
+func endedBySignal(sig os.Signal, exitCode int) bool {
+	s, ok := sig.(syscall.Signal)
+	return ok && (exitCode == -1 || exitCode == 128+int(s))
 }
 
 // makeCmd makes a legacy CLI command with the given context and arguments.
