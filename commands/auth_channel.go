@@ -123,9 +123,13 @@ func (s *authChannelServer) serveListener(ctx context.Context, l net.Listener, p
 				return
 			}
 			// Other errors can be transient, e.g. a client that disconnects while it connects.
-			delay = min(max(2*delay, 10*time.Millisecond), time.Second)
+			delay = min(max(2*delay, 10*time.Millisecond), 250*time.Millisecond)
 			debugLogf("Auth channel: %s (retrying in %s)", err, delay)
-			time.Sleep(delay)
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return
+			}
 			continue
 		}
 		delay = 0
