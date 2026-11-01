@@ -401,8 +401,8 @@ func TestAuthChannel_TokenNotInherited(t *testing.T) {
 	assert.NotContains(t, string(b), "stored-token")
 }
 
-// TestAuthChannel_Terminated checks that the wrapper passes SIGTERM on to the legacy CLI, removes the auth channel's
-// socket when it exits, and is then ended by the signal.
+// TestAuthChannel_Terminated checks that the wrapper is ended by SIGTERM while the legacy CLI runs, and that the auth
+// channel's socket directory that it leaves is removed by a later run.
 func TestAuthChannel_Terminated(t *testing.T) {
 	t.Parallel()
 	if !goAuthMode() {
@@ -457,19 +457,24 @@ func TestAuthChannel_Terminated(t *testing.T) {
 	require.Len(t, sockets, 1)
 
 	require.NoError(t, cmd.Process.Signal(syscall.SIGTERM))
-	// PHP handles the signal after the request, which is answered once the wrapper has likely passed the signal on. If
-	// PHP exits first, the wrapper is ended by the signal anyway.
-	time.Sleep(time.Second)
+	// The legacy CLI, which outlives the wrapper, finishes once the request is answered.
 	releaseOnce()
-	// The wrapper is ended by the signal, after PHP exits, so that a Go command that runs PHP does not carry on.
 	var exitErr *exec.ExitError
 	require.ErrorAs(t, cmd.Wait(), &exitErr)
 	ws, ok := exitErr.Sys().(syscall.WaitStatus)
 	require.True(t, ok)
 	assert.True(t, ws.Signaled() && ws.Signal() == syscall.SIGTERM, "status: %v", ws)
-	sockets, err = filepath.Glob(filepath.Join(tmp, "cli-auth-*"))
+	left, err := filepath.Glob(filepath.Join(tmp, "cli-auth-*"))
 	require.NoError(t, err)
-	assert.Empty(t, sockets, "the socket's directory must be removed")
+	require.Equal(t, sockets, left, "the socket's directory is left")
+
+	// A later run removes it, once it is old enough not to be one that is being created.
+	old := time.Now().Add(-2 * time.Minute)
+	require.NoError(t, os.Chtimes(sockets[0], old, old))
+	f.Run("auth:info", "id")
+	left, err = filepath.Glob(filepath.Join(tmp, "cli-auth-*"))
+	require.NoError(t, err)
+	assert.Empty(t, left, "the socket directories must be removed")
 }
 
 // TestAuthAccessTokenPrecedence checks that an access token set via the environment is used in PHP commands instead of

@@ -60,7 +60,8 @@ type Manager struct {
 	// LockWait bounds how long to wait for a lock. It defaults to 60s.
 	LockWait time.Duration
 
-	migrateOnce sync.Once
+	migrateMu   sync.Mutex
+	migrated    bool
 	migrateErr  error
 	warnedLocks sync.Once
 }
@@ -539,8 +540,15 @@ func (m *Manager) migrate(ctx context.Context) error {
 	if m.Migrator == nil {
 		return nil
 	}
-	m.migrateOnce.Do(func() {
-		m.migrateErr = m.Migrator.Run(ctx, m)
-	})
-	return m.migrateErr
+	m.migrateMu.Lock()
+	defer m.migrateMu.Unlock()
+	if m.migrated {
+		return m.migrateErr
+	}
+	err := m.Migrator.Run(ctx, m)
+	// An interruption is retried by the next call, e.g. the next request on the auth channel.
+	if !interrupted(ctx, err) {
+		m.migrated, m.migrateErr = true, err
+	}
+	return err
 }

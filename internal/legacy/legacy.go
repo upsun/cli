@@ -9,10 +9,8 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/gofrs/flock"
@@ -168,99 +166,24 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 		c.Version,
 		PHPVersion,
 	))
-	// Signals are caught from before PrepareCmd, which may create files to remove, and passed on once PHP has started.
-	sigs := make(chan os.Signal, 3)
-	// Ignored signals (e.g. SIGHUP with nohup) are left ignored, so that PHP inherits that.
-	for _, sig := range []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGHUP} {
-		if !signal.Ignored(sig) {
-			signal.Notify(sigs, sig)
-		}
-	}
-	defer signal.Stop(sigs)
-	// A signal received before PHP starts ends this process, as it would have if it had not been caught.
-	raisePending := func() {
-		select {
-		case sig := <-sigs:
-			raise(sig)
-		default:
-		}
-	}
-	started, done := func() {}, func() {}
+	started := func() {}
 	if c.PrepareCmd != nil {
-		s, d, err := c.PrepareCmd(cmd)
+		s, done, err := c.PrepareCmd(cmd)
 		if err != nil {
-			raisePending()
 			return err
 		}
-		started, done = s, d
+		defer done()
+		started = s
 	}
 	if err := cmd.Start(); err != nil {
-		done()
-		raisePending()
 		return fmt.Errorf("could not run PHP CLI command: %w", err)
 	}
 	started()
-	stop := relaySignals(cmd.Process, sigs)
-	err = cmd.Wait()
-	relayed, late := stop()
-	done()
-	signal.Stop(sigs)
-	if late == nil {
-		select {
-		case late = <-sigs:
-		default:
-		}
-	}
-	// A signal that PHP did not handle, or that arrived after it exited, then ends this process too, so that a Go
-	// command that ran PHP does not carry on.
-	if late != nil {
-		raise(late)
-	}
-	if endedBySignal(relayed, cmd.ProcessState.ExitCode()) {
-		raise(relayed)
-	}
-	if err != nil {
+	if err := cmd.Wait(); err != nil {
 		return fmt.Errorf("could not run PHP CLI command: %w", err)
 	}
 
 	return nil
-}
-
-// relaySignals passes the signals that would end this process on to the PHP process instead, so that this one can
-// clean up after PHP exits. PHP may also get an interrupt (e.g. Ctrl+C) from the terminal: it exits on the first.
-// The returned function stops relaying, and returns the last signal passed on, and the last one received after PHP
-// exited, if any.
-func relaySignals(p *os.Process, sigs <-chan os.Signal) (stop func() (relayed, late os.Signal)) {
-	done := make(chan struct{})
-	result := make(chan [2]os.Signal, 1)
-	go func() {
-		var relayed, late os.Signal
-		for {
-			select {
-			case sig := <-sigs:
-				if err := p.Signal(sig); errors.Is(err, os.ErrProcessDone) {
-					late = sig
-				} else {
-					relayed = sig
-				}
-			case <-done:
-				result <- [2]os.Signal{relayed, late}
-				return
-			}
-		}
-	}()
-	return func() (os.Signal, os.Signal) {
-		close(done)
-		r := <-result
-		return r[0], r[1]
-	}
-}
-
-// endedBySignal reports whether PHP was ended by sig, rather than handling it and exiting with a status of its choice:
-// it is ended by its default action, or the legacy CLI exits with 128 plus the signal number.
-func endedBySignal(sig os.Signal, exitCode int) bool {
-	s, ok := sig.(syscall.Signal)
-	return ok && (exitCode == -1 || exitCode == 128+int(s))
 }
 
 // makeCmd makes a legacy CLI command with the given context and arguments.
