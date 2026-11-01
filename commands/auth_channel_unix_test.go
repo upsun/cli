@@ -1,4 +1,4 @@
-//go:build linux || darwin
+//go:build !windows
 
 package commands
 
@@ -16,8 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-const authChannelSupported = true
 
 // dialAuthChannel connects to the Unix socket, as the legacy CLI does.
 func dialAuthChannel(getenv func(string) string) (net.Conn, error) {

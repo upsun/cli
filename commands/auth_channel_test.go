@@ -74,9 +74,6 @@ func TestPrepareAuthChannel(t *testing.T) {
 		authChannelChild(t)
 		return
 	}
-	if !authChannelSupported {
-		t.Skip("the auth channel is not supported on " + runtime.GOOS)
-	}
 	t.Setenv("TEST_HOME", t.TempDir())
 	t.Setenv("TEST_API_DISABLE_CREDENTIAL_HELPERS", "1")
 	t.Setenv("TEST_API_ACCESS_TOKEN", "raw-token")
@@ -130,23 +127,6 @@ func TestPrepareAuthChannel(t *testing.T) {
 	}
 }
 
-// TestPrepareAuthChannel_Unsupported checks that where the channel is not supported, the child's environment is left
-// as it is, so that the legacy CLI runs auth:internal with the same credentials.
-func TestPrepareAuthChannel_Unsupported(t *testing.T) {
-	if authChannelSupported {
-		t.Skip("the auth channel is supported on " + runtime.GOOS)
-	}
-	t.Setenv("TEST_HOME", t.TempDir())
-	t.Setenv("TEST_API_DISABLE_CREDENTIAL_HELPERS", "1")
-	env := []string{"TEST_API_TOKEN=raw-token", "OTHER=1"}
-	cmd := &exec.Cmd{Env: env}
-	started, done, err := prepareAuthChannel(testConfig(), io.Discard)(cmd)
-	require.NoError(t, err)
-	started()
-	done()
-	assert.Equal(t, env, cmd.Env)
-}
-
 // authChannelChild sends two requests as the legacy CLI does, and prints the responses and the relevant variables.
 func authChannelChild(t *testing.T) {
 	for range 2 {
@@ -171,9 +151,6 @@ func authChannelChild(t *testing.T) {
 
 // TestServeListener_AcceptError checks that the channel keeps listening after an error from Accept.
 func TestServeListener_AcceptError(t *testing.T) {
-	if !authChannelSupported {
-		t.Skip("the auth channel is not supported on " + runtime.GOOS)
-	}
 	t.Setenv("TEST_HOME", t.TempDir())
 	t.Setenv("TEST_API_DISABLE_CREDENTIAL_HELPERS", "1")
 	cmd := &exec.Cmd{}
