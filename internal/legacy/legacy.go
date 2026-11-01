@@ -203,6 +203,7 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 	stop := relaySignals(cmd.Process, sigs)
 	err = cmd.Wait()
 	relayed, late := stop()
+	done()
 	signal.Stop(sigs)
 	if late == nil {
 		select {
@@ -210,7 +211,6 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 		default:
 		}
 	}
-	done()
 	// A signal that PHP did not handle, or that arrived after it exited, then ends this process too, so that a Go
 	// command that ran PHP does not carry on.
 	if late != nil {
