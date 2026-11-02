@@ -855,7 +855,7 @@ class Api
                 ));
             }
             if ($incompleteIds) {
-                $this->stdErr->writeln('<comment>Warning: some project details could not be loaded. Try again later, or run with -v for details.</comment>');
+                $this->stdErr->writeln('<comment>Warning: some project details could not be loaded. Try again later, or run with -vvv for details.</comment>');
             } else {
                 $this->userCache()->save($cacheKey, $projects, $this->config->getInt('api.projects_ttl'));
             }
@@ -914,9 +914,9 @@ class Api
         $projects = [];
         $incompleteIds = [];
         $notFoundIds = [];
-        $grantCount = 0;
+        $projectIds = [];
         foreach (UserExtendedAccess::wrapCollection($data, $url, $httpClient) as $access) {
-            $grantCount++;
+            $projectIds[$access->resource_id] = true;
             $orgId = $access->organization_id;
             $orgMissing = $orgId !== '' && !array_key_exists($orgId, $orgRefs);
             try {
@@ -948,7 +948,7 @@ class Api
         }
         // Projects returned as null (e.g. deleted) are skipped, while those not returned are listed by ID.
         if ($missingIds = $incompleteIds + $notFoundIds) {
-            $this->io->debug(sprintf('Missing details for %d/%d projects: %s', count($missingIds), $grantCount, implode(', ', $missingIds)));
+            $this->io->debug(sprintf('Missing details for %d/%d projects: %s', count($missingIds), count($projectIds), implode(', ', $missingIds)));
         }
 
         return [$projects, $incompleteIds];

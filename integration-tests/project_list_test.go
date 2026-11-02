@@ -212,6 +212,7 @@ func TestProjectListUnresolvedProjects(t *testing.T) {
 	assert.Contains(t, stdErr, "some project details could not be loaded")
 	assert.Contains(t, stdErr, "Failed to load references: The API returned 502 Bad Gateway")
 	assert.Contains(t, stdErr, "Missing details for 4/4 projects: ")
+	assert.Contains(t, stdErr, "run with -vvv for details")
 	assert.NotContains(t, stdErr, "You do not have any")
 
 	// The incomplete list was not cached. A grant for a project that was not found is skipped, and projects with
