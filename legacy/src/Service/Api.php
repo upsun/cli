@@ -948,7 +948,7 @@ class Api
             $this->stdErr->writeln('Projects with missing details: ' . implode(', ', $incompleteIds), OutputInterface::VERBOSITY_VERBOSE);
         }
         if ($notFoundIds) {
-            $this->stdErr->writeln('Skipped access grants for projects that were not found: ' . implode(', ', $notFoundIds), OutputInterface::VERBOSITY_VERBOSE);
+            $this->io->debug('Skipped access grants for projects that were not found: ' . implode(', ', $notFoundIds));
         }
 
         return [$projects, $incompleteIds];
