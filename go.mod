@@ -6,6 +6,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/Masterminds/sprig/v3 v3.3.0
+	github.com/Microsoft/go-winio v0.6.2
 	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/briandowns/spinner v1.23.2
 	github.com/charmbracelet/x/ansi v0.11.9
@@ -45,7 +46,6 @@ require (
 	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/IGLOU-EU/go-wildcard/v2 v2.1.1 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
-	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.4.1 // indirect
 	github.com/STARRY-S/zip v0.2.3 // indirect
 	github.com/andybalholm/brotli v1.2.1 // indirect
