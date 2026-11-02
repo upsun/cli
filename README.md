@@ -2,7 +2,7 @@
 
 The command-line interface for [Upsun](https://upsun.com).
 
-Use it to manage Upsun projects from the terminal: create and branch environments, deploy with Git, SSH into apps, view logs, open tunnels to services, and manage backups, variables, domains and users.
+Use it to manage Upsun projects from the terminal: generate and validate project configuration, create and branch environments, deploy with Git, SSH into apps, view logs, open tunnels to services, and manage backups, variables, domains and users.
 
 ## Install
 
@@ -36,25 +36,19 @@ brew install upsun/tap/upsun-cli
 
 ### npm
 
-If you have Node.js 18 or later, you can install the CLI with npm:
-
 ```console
 npm install -g upsun
 ```
 
-There is no npm build for 32-bit Linux or Windows on ARM. npm installs don't set up shell completion.
+npm installs don't set up shell completion. For the package's requirements, see [docs/install.md](docs/install.md#npm).
 
-### Nix profile
-
-Refer to the [Nix documentation if you are not on NixOS](https://nix.dev/manual/nix/2.24/installation/installing-binary.html).
+### Nix
 
 ```console
 nix profile install nixpkgs#upsun
 ```
 
 ### Docker
-
-The CLI is also available as a Docker image:
 
 ```console
 docker run --rm -it ghcr.io/upsun/cli

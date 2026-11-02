@@ -109,3 +109,7 @@ To upgrade:
 ```console
 sudo dnf upgrade -y upsun-cli
 ```
+
+## npm
+
+The npm package needs Node.js 18 or later. It has builds for Linux (x64 and arm64), macOS, and Windows (x64), so not for 32-bit Linux or Windows on ARM.
