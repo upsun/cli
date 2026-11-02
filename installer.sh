@@ -31,7 +31,7 @@ vendor_name="Upsun"
 : "${BREW_TAP:=upsun/tap}"
 : "${BREW_FORMULA:=upsun/tap/upsun-cli}"
 
-# GitHub token check
+# A GitHub token, for the API (only used if the latest release page does not redirect)
 : "${GITHUB_TOKEN:=}"
 
 # CI specifics
@@ -40,6 +40,9 @@ vendor_name="Upsun"
 : "${RUN_ID:=}"
 
 # global variables
+env_github_token="${GITHUB_TOKEN}"
+# A token that GitHub accepted, used for downloads too.
+GITHUB_TOKEN=""
 binary="upsun"
 # How to run the binary: the full path if its directory is not in $PATH.
 run_cmd="$binary"
@@ -255,96 +258,120 @@ github_token_from_composer_auth() {
     jq -r '."github-oauth"."github.com" | strings' 2>/dev/null || true
 }
 
-# Try a GitHub token: use it unless GitHub rejects it.
-# Arguments: token, source (for messages)
-# Returns 0 if the token is used.
-try_github_token() {
-    if [ -z "$1" ]; then
-        return 1
-    fi
-    # Requests to this endpoint do not count against the rate limit.
-    check_error_file=$(mktemp)
-    status=$(curl -sS -o /dev/null -w '%{http_code}' -H "Accept: application/vnd.github+json" \
-        -H "Authorization: Bearer $1" "${RELEASES_API_URL%%/repos/*}/rate_limit" 2>"$check_error_file" || true)
-    check_error=$(head -n 1 "$check_error_file")
-    rm -f "$check_error_file"
-    case "$status" in
-        2*)
-            output "  [*] Using GitHub auth from $2" "success"
-            ;;
-        401)
-            output "  [ ] Ignoring the GitHub token from $2, as GitHub rejected it" "warning"
-            return 1
-            ;;
-        *)
-            # A network or server error says nothing about the token, so it is kept.
-            output "  [ ] Could not check the GitHub token from $2 (${check_error:-HTTP $status}): using it anyway" "warning"
-            ;;
-    esac
-    GITHUB_TOKEN="$1"
-}
-
-# Use a GitHub token, if one is available, for higher API rate limits.
-# Unauthenticated requests are limited per IP address, which build
-# environments often share. Sources are tried in order, until GitHub
-# accepts a token.
-setup_github_token() {
-    env_token="${GITHUB_TOKEN}"
-    GITHUB_TOKEN=""
-    # The env variable comes first, as with the gh CLI itself.
-    if try_github_token "${env_token}" "the GITHUB_TOKEN env variable"; then
-        return
-    fi
-    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 \
-        && try_github_token "$(gh auth token 2>/dev/null || true)" "the gh CLI"; then
-        return
-    fi
-    auth_file="${HOME:-}/.global/auth.json"
-    if ! command -v jq >/dev/null 2>&1; then
-        if [ -n "${COMPOSER_AUTH:-}" ] || { [ -n "${HOME:-}" ] && [ -r "${auth_file}" ]; }; then
-            output "  [ ] Composer auth was found, but jq is not installed to read a GitHub token from it" "warning"
-        fi
-        return
-    fi
-    if [ -n "${COMPOSER_AUTH:-}" ] \
-        && try_github_token "$(printf '%s' "${COMPOSER_AUTH}" | github_token_from_composer_auth)" "the COMPOSER_AUTH env variable"; then
-        return
-    fi
-    # The token that Upsun provides in project containers. It allows for higher
-    # rate limits but is otherwise unprivileged.
-    if [ -n "${HOME:-}" ] && [ -r "${auth_file}" ]; then
-        try_github_token "$(github_token_from_composer_auth < "${auth_file}")" "${auth_file}" || true
-    fi
-}
-
-# Print the latest release tag, from the GitHub API.
-latest_tag_from_api() {
-    api_error_file=$(mktemp)
-    tag=$(github_curl "${RELEASES_API_URL}/latest" 2>"$api_error_file" \
-        | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
-    if [ -z "$tag" ]; then
-        api_error=$(head -n 1 "$api_error_file")
-        output "  [ ] Could not get the latest release from the GitHub API: ${api_error}" "warning" >&2
-        case "$api_error" in
-            *" 403"*|*" 429"*)
-                if [ -z "${GITHUB_TOKEN}" ]; then
-                    output "      Unauthenticated requests are rate limited: set GITHUB_TOKEN to use a token" "comment" >&2
-                fi
-                ;;
-        esac
-    fi
-    rm -f "$api_error_file"
-    printf '%s' "$tag"
-}
-
-# Print the latest release tag, from the redirect of the latest release page.
-# This is not subject to the API's rate limits.
+# Get the latest release tag from the redirect of the latest release page,
+# into $tag. This is not subject to the API's rate limits, and needs no token.
 latest_tag_from_redirect() {
     location=$(curl -fsS -o /dev/null -w '%{redirect_url}' "${RELEASES_URL}/latest" 2>&1 || true)
     case "$location" in
-        */releases/tag/*) printf '%s' "${location##*/releases/tag/}" ;;
-        *) output "  [ ] Could not get the latest release from github.com: ${location:-no redirect}" "warning" >&2 ;;
+        */releases/tag/*)
+            tag="${location##*/releases/tag/}"
+            ;;
+        *)
+            output "  [ ] Could not get the latest release from github.com: ${location:-no redirect}" "warning"
+            return 1
+            ;;
     esac
+}
+
+# Get the latest release tag from the GitHub API, into $tag.
+# Arguments: [token]
+# Returns 0 on success, 1 if GitHub rejected the token, or 2 on another error,
+# described by $api_error.
+latest_tag_from_api() {
+    body_file=$(mktemp)
+    error_file=$(mktemp)
+    if [ -n "${1:-}" ]; then
+        status=$(curl -sS -o "$body_file" -w '%{http_code}' -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $1" "${RELEASES_API_URL}/latest" 2>"$error_file" || true)
+    else
+        status=$(curl -sS -o "$body_file" -w '%{http_code}' -H "Accept: application/vnd.github+json" \
+            "${RELEASES_API_URL}/latest" 2>"$error_file" || true)
+    fi
+    api_error=$(head -n 1 "$error_file")
+    tag=""
+    case "$status" in
+        2*) tag=$(sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$body_file" | head -n 1) ;;
+    esac
+    rm -f "$body_file" "$error_file"
+    if [ -n "$tag" ]; then
+        return 0
+    fi
+    if [ "$status" = "401" ]; then
+        return 1
+    fi
+    api_error="${api_error:-HTTP ${status}}"
+    return 2
+}
+
+# Get the latest release tag from the GitHub API with a token, into $tag.
+# Arguments: token, source (for messages)
+# Returns 0 on success, 1 if there is no token or GitHub rejected it, or 2 on another error.
+latest_tag_with_token() {
+    if [ -z "$1" ]; then
+        return 1
+    fi
+    token_rc=0
+    latest_tag_from_api "$1" || token_rc=$?
+    case "$token_rc" in
+        0)
+            output "  [*] Using GitHub auth from $2" "success"
+            # The token is also used to download the release.
+            GITHUB_TOKEN="$1"
+            ;;
+        1)
+            output "  [ ] Ignoring the GitHub token from $2, as GitHub rejected it" "warning"
+            ;;
+        *)
+            output "  [ ] Could not get the latest release from the GitHub API: ${api_error}" "warning"
+            ;;
+    esac
+    return "$token_rc"
+}
+
+# Get the latest release tag from the GitHub API, into $tag, using the first
+# token that GitHub accepts, or none. Unauthenticated API requests are limited
+# per IP address, which build environments often share.
+latest_tag_from_api_with_auth() {
+    rc=0
+    # The env variable comes first, as with the gh CLI itself.
+    latest_tag_with_token "${env_github_token}" "the GITHUB_TOKEN env variable" || rc=$?
+    if [ "$rc" = 1 ] && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+        rc=0
+        latest_tag_with_token "$(gh auth token 2>/dev/null || true)" "the gh CLI" || rc=$?
+    fi
+    auth_file="${HOME:-}/.global/auth.json"
+    if [ "$rc" = 1 ] && ! command -v jq >/dev/null 2>&1; then
+        if [ -n "${COMPOSER_AUTH:-}" ] || { [ -n "${HOME:-}" ] && [ -r "${auth_file}" ]; }; then
+            output "  [ ] Composer auth was found, but jq is not installed to read a GitHub token from it" "warning"
+        fi
+    elif [ "$rc" = 1 ]; then
+        if [ -n "${COMPOSER_AUTH:-}" ]; then
+            rc=0
+            latest_tag_with_token "$(printf '%s' "${COMPOSER_AUTH}" | github_token_from_composer_auth)" \
+                "the COMPOSER_AUTH env variable" || rc=$?
+        fi
+        # The token that Upsun provides in project containers. It allows for
+        # higher rate limits but is otherwise unprivileged.
+        if [ "$rc" = 1 ] && [ -n "${HOME:-}" ] && [ -r "${auth_file}" ]; then
+            rc=0
+            latest_tag_with_token "$(github_token_from_composer_auth < "${auth_file}")" "${auth_file}" || rc=$?
+        fi
+    fi
+    case "$rc" in
+        0) return 0 ;;
+        2) return 1 ;; # Another token would not help.
+    esac
+
+    if latest_tag_from_api; then
+        return 0
+    fi
+    output "  [ ] Could not get the latest release from the GitHub API: ${api_error}" "warning"
+    case "$api_error" in
+        *"HTTP 403"*|*"HTTP 429"*)
+            output "      Unauthenticated requests are rate limited: set GITHUB_TOKEN to use a token" "comment"
+            ;;
+    esac
+    return 1
 }
 
 # Check that Gzip is installed
@@ -369,10 +396,8 @@ check_ca_certificates() {
 
 check_version() {
     if [ -z "${VERSION}" ]; then
-        tag=$(latest_tag_from_api)
-        if [ -z "$tag" ]; then
-            tag=$(latest_tag_from_redirect)
-        fi
+        tag=""
+        latest_tag_from_redirect || latest_tag_from_api_with_auth || true
     else
         tag=${VERSION}
     fi
@@ -910,9 +935,6 @@ check_architecture
 check_install_method
 if [ "raw" = "${INSTALL_METHOD}" ]; then
     check_curl
-    if [ -z "${VERSION}" ]; then
-        setup_github_token
-    fi
     check_version
     check_gzip
     check_shasum
