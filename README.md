@@ -1,24 +1,26 @@
 # Upsun CLI
 
-The **Upsun CLI** is the official command-line interface for [Upsun](https://upsun.com).
+The command-line interface for [Upsun](https://upsun.com).
 
-This repository hosts the source code and releases of the CLI.
-
-> This product includes PHP software, freely available from [the PHP website](https://www.php.net/software)
+Use it to manage Upsun projects from the terminal: create and branch environments, deploy with Git, SSH into apps, view logs, open tunnels to services, and manage backups, variables, domains and users.
 
 ## Install
 
-To install the CLI, use either [Homebrew](https://brew.sh/) (on Linux, macOS, or the Windows Subsystem for Linux) or [Scoop](https://scoop.sh/) (on Windows):
+### Installer script
 
-### HomeBrew
+On Linux, macOS, or the Windows Subsystem for Linux (WSL), run:
 
 ```console
-brew install upsun/tap/upsun-cli
+curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | bash
 ```
 
-### Scoop
+The script uses apt, yum, or apk on Linux, or Homebrew on macOS, if available, or else downloads the binary. For its options, and to add the package repositories yourself, see [docs/install.md](docs/install.md).
 
-Scoop needs Git to add a bucket:
+### Windows
+
+On Windows, install the CLI in WSL with the installer script above.
+
+To install it on Windows itself, use [Scoop](https://scoop.sh/). Scoop needs Git to add a bucket:
 
 ```console
 scoop install git
@@ -26,96 +28,10 @@ scoop bucket add upsun https://github.com/upsun/homebrew-tap.git
 scoop install upsun
 ```
 
-### Bash installer
-
-Use the bash installer for an automated installation, using the most preferable way for your system.
+### Homebrew
 
 ```console
-curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | bash
-```
-
-The installer is configurable using the following environment variables:
-
-* `INSTALL_LOG` - the install log file
-* `INSTALL_METHOD` - force a specific installation method: `apt`, `yum`, `apk`, `homebrew` (or `brew`), or `raw` (a binary download)
-* `INSTALL_DIR` - the installation directory for the `raw` installation method, for example you can use `INSTALL_DIR=$HOME/.local/bin` for a single user installation
-* `VERSION` - the version of the CLI to install, if you need a version other than the latest one
-* `CONFIG_URL` - the URL of an alternative CLI configuration, installed after the CLI with `upsun config:install --force`. Its executable is put next to `upsun` if that directory is writable (except with Homebrew). As root, outside the home directory, the configuration is put in `/etc/upsun/platform-alt` so that other users can run it; only root updates it
-
-The `raw` method downloads an archive from the GitHub release, and verifies it against the release's `checksums.txt` (SHA-256). It needs `sha256sum` or `shasum`, and fails if neither is available, if `checksums.txt` cannot be downloaded, or if the checksum does not match.
-
-The `raw` method installs in `/usr/bin` (`/usr/local/bin` on macOS), or in `~/.global/bin` or `~/.local/bin` if either is in the `PATH`. It uses `sudo` if needed, or `~/.local/bin` if `sudo` is not available.
-
-Outside CI, the `raw` method also installs shell completion for the current user, without editing shell configuration files: bash completion in `~/.local/share/bash-completion/completions` (loaded by bash-completion 2), and fish completion in `~/.config/fish/completions` when available. For zsh users (by `$SHELL`), it installs `~/.local/share/upsun/completion.zsh` and prints the line to add to `~/.zshrc`.
-
-#### Installation configuration examples
-
-<details>
-    <summary>Force the CLI to be installed using the raw method</summary>
-
-    curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | INSTALL_METHOD=raw bash
-</details>
-
-<details>
-    <summary>Install a specific version</summary>
-
-    curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | VERSION=5.0.0 bash
-</details>
-
-<details>
-    <summary>Install the CLI in a user owned directory</summary>
-
-    curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | INSTALL_METHOD=raw INSTALL_DIR=$HOME/.local/bin bash
-</details>
-
-### Nix profile
-
-Refer to the [Nix documentation if you are not on NixOS](https://nix.dev/manual/nix/2.24/installation/installing-binary.html).
-
-```console
-nix profile install nixpkgs#upsun
-```
-
-### Alpine
-
-```console
-# Add the signing key and repository
-sudo mkdir -p /etc/apk/keys
-sudo curl -fsSL -o /etc/apk/keys/repositories-upsun-com.rsa.pub https://repositories.upsun.com/alpine/repositories-upsun-com.rsa.pub
-echo "https://repositories.upsun.com/alpine" | sudo tee -a /etc/apk/repositories
-
-# Install the CLI
-sudo apk add upsun-cli
-```
-
-### Ubuntu/Debian
-
-```console
-# Add the signing key and repository
-sudo mkdir -p /etc/apt/keyrings
-sudo curl -fsSL https://repositories.upsun.com/gpg.key -o /etc/apt/keyrings/upsun.asc
-echo "deb [signed-by=/etc/apt/keyrings/upsun.asc] https://repositories.upsun.com/debian stable main" | sudo tee /etc/apt/sources.list.d/upsun.list
-
-# Install the CLI
-sudo apt-get update
-sudo apt-get install -y upsun-cli
-```
-
-### RPM (Fedora, RHEL, CentOS, AlmaLinux, Rocky)
-
-```console
-# Add the repository
-sudo tee /etc/yum.repos.d/upsun.repo << 'EOF'
-[upsun]
-name=Upsun CLI
-baseurl=https://repositories.upsun.com/rpm/$basearch
-enabled=1
-gpgcheck=1
-gpgkey=https://repositories.upsun.com/gpg.key
-EOF
-
-# Install the CLI (use yum on older systems)
-sudo dnf install -y upsun-cli
+brew install upsun/tap/upsun-cli
 ```
 
 ### npm
@@ -128,9 +44,13 @@ npm install -g upsun
 
 There is no npm build for 32-bit Linux or Windows on ARM. npm installs don't set up shell completion.
 
-### Manual installation
+### Nix profile
 
-For manual installation, you can also [download the latest binaries](https://github.com/upsun/cli/releases/latest).
+Refer to the [Nix documentation if you are not on NixOS](https://nix.dev/manual/nix/2.24/installation/installing-binary.html).
+
+```console
+nix profile install nixpkgs#upsun
+```
 
 ### Docker
 
@@ -140,153 +60,54 @@ The CLI is also available as a Docker image:
 docker run --rm -it ghcr.io/upsun/cli
 ```
 
+### Manual installation
+
+For manual installation, you can also [download the latest binaries](https://github.com/upsun/cli/releases/latest).
+
+## Getting started
+
+```console
+upsun login            # Log in, in a browser
+upsun projects         # List your projects
+upsun get <project>    # Clone a project's repository
+upsun list             # List all commands
+```
+
+For more, see the [CLI documentation](https://developer.upsun.com/cli).
+
 ## Upgrade
 
-Upgrade using the same tool:
+Upgrade with the tool you installed the CLI with:
 
-### HomeBrew
-
-```console
-brew update && brew upgrade upsun/tap/upsun-cli
-```
-
-### Scoop
-
-```console
-scoop update upsun
-```
-
-### Bash installer
-
-```console
-curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | bash
-```
-
-### Alpine
-
-```console
-sudo apk update && sudo apk upgrade upsun-cli
-```
-
-### Ubuntu/Debian
-
-```console
-sudo apt-get update && sudo apt-get upgrade upsun-cli
-```
-
-### CentOS/RHEL/Fedora
-
-```console
-sudo dnf upgrade -y upsun-cli
-```
-
-### npm
-
-```console
-npm install -g upsun@latest
-```
+| Method | Command |
+|---|---|
+| Installer script | `curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh \| bash` |
+| Scoop | `scoop update upsun` |
+| Homebrew | `brew update && brew upgrade upsun/tap/upsun-cli` |
+| npm | `npm install -g upsun@latest` |
+| apt, dnf/yum, apk | Your system's package manager: see [docs/install.md](docs/install.md#package-repositories) |
 
 ### Update notifications
 
-When a newer release is available, the CLI prints a short notice with the
-upgrade command for the tool you installed it with. It detects the install
-method automatically and, for system package managers (apt, yum/dnf, apk), stays
-silent because those update the CLI through the OS.
+When a newer release is available, the CLI prints the upgrade command for your
+install method, at most once a week, in an interactive terminal. It prints
+nothing for system packages, as the OS updates them.
 
-The notice is shown at most once a week and only in an interactive terminal. To
-control it:
-
-- `UPSUN_CLI_UPDATES_CHECK=0` disables update checks and notices entirely.
-- `UPSUN_CLI_INSTALL_METHOD=<method>` forces the detected install method, where
-  `<method>` is one of `homebrew`, `scoop`, `npm`, `winget`, `package`, or `script`. Use
-  `package` to silence the notice when the OS manages updates.
+- `UPSUN_CLI_UPDATES_CHECK=0` disables update checks.
+- `UPSUN_CLI_INSTALL_METHOD=<method>` overrides the detected install method:
+  `homebrew`, `scoop`, `npm`, `winget`, `package`, or `script`.
 
 ## Configuration
 
 You can override configuration in the user config file,
 `~/.upsun-cli/config.yaml`. The available keys are in
-[legacy/config-defaults.yaml](legacy/config-defaults.yaml).
+[legacy/config-defaults.yaml](legacy/config-defaults.yaml). For environment
+variables, see [docs/configuration.md](docs/configuration.md).
 
-Environment variables include:
+## Development
 
-- `UPSUN_CLI_TOKEN`: an API token, for non-interactive use such as CI. An API
-  token can act as the account that created it, so use a separate machine
-  account to limit its access. Interactively, prefer `upsun auth:api-token-login`.
-- `UPSUN_CLI_DEBUG=1`: enable debug output. This can print HTTP request details,
-  including access tokens.
-- `UPSUN_CLI_DEFAULT_TIMEOUT`: the timeout in seconds for most API requests
-  (default 30).
-- `UPSUN_CLI_DISABLE_CACHE=1`: disable caching. To clear the cache once, run
-  `upsun clear-cache`.
-- `UPSUN_CLI_HOME`: override the home directory, which contains `.upsun-cli`.
-- `UPSUN_CLI_NO_INTERACTION=1`: disable interaction, like `--no-interaction`.
-  This skips confirmation questions.
-- `UPSUN_CLI_SESSION_ID`: switch user session (default `default`). See also
-  `upsun session:switch`.
-- `UPSUN_CLI_AUTO_LOAD_SSH_CERT=0`: disable automatically loading an SSH
-  certificate when running login or SSH commands.
-- `UPSUN_CLI_SHELL_CONFIG_FILE`: the shell config file that `self:install`
-  writes to (an absolute path). Set it to an empty string to skip writing one.
-- `UPSUN_CLI_REPORT_DEPRECATIONS=1`: show PHP deprecation notices in debug mode
-  (`-vvv`).
-- `NO_COLOR=1` or `CLICOLOR_FORCE=0`/`1`: turn colors off or force them on.
-- `http_proxy` or `https_proxy`: use an HTTP proxy.
-
-The `UPSUN_CLI_` prefix and the `.upsun-cli` directory come from the CLI's
-embedded config, so other builds of the CLI may use different ones.
-
-## Building
-
-List the available `make` targets:
-
-```console
-make
-```
-
-Build a single binary:
-
-```console
-make single
-```
-
-Build a snapshot:
-
-```console
-make snapshot
-```
-
-Build a snapshot for a vendor:
-
-```console
-# Download the config file at internal/config/embedded-config.yaml
-make vendor-snapshot VENDOR_NAME='Vendor Name' VENDOR_BINARY='vendorcli'
-```
-
-## Creating a Release
-
-Releases are automated via GitHub Actions. To create a new release:
-
-1. Optionally, write the release notes in a draft release on GitHub. Its title
-   must be exactly the new tag (e.g. `v5.0.0`), or the workflow won't find it.
-   Save it as a draft: don't publish it. Releases are immutable, so assets can't
-   be added once a release is published.
-
-2. Create and push the tag:
-   ```console
-   git tag -m 'Release v5.0.0' 'v5.0.0'
-   git push origin v5.0.0
-   ```
-
-3. The [Release workflow](.github/workflows/release.yml) will automatically:
-   - Build binaries for all platforms
-   - Sign packages (APK, DEB, RPM)
-   - Upload all artifacts to the draft release (or create one with generated
-     notes), and publish it
-   - Update package repositories at repositories.upsun.com
-   - Build and push Docker image to ghcr.io/upsun/cli
-
-Release notes can still be edited after publishing.
+To build or release the CLI, see [docs/development.md](docs/development.md).
 
 ## Licenses
 
-This binary redistributes PHP in a binary form, which comes with the [PHP License](https://www.php.net/license/3_01.txt).
+This product includes PHP software, freely available from [the PHP website](https://www.php.net/software). The CLI redistributes PHP in binary form, under the [PHP License](https://www.php.net/license/3_01.txt).

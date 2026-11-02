@@ -10,6 +10,8 @@ The Upsun CLI is a Go-based command-line interface for [Upsun](https://upsun.com
 
 All targets are in the root `Makefile`, including those for the legacy PHP CLI. Run `make` to list them.
 
+Release steps are in `docs/development.md`, and the CLI's environment variables in `docs/configuration.md`.
+
 Build a single binary for your platform:
 ```bash
 make single
