@@ -15,7 +15,11 @@ vendor_name="Upsun"
 # Define this to force install method
 : "${INSTALL_METHOD:=}"
 
-: "${URL:=https://github.com/upsun/cli/releases/download}"
+# The GitHub releases page, and the releases API endpoint (overridden in tests).
+: "${RELEASES_URL:=https://github.com/upsun/cli/releases}"
+: "${RELEASES_API_URL:=https://api.github.com/repos/upsun/cli/releases}"
+
+: "${URL:=${RELEASES_URL}/download}"
 
 # Force Upsun CLI installation in this directory instead of system directory
 : "${INSTALL_DIR:=}"
@@ -275,7 +279,7 @@ setup_github_token() {
     fi
 
     # Check the token (requests to this endpoint do not count against the rate limit).
-    if github_curl https://api.github.com/rate_limit >/dev/null 2>&1; then
+    if github_curl "${RELEASES_API_URL%%/repos/*}/rate_limit" >/dev/null 2>&1; then
         output "  [*] Using GitHub auth from ${token_source}" "success"
     else
         output "  [ ] Ignoring the GitHub token from ${token_source}, as GitHub did not accept it" "warning"
@@ -286,7 +290,7 @@ setup_github_token() {
 # Print the latest release tag, from the GitHub API.
 latest_tag_from_api() {
     api_error_file=$(mktemp)
-    tag=$(github_curl https://api.github.com/repos/upsun/cli/releases/latest 2>"$api_error_file" \
+    tag=$(github_curl "${RELEASES_API_URL}/latest" 2>"$api_error_file" \
         | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
     if [ -z "$tag" ]; then
         api_error=$(head -n 1 "$api_error_file")
@@ -306,7 +310,7 @@ latest_tag_from_api() {
 # Print the latest release tag, from the redirect of the latest release page.
 # This is not subject to the API's rate limits.
 latest_tag_from_redirect() {
-    location=$(curl -fsS -o /dev/null -w '%{redirect_url}' https://github.com/upsun/cli/releases/latest 2>&1 || true)
+    location=$(curl -fsS -o /dev/null -w '%{redirect_url}' "${RELEASES_URL}/latest" 2>&1 || true)
     case "$location" in
         */releases/tag/*) printf '%s' "${location##*/releases/tag/}" ;;
         *) output "  [ ] Could not get the latest release from github.com: ${location:-no redirect}" "warning" >&2 ;;
