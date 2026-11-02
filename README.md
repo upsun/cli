@@ -16,7 +16,7 @@ On Linux, macOS, or the Windows Subsystem for Linux (WSL), run:
 curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | bash
 ```
 
-The script uses apt, yum, apk, or Homebrew if available, or else downloads the binary. For its options, see [docs/installer.md](docs/installer.md).
+The script uses apt, yum, or apk on Linux, or Homebrew on macOS, if available, or else downloads the binary. For its options, see [docs/installer.md](docs/installer.md).
 
 ### Windows
 
