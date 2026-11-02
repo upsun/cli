@@ -51,7 +51,8 @@ type exportedSession struct {
 // Run migrates sessions if that has not been done yet.
 //
 // Sessions are never imported twice, because a second import would overwrite fresh tokens with rotated ones.
-// A failure does not block authentication: it is reported, and retried after migrationRetryDelay.
+// A failure does not block authentication: it is reported, and retried after migrationRetryDelay. An interruption
+// (see interrupted) is returned, and retried on the next run.
 func (mg *Migrator) Run(ctx context.Context, m *Manager) error {
 	markerPath := filepath.Join(m.Store.Dir, store.MigrationMarker)
 	if mk, err := readMarker(markerPath); err != nil || !mg.due(m, mk) {
@@ -70,13 +71,16 @@ func (mg *Migrator) Run(ctx context.Context, m *Manager) error {
 	}
 
 	if mk == nil || mk.ExportPending {
-		switch legacy := mg.legacyState(m); {
-		case legacy == legacyEmpty:
+		switch state := mg.legacyState(m); {
+		case state == legacyEmpty:
 			return writeMarker(markerPath, &migrationMarker{})
-		case mk != nil && legacy == legacyImported:
+		case mk != nil && state == legacyImported:
 			// Only the deletion is left.
 		default:
 			if err := mg.importSessions(ctx, m); err != nil {
+				if interrupted(ctx, err) {
+					return err
+				}
 				if m.Stderr != nil {
 					fmt.Fprintf(m.Stderr, "Warning: failed to migrate credentials from the legacy CLI: %s\n", err)
 				}
@@ -87,10 +91,19 @@ func (mg *Migrator) Run(ctx context.Context, m *Manager) error {
 
 	// The legacy CLI's copies are deleted to avoid having two sources of truth.
 	if _, err := mg.Export(ctx, true); err != nil {
+		if interrupted(ctx, err) {
+			return errors.Join(err, writeMarker(markerPath, &migrationMarker{DeletePending: true}))
+		}
 		mg.debugf("Failed to delete the legacy CLI's credentials: %s", err)
 		return writeMarker(markerPath, mg.retryLater(&migrationMarker{DeletePending: true}))
 	}
 	return writeMarker(markerPath, &migrationMarker{})
+}
+
+// interrupted reports whether a step failed because it was canceled, e.g. because the legacy CLI command that requested
+// a token exited. The step is then retried by the next call or run, rather than after a delay.
+func interrupted(ctx context.Context, err error) bool {
+	return err != nil && ctx.Err() != nil
 }
 
 // due reports whether a migration step should run, given the marker (nil if there is none).

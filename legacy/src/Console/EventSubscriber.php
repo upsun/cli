@@ -17,6 +17,7 @@ use Platformsh\Client\Exception\EnvironmentStateException;
 use Psr\Http\Message\RequestInterface;
 use Symfony\Component\Console\ConsoleEvents;
 use Symfony\Component\Console\Event\ConsoleErrorEvent;
+use Symfony\Component\Console\Event\ConsoleSignalEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 readonly class EventSubscriber implements EventSubscriberInterface
@@ -31,7 +32,17 @@ readonly class EventSubscriber implements EventSubscriberInterface
      */
     public static function getSubscribedEvents()
     {
-        return [ConsoleEvents::ERROR => 'onError'];
+        return [ConsoleEvents::ERROR => 'onError', ConsoleEvents::SIGNAL => 'onSignal'];
+    }
+
+    /**
+     * Exits with the status that shells report for a process ended by the signal, rather than 0.
+     */
+    public function onSignal(ConsoleSignalEvent $event): void
+    {
+        if ($event->getExitCode() === 0) {
+            $event->setExitCode(128 + $event->getHandlingSignal());
+        }
     }
 
     /**

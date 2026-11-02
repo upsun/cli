@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Service;
 
 use Platformsh\Cli\Exception\GoLoginRequiredException;
+use Platformsh\Cli\Util\OsUtil;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -13,14 +14,20 @@ use Symfony\Component\Process\Process;
 /**
  * Gets tokens and auth state from the Go wrapper, which is the only component that stores or refreshes credentials.
  *
- * Requests are sent over a socket that the wrapper passes as an inherited file descriptor, whose number is in the
- * {prefix}WRAPPER_AUTH_FD environment variable, or on Windows over a named pipe, whose name is in
- * {prefix}WRAPPER_AUTH_PIPE. Otherwise, e.g. in a forked process, the wrapper's hidden auth:internal command is run,
- * using the executable path in the {prefix}WRAPPER_EXECUTABLE environment variable.
+ * Requests are sent over a connection to the wrapper for each, on a Unix socket whose path is in the
+ * {prefix}WRAPPER_AUTH_SOCKET environment variable, or on Windows a named pipe whose name is in {prefix}WRAPPER_AUTH_PIPE.
+ * Otherwise, e.g. in a forked process, the wrapper's hidden auth:internal command is run, using the executable path in
+ * the {prefix}WRAPPER_EXECUTABLE environment variable.
  */
 class GoAuth
 {
     private const LOGIN_REQUIRED_EXIT_CODE = 3;
+
+    /** Seconds to wait to connect to the wrapper's auth channel. */
+    private const CONNECT_TIMEOUT = 5;
+
+    /** Seconds to wait for an answer: it can wait for another process to refresh the token. */
+    private const READ_TIMEOUT = 600;
 
     /**
      * Cached results, keyed by session ID.
@@ -34,11 +41,14 @@ class GoAuth
     /** @var array<string, array{access_token: string, expires?: int}> */
     private static array $tokens = [];
 
-    /** @var resource|false|null The wrapper's auth channel, false if it cannot be used, or null if not opened yet. */
-    private static mixed $channel = null;
+    /** The wrapper's auth channel (a socket path or a pipe path), false if it cannot be used, or null if not known yet. */
+    private static string|false|null $channel = null;
 
-    /** The ID of the process that opened the channel. */
+    /** The ID of the process that found the channel. */
     private static ?int $channelPid = null;
+
+    /** The wrapper's process ID, on Unix-like systems where the channel is used. */
+    private static ?int $wrapperPid = null;
 
     private readonly OutputInterface $stdErr;
 
@@ -75,9 +85,11 @@ class GoAuth
         if ($cached !== null && $rejected === null && !$this->expiresSoon($cached)) {
             return $cached;
         }
-        // The rejected token is passed via stdin, to keep it out of process listings.
+        // Only the rejected token's hash is sent, as the token may still be valid.
         /** @var array{access_token: string, expires?: int} $token */
-        $token = $rejected !== null ? $this->run(['token', '--rejected'], $rejected) : $this->run(['token']);
+        $token = $rejected !== null
+            ? $this->run(['token', '--rejected'], hash('sha256', $rejected))
+            : $this->run(['token']);
 
         return self::$tokens[$sessionId] = $token;
     }
@@ -167,7 +179,7 @@ class GoAuth
             if ($response !== null) {
                 return $this->result($response);
             }
-            // The wrapper has exited, e.g. if this is a background process.
+            // The wrapper has exited (e.g. it was killed), or this process cannot use the channel.
             self::$channel = false;
         }
 
@@ -197,12 +209,10 @@ class GoAuth
     /**
      * Returns the wrapper's auth channel, if this process can use it.
      *
-     * The channel is only used by the process that the wrapper started: a process forked by it shares the socket, but
-     * may outlive the wrapper. On Windows, the wrapper refuses a connection to the pipe from other processes.
-     *
-     * @return resource|null
+     * The channel is only used by the process that the wrapper started, which is the only one whose connections it
+     * accepts: a process forked by it may also outlive the wrapper.
      */
-    private function channel(): mixed
+    private function channel(): ?string
     {
         if (self::$channelPid !== null && self::$channelPid !== (int) getmypid()) {
             return null;
@@ -211,14 +221,15 @@ class GoAuth
             self::$channel = false;
             self::$channelPid = (int) getmypid();
             $prefix = $this->config->getStr('application.env_prefix');
-            $fd = getenv($prefix . 'WRAPPER_AUTH_FD');
+            $socket = getenv($prefix . 'WRAPPER_AUTH_SOCKET');
             $pipe = getenv($prefix . 'WRAPPER_AUTH_PIPE');
             $wrapperPid = getenv($prefix . 'WRAPPER_PID');
-            if (is_string($fd) && ctype_digit($fd) && is_string($wrapperPid) && function_exists('posix_getppid')
+            if (is_string($socket) && $socket !== '' && is_string($wrapperPid) && function_exists('posix_getppid')
                 && posix_getppid() === (int) $wrapperPid) {
-                self::$channel = @fopen('php://fd/' . $fd, 'r+');
+                self::$channel = $socket;
+                self::$wrapperPid = (int) $wrapperPid;
             } elseif (is_string($pipe) && preg_match('/^[\w-]+$/', $pipe)) {
-                self::$channel = $this->openPipe('\\\\.\\pipe\\' . $pipe);
+                self::$channel = '\\\\.\\pipe\\' . $pipe;
             }
         }
 
@@ -226,45 +237,94 @@ class GoAuth
     }
 
     /**
-     * Opens the wrapper's named pipe, retrying for up to a second: it can only be opened while the wrapper waits for a
-     * connection, and fopen() does not wait.
+     * Checks whether the wrapper has exited, if that can be known: on Unix-like systems, this process then has another
+     * parent.
+     */
+    private function wrapperExited(): bool
+    {
+        return self::$wrapperPid !== null && function_exists('posix_getppid') && posix_getppid() !== self::$wrapperPid;
+    }
+
+    /**
+     * Connects to the wrapper's auth channel.
+     *
+     * The connection is closed after each request, so that the processes that this one starts do not inherit it.
      *
      * @return resource|false
      */
-    private function openPipe(string $path): mixed
+    private function connect(string $channel, ?string &$error): mixed
     {
-        $deadline = microtime(true) + 1;
-        while (($handle = @fopen($path, 'r+')) === false && microtime(true) < $deadline) {
+        if (!OsUtil::isWindows()) {
+            $conn = @stream_socket_client('unix://' . $channel, $errno, $errstr, self::CONNECT_TIMEOUT);
+            if ($conn === false) {
+                $error = $errstr;
+            } else {
+                stream_set_timeout($conn, self::READ_TIMEOUT);
+            }
+
+            return $conn;
+        }
+        // A named pipe can only be opened while the wrapper waits for a connection, and fopen() does not wait. The
+        // wrapper waits again soon after it answers a request, and the pipe stops existing when the wrapper exits.
+        $deadline = microtime(true) + self::CONNECT_TIMEOUT;
+        while (($conn = @fopen($channel, 'r+')) === false && microtime(true) < $deadline) {
             usleep(10000);
         }
+        if ($conn === false) {
+            $error = error_get_last()['message'] ?? 'unknown error';
+        }
 
-        return $handle;
+        return $conn;
     }
 
     /**
      * Sends a request over the wrapper's auth channel, which answers with one line of JSON.
      *
-     * @param resource $channel
-     * @param string|null $rejected An access token that the API rejected.
+     * @param string|null $rejectedHash The SHA-256 hash of an access token that the API rejected.
      *
-     * @return array<mixed>|null The response, or null if the channel is closed.
+     * @throws \RuntimeException if the request fails while the wrapper is running, so that it is not sent elsewhere
+     *
+     * @return array<mixed>|null The response, or null if the wrapper has exited or refused the connection.
      */
-    private function request(mixed $channel, string $command, ?string $rejected): ?array
+    private function request(string $channel, string $command, ?string $rejectedHash): ?array
     {
         $request = ['command' => $command, 'session_id' => $this->config->getSessionId()];
-        if ($rejected !== null) {
-            $request['rejected'] = $rejected;
+        if ($rejectedHash !== null) {
+            $request['rejected_sha256'] = $rejectedHash;
         }
-        if (@fwrite($channel, json_encode($request, JSON_THROW_ON_ERROR) . "\n") === false) {
-            return null;
+        $error = null;
+        $conn = $this->connect($channel, $error);
+        if ($conn === false) {
+            // On Windows, the pipe can only fail to open for this long if the wrapper has exited.
+            if (OsUtil::isWindows() || $this->wrapperExited()) {
+                return null;
+            }
+            throw new \RuntimeException('Failed to connect to the CLI wrapper to get authentication details: ' . $error);
         }
-        $line = @fgets($channel);
+        $line = false;
+        $timedOut = false;
+        try {
+            if (@fwrite($conn, json_encode($request, JSON_THROW_ON_ERROR) . "\n") !== false) {
+                $line = @fgets($conn);
+            }
+            $timedOut = !empty(stream_get_meta_data($conn)['timed_out']);
+        } finally {
+            fclose($conn);
+        }
         if (!is_string($line)) {
-            return null;
+            if ($this->wrapperExited()) {
+                return null;
+            }
+            throw new \RuntimeException('The CLI wrapper did not answer a request for authentication details'
+                . ($timedOut ? ' (timed out)' : ''));
         }
         $response = json_decode($line, true);
         if (!is_array($response)) {
             throw new \RuntimeException('Failed to parse authentication details');
+        }
+        // This process is not the one that the wrapper started, e.g. on Windows where that cannot be checked first.
+        if (($response['refused'] ?? false) === true) {
+            return null;
         }
 
         return $response;
