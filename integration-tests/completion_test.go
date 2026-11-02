@@ -1,14 +1,19 @@
 package tests
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/upsun/cli/pkg/mockapi"
 )
 
 // TestCompletionScript checks that the generated completion scripts request
@@ -160,4 +165,49 @@ func TestShellCompletion(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestBashCompletionWithMissingProjectDetails checks that warnings are not suggested, as the bash script reads
+// suggestions from both stdout and stderr.
+func TestBashCompletionWithMissingProjectDetails(t *testing.T) {
+	t.Parallel()
+	if _, err := os.Stat("/usr/share/bash-completion/bash_completion"); err != nil {
+		t.Skip("bash-completion is not installed")
+	}
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.SetMyUser(&mockapi.User{ID: "my-user-id"})
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+	apiHandler.SetOrgs([]*mockapi.Org{makeOrg("org-id-1", "org-1", "Org 1", "my-user-id", "flexible")})
+	apiHandler.SetProjects([]*mockapi.Project{
+		makeProject("project-id-1", "org-id-1", "test-vendor", "Project 1", "region-1"),
+	})
+	apiHandler.SetUserGrants([]*mockapi.UserGrant{{
+		ResourceID:     "project-id-1",
+		ResourceType:   "project",
+		OrganizationID: "org-id-1",
+		UserID:         "my-user-id",
+		Permissions:    []string{"admin"},
+	}})
+	apiHandler.FailNext("GET", "/ref/projects", http.StatusBadGateway, "<html>Bad Gateway</html>")
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+	gen := f.buildCommand("completion", "bash")
+	script := filepath.Join(t.TempDir(), "completion.bash")
+	b, err := gen.Output()
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(script, b, 0o600))
+
+	// The script runs the configured executable by name.
+	binDir := t.TempDir()
+	require.NoError(t, os.Symlink(getCommandName(t), filepath.Join(binDir, "platform-test")))
+	line := "platform-test env:info --project "
+	cmd := exec.Command("bash", "-c", shellHarnesses["bash"], "bash", script, line, "platform-test")
+	cmd.Env = append(slices.Clip(gen.Env), "PATH="+binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	out, err := cmd.Output()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"project-id-1"}, strings.Fields(string(out)))
+	assert.Len(t, apiHandler.Requests("GET", "/ref/projects"), 1)
 }

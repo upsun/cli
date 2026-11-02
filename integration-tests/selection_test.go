@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 
@@ -21,6 +22,13 @@ const (
 // setUpSelection serves two projects that the user can access: the layout project, which has the environments
 // "main" (the default) and "staging", and a project with one environment, "prod". Each is in its own organization.
 func setUpSelection(t *testing.T) *cmdFactory {
+	t.Helper()
+	f, _ := setUpSelectionAPI(t)
+	return f
+}
+
+// setUpSelectionAPI is setUpSelection, also returning the mock API handler.
+func setUpSelectionAPI(t *testing.T) (*cmdFactory, *mockapi.Handler) {
 	t.Helper()
 	apiHandler := mockapi.NewHandler(t)
 	apiHandler.SetMyUser(&mockapi.User{ID: selectionUserID})
@@ -57,7 +65,7 @@ func setUpSelection(t *testing.T) *cmdFactory {
 	f := serveAPI(t, apiHandler)
 	// Wide enough not to wrap the error messages.
 	f.extraEnv = append(f.extraEnv, "COLUMNS=500")
-	return f
+	return f, apiHandler
 }
 
 // TestProjectAndEnvironmentSelection checks how commands select a project and environment, outside a project
@@ -151,6 +159,31 @@ func TestProjectAndEnvironmentSelection(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestProjectSelectionWithMissingDetails checks that projects are selected by ID if their details cannot be loaded.
+func TestProjectSelectionWithMissingDetails(t *testing.T) {
+	t.Parallel()
+	f, apiHandler := setUpSelectionAPI(t)
+	const warning = "some project details could not be loaded"
+
+	// Projects are listed by ID.
+	apiHandler.FailNext("GET", "/ref/projects", http.StatusBadGateway, "<html>Bad Gateway</html>")
+	stdOut, stdErr, err := f.RunInteractive("1\n", "env:info", "id")
+	require.NoError(t, err, stdErr)
+	assert.Equal(t, "prod\n", stdOut)
+	assert.Contains(t, stdErr, "[0] "+layoutProjectID)
+	assert.NotContains(t, stdErr, "Main Project")
+	assert.Equal(t, 1, strings.Count(stdErr, warning), stdErr)
+
+	apiHandler.FailNext("GET", "/ref/projects", http.StatusBadGateway, "<html>Bad Gateway</html>")
+	_, stdErr, err = f.RunCombinedOutput("env:info", "-p", "missingproject", "-e", "main")
+	assert.Error(t, err)
+	assert.Contains(t, stdErr, "Specified project not found: missingproject")
+	assert.Contains(t, stdErr, "Your projects are:")
+	assert.Contains(t, stdErr, layoutProjectID)
+	assert.NotContains(t, stdErr, "Main Project")
+	assert.Equal(t, 1, strings.Count(stdErr, warning), stdErr)
 }
 
 // TestOrganizationSelection checks how organization commands select an organization, by --org, by the project, or

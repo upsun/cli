@@ -192,12 +192,12 @@ class ProjectListCommand extends CommandBase
             $rows[] = [
                 'id' => new AdaptiveTableCell($projectInfo->id, ['wrap' => false]),
                 'title' => $title,
-                'region' => $projectInfo->region,
+                'region' => (string) $projectInfo->region,
                 'organization_id' => $orgInfo ? $orgInfo->id : '',
                 'organization_name' => $orgInfo ? $orgInfo->name : '',
                 'organization_label' => $orgInfo ? $orgInfo->label : '',
                 'organization_type' => $orgInfo ? (string) $orgInfo->getProperty('type', false) : '',
-                'status' => $projectInfo->status,
+                'status' => (string) $projectInfo->status,
                 'created_at' => $this->propertyFormatter->format($projectInfo->created_at, 'created_at'),
                 '[deprecated]' => '',
             ];

@@ -314,7 +314,7 @@ type ProjectRef struct {
 	Status         string    `json:"status"`
 	OrganizationID string    `json:"organization_id"`
 	SubscriptionID string    `json:"subscription_id"`
-	Vendor         string    `json:"vendor"`
+	Vendor         string    `json:"vendor,omitempty"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }

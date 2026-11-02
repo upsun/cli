@@ -2143,12 +2143,6 @@ parameters:
 			path: src/Command/Project/ProjectListCommand.php
 
 		-
-			message: '#^Parameter \#1 \$rows of method Platformsh\\Cli\\Service\\Table\:\:render\(\) expects array\<array\<int\|string, float\|int\|string\|Symfony\\Component\\Console\\Helper\\TableCell\>\|Symfony\\Component\\Console\\Helper\\TableSeparator\>, list\<array\<string, Platformsh\\Cli\\Console\\AdaptiveTableCell\|string\|null\>\> given\.$#'
-			identifier: argument.type
-			count: 2
-			path: src/Command/Project/ProjectListCommand.php
-
-		-
 			message: '#^Cannot access offset ''mode'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
