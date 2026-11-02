@@ -228,8 +228,23 @@ func TestProjectListUnresolvedProjects(t *testing.T) {
 	assert.Contains(t, stdErr, "Failed to load references: The API returned 502 Bad Gateway")
 	assert.NotContains(t, stdErr, "You do not have any")
 
+	// Projects keep an unknown vendor if organization details cannot be loaded.
+	apiHandler.SetProjects([]*mockapi.Project{
+		makeProject("project-id-1", "org-id-1", "test-vendor", "Project 1", "region-1"),
+		makeProject("project-no-vendor", "org-id-1", "", "No Vendor", "region-1"),
+	})
+	apiHandler.SetUserGrants([]*mockapi.UserGrant{
+		grant("project-id-1", "org-id-1"),
+		grant("project-no-vendor", "org-id-1"),
+	})
+	apiHandler.FailNext("GET", "/ref/organizations", http.StatusBadGateway, "<html>Bad Gateway</html>")
+	stdOut, stdErr, err = f.RunCombinedOutput("pro", "--pipe")
+	assert.NoError(t, err)
+	assert.ElementsMatch(t, []string{"project-id-1", "project-no-vendor"}, strings.Fields(stdOut))
+	assert.Contains(t, stdErr, "some project details could not be loaded")
+
 	// The table renders projects without details.
 	apiHandler.FailNext("GET", "/ref/projects", http.StatusBadGateway, "<html>Bad Gateway</html>")
 	stdOut = f.Run("pro", "--columns", "id,title,region,status,created_at")
-	assert.Contains(t, stdOut, "project-missing")
+	assert.Contains(t, stdOut, "project-no-vendor")
 }

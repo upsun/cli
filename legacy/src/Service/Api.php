@@ -913,7 +913,10 @@ class Api
         $unresolvedIds = [];
         foreach (UserExtendedAccess::wrapCollection($data, $url, $httpClient) as $access) {
             try {
-                $projects[] = BasicProjectInfo::fromExtendedAccess($access);
+                $project = BasicProjectInfo::fromExtendedAccess($access);
+                // The vendor is not set if the organization reference is missing.
+                $project->vendor ??= null;
+                $projects[] = $project;
             } catch (ProjectReferenceException $e) {
                 $id = $e->getProjectId();
                 $stub = new ProjectStub([
