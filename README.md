@@ -40,7 +40,7 @@ brew install upsun/tap/upsun-cli
 npm install -g upsun
 ```
 
-npm installs don't set up shell completion.
+npm installs don't set up shell completion. For the package's requirements, see [docs/install.md](docs/install.md#npm).
 
 ### Nix
 
