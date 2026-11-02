@@ -254,36 +254,58 @@ github_token_from_composer_auth() {
     tr -d '\r\n' | sed -n 's/.*"github-oauth"[[:space:]]*:[[:space:]]*{[^}]*"github\.com"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1
 }
 
+# Try a GitHub token: use it unless GitHub rejects it.
+# Arguments: token, source (for messages)
+# Returns 0 if the token is used.
+try_github_token() {
+    if [ -z "$1" ]; then
+        return 1
+    fi
+    # Requests to this endpoint do not count against the rate limit.
+    check_error_file=$(mktemp)
+    status=$(curl -sS -o /dev/null -w '%{http_code}' -H "Accept: application/vnd.github+json" \
+        -H "Authorization: Bearer $1" "${RELEASES_API_URL%%/repos/*}/rate_limit" 2>"$check_error_file" || true)
+    check_error=$(head -n 1 "$check_error_file")
+    rm -f "$check_error_file"
+    case "$status" in
+        2*)
+            output "  [*] Using GitHub auth from $2" "success"
+            ;;
+        401)
+            output "  [ ] Ignoring the GitHub token from $2, as GitHub rejected it" "warning"
+            return 1
+            ;;
+        *)
+            # A network or server error says nothing about the token, so it is kept.
+            output "  [ ] Could not check the GitHub token from $2 (${check_error:-HTTP $status}): using it anyway" "warning"
+            ;;
+    esac
+    GITHUB_TOKEN="$1"
+}
+
 # Use a GitHub token, if one is available, for higher API rate limits.
 # Unauthenticated requests are limited per IP address, which build
-# environments often share.
+# environments often share. Sources are tried in order, until GitHub
+# accepts a token.
 setup_github_token() {
-    token_source=""
-    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-        GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"
-        token_source="the gh CLI"
-    elif [ -n "${GITHUB_TOKEN}" ]; then
-        token_source="the GITHUB_TOKEN env variable"
-    elif [ -n "${COMPOSER_AUTH:-}" ]; then
-        GITHUB_TOKEN="$(printf '%s' "${COMPOSER_AUTH}" | github_token_from_composer_auth)"
-        token_source="the COMPOSER_AUTH env variable"
+    env_token="${GITHUB_TOKEN}"
+    GITHUB_TOKEN=""
+    # The env variable comes first, as with the gh CLI itself.
+    if try_github_token "${env_token}" "the GITHUB_TOKEN env variable"; then
+        return
+    fi
+    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 \
+        && try_github_token "$(gh auth token 2>/dev/null || true)" "the gh CLI"; then
+        return
+    fi
+    if [ -n "${COMPOSER_AUTH:-}" ] \
+        && try_github_token "$(printf '%s' "${COMPOSER_AUTH}" | github_token_from_composer_auth)" "the COMPOSER_AUTH env variable"; then
+        return
     fi
     # The token that Upsun provides in project containers. It allows for higher
     # rate limits but is otherwise unprivileged.
-    if [ -z "${GITHUB_TOKEN}" ] && [ -n "${HOME:-}" ] && [ -r "${HOME}/.global/auth.json" ]; then
-        GITHUB_TOKEN="$(github_token_from_composer_auth < "${HOME}/.global/auth.json")"
-        token_source="${HOME}/.global/auth.json"
-    fi
-    if [ -z "${GITHUB_TOKEN}" ]; then
-        return
-    fi
-
-    # Check the token (requests to this endpoint do not count against the rate limit).
-    if github_curl "${RELEASES_API_URL%%/repos/*}/rate_limit" >/dev/null 2>&1; then
-        output "  [*] Using GitHub auth from ${token_source}" "success"
-    else
-        output "  [ ] Ignoring the GitHub token from ${token_source}, as GitHub did not accept it" "warning"
-        GITHUB_TOKEN=""
+    if [ -n "${HOME:-}" ] && [ -r "${HOME}/.global/auth.json" ]; then
+        try_github_token "$(github_token_from_composer_auth < "${HOME}/.global/auth.json")" "${HOME}/.global/auth.json" || true
     fi
 }
 

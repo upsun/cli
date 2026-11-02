@@ -26,10 +26,11 @@ type fakeGitHub struct {
 	t   *testing.T
 	srv *httptest.Server
 
-	tag        string // The latest release tag.
-	validToken string // The token that the API accepts.
-	apiStatus  int    // If set, the status of the latest release API response.
-	noRedirect bool   // If set, the latest release page does not redirect.
+	tag             string   // The latest release tag.
+	validTokens     []string // The tokens that the API accepts.
+	rateLimitStatus int      // If set, the status of the rate limit API response.
+	apiStatus       int      // If set, the status of the latest release API response.
+	noRedirect      bool     // If set, the latest release page does not redirect.
 
 	mu       sync.Mutex
 	requests []fakeGitHubRequest
@@ -40,10 +41,14 @@ type fakeGitHubRequest struct {
 }
 
 func newFakeGitHub(t *testing.T) *fakeGitHub {
-	g := &fakeGitHub{t: t, tag: "v1.2.3", validToken: "valid-token"}
+	g := &fakeGitHub{t: t, tag: "v1.2.3", validTokens: []string{"valid-token", "gh-token"}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/rate_limit", func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "Bearer "+g.validToken {
+		if g.rateLimitStatus != 0 {
+			w.WriteHeader(g.rateLimitStatus)
+			return
+		}
+		if !slices.Contains(g.validTokens, strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -180,11 +185,12 @@ func TestInstallerLatestVersion(t *testing.T) {
 }`
 
 	cases := []struct {
-		name       string
-		env        []string
-		homeFiles  map[string]string
-		apiStatus  int
-		noRedirect bool
+		name            string
+		env             []string
+		homeFiles       map[string]string
+		rateLimitStatus int
+		apiStatus       int
+		noRedirect      bool
 
 		wantVersion string // Empty if the install fails.
 		wantAuth    string // The Authorization header sent to the releases API.
@@ -212,10 +218,58 @@ func TestInstallerLatestVersion(t *testing.T) {
 		},
 		{
 			name:        "gh CLI",
-			env:         []string{"GH_FAKE_TOKEN=valid-token"},
+			env:         []string{"GH_FAKE_TOKEN=gh-token"},
+			wantVersion: "1.2.3",
+			wantAuth:    "Bearer gh-token",
+			wantOutput:  []string{"Using GitHub auth from the gh CLI"},
+		},
+		{
+			name:        "GITHUB_TOKEN before the gh CLI",
+			env:         []string{"GITHUB_TOKEN=valid-token", "GH_FAKE_TOKEN=gh-token"},
 			wantVersion: "1.2.3",
 			wantAuth:    "Bearer valid-token",
-			wantOutput:  []string{"Using GitHub auth from the gh CLI"},
+			dontOutput:  []string{"gh CLI"},
+		},
+		{
+			name:        "rejected GITHUB_TOKEN falls through to the gh CLI",
+			env:         []string{"GITHUB_TOKEN=invalid-token", "GH_FAKE_TOKEN=gh-token"},
+			wantVersion: "1.2.3",
+			wantAuth:    "Bearer gh-token",
+			wantOutput: []string{
+				"Ignoring the GitHub token from the GITHUB_TOKEN env variable, as GitHub rejected it",
+				"Using GitHub auth from the gh CLI",
+			},
+		},
+		{
+			name:        "rejected gh CLI token falls through to COMPOSER_AUTH",
+			env:         []string{"GH_FAKE_TOKEN=invalid-token", "COMPOSER_AUTH=" + composerAuth},
+			wantVersion: "1.2.3",
+			wantAuth:    "Bearer valid-token",
+			wantOutput: []string{
+				"Ignoring the GitHub token from the gh CLI",
+				"Using GitHub auth from the COMPOSER_AUTH env variable",
+			},
+		},
+		{
+			name:        "rejected COMPOSER_AUTH token falls through to auth.json",
+			env:         []string{`COMPOSER_AUTH={"github-oauth":{"github.com":"invalid-token"}}`},
+			homeFiles:   map[string]string{".global/auth.json": composerAuth},
+			wantVersion: "1.2.3",
+			wantAuth:    "Bearer valid-token",
+			wantOutput: []string{
+				"Ignoring the GitHub token from the COMPOSER_AUTH env variable",
+				"Using GitHub auth from ",
+			},
+		},
+		{
+			name:            "token check error",
+			env:             []string{"GITHUB_TOKEN=valid-token"},
+			rateLimitStatus: http.StatusBadGateway,
+			wantVersion:     "1.2.3",
+			wantAuth:        "Bearer valid-token",
+			wantOutput: []string{
+				"Could not check the GitHub token from the GITHUB_TOKEN env variable (HTTP 502): using it anyway",
+			},
 		},
 		{
 			name:        "COMPOSER_AUTH",
@@ -243,7 +297,7 @@ func TestInstallerLatestVersion(t *testing.T) {
 			name:        "invalid token",
 			env:         []string{"GITHUB_TOKEN=invalid-token"},
 			wantVersion: "1.2.3",
-			wantOutput:  []string{"Ignoring the GitHub token from the GITHUB_TOKEN env variable"},
+			wantOutput:  []string{"Ignoring the GitHub token from the GITHUB_TOKEN env variable, as GitHub rejected it"},
 			dontOutput:  []string{"Using GitHub auth"},
 		},
 		{
@@ -280,6 +334,7 @@ func TestInstallerLatestVersion(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			g := newFakeGitHub(t)
+			g.rateLimitStatus = c.rateLimitStatus
 			g.apiStatus = c.apiStatus
 			g.noRedirect = c.noRedirect
 
