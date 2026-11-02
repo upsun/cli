@@ -31,7 +31,7 @@ vendor_name="Upsun"
 : "${BREW_TAP:=upsun/tap}"
 : "${BREW_FORMULA:=upsun/tap/upsun-cli}"
 
-# A GitHub token, for the API (only used if the latest release page does not redirect)
+# A GitHub token, for the download, and for the API (only used if the latest release page does not redirect)
 : "${GITHUB_TOKEN:=}"
 
 # CI specifics
@@ -40,9 +40,6 @@ vendor_name="Upsun"
 : "${RUN_ID:=}"
 
 # global variables
-env_github_token="${GITHUB_TOKEN}"
-# A token that GitHub accepted, used for downloads too.
-GITHUB_TOKEN=""
 binary="upsun"
 # How to run the binary: the full path if its directory is not in $PATH.
 run_cmd="$binary"
@@ -315,7 +312,7 @@ latest_tag_with_token() {
     case "$token_rc" in
         0)
             output "  [*] Using GitHub auth from $2" "success"
-            # The token is also used to download the release.
+            # The token is also used for the download.
             GITHUB_TOKEN="$1"
             ;;
         1)
@@ -334,7 +331,11 @@ latest_tag_with_token() {
 latest_tag_from_api_with_auth() {
     rc=0
     # The env variable comes first, as with the gh CLI itself.
-    latest_tag_with_token "${env_github_token}" "the GITHUB_TOKEN env variable" || rc=$?
+    latest_tag_with_token "${GITHUB_TOKEN}" "the GITHUB_TOKEN env variable" || rc=$?
+    if [ "$rc" = 1 ]; then
+        # Not sent with the download, if GitHub rejected it.
+        GITHUB_TOKEN=""
+    fi
     if [ "$rc" = 1 ] && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
         rc=0
         latest_tag_with_token "$(gh auth token 2>/dev/null || true)" "the gh CLI" || rc=$?

@@ -229,12 +229,13 @@ func TestInstallerLatestVersion(t *testing.T) {
 		dontOutput       []string
 	}{
 		{
-			name:        "pinned version",
-			env:         []string{"VERSION=1.0.0", "GITHUB_TOKEN=valid-token"},
-			wantVersion: "1.0.0",
-			wantAPIAuth: []string{},
-			wantOutput:  []string{"Version 1.0.0 specified"},
-			dontOutput:  []string{"GitHub auth"},
+			name:             "pinned version",
+			env:              []string{"VERSION=1.0.0", "GITHUB_TOKEN=valid-token"},
+			wantVersion:      "1.0.0",
+			wantAPIAuth:      []string{},
+			wantDownloadAuth: "Bearer valid-token",
+			wantOutput:       []string{"Version 1.0.0 specified"},
+			dontOutput:       []string{"GitHub auth"},
 		},
 		{
 			name:          "redirect",
@@ -245,8 +246,18 @@ func TestInstallerLatestVersion(t *testing.T) {
 			dontOutput:    []string{"Could not", "GitHub auth"},
 		},
 		{
-			name:          "redirect without using tokens",
-			env:           []string{"GITHUB_TOKEN=valid-token", "GH_FAKE_TOKEN=gh-token"},
+			name:             "redirect, with GITHUB_TOKEN only for the download",
+			env:              []string{"GITHUB_TOKEN=valid-token", "GH_FAKE_TOKEN=gh-token"},
+			homeFiles:        map[string]string{".global/auth.json": composerAuth},
+			wantVersion:      "1.2.3",
+			wantRedirects:    1,
+			wantAPIAuth:      []string{},
+			wantDownloadAuth: "Bearer valid-token",
+			dontOutput:       []string{"GitHub auth", "GitHub token"},
+		},
+		{
+			name:          "redirect without sending other tokens",
+			env:           []string{"GH_FAKE_TOKEN=gh-token"},
 			homeFiles:     map[string]string{".global/auth.json": composerAuth},
 			wantVersion:   "1.2.3",
 			wantRedirects: 1,
