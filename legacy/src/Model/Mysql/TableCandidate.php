@@ -53,11 +53,11 @@ readonly class TableCandidate
     }
 
     /**
-     * The size of the table's data and indexes, excluding free space.
+     * The size of the table's data, indexes and free extents (about the size of its file).
      */
     public function size(): int
     {
-        return $this->dataLength + $this->indexLength;
+        return $this->dataLength + $this->indexLength + $this->dataFree;
     }
 
     /**
@@ -89,7 +89,7 @@ readonly class TableCandidate
             return $this->dataFree;
         }
 
-        return max($this->dataFree, $this->size() + $this->dataFree - $rebuilt);
+        return max($this->dataFree, $this->size() - $rebuilt);
     }
 
     /**
@@ -99,7 +99,7 @@ readonly class TableCandidate
     {
         $rebuilt = $this->rebuiltSize();
         if ($rebuilt === null) {
-            return $this->size();
+            return $this->dataLength + $this->indexLength;
         }
 
         return $rebuilt + intdiv($rebuilt * self::DISK_MARGIN_PERCENT, 100) + self::DISK_MARGIN_BYTES;

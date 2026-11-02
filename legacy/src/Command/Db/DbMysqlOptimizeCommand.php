@@ -114,7 +114,8 @@ class DbMysqlOptimizeCommand extends CommandBase
 
             The free space is estimated from the free extents reported by the database (DATA_FREE), and from the size
             of the rows: this reads a sample of about 1000 rows from each table larger than <comment>--min-reclaimable</comment>.
-            A table is listed if its free space is at least <comment>--min-reclaimable</comment> and <comment>--min-percent</comment> of its size.
+            A table is listed if its free space is at least <comment>--min-reclaimable</comment> and <comment>--min-percent</comment> of its size
+            (its data, indexes and free extents).
 
             By default, this only reports. With <comment>--execute</comment>, each table listed is rebuilt with:
                 <comment>ALTER TABLE ... FORCE, ALGORITHM=INPLACE, LOCK=NONE</comment>

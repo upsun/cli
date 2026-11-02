@@ -183,10 +183,10 @@ func TestDbMysqlOptimizeReport(t *testing.T) {
 	assert.Contains(t, stdErr, "Disk: 3.0 GiB free of 4.0 GiB. /tmp: 924.0 MiB free of 1.0 GiB.")
 	// Sorted by reclaimable space. The disk needed is the rebuilt size, plus 10% and 8 MiB.
 	assert.Equal(t, `Schema,Table,Size,Reclaimable,Reclaimable %,Disk needed,Fits disk,/tmp needed,Fits /tmp
-main,cache,3221225472,1073741824,33%,4732852633,false,1073741824,false
-main,search,209715200,360710144,172%,15309209,true,104857600,true
-main,logs,262144000,176422912,67%,116523008,true,52428800,true
-main,we`+"`"+`ird,104857600,125829120,120%,104857600,true,0,true
+main,cache,4294967296,1073741824,25%,4732852633,false,1073741824,false
+main,search,367001600,360710144,98%,15309209,true,104857600,true
+main,logs,274726912,176422912,64%,116523008,true,52428800,true
+main,we`+"`"+`ird,230686720,125829120,55%,104857600,true,0,true
 `, output)
 
 	output = p.f.Run(args("--format", "tsv", "--no-header", "--columns", "table,notes")...)
@@ -228,8 +228,8 @@ main,we`+"`"+`ird,104857600,125829120,120%,104857600,true,0,true
 
 	// The default table output.
 	output = p.f.Run(args("--columns", "table,size,disk_fits")...)
-	assert.Contains(t, output, "| logs   | 250.0 MiB | yes       |")
-	assert.Contains(t, output, "| cache  | 3.0 GiB   | no        |")
+	assert.Contains(t, output, "| logs   | 262.0 MiB | yes       |")
+	assert.Contains(t, output, "| cache  | 4.0 GiB   | no        |")
 
 	_, stdErr, err = p.f.RunCombinedOutput(args("--min-percent", "x")...)
 	assert.Error(t, err)
