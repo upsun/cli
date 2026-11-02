@@ -17,6 +17,7 @@ use Doctrine\Common\Cache\VoidCache;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\BadResponseException;
+use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Uri;
 use GuzzleHttp\Psr7\UriResolver;
@@ -37,16 +38,21 @@ use Platformsh\Cli\Util\Jwt;
 use Platformsh\Cli\Util\NamespacedCache;
 use Platformsh\Cli\Util\NestedArrayUtil;
 use Platformsh\Cli\Util\Sort;
+use Platformsh\Cli\Console\ApiErrorMessage;
 use Platformsh\Cli\Connector;
 use Platformsh\Client\Exception\ApiResponseException;
 use Platformsh\Client\Exception\EnvironmentStateException;
+use Platformsh\Client\Exception\ProjectReferenceException;
 use Platformsh\Client\Model\BasicProjectInfo;
+use Platformsh\Client\Model\CentralizedPermissions\UserExtendedAccess;
 use Platformsh\Client\Model\Deployment\EnvironmentDeployment;
 use Platformsh\Client\Model\Environment;
 use Platformsh\Client\Model\EnvironmentType;
 use Platformsh\Client\Model\Organization\Member;
 use Platformsh\Client\Model\Organization\Organization;
 use Platformsh\Client\Model\Project;
+use Platformsh\Client\Model\ProjectStub;
+use Platformsh\Client\Model\Ref\Resolver;
 use Platformsh\Client\Model\Ref\UserRef;
 use Platformsh\Client\Model\ApiResourceBase as ApiResource;
 use Platformsh\Cli\Model\SshKey;
@@ -821,30 +827,114 @@ class Api
         if ($refresh === false && !$cached) {
             return [];
         } elseif ($refresh || !$cached) {
-            $projects = [];
+            $complete = true;
             if ($new) {
-                $this->io->debug('Loading extended access information to fetch the projects list');
-                foreach ($this->getClient()->getMyProjects() as $project) {
-                    if ($this->matchesVendorFilter($vendorFilter, $project)) {
-                        $projects[] = $project;
-                    }
-                }
+                [$all, $complete] = $this->loadProjectsFromExtendedAccess();
             } else {
                 $this->io->debug('Loading account information to fetch the projects list');
+                $all = [];
                 foreach ($this->getClient()->getProjectStubs((bool) $refresh) as $stub) {
-                    $project = BasicProjectInfo::fromStub($stub);
-                    if ($this->matchesVendorFilter($vendorFilter, $project)) {
-                        $projects[] = $project;
-                    }
+                    $all[] = BasicProjectInfo::fromStub($stub);
                 }
             }
-            $this->userCache()->save($cacheKey, $projects, $this->config->getInt('api.projects_ttl'));
+            $projects = [];
+            $hiddenIds = [];
+            foreach ($all as $project) {
+                // A project's vendor may be unknown if its details could not be loaded.
+                if ((!$complete && $project->vendor === null) || $this->matchesVendorFilter($vendorFilter, $project)) {
+                    $projects[] = $project;
+                } else {
+                    $hiddenIds[$project->id] = $project->id;
+                }
+            }
+            if ($hiddenIds) {
+                $this->io->debug(sprintf(
+                    'Projects hidden by the vendor filter (%s): %s',
+                    implode(', ', (array) $vendorFilter),
+                    implode(', ', $hiddenIds),
+                ));
+            }
+            if ($complete) {
+                $this->userCache()->save($cacheKey, $projects, $this->config->getInt('api.projects_ttl'));
+            } else {
+                $this->stdErr->writeln('<comment>Warning: some project details could not be loaded. Try again later, or run with -v for details.</comment>');
+            }
         } else {
             $projects = $cached;
             $this->io->debug('Loaded user project data from cache');
         }
 
         return $projects;
+    }
+
+    /**
+     * Loads the user's projects from their extended access grants.
+     *
+     * References are loaded on a best-effort basis: a project without one is listed with only its ID and organization.
+     *
+     * @return array{BasicProjectInfo[], bool} The projects, and whether all of their details were loaded.
+     */
+    private function loadProjectsFromExtendedAccess(): array
+    {
+        $this->io->debug('Loading extended access information to fetch the projects list');
+        $httpClient = $this->getHttpClient();
+        $url = '/users/' . rawurlencode($this->getMyUserId()) . '/extended-access';
+        $data = UserExtendedAccess::send(new Request('GET', $url), $httpClient, [
+            'query' => ['filter[resource_type]' => 'project'],
+        ]);
+
+        // Resolve each reference link separately, so that one failure does not lose the others. The client would
+        // also hide a failure in a PHP warning.
+        $complete = true;
+        $resolver = new Resolver($httpClient, $url);
+        $links = is_array($data['_links'] ?? null) ? $data['_links'] : [];
+        foreach ($links as $key => $link) {
+            if (!str_starts_with((string) $key, 'ref:')) {
+                continue;
+            }
+            unset($links[$key]);
+            try {
+                $refs = $resolver->resolveReferences(['_links' => [$key => $link]]);
+            } catch (GuzzleException $e) {
+                $complete = false;
+                $message = ApiErrorMessage::fromThrowable($e) ?? $e->getMessage();
+                $this->stdErr->writeln('Failed to load references: ' . $message, OutputInterface::VERBOSITY_VERBOSE);
+                continue;
+            }
+            foreach ($refs as $refKey => $values) {
+                if (is_string($refKey) && str_starts_with($refKey, 'ref:') && is_array($values)) {
+                    $data[$refKey] = (is_array($data[$refKey] ?? null) ? $data[$refKey] : []) + $values;
+                }
+            }
+        }
+        $data['_links'] = $links;
+
+        $projects = [];
+        $unresolvedIds = [];
+        foreach (UserExtendedAccess::wrapCollection($data, $url, $httpClient) as $access) {
+            try {
+                $projects[] = BasicProjectInfo::fromExtendedAccess($access);
+            } catch (ProjectReferenceException $e) {
+                $id = $e->getProjectId();
+                $stub = new ProjectStub([
+                    'id' => $id,
+                    'title' => '',
+                    'organization_id' => $access->organization_id,
+                ], $url, $httpClient);
+                $project = BasicProjectInfo::fromStub($stub);
+                $project->organization_ref = $access->getOrganizationInfo();
+                $vendor = $project->organization_ref?->getProperty('vendor', false);
+                $project->vendor = is_string($vendor) ? $vendor : null;
+                $projects[] = $project;
+                $unresolvedIds[$id] = $id;
+            }
+        }
+        if ($unresolvedIds) {
+            $complete = false;
+            $this->stdErr->writeln('Projects without details: ' . implode(', ', $unresolvedIds), OutputInterface::VERBOSITY_VERBOSE);
+        }
+
+        return [$projects, $complete];
     }
 
     /**

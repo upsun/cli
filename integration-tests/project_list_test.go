@@ -1,8 +1,10 @@
 package tests
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -160,4 +162,74 @@ func TestProjectListCacheIsPerUser(t *testing.T) {
 	stdOut, _, err := f.RunCombinedOutput("projects", "--pipe", "--refresh=0")
 	assert.Error(t, err)
 	assert.Empty(t, stdOut)
+}
+
+func TestProjectListUnresolvedProjects(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+
+	myUserID := "my-user-id"
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.SetMyUser(&mockapi.User{ID: myUserID})
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	apiHandler.SetOrgs([]*mockapi.Org{
+		makeOrg("org-id-1", "org-1", "Org 1", myUserID, "flexible"),
+		makeOrg("org-id-acme", "org-acme", "Acme", myUserID, "flexible"),
+	})
+	// The mock returns a null reference for "project-missing", which is not set.
+	apiHandler.SetProjects([]*mockapi.Project{
+		makeProject("project-id-1", "org-id-1", "test-vendor", "Project 1", "region-1"),
+		makeProject("project-acme", "org-id-acme", "acme", "Acme Project", "region-1"),
+	})
+	grant := func(projectID, orgID string) *mockapi.UserGrant {
+		return &mockapi.UserGrant{
+			ResourceID:     projectID,
+			ResourceType:   "project",
+			OrganizationID: orgID,
+			UserID:         myUserID,
+			Permissions:    []string{"admin"},
+		}
+	}
+	apiHandler.SetUserGrants([]*mockapi.UserGrant{
+		grant("project-id-1", "org-id-1"),
+		grant("project-missing", "org-id-1"),
+		grant("project-acme", "org-id-acme"),
+	})
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+
+	// Projects without details are listed by ID. The warning is repeated, as an incomplete list is not cached.
+	for range 2 {
+		stdOut, stdErr, err := f.RunCombinedOutput("pro", "--format", "csv", "--columns", "id,title,organization_name")
+		assert.NoError(t, err)
+		assert.Equal(t, "ID,Title,Org name\nproject-missing,[Untitled Project],org-1\nproject-id-1,Project 1,org-1\n", stdOut)
+		assert.Contains(t, stdErr, "some project details could not be loaded")
+		assert.NotContains(t, stdErr, "project-missing")
+	}
+
+	// Details are shown in verbose output.
+	_, stdErr, err := f.RunCombinedOutput("pro", "-v")
+	assert.NoError(t, err)
+	assert.Contains(t, stdErr, "Projects without details: project-missing")
+
+	_, stdErr, err = f.RunCombinedOutput("pro", "-vvv")
+	assert.NoError(t, err)
+	assert.Contains(t, stdErr, "Projects hidden by the vendor filter (test-vendor): project-acme")
+
+	// If a reference request fails, projects are listed by ID, including those with an unknown vendor.
+	apiHandler.FailNext("GET", "/ref/projects", http.StatusBadGateway, "<html>Bad Gateway</html>")
+	stdOut, stdErr, err := f.RunCombinedOutput("pro", "--pipe", "-v")
+	assert.NoError(t, err)
+	assert.ElementsMatch(t, []string{"project-id-1", "project-missing", "project-acme"}, strings.Fields(stdOut))
+	assert.Contains(t, stdErr, "some project details could not be loaded")
+	assert.Contains(t, stdErr, "Failed to load references: The API returned 502 Bad Gateway")
+	assert.NotContains(t, stdErr, "You do not have any")
+
+	// The table renders projects without details.
+	apiHandler.FailNext("GET", "/ref/projects", http.StatusBadGateway, "<html>Bad Gateway</html>")
+	stdOut = f.Run("pro", "--columns", "id,title,region,status,created_at")
+	assert.Contains(t, stdOut, "project-missing")
 }
