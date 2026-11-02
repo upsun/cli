@@ -4,6 +4,8 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -21,15 +23,17 @@ import (
 )
 
 // fakeGitHub serves the GitHub endpoints that installer.sh uses: the latest release page (which redirects to
-// the release), the releases API, and release downloads.
+// the release), the releases API, and release downloads, including checksums.txt.
 type fakeGitHub struct {
 	t   *testing.T
 	srv *httptest.Server
 
-	tag            string   // The latest release tag.
-	validTokens    []string // The tokens that the API accepts.
-	redirectStatus int      // If set, the status of the latest release page, instead of a redirect.
-	apiStatus      int      // If set, the status of the latest release API response (for an accepted or no token).
+	tag             string   // The latest release tag.
+	validTokens     []string // The tokens that the API accepts.
+	redirectStatus  int      // If set, the status of the latest release page, instead of a redirect.
+	apiStatus       int      // If set, the status of the latest release API response (for an accepted or no token).
+	checksumsStatus int      // If set, the status of the checksums.txt response.
+	badChecksums    bool     // If set, checksums.txt lists wrong checksums.
 
 	mu       sync.Mutex
 	requests []fakeGitHubRequest
@@ -65,6 +69,21 @@ func newFakeGitHub(t *testing.T) *fakeGitHub {
 	})
 	mux.HandleFunc("GET /upsun/cli/releases/download/{tag}/{file}", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(fakeCLIArchive(t, strings.TrimPrefix(r.PathValue("tag"), "v")))
+	})
+	mux.HandleFunc("GET /upsun/cli/releases/download/{tag}/checksums.txt", func(w http.ResponseWriter, r *http.Request) {
+		if g.checksumsStatus != 0 {
+			w.WriteHeader(g.checksumsStatus)
+			return
+		}
+		version := strings.TrimPrefix(r.PathValue("tag"), "v")
+		sum := sha256.Sum256(fakeCLIArchive(t, version))
+		if g.badChecksums {
+			sum = sha256.Sum256([]byte("other"))
+		}
+		// The archives are the same on every platform.
+		for _, platform := range []string{"darwin_all", "linux_amd64", "linux_arm64"} {
+			_, _ = fmt.Fprintf(w, "%s  upsun_%s_%s.tar.gz\n", hex.EncodeToString(sum[:]), version, platform)
+		}
 	})
 	g.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		g.mu.Lock()
@@ -112,8 +131,10 @@ type installerResult struct {
 // runInstaller runs installer.sh with the raw install method, against the fake GitHub.
 // The environment is built from scratch, so that the developer's or CI's tokens are not used.
 // A fake gh CLI is first in the PATH: it is logged in if env has GH_FAKE_TOKEN.
-// If noJQ is set, jq is left out of the PATH.
-func runInstaller(t *testing.T, g *fakeGitHub, env []string, homeFiles map[string]string, noJQ bool) installerResult {
+// The executables in exclude are left out of the PATH.
+func runInstaller(
+	t *testing.T, g *fakeGitHub, env []string, homeFiles map[string]string, exclude ...string,
+) installerResult {
 	dir := t.TempDir()
 	home := filepath.Join(dir, "home")
 	binDir := filepath.Join(dir, "bin")
@@ -136,8 +157,8 @@ esac
 	require.NoError(t, os.WriteFile(filepath.Join(fakeBin, "gh"), []byte(gh), 0o755))
 
 	path := fakeBin + string(os.PathListSeparator) + os.Getenv("PATH")
-	if noJQ {
-		path = fakeBin + string(os.PathListSeparator) + pathWithout(t, filepath.Join(dir, "path-bin"), "jq")
+	if len(exclude) > 0 {
+		path = fakeBin + string(os.PathListSeparator) + pathWithout(t, filepath.Join(dir, "path-bin"), exclude...)
 	}
 
 	installer, err := filepath.Abs("../installer.sh")
@@ -160,8 +181,8 @@ esac
 	return installerResult{output: string(out), err: err, binPath: filepath.Join(binDir, "upsun")}
 }
 
-// pathWithout creates a directory of links to the executables in the PATH, leaving out one name, and returns it.
-func pathWithout(t *testing.T, dir, exclude string) string {
+// pathWithout creates a directory of links to the executables in the PATH, leaving out some names, and returns it.
+func pathWithout(t *testing.T, dir string, exclude ...string) string {
 	require.NoError(t, os.MkdirAll(dir, 0o700))
 	for _, pathDir := range filepath.SplitList(os.Getenv("PATH")) {
 		entries, err := os.ReadDir(pathDir)
@@ -170,7 +191,7 @@ func pathWithout(t *testing.T, dir, exclude string) string {
 		}
 		for _, e := range entries {
 			link := filepath.Join(dir, e.Name())
-			if e.Name() == exclude || e.IsDir() {
+			if slices.Contains(exclude, e.Name()) || e.IsDir() {
 				continue
 			}
 			if _, err := os.Lstat(link); err == nil {
@@ -464,14 +485,19 @@ func TestInstallerLatestVersion(t *testing.T) {
 			g.redirectStatus = c.redirectStatus
 			g.apiStatus = c.apiStatus
 
-			r := runInstaller(t, g, c.env, c.homeFiles, c.noJQ)
+			var exclude []string
+			if c.noJQ {
+				exclude = []string{"jq"}
+			}
+			r := runInstaller(t, g, c.env, c.homeFiles, exclude...)
 			if c.wantVersion == "" {
 				assert.Error(t, r.err)
 				assert.NoFileExists(t, r.binPath)
 				assert.Empty(t, g.authHeaders(downloadPath))
 			} else {
 				assertInstalled(t, r, c.wantVersion)
-				assert.Equal(t, []string{c.wantDownloadAuth}, g.authHeaders(downloadPath), "download")
+				// The archive, then checksums.txt.
+				assert.Equal(t, []string{c.wantDownloadAuth, c.wantDownloadAuth}, g.authHeaders(downloadPath), "download")
 			}
 			for _, s := range c.wantOutput {
 				assert.Contains(t, r.output, s)
@@ -485,6 +511,67 @@ func TestInstallerLatestVersion(t *testing.T) {
 				assert.Empty(t, auth, "the latest release page is requested without a token")
 			}
 			assert.Equal(t, c.wantAPIAuth, g.authHeaders(apiPath), "API requests")
+		})
+	}
+}
+
+func TestInstallerChecksum(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test due to -short flag")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("installer.sh does not run on Windows")
+	}
+	t.Parallel()
+
+	cases := []struct {
+		name            string
+		checksumsStatus int
+		badChecksums    bool
+		exclude         []string
+
+		wantInstalled bool
+		wantOutput    []string
+	}{
+		{
+			name:          "match",
+			wantInstalled: true,
+			wantOutput:    []string{"is installed", "/checksums.txt", "Verified the SHA-256 checksum"},
+		},
+		{
+			name:         "mismatch",
+			badChecksums: true,
+			wantOutput:   []string{"checksum mismatch for upsun_1.2.3_", "Installation failed"},
+		},
+		{
+			name:            "missing checksums.txt",
+			checksumsStatus: http.StatusNotFound,
+			wantOutput:      []string{"could not download the checksums file", "Installation failed"},
+		},
+		{
+			name:       "no checksum tool",
+			exclude:    []string{"sha256sum", "shasum"},
+			wantOutput: []string{"ERROR: sha256sum or shasum is required to verify the download", "Installation failed"},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			g := newFakeGitHub(t)
+			g.checksumsStatus = c.checksumsStatus
+			g.badChecksums = c.badChecksums
+
+			r := runInstaller(t, g, nil, nil, c.exclude...)
+			if c.wantInstalled {
+				assertInstalled(t, r, "1.2.3")
+			} else {
+				assert.Error(t, r.err)
+				assert.NoFileExists(t, r.binPath)
+			}
+			for _, s := range c.wantOutput {
+				assert.Contains(t, r.output, s)
+			}
 		})
 	}
 }

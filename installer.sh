@@ -578,15 +578,16 @@ call_user() {
     return "$call_user_code"
 }
 
+# Find a SHA-256 tool, to verify the download against the release's checksums.txt.
 check_shasum() {
-    if command -v sha1sum > /dev/null 2>&1; then
-        cmd_shasum="sha1sum"
-        output "  [*] sha1sum is installed" "success"
+    if command -v sha256sum > /dev/null 2>&1; then
+        cmd_shasum="sha256sum"
+        output "  [*] sha256sum is installed" "success"
     elif command -v shasum > /dev/null 2>&1; then
-        cmd_shasum="shasum -a 1"
+        cmd_shasum="shasum -a 256"
         output "  [*] shasum is installed" "success"
     else
-        output "  [ ] No sha1sum or shasum available to verify binary" "error"
+        output "  [ ] ERROR: sha256sum or shasum is required to verify the download" "error"
         exit_with_error
     fi
 }
@@ -779,11 +780,47 @@ is_ci() {
     fi
 }
 
+# Verify a downloaded file against the release's checksums.txt, or exit.
+# Arguments: file path, file name in checksums.txt
+verify_checksum() {
+    checksums_url="${URL}/${tag}/checksums.txt"
+    output "  Downloading ${checksums_url}"
+    checksums_file=$(mktemp)
+    if ! github_curl "$checksums_url" > "$checksums_file"; then
+        rm -f "$checksums_file" "$1"
+        output "  could not download the checksums file" "error"
+        exit_with_error
+    fi
+
+    expected=""
+    while read -r sum name; do
+        if [ "$name" = "$2" ]; then
+            expected="$sum"
+            break
+        fi
+    done < "$checksums_file"
+    rm -f "$checksums_file"
+    if [ -z "$expected" ]; then
+        rm -f "$1"
+        output "  ${2} is not listed in ${checksums_url}" "error"
+        exit_with_error
+    fi
+
+    actual=$($cmd_shasum "$1" | cut -d ' ' -f 1)
+    if [ "$actual" != "$expected" ]; then
+        rm -f "$1"
+        output "  checksum mismatch for ${2}: expected ${expected}, got ${actual}" "error"
+        exit_with_error
+    fi
+    output "  Verified the SHA-256 checksum"
+}
+
 install_raw() {
     # Start downloading the right version
     output "\nDownloading the $vendor_name CLI" "heading"
 
-    url="${URL}/${tag}/${binary}_${version}_${kernel}_${machine}.tar.gz"
+    archive="${binary}_${version}_${kernel}_${machine}.tar.gz"
+    url="${URL}/${tag}/${archive}"
     output "  Downloading ${url}";
     tmp_dir=$(mktemp -d)
     tmp_name="$binary-"$(date +"%s")
@@ -791,6 +828,8 @@ install_raw() {
         output "  the download failed" "error"
         exit_with_error
     fi
+
+    verify_checksum "${tmp_dir}/${tmp_name}.tgz" "$archive"
 
     output "  Uncompressing archive"
     tar -C "${tmp_dir}" -xzf "${tmp_dir}/${tmp_name}.tgz"
