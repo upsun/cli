@@ -27,6 +27,8 @@ use Symfony\Component\Console\Helper\Helper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Process\Exception\ProcessFailedException;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Exception\RuntimeException as ProcessRuntimeException;
 
 /**
@@ -60,6 +62,9 @@ class DbMysqlOptimizeCommand extends CommandBase
     public const RESERVE_PERCENT = 10;
 
     private const SYSTEM_SCHEMAS = ['mysql', 'information_schema', 'performance_schema', 'sys'];
+
+    /** The minimum free space shared by tables for them to count as probably in a shared tablespace (smaller amounts are common in separate files). */
+    private const SHARED_FREE_MIN = 8 * 1024 * 1024;
 
     /** Rows are sampled in this many ranges of the primary key, of this many rows each. */
     public const SAMPLE_RANGES = 50;
@@ -98,7 +103,7 @@ class DbMysqlOptimizeCommand extends CommandBase
             ->addOption('min-reclaimable', null, InputOption::VALUE_REQUIRED, 'The minimum reclaimable space of a table, in bytes or with a unit (K, M, G)', self::DEFAULT_MIN_RECLAIMABLE)
             ->addOption('min-percent', null, InputOption::VALUE_REQUIRED, 'The minimum reclaimable space of a table, as a percentage of its size', (string) self::DEFAULT_MIN_PERCENT)
             ->addOption('table', 't', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Only check these tables (as "table" or "schema.table")')
-            ->addOption('analyze', null, InputOption::VALUE_NONE, 'Refresh statistics with ANALYZE TABLE on the tables found, and check them again (useful on MariaDB and MySQL 5.7)')
+            ->addOption('analyze', null, InputOption::VALUE_NONE, 'Refresh statistics with ANALYZE TABLE on the tables checked, before estimating their free space')
             ->addOption('execute', null, InputOption::VALUE_NONE, 'Rebuild the tables found (by default, they are only reported)')
             ->addOption('force', null, InputOption::VALUE_NONE, 'With --execute: rebuild even if the disk headroom is unknown or too small, or on a cluster (Galera)')
             ->addOption('bytes', 'B', InputOption::VALUE_NONE, 'Show sizes in bytes');
@@ -183,12 +188,7 @@ class DbMysqlOptimizeCommand extends CommandBase
         }
 
         // Find the tables.
-        $tables = $this->findTables($host, $mysql, $server, $minReclaimable, $minPercent, $tableFilter);
-        if ($tables && Option::bool($input, 'analyze')) {
-            $this->stdErr->writeln(\sprintf('Analyzing %d table(s)...', \count($tables)));
-            $host->runCommand($mysql, true, true, 'ANALYZE TABLE ' . implode(', ', array_map(fn(TableCandidate $t): string => $t->quotedName(), $tables)) . ';');
-            $tables = $this->findTables($host, $mysql, $server, $minReclaimable, $minPercent, $tableFilter);
-        }
+        $tables = $this->findTables($host, $mysql, $server, $minReclaimable, $minPercent, $tableFilter, Option::bool($input, 'analyze'));
 
         $this->stdErr->writeln('');
         $this->showServerWarnings($server, $headroom);
@@ -298,7 +298,7 @@ class DbMysqlOptimizeCommand extends CommandBase
      *
      * @return TableCandidate[]
      */
-    private function findTables(HostInterface $host, string $mysql, MysqlServerInfo $server, int $minReclaimable, float $minPercent, array $filter): array
+    private function findTables(HostInterface $host, string $mysql, MysqlServerInfo $server, int $minReclaimable, float $minPercent, array $filter, bool $analyze): array
     {
         $query = '';
         if ($server->hasStatsExpiry) {
@@ -306,10 +306,15 @@ class DbMysqlOptimizeCommand extends CommandBase
             $query .= "SET SESSION information_schema_stats_expiry = 0;\n";
         }
         $query .= self::tablesQuery($minReclaimable, $filter) . "\n";
-        $this->io->debug('Query: ' . $query);
-        $tables = [];
-        foreach ($this->parseRows((string) $host->runCommand($mysql, true, true, $query), 8) as $fields) {
-            $tables[] = TableCandidate::fromRow($fields);
+        $readTables = function () use ($host, $mysql, $query): array {
+            $this->io->debug('Query: ' . $query);
+            return array_map(TableCandidate::fromRow(...), $this->parseRows((string) $host->runCommand($mysql, true, true, $query), 8));
+        };
+        $tables = $readTables();
+        if ($tables && $analyze) {
+            $this->stdErr->writeln(\sprintf('Analyzing %d table(s)...', \count($tables)));
+            $host->runCommand($mysql, true, true, 'ANALYZE TABLE ' . implode(', ', array_map(fn(TableCandidate $t): string => $t->quotedName(), $tables)) . ';');
+            $tables = $readTables();
         }
 
         $tables = $this->sampleRows($host, $mysql, $server, $tables);
@@ -363,14 +368,24 @@ class DbMysqlOptimizeCommand extends CommandBase
             $result = (string) $host->runCommand($mysql, true, true, $query);
         } catch (ProcessRuntimeException $e) {
             $this->stdErr->writeln('<comment>Warning:</comment> failed to sample rows: only free extents are counted as reclaimable.');
-            $this->io->debug($e->getMessage());
+            $this->io->debug(self::processError($e));
             return $tables;
         }
 
         foreach ($this->parseRows($result, 3) as [$i, $count, $bytes]) {
-            if (isset($firstRows[(int) $i])) {
-                $tables[(int) $i] = $tables[(int) $i]->withSample((int) $count > 0 ? (int) $bytes / (int) $count : 0.0, $firstRows[(int) $i]);
+            $i = (int) $i;
+            if (!isset($firstRows[$i])) {
+                continue;
             }
+            // The estimate is proportional to the row count, so it cannot be used if the count is out of date.
+            if ($tables[$i]->rows < (int) $count) {
+                $this->stdErr->writeln(\sprintf(
+                    '<comment>Warning:</comment> the row count of %s is out of date: only its free extents are counted as reclaimable. Use <comment>--analyze</comment> to refresh it.',
+                    $tables[$i]->displayName(),
+                ));
+                continue;
+            }
+            $tables[$i] = $tables[$i]->withSample((int) $count > 0 ? (int) $bytes / (int) $count : 0.0, $firstRows[$i]);
         }
 
         return $tables;
@@ -401,9 +416,11 @@ class DbMysqlOptimizeCommand extends CommandBase
      * only excluded if its total size is below the minimum.
      *
      * Free space in a shared tablespace (the system tablespace, if
-     * innodb_file_per_table is OFF, or a general tablespace) is reported for
-     * each of its tables: the "same_free" column counts the other tables with
-     * the same free space, to detect them.
+     * innodb_file_per_table is or was OFF, or a general tablespace) is
+     * reported for each of its tables: the "same_free" column counts the
+     * other tables with the same free space, to detect them. A table that is
+     * alone in a shared tablespace, among the tables the user can see, is not
+     * detected.
      *
      * @param string[] $filter
      */
@@ -432,7 +449,7 @@ class DbMysqlOptimizeCommand extends CommandBase
             . " (SELECT COUNT(*) FROM information_schema.STATISTICS s WHERE s.TABLE_SCHEMA = t.TABLE_SCHEMA AND s.TABLE_NAME = t.TABLE_NAME AND s.INDEX_TYPE IN ('FULLTEXT', 'SPATIAL')) AS offline_indexes,"
             . ' COALESCE(f.n, 1) - 1 AS same_free'
             . ' FROM information_schema.TABLES t'
-            . " LEFT JOIN (SELECT DATA_FREE AS free, COUNT(*) AS n FROM information_schema.TABLES WHERE ENGINE = 'InnoDB' AND DATA_FREE >= " . $minReclaimable . ' GROUP BY DATA_FREE) f ON f.free = t.DATA_FREE'
+            . " LEFT JOIN (SELECT DATA_FREE AS free, COUNT(*) AS n FROM information_schema.TABLES WHERE ENGINE = 'InnoDB' AND DATA_FREE >= " . self::SHARED_FREE_MIN . ' GROUP BY DATA_FREE) f ON f.free = t.DATA_FREE'
             . ' WHERE ' . implode(' AND ', $conditions) . ';';
     }
 
@@ -650,7 +667,7 @@ class DbMysqlOptimizeCommand extends CommandBase
                 $host->runCommand($mysql, true, true, $sql);
             } catch (ProcessRuntimeException $e) {
                 $this->stdErr->writeln(' <error>[failed]</error>');
-                $this->stdErr->writeln($e->getMessage());
+                $this->stdErr->writeln(self::processError($e));
                 return false;
             }
             $this->stdErr->writeln(\sprintf(' <info>[OK]</info> (%ds)', round(microtime(true) - $start)));
@@ -660,6 +677,24 @@ class DbMysqlOptimizeCommand extends CommandBase
         $this->stdErr->writeln('Run this command again (without <comment>--execute</comment>) to check the result.');
 
         return true;
+    }
+
+    /**
+     * Returns the error output of a failed database command.
+     *
+     * The exception's message is not used, as it contains the command line, with the database password.
+     */
+    private static function processError(ProcessRuntimeException $e): string
+    {
+        if (!$e instanceof ProcessFailedException) {
+            return $e instanceof ProcessTimedOutException ? 'The command timed out.' : 'The command failed.';
+        }
+        $lines = array_filter(
+            explode("\n", trim($e->getProcess()->getErrorOutput())),
+            fn(string $line): bool => !str_contains($line, 'Using a password on the command line'),
+        );
+
+        return $lines ? implode("\n", $lines) : 'The command failed with the exit code: ' . $e->getProcess()->getExitCode();
     }
 
     /**

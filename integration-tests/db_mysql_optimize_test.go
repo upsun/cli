@@ -65,6 +65,9 @@ q="$(cat)"
 printf '%%s\n---\n' "$q" >> "$dir/queries.log"
 case "$q" in
   *"SHOW GLOBAL VARIABLES"*) cat "$dir/vars.tsv" ;;
+  *"ALTER TABLE "*"broken"*)
+    echo "ERROR 1846 (0A000) at line 1: LOCK=NONE is not supported. Reason: try LOCK=SHARED" >&2
+    exit 1 ;;
   *"ALTER TABLE"*|*"ANALYZE TABLE"*) ;;
   *"FROM information_schema.TABLES t"*)
     # Apply table name filters.
@@ -200,6 +203,8 @@ main,we`+"`"+`ird,104857600,125829120,120%,104857600,true,0,true
 	// MariaDB has no information_schema_stats_expiry.
 	assert.NotContains(t, q[1], "information_schema_stats_expiry")
 	assert.Contains(t, q[1], "t.DATA_LENGTH + t.INDEX_LENGTH + t.DATA_FREE >= 104857600")
+	// Tables sharing at least 8 MiB of free space are probably in a shared tablespace, whatever the threshold.
+	assert.Contains(t, q[1], "DATA_FREE >= 8388608 GROUP BY DATA_FREE")
 	// Tables in a shared tablespace are not sampled.
 	assert.Contains(t, q[2], "FROM information_schema.COLUMNS WHERE (TABLE_SCHEMA, TABLE_NAME) IN (('main', 'logs'), ")
 	assert.NotContains(t, q[2], "we`ird")
@@ -245,6 +250,36 @@ func TestDbMysqlOptimizeSampleFailure(t *testing.T) {
 	require.NoError(t, err, stdErr)
 	assert.Contains(t, stdErr, "Warning: failed to sample rows: only free extents are counted as reclaimable.")
 	assert.Equal(t, "cache,1073741824,3221225472\nsearch,157286400,209715200\nwe`ird,125829120,104857600\n", output)
+}
+
+func TestDbMysqlOptimizeStaleRowCount(t *testing.T) {
+	t.Parallel()
+	// 1000 rows are sampled, but TABLE_ROWS is 10: the estimate would be far too small.
+	tables := []fakeTable{{schema: "main", name: "loaded", dataLength: 2048 * mib, dataFree: 600 * mib,
+		rows: 10, avgRowBytes: 1024}}
+	p, _ := setUpMysqlOptimizeProject(t, fakeMysqlServer{vars: mariadbVars, tables: tables}, true)
+
+	output, stdErr, err := p.f.RunCombinedOutput("db:mysql-optimize", "-p", layoutProjectID, "-e", "main",
+		"-r", "database", "--format", "csv", "--no-header", "--columns", "table,reclaimable,disk_needed")
+	require.NoError(t, err, stdErr)
+	assert.Contains(t, stdErr, "Warning: the row count of main.loaded is out of date")
+	assert.Equal(t, "loaded,629145600,2147483648\n", output)
+}
+
+func TestDbMysqlOptimizeRebuildFailure(t *testing.T) {
+	t.Parallel()
+	tables := []fakeTable{{schema: "main", name: "broken", dataLength: 200 * mib, dataFree: 150 * mib,
+		rows: 1024, avgRowBytes: 100}}
+	p, _ := setUpMysqlOptimizeProject(t, fakeMysqlServer{vars: mariadbVars, tables: tables}, true)
+
+	// The database's error is shown, without the command line, which includes the password.
+	_, stdErr, err := p.f.RunCombinedOutput("db:mysql-optimize", "-p", layoutProjectID, "-e", "main",
+		"-r", "database", "--execute")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stdErr, "Rebuilding main.broken... [failed]\n"+
+		"ERROR 1846 (0A000) at line 1: LOCK=NONE is not supported.")
+	assert.NotContains(t, stdErr, "--password")
+	assert.NotContains(t, stdErr, "Full command")
 }
 
 func TestDbMysqlOptimizeExecute(t *testing.T) {
@@ -303,12 +338,14 @@ func TestDbMysqlOptimizeEscaping(t *testing.T) {
 	_, stdErr, err := p.f.RunCombinedOutput("db:mysql-optimize", "-p", layoutProjectID, "-e", "main",
 		"-r", "database", "--execute", "--analyze")
 	require.NoError(t, err, stdErr)
+	// The tables are analyzed before they are sampled.
 	q := queries()
-	require.Len(t, q, 9)
-	assert.Contains(t, q[2], "IN (('my`db', 'we`ird'))")
-	assert.Contains(t, q[3], "FROM `my``db`.`we``ird` INTO @lo, @hi;")
-	assert.Equal(t, "ANALYZE TABLE `my``db`.`we``ird`;", q[4])
-	assert.Equal(t, "ALTER TABLE `my``db`.`we``ird` FORCE, ALGORITHM=INPLACE, LOCK=NONE;", q[8])
+	require.Len(t, q, 7)
+	assert.Equal(t, "ANALYZE TABLE `my``db`.`we``ird`;", q[2])
+	assert.Contains(t, q[3], "FROM information_schema.TABLES t")
+	assert.Contains(t, q[4], "IN (('my`db', 'we`ird'))")
+	assert.Contains(t, q[5], "FROM `my``db`.`we``ird` INTO @lo, @hi;")
+	assert.Equal(t, "ALTER TABLE `my``db`.`we``ird` FORCE, ALGORITHM=INPLACE, LOCK=NONE;", q[6])
 }
 
 func TestDbMysqlOptimizeGalera(t *testing.T) {
@@ -403,10 +440,16 @@ func TestDbMysqlOptimizeOtherEngines(t *testing.T) {
 
 func TestDbSizeCleanupDeprecated(t *testing.T) {
 	t.Parallel()
-	p := setUpDBProject(t, map[string]string{"mariadb": "cat > /dev/null; echo 52428800"})
-	_, stdErr, err := p.f.RunCombinedOutput("db:size", "-p", layoutProjectID, "-e", "main", "-r", "database",
-		"--cleanup")
-	require.NoError(t, err, stdErr)
-	assert.Contains(t, stdErr, "The --cleanup option is deprecated")
-	assert.Contains(t, stdErr, "platform-test db:mysql-optimize")
+	p := setUpDBProject(t, map[string]string{
+		"mariadb": "cat > /dev/null; echo 52428800",
+		"psql":    "cat > /dev/null; echo 52428800",
+	})
+	// The notice is shown for any database, as the option is ignored for other types.
+	for _, rel := range []string{"database", "pg"} {
+		_, stdErr, err := p.f.RunCombinedOutput("db:size", "-p", layoutProjectID, "-e", "main", "-r", rel,
+			"--cleanup")
+		require.NoError(t, err, stdErr)
+		assert.Contains(t, stdErr, "The --cleanup option is deprecated", rel)
+		assert.Contains(t, stdErr, "platform-test db:mysql-optimize", rel)
+	}
 }

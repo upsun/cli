@@ -70,6 +70,15 @@ class DbSizeCommand extends CommandBase
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        if (Option::bool($input, 'cleanup')) {
+            $this->stdErr->writeln('<options=bold;fg=yellow>Deprecated:</> The --cleanup option is deprecated and will be removed in a future version.');
+            $this->stdErr->writeln(\sprintf(
+                'To find tables with reclaimable space, and check whether they can be rebuilt safely, run: <comment>%s db:mysql-optimize</comment>',
+                $this->config->getStr('application.executable'),
+            ));
+            $this->stdErr->writeln('');
+        }
+
         $selection = $this->selector->getSelection($input, new SelectorConfig(allowLocalHost: $this->relationships->hasLocalEnvVar(), chooseEnvFilter: SelectorConfig::filterEnvsMaybeActive()));
         $host = $this->selector->getHostFromSelection($input, $selection);
 
@@ -149,11 +158,6 @@ class DbSizeCommand extends CommandBase
     private function checkInnoDbTablesInNeedOfOptimizing(HostInterface $host, array $database, InputInterface $input): void
     {
         $this->stdErr->writeln('');
-        $this->stdErr->writeln('<options=bold;fg=yellow>Deprecated:</> The --cleanup option is deprecated and will be removed in a future version.');
-        $this->stdErr->writeln(\sprintf(
-            'To find tables with reclaimable space, and check whether they can be rebuilt safely, run: <comment>%s db:mysql-optimize</comment>',
-            $this->config->getStr('application.executable'),
-        ));
 
         $tablesNeedingCleanup = $host->runCommand($this->getMysqlCommand($database), true, true, $this->mysqlTablesInNeedOfOptimizing());
         $queries = [];
