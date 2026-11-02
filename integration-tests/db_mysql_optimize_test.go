@@ -17,30 +17,50 @@ import (
 
 const mib = 1024 * 1024
 
+// fakeTable is a table returned by the fake server.
+type fakeTable struct {
+	schema, name                      string
+	dataLength, indexLength, dataFree int
+	rows, offlineIndexes, sameFree    int
+	// Whether the primary key is not a single integer column, so the first rows are sampled.
+	noIntegerKey bool
+	// The average bytes of the sampled rows.
+	avgRowBytes int
+}
+
 // fakeMysqlServer is a fake "mariadb" client, which answers the queries of db:mysql-optimize.
 type fakeMysqlServer struct {
-	vars   map[string]string
-	tables [][]any // schema, table, data_length, index_length, data_free, offline_indexes, same_free
+	vars       map[string]string
+	tables     []fakeTable
+	failSample bool
 }
 
 // script returns the fake client, which logs each query to a file in dir.
 func (s fakeMysqlServer) script(t *testing.T, dir string) string {
-	var vars, tables strings.Builder
+	var vars, tables, columns, samples strings.Builder
 	for k, v := range s.vars {
 		fmt.Fprintf(&vars, "%s\t%s\n", k, v)
 	}
-	for _, row := range s.tables {
-		for i, v := range row {
-			if i > 0 {
-				tables.WriteString("\t")
-			}
-			fmt.Fprint(&tables, v)
+	quote := func(s string) string { return "`" + strings.ReplaceAll(s, "`", "``") + "`" }
+	for _, tbl := range s.tables {
+		fmt.Fprintf(&tables, "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\n", tbl.schema, tbl.name,
+			tbl.dataLength, tbl.indexLength, tbl.dataFree, tbl.rows, tbl.offlineIndexes, tbl.sameFree)
+		// Columns are matched by the table's name in the query, as "('schema', 'name')".
+		key := "PRI"
+		if tbl.noIntegerKey {
+			key = ""
 		}
-		tables.WriteString("\n")
+		match := fmt.Sprintf("('%s', '%s')", tbl.schema, tbl.name)
+		fmt.Fprintf(&columns, "%s\t%s\t%s\tid\tint\t%s\n", match, tbl.schema, tbl.name, key)
+		fmt.Fprintf(&columns, "%s\t%s\t%s\tpayload\tvarchar\t\n", match, tbl.schema, tbl.name)
+		fmt.Fprintf(&samples, "%s.%s\t1000\t%d\n", quote(tbl.schema), quote(tbl.name), 1000*tbl.avgRowBytes)
 	}
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "vars.tsv"), []byte(vars.String()), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "tables.tsv"), []byte(tables.String()), 0o600))
+	for name, b := range map[string]*strings.Builder{"vars": &vars, "tables": &tables, "columns": &columns,
+		"samples": &samples} {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name+".tsv"), []byte(b.String()), 0o600))
+	}
 	return fmt.Sprintf(`dir=%q
+failSample=%t
 q="$(cat)"
 printf '%%s\n---\n' "$q" >> "$dir/queries.log"
 case "$q" in
@@ -54,9 +74,23 @@ case "$q" in
       esac
       printf '%%s\t%%s\t%%s\n' "$schema" "$name" "$rest"
     done < "$dir/tables.tsv" ;;
+  *"FROM information_schema.COLUMNS"*)
+    # The last field may be empty, so the lines are not split with read.
+    while IFS= read -r line; do
+      case "$q" in *"${line%%%%$'\t'*}"*) printf '%%s\n' "${line#*$'\t'}" ;; esac
+    done < "$dir/columns.tsv" ;;
+  *"COALESCE(SUM(b), 0)"*)
+    if $failSample; then echo "ERROR 1142 (42000): SELECT command denied" >&2; exit 1; fi
+    # One line per table: answer with its index.
+    while IFS= read -r line; do
+      [[ $line =~ SELECT\ ([0-9]+),\ COUNT ]] || continue
+      while IFS=$'\t' read -r quoted n bytes; do
+        case "$line" in *"FROM $quoted "*) printf '%%s\t%%s\t%%s\n' "${BASH_REMATCH[1]}" "$n" "$bytes" ;; esac
+      done < "$dir/samples.tsv"
+    done <<< "$q" ;;
   *) echo "unexpected query: $q" >&2; exit 1 ;;
 esac
-`, dir)
+`, dir, s.failSample)
 }
 
 // setUpMysqlOptimizeProject serves an app with database relationships, with a fake MariaDB client, and disk metrics
@@ -113,13 +147,22 @@ var mariadbVars = map[string]string{
 	"tmpdir":                "/tmp",
 }
 
-// optimizeTables are the tables returned by the fake server. Thresholds are applied by the query, so they are not
-// tested here.
-var optimizeTables = [][]any{
-	{"main", "logs", 200 * mib, 50 * mib, 300 * mib, 0, 0},
-	{"main", "cache", 2048 * mib, 1024 * mib, 1024 * mib, 0, 0},
-	{"main", "search", 100 * mib, 100 * mib, 150 * mib, 1, 0},
-	{"main", "we`ird", 100 * mib, 0, 120 * mib, 0, 1},
+// optimizeTables are the tables returned by the fake server. The size threshold is applied by the query, so the fake
+// server ignores it.
+var optimizeTables = []fakeTable{
+	// Rebuilt: 75 MiB of data, and 18.75 MiB of indexes.
+	{schema: "main", name: "logs", dataLength: 200 * mib, indexLength: 50 * mib, dataFree: 12 * mib,
+		rows: 102400, avgRowBytes: 512},
+	// Rebuilt: 3 GiB of data, and the indexes do not grow: only the free extents are reclaimable.
+	{schema: "main", name: "cache", dataLength: 2048 * mib, indexLength: 1024 * mib, dataFree: 1024 * mib,
+		rows: 1048576, avgRowBytes: 2048},
+	// Rebuilt: 3 MiB of data, and 3 MiB of indexes.
+	{schema: "main", name: "search", dataLength: 100 * mib, indexLength: 100 * mib, dataFree: 150 * mib,
+		rows: 2048, avgRowBytes: 1024, offlineIndexes: 1, noIntegerKey: true},
+	// Not sampled.
+	{schema: "main", name: "we`ird", dataLength: 100 * mib, dataFree: 120 * mib, sameFree: 1},
+	// Rebuilt: 112.5 MiB of data, so less than 100 MiB is reclaimable.
+	{schema: "main", name: "small", dataLength: 150 * mib, rows: 153600, avgRowBytes: 512},
 }
 
 func TestDbMysqlOptimizeReport(t *testing.T) {
@@ -133,35 +176,50 @@ func TestDbMysqlOptimizeReport(t *testing.T) {
 		"--columns", "schema,table,size,reclaimable,percent,disk_needed,disk_fits,tmp_needed,tmp_fits")...)
 	require.NoError(t, err, stdErr)
 	assert.Contains(t, stdErr, "Checking database service db...")
+	assert.Contains(t, stdErr, "Sampling rows from 4 table(s)...")
 	assert.Contains(t, stdErr, "Disk: 3.0 GiB free of 4.0 GiB. /tmp: 924.0 MiB free of 1.0 GiB.")
+	// Sorted by reclaimable space. The disk needed is the rebuilt size, plus 10% and 8 MiB.
 	assert.Equal(t, `Schema,Table,Size,Reclaimable,Reclaimable %,Disk needed,Fits disk,/tmp needed,Fits /tmp
-main,logs,262144000,314572800,120%,262144000,true,52428800,true
-main,cache,3221225472,1073741824,33%,3221225472,false,1073741824,false
-main,search,209715200,157286400,75%,209715200,true,104857600,true
+main,cache,3221225472,1073741824,33%,4732852633,false,1073741824,false
+main,search,209715200,360710144,172%,15309209,true,104857600,true
+main,logs,262144000,176422912,67%,116523008,true,52428800,true
 main,we`+"`"+`ird,104857600,125829120,120%,104857600,true,0,true
 `, output)
 
 	output = p.f.Run(args("--format", "tsv", "--no-header", "--columns", "table,notes")...)
-	assert.Equal(t, "logs\t\ncache\t\n"+
-		"search\thas a FULLTEXT or SPATIAL index: it cannot be rebuilt without blocking writes\n"+
+	assert.Equal(t, "cache\t\n"+
+		"search\thas a FULLTEXT or SPATIAL index: it cannot be rebuilt without blocking writes;"+
+		" estimated from the first rows only\n"+
+		"logs\t\n"+
 		"we`ird\tprobably in a shared tablespace: a rebuild would not reclaim space\n", output)
 
 	q := queries()
-	require.Len(t, q, 4) // Two runs.
+	require.Len(t, q, 8) // Two runs.
 	assert.Contains(t, q[0], "SHOW GLOBAL VARIABLES WHERE Variable_name IN (")
 	assert.Contains(t, q[0], "SHOW GLOBAL STATUS WHERE Variable_name IN ('wsrep_cluster_size')")
 	// MariaDB has no information_schema_stats_expiry.
 	assert.NotContains(t, q[1], "information_schema_stats_expiry")
-	assert.Contains(t, q[1], "t.DATA_FREE >= 104857600 AND t.DATA_FREE * 100 >= 20 * (t.DATA_LENGTH + t.INDEX_LENGTH)")
+	assert.Contains(t, q[1], "t.DATA_LENGTH + t.INDEX_LENGTH + t.DATA_FREE >= 104857600")
+	// Tables in a shared tablespace are not sampled.
+	assert.Contains(t, q[2], "FROM information_schema.COLUMNS WHERE (TABLE_SCHEMA, TABLE_NAME) IN (('main', 'logs'), ")
+	assert.NotContains(t, q[2], "we`ird")
+	assert.Contains(t, q[3], "SELECT MIN(`id`), MAX(`id`) FROM `main`.`logs` INTO @lo, @hi;")
+	assert.Contains(t, q[3], "FROM `main`.`search` LIMIT 1000) s;")
+	assert.NotContains(t, q[3], "we``ird")
 
 	// Thresholds and table filters, with escaped strings.
-	_, stdErr, err = p.f.RunCombinedOutput(args("--min-reclaimable", "1G", "--min-percent", "50",
+	_, stdErr, err = p.f.RunCombinedOutput(args("--min-reclaimable", "150M", "--min-percent", "50",
 		"--table", "main.logs", "-t", "o'ther")...)
 	require.NoError(t, err, stdErr)
 	q = queries()
-	assert.Contains(t, q[len(q)-1], "t.DATA_FREE >= 1073741824 AND t.DATA_FREE * 100 >= 50 *")
-	assert.Contains(t, q[len(q)-1], "((t.TABLE_SCHEMA = 'main' AND t.TABLE_NAME = 'logs') OR t.TABLE_NAME = 'o''ther')")
+	assert.Contains(t, q[len(q)-3], "t.DATA_LENGTH + t.INDEX_LENGTH + t.DATA_FREE >= 157286400")
+	assert.Contains(t, q[len(q)-3], "((t.TABLE_SCHEMA = 'main' AND t.TABLE_NAME = 'logs') OR t.TABLE_NAME = 'o''ther')")
 	assert.Contains(t, stdErr, "To rebuild these tables, run this command again with --execute.")
+
+	// The percentage is applied after sampling.
+	_, stdErr, err = p.f.RunCombinedOutput(args("--min-percent", "80", "--table", "main.logs")...)
+	require.NoError(t, err, stdErr)
+	assert.Contains(t, stdErr, "No tables were found with at least 100.0 MiB and 80% of their size reclaimable.")
 
 	// The default table output.
 	output = p.f.Run(args("--columns", "table,size,disk_fits")...)
@@ -174,6 +232,19 @@ main,we`+"`"+`ird,104857600,125829120,120%,104857600,true,0,true
 	_, stdErr, err = p.f.RunCombinedOutput(args("--min-reclaimable", "lots")...)
 	assert.Error(t, err)
 	assert.Contains(t, stdErr, "Invalid size: lots")
+}
+
+func TestDbMysqlOptimizeSampleFailure(t *testing.T) {
+	t.Parallel()
+	p, _ := setUpMysqlOptimizeProject(t, fakeMysqlServer{vars: mariadbVars, tables: optimizeTables, failSample: true},
+		true)
+
+	// Only the free extents are reclaimable, and a rebuild needs the table's size.
+	output, stdErr, err := p.f.RunCombinedOutput("db:mysql-optimize", "-p", layoutProjectID, "-e", "main",
+		"-r", "database", "--format", "csv", "--no-header", "--columns", "table,reclaimable,disk_needed")
+	require.NoError(t, err, stdErr)
+	assert.Contains(t, stdErr, "Warning: failed to sample rows: only free extents are counted as reclaimable.")
+	assert.Equal(t, "cache,1073741824,3221225472\nsearch,157286400,209715200\nwe`ird,125829120,104857600\n", output)
 }
 
 func TestDbMysqlOptimizeExecute(t *testing.T) {
@@ -197,7 +268,7 @@ func TestDbMysqlOptimizeExecute(t *testing.T) {
 	assert.Contains(t, stdErr, "Skipping main.search: has a FULLTEXT or SPATIAL index")
 	assert.Contains(t, stdErr, "Skipping main.we`ird: probably in a shared tablespace")
 	assert.Contains(t, stdErr,
-		"Error: There is not enough free disk space to rebuild main.cache (it needs about 3.0 GiB).")
+		"Error: There is not enough free disk space to rebuild main.cache (it needs about 4.4 GiB).")
 	assert.Contains(t, stdErr, "Error: There is not enough free space in /tmp to rebuild main.cache")
 	assert.Contains(t, stdErr, "The tables were not rebuilt.")
 	assert.Empty(t, alters())
@@ -214,8 +285,8 @@ func TestDbMysqlOptimizeExecute(t *testing.T) {
 	assert.Contains(t, stdErr, "Warning: There is not enough free disk space to rebuild main.cache")
 	assert.Equal(t, []string{
 		"ALTER TABLE `main`.`logs` FORCE, ALGORITHM=INPLACE, LOCK=NONE;",
-		"ALTER TABLE `main`.`logs` FORCE, ALGORITHM=INPLACE, LOCK=NONE;",
 		"ALTER TABLE `main`.`cache` FORCE, ALGORITHM=INPLACE, LOCK=NONE;",
+		"ALTER TABLE `main`.`logs` FORCE, ALGORITHM=INPLACE, LOCK=NONE;",
 	}, alters())
 
 	_, stdErr, err = p.f.RunCombinedOutput("db:mysql-optimize", "-p", layoutProjectID, "-e", "main", "--force")
@@ -225,16 +296,19 @@ func TestDbMysqlOptimizeExecute(t *testing.T) {
 
 func TestDbMysqlOptimizeEscaping(t *testing.T) {
 	t.Parallel()
-	tables := [][]any{{"my`db", "we`ird", 100 * mib, 0, 120 * mib, 0, 0}}
+	tables := []fakeTable{{schema: "my`db", name: "we`ird", dataLength: 100 * mib, dataFree: 120 * mib,
+		rows: 1024, avgRowBytes: 100}}
 	p, queries := setUpMysqlOptimizeProject(t, fakeMysqlServer{vars: mariadbVars, tables: tables}, true)
 
 	_, stdErr, err := p.f.RunCombinedOutput("db:mysql-optimize", "-p", layoutProjectID, "-e", "main",
 		"-r", "database", "--execute", "--analyze")
 	require.NoError(t, err, stdErr)
 	q := queries()
-	require.Len(t, q, 5)
-	assert.Equal(t, "ANALYZE TABLE `my``db`.`we``ird`;", q[2])
-	assert.Equal(t, "ALTER TABLE `my``db`.`we``ird` FORCE, ALGORITHM=INPLACE, LOCK=NONE;", q[4])
+	require.Len(t, q, 9)
+	assert.Contains(t, q[2], "IN (('my`db', 'we`ird'))")
+	assert.Contains(t, q[3], "FROM `my``db`.`we``ird` INTO @lo, @hi;")
+	assert.Equal(t, "ANALYZE TABLE `my``db`.`we``ird`;", q[4])
+	assert.Equal(t, "ALTER TABLE `my``db`.`we``ird` FORCE, ALGORITHM=INPLACE, LOCK=NONE;", q[8])
 }
 
 func TestDbMysqlOptimizeGalera(t *testing.T) {
@@ -272,9 +346,9 @@ func TestDbMysqlOptimizeHeadroomUnknown(t *testing.T) {
 		"innodb_file_per_table":           "OFF",
 		"information_schema_stats_expiry": "86400",
 	}
-	tables := [][]any{
-		{"main", "logs", 200 * mib, 50 * mib, 300 * mib, 0, 0},
-		{"main", "other", 200 * mib, 50 * mib, 300 * mib, 0, 0},
+	tables := []fakeTable{
+		{schema: "main", name: "logs", dataLength: 200 * mib, indexLength: 50 * mib, dataFree: 300 * mib},
+		{schema: "main", name: "other", dataLength: 200 * mib, indexLength: 50 * mib, dataFree: 300 * mib},
 	}
 	for _, metrics := range []string{"unavailable", "disabled"} {
 		t.Run(metrics, func(t *testing.T) {
@@ -291,7 +365,9 @@ func TestDbMysqlOptimizeHeadroomUnknown(t *testing.T) {
 			assert.Contains(t, stdErr, "Warning: innodb_file_per_table is OFF")
 			assert.Contains(t, stdErr, "Warning: the disk usage of the service is unknown")
 			assert.Equal(t, "logs,,\nother,,\n", output)
+			// Tables in the shared tablespace are not sampled.
 			q := queries()
+			require.Len(t, q, 2)
 			assert.True(t, strings.HasPrefix(q[1], "SET SESSION information_schema_stats_expiry = 0;\n"), q[1])
 
 			// All tables are skipped, as they are in the shared tablespace.
@@ -303,7 +379,7 @@ func TestDbMysqlOptimizeHeadroomUnknown(t *testing.T) {
 	}
 
 	// With file-per-table, an unknown headroom prevents a rebuild without --force.
-	p, _ := setUpMysqlOptimizeProject(t, fakeMysqlServer{vars: mariadbVars, tables: tables[:1]}, false)
+	p, _ := setUpMysqlOptimizeProject(t, fakeMysqlServer{vars: mariadbVars, tables: optimizeTables[:1]}, false)
 	_, stdErr, err := p.f.RunCombinedOutput("db:mysql-optimize", "-p", layoutProjectID, "-e", "main",
 		"-r", "database", "--execute")
 	assertExitCode(t, 1, err)

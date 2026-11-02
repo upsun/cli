@@ -61,6 +61,25 @@ class DbMysqlOptimizeCommand extends CommandBase
 
     private const SYSTEM_SCHEMAS = ['mysql', 'information_schema', 'performance_schema', 'sys'];
 
+    /** Rows are sampled in this many ranges of the primary key, of this many rows each. */
+    public const SAMPLE_RANGES = 50;
+    public const SAMPLE_RANGE_ROWS = 20;
+
+    /** The number of rows sampled from the start of a table, if its primary key is not a single integer column. */
+    public const SAMPLE_FIRST_ROWS = 1000;
+
+    /** The bytes per row stored by InnoDB besides the columns (record header, transaction ID and roll pointer). */
+    private const ROW_HEADER_BYTES = 20;
+
+    /** The bytes stored for fixed-size column types (at most). Other types are measured with LENGTH(). */
+    private const FIXED_SIZES = [
+        'tinyint' => 1, 'smallint' => 2, 'mediumint' => 3, 'int' => 4, 'integer' => 4, 'bigint' => 8,
+        'float' => 4, 'double' => 8, 'real' => 8, 'bit' => 8,
+        'date' => 3, 'time' => 6, 'datetime' => 8, 'timestamp' => 7, 'year' => 1,
+        'enum' => 2, 'set' => 8,
+    ];
+    private const INTEGER_TYPES = ['tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint'];
+
     public function __construct(
         private readonly Config $config,
         private readonly Io $io,
@@ -88,19 +107,21 @@ class DbMysqlOptimizeCommand extends CommandBase
         $this->setHelp(<<<EOF
             Finds InnoDB tables with free space that a rebuild would return to the disk, e.g. after many rows were deleted.
 
+            The free space is estimated from the free extents reported by the database (DATA_FREE), and from the size
+            of the rows: this reads a sample of about 1000 rows from each table larger than <comment>--min-reclaimable</comment>.
             A table is listed if its free space is at least <comment>--min-reclaimable</comment> and <comment>--min-percent</comment> of its size.
 
             By default, this only reports. With <comment>--execute</comment>, each table listed is rebuilt with:
                 <comment>ALTER TABLE ... FORCE, ALGORITHM=INPLACE, LOCK=NONE</comment>
             which is the same rebuild as <comment>OPTIMIZE TABLE</comment>, but fails instead of locking the table if it cannot be done online.
 
-            A rebuild copies the table: it needs free disk space for the table's size, and temporary space for its indexes.
+            A rebuild copies the table: it needs free disk space for the rebuilt table, and temporary space for its indexes.
             The disk and /tmp usage are read from the metrics API: if they are unknown, or a table does not fit
             (leaving at least <comment>{$reserve}%</comment> of the volume free), the tables are not rebuilt, unless <comment>--force</comment> is used.
 
             On a cluster (Galera), a rebuild blocks writes on all nodes while it runs, so it is refused unless <comment>--force</comment> is used.
 
-            The sizes are estimates from the database's statistics. To check the disk usage of the service, run: <comment>$executable disk</comment>
+            The sizes are estimates, from the database's statistics and the sample of rows. To check the disk usage of the service, run: <comment>$executable disk</comment>
             EOF);
         $this->addExample('Report tables that could be optimized');
         $this->addExample('Rebuild the tables found, if there is enough disk space', '--execute');
@@ -284,14 +305,71 @@ class DbMysqlOptimizeCommand extends CommandBase
             // MySQL 8 caches statistics in information_schema for up to 24 hours by default.
             $query .= "SET SESSION information_schema_stats_expiry = 0;\n";
         }
-        $query .= self::tablesQuery($minReclaimable, $minPercent, $filter) . "\n";
+        $query .= self::tablesQuery($minReclaimable, $filter) . "\n";
         $this->io->debug('Query: ' . $query);
-        $result = (string) $host->runCommand($mysql, true, true, $query);
         $tables = [];
-        foreach (explode("\n", $result) as $line) {
-            $fields = explode("\t", rtrim($line, "\r"));
-            if (\count($fields) === 7) {
-                $tables[] = TableCandidate::fromRow($fields);
+        foreach ($this->parseRows((string) $host->runCommand($mysql, true, true, $query), 8) as $fields) {
+            $tables[] = TableCandidate::fromRow($fields);
+        }
+
+        $tables = $this->sampleRows($host, $mysql, $server, $tables);
+
+        $tables = array_values(array_filter($tables, fn(TableCandidate $t): bool => $t->reclaimable() >= $minReclaimable
+            && $t->reclaimable() * 100 >= $minPercent * $t->size()));
+        usort($tables, fn(TableCandidate $a, TableCandidate $b): int => $b->reclaimable() <=> $a->reclaimable());
+
+        return $tables;
+    }
+
+    /**
+     * Estimates the size of the rows of each table, from a sample.
+     *
+     * Tables in a shared tablespace are not sampled, as a rebuild would not shrink it.
+     * If the sample cannot be read, the tables are returned unchanged.
+     *
+     * @param TableCandidate[] $tables
+     *
+     * @return TableCandidate[]
+     */
+    private function sampleRows(HostInterface $host, string $mysql, MysqlServerInfo $server, array $tables): array
+    {
+        $toSample = array_filter($tables, fn(TableCandidate $t): bool => !$t->inSharedTablespace($server));
+        if (!$toSample) {
+            return $tables;
+        }
+
+        try {
+            $query = self::columnsQuery($toSample);
+            $this->io->debug('Query: ' . $query);
+            $columns = [];
+            foreach ($this->parseRows((string) $host->runCommand($mysql, true, true, $query), 5) as $fields) {
+                $columns[$fields[0] . "\0" . $fields[1]][] = ['name' => $fields[2], 'type' => strtolower($fields[3]), 'primary' => $fields[4] === 'PRI'];
+            }
+
+            $query = '';
+            $firstRows = [];
+            foreach ($toSample as $i => $t) {
+                $tableColumns = $columns[$t->schema . "\0" . $t->name] ?? [];
+                if ($tableColumns) {
+                    $query .= self::sampleQuery($i, $t, $tableColumns) . "\n";
+                    $firstRows[$i] = self::integerPrimaryKey($tableColumns) === null;
+                }
+            }
+            if ($query === '') {
+                return $tables;
+            }
+            $this->stdErr->writeln(\sprintf('Sampling rows from %d table(s)...', \count($firstRows)));
+            $this->io->debug('Query: ' . $query);
+            $result = (string) $host->runCommand($mysql, true, true, $query);
+        } catch (ProcessRuntimeException $e) {
+            $this->stdErr->writeln('<comment>Warning:</comment> failed to sample rows: only free extents are counted as reclaimable.');
+            $this->io->debug($e->getMessage());
+            return $tables;
+        }
+
+        foreach ($this->parseRows($result, 3) as [$i, $count, $bytes]) {
+            if (isset($firstRows[(int) $i])) {
+                $tables[(int) $i] = $tables[(int) $i]->withSample((int) $count > 0 ? (int) $bytes / (int) $count : 0.0, $firstRows[(int) $i]);
             }
         }
 
@@ -299,7 +377,28 @@ class DbMysqlOptimizeCommand extends CommandBase
     }
 
     /**
-     * Returns the query to find InnoDB tables with reclaimable space.
+     * Parses tab-separated lines, with the given number of fields.
+     *
+     * @return list<string[]>
+     */
+    private function parseRows(string $output, int $numFields): array
+    {
+        $rows = [];
+        foreach (explode("\n", $output) as $line) {
+            $fields = explode("\t", rtrim($line, "\r"));
+            if (\count($fields) === $numFields) {
+                $rows[] = $fields;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Returns the query to find InnoDB tables that may have reclaimable space.
+     *
+     * The thresholds are applied after rows are sampled: here, a table is
+     * only excluded if its total size is below the minimum.
      *
      * Free space in a shared tablespace (the system tablespace, if
      * innodb_file_per_table is OFF, or a general tablespace) is reported for
@@ -308,14 +407,13 @@ class DbMysqlOptimizeCommand extends CommandBase
      *
      * @param string[] $filter
      */
-    public static function tablesQuery(int $minReclaimable, float $minPercent, array $filter = []): string
+    public static function tablesQuery(int $minReclaimable, array $filter = []): string
     {
         $conditions = [
             "t.ENGINE = 'InnoDB'",
             "t.TABLE_TYPE = 'BASE TABLE'",
             't.TABLE_SCHEMA NOT IN (' . implode(', ', array_map(self::quoteString(...), self::SYSTEM_SCHEMAS)) . ')',
-            't.DATA_FREE >= ' . $minReclaimable,
-            't.DATA_FREE * 100 >= ' . self::formatNumber($minPercent) . ' * (t.DATA_LENGTH + t.INDEX_LENGTH)',
+            't.DATA_LENGTH + t.INDEX_LENGTH + t.DATA_FREE >= ' . $minReclaimable,
         ];
         if ($filter) {
             $or = [];
@@ -330,13 +428,96 @@ class DbMysqlOptimizeCommand extends CommandBase
             $conditions[] = '(' . implode(' OR ', $or) . ')';
         }
 
-        return 'SELECT t.TABLE_SCHEMA, t.TABLE_NAME, t.DATA_LENGTH, t.INDEX_LENGTH, t.DATA_FREE,'
+        return 'SELECT t.TABLE_SCHEMA, t.TABLE_NAME, t.DATA_LENGTH, t.INDEX_LENGTH, t.DATA_FREE, t.TABLE_ROWS,'
             . " (SELECT COUNT(*) FROM information_schema.STATISTICS s WHERE s.TABLE_SCHEMA = t.TABLE_SCHEMA AND s.TABLE_NAME = t.TABLE_NAME AND s.INDEX_TYPE IN ('FULLTEXT', 'SPATIAL')) AS offline_indexes,"
             . ' COALESCE(f.n, 1) - 1 AS same_free'
             . ' FROM information_schema.TABLES t'
             . " LEFT JOIN (SELECT DATA_FREE AS free, COUNT(*) AS n FROM information_schema.TABLES WHERE ENGINE = 'InnoDB' AND DATA_FREE >= " . $minReclaimable . ' GROUP BY DATA_FREE) f ON f.free = t.DATA_FREE'
-            . ' WHERE ' . implode(' AND ', $conditions)
-            . ' ORDER BY t.DATA_FREE DESC;';
+            . ' WHERE ' . implode(' AND ', $conditions) . ';';
+    }
+
+    /**
+     * Returns the query to find the stored columns of tables.
+     *
+     * @param TableCandidate[] $tables
+     */
+    public static function columnsQuery(array $tables): string
+    {
+        $names = array_map(fn(TableCandidate $t): string => \sprintf('(%s, %s)', self::quoteString($t->schema), self::quoteString($t->name)), $tables);
+
+        return 'SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_KEY FROM information_schema.COLUMNS'
+            . ' WHERE (TABLE_SCHEMA, TABLE_NAME) IN (' . implode(', ', $names) . ")"
+            . " AND EXTRA NOT LIKE '%VIRTUAL%'"
+            . ' ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION;';
+    }
+
+    /**
+     * Returns the query to sample the rows of a table: it outputs the index, the number of rows sampled, and their bytes.
+     *
+     * With a single-column integer primary key, rows are read from ranges spread across the key's values: each range
+     * is an index lookup. The ranges start at uneven intervals (a golden ratio sequence), so that they do not all
+     * fall at the same point of a pattern that repeats in the data. Otherwise, the first rows are read.
+     *
+     * @param array{name: string, type: string, primary: bool}[] $columns
+     */
+    public static function sampleQuery(int $index, TableCandidate $table, array $columns): string
+    {
+        $expr = self::rowBytesExpression($columns);
+        $from = $table->quotedName();
+        $pk = self::integerPrimaryKey($columns);
+        if ($pk === null) {
+            return \sprintf('SELECT %d, COUNT(*), COALESCE(SUM(b), 0) FROM (SELECT %s AS b FROM %s LIMIT %d) s;', $index, $expr, $from, self::SAMPLE_FIRST_ROWS);
+        }
+        $pk = self::quoteIdentifier($pk);
+        $ranges = [];
+        for ($i = 0; $i < self::SAMPLE_RANGES; $i++) {
+            $ranges[] = \sprintf(
+                '(SELECT %s AS b FROM %s WHERE %s >= @lo + FLOOR((CAST(@hi AS DECIMAL(65)) - @lo) * %.6F) ORDER BY %s LIMIT %d)',
+                $expr,
+                $from,
+                $pk,
+                fmod($i * 0.6180339887, 1),
+                $pk,
+                self::SAMPLE_RANGE_ROWS,
+            );
+        }
+
+        return \sprintf('SELECT MIN(%s), MAX(%s) FROM %s INTO @lo, @hi;', $pk, $pk, $from)
+            . \sprintf(' SELECT %d, COUNT(*), COALESCE(SUM(b), 0) FROM (%s) s;', $index, implode(' UNION ALL ', $ranges));
+    }
+
+    /**
+     * Returns an expression for the approximate bytes that InnoDB stores for a row.
+     *
+     * @param array{name: string, type: string, primary: bool}[] $columns
+     */
+    public static function rowBytesExpression(array $columns): string
+    {
+        $fixed = self::ROW_HEADER_BYTES;
+        $variable = [];
+        foreach ($columns as $column) {
+            if (isset(self::FIXED_SIZES[$column['type']])) {
+                $fixed += self::FIXED_SIZES[$column['type']];
+            } else {
+                // Plus a byte for the length.
+                $fixed++;
+                $variable[] = \sprintf('COALESCE(LENGTH(%s), 0)', self::quoteIdentifier($column['name']));
+            }
+        }
+
+        return implode(' + ', array_merge([(string) $fixed], $variable));
+    }
+
+    /**
+     * Returns the name of the primary key column, if the key is a single integer column.
+     *
+     * @param array{name: string, type: string, primary: bool}[] $columns
+     */
+    private static function integerPrimaryKey(array $columns): ?string
+    {
+        $primary = array_values(array_filter($columns, fn(array $c): bool => $c['primary']));
+
+        return \count($primary) === 1 && \in_array($primary[0]['type'], self::INTEGER_TYPES, true) ? $primary[0]['name'] : null;
     }
 
     /**
@@ -388,13 +569,16 @@ class DbMysqlOptimizeCommand extends CommandBase
                 'schema' => $t->schema,
                 'table' => $t->name,
                 'size' => $formatSize($t->size()),
-                'reclaimable' => $formatSize($t->dataFree),
-                'percent' => $t->size() > 0 ? \sprintf('%.0f%%', $t->dataFree / $t->size() * 100) : '',
+                'reclaimable' => $formatSize($t->reclaimable()),
+                'percent' => $t->size() > 0 ? \sprintf('%.0f%%', $t->reclaimable() / $t->size() * 100) : '',
                 'disk_needed' => $formatSize($t->diskNeeded()),
                 'disk_fits' => $formatFits($headroom?->diskFits($t->diskNeeded())),
                 'tmp_needed' => $formatSize($t->tmpNeeded()),
                 'tmp_fits' => $formatFits($headroom?->tmpFits($t->tmpNeeded())),
-                'notes' => (string) $t->skipReason($server),
+                'notes' => implode('; ', array_filter([
+                    $t->skipReason($server),
+                    $t->sampledFirstRows ? 'estimated from the first rows only' : null,
+                ])),
             ];
         }
         $this->table->render($rows, self::TABLE_HEADER, self::DEFAULT_COLUMNS);
@@ -505,10 +689,5 @@ class DbMysqlOptimizeCommand extends CommandBase
     public static function quoteString(string $value): string
     {
         return "'" . str_replace(['\\', "'"], ['\\\\', "''"], $value) . "'";
-    }
-
-    private static function formatNumber(float $number): string
-    {
-        return rtrim(rtrim(\sprintf('%.4F', $number), '0'), '.');
     }
 }
