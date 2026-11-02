@@ -22,10 +22,16 @@ version="9.9.9"
 serve_dir=$(mktemp -d)
 trap 'kill "$server_pid" 2>/dev/null || true; rm -rf "$serve_dir"' EXIT
 
-# Serve a release tarball and the test config, in the layout installer.sh expects.
+# Serve a release tarball, its checksums.txt, and the test config, in the layout installer.sh expects.
 mkdir -p "$serve_dir/v$version" "$serve_dir/build"
 cp "$BINARY" "$serve_dir/build/upsun"
-tar -C "$serve_dir/build" -czf "$serve_dir/v$version/upsun_${version}_linux_${arch}.tar.gz" upsun
+archive="upsun_${version}_linux_${arch}.tar.gz"
+tar -C "$serve_dir/build" -czf "$serve_dir/v$version/$archive" upsun
+if command -v sha256sum >/dev/null 2>&1; then
+    (cd "$serve_dir/v$version" && sha256sum "$archive" > checksums.txt)
+else
+    (cd "$serve_dir/v$version" && shasum -a 256 "$archive" > checksums.txt)
+fi
 cp internal/config/alt/test-config.yaml "$serve_dir/config.yaml"
 python3 -m http.server -b 127.0.0.1 -d "$serve_dir" "$PORT" >/dev/null 2>&1 &
 server_pid=$!
