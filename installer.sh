@@ -244,21 +244,73 @@ check_curl() {
     fi
 }
 
+# Print the github.com token from Composer auth JSON (read from stdin), if any.
+# See https://getcomposer.org/doc/articles/authentication-for-private-packages.md#github-oauth
+github_token_from_composer_auth() {
+    tr -d '\r\n' | sed -n 's/.*"github-oauth"[[:space:]]*:[[:space:]]*{[^}]*"github\.com"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1
+}
+
+# Use a GitHub token, if one is available, for higher API rate limits.
+# Unauthenticated requests are limited per IP address, which build
+# environments often share.
 setup_github_token() {
-    if gh auth status >/dev/null 2>&1; then
-        GITHUB_TOKEN="$(gh auth token)"
-        if ! github_curl https://api.github.com/repos/upsun/cli/releases/latest >/dev/null 2>&1; then
-            GITHUB_TOKEN=""
-        else
-            output "  [*] Using GitHub auth from the gh CLI" "success"
-        fi
-    elif [ ! -z "${GITHUB_TOKEN}" ]; then
-        if ! github_curl https://api.github.com/repos/upsun/cli/releases/latest >/dev/null 2>&1; then
-            GITHUB_TOKEN=""
-        else
-            output "  [*] Using GitHub auth from the GITHUB_TOKEN env variable" "success"
-        fi
+    token_source=""
+    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+        GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"
+        token_source="the gh CLI"
+    elif [ -n "${GITHUB_TOKEN}" ]; then
+        token_source="the GITHUB_TOKEN env variable"
+    elif [ -n "${COMPOSER_AUTH:-}" ]; then
+        GITHUB_TOKEN="$(printf '%s' "${COMPOSER_AUTH}" | github_token_from_composer_auth)"
+        token_source="the COMPOSER_AUTH env variable"
     fi
+    # The token that Upsun provides in project containers. It allows for higher
+    # rate limits but is otherwise unprivileged.
+    if [ -z "${GITHUB_TOKEN}" ] && [ -n "${HOME:-}" ] && [ -r "${HOME}/.global/auth.json" ]; then
+        GITHUB_TOKEN="$(github_token_from_composer_auth < "${HOME}/.global/auth.json")"
+        token_source="${HOME}/.global/auth.json"
+    fi
+    if [ -z "${GITHUB_TOKEN}" ]; then
+        return
+    fi
+
+    # Check the token (requests to this endpoint do not count against the rate limit).
+    if github_curl https://api.github.com/rate_limit >/dev/null 2>&1; then
+        output "  [*] Using GitHub auth from ${token_source}" "success"
+    else
+        output "  [ ] Ignoring the GitHub token from ${token_source}, as GitHub did not accept it" "warning"
+        GITHUB_TOKEN=""
+    fi
+}
+
+# Print the latest release tag, from the GitHub API.
+latest_tag_from_api() {
+    api_error_file=$(mktemp)
+    tag=$(github_curl https://api.github.com/repos/upsun/cli/releases/latest 2>"$api_error_file" \
+        | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
+    if [ -z "$tag" ]; then
+        api_error=$(head -n 1 "$api_error_file")
+        output "  [ ] Could not get the latest release from the GitHub API: ${api_error}" "warning" >&2
+        case "$api_error" in
+            *" 403"*|*" 429"*)
+                if [ -z "${GITHUB_TOKEN}" ]; then
+                    output "      Unauthenticated requests are rate limited: set GITHUB_TOKEN to use a token" "comment" >&2
+                fi
+                ;;
+        esac
+    fi
+    rm -f "$api_error_file"
+    printf '%s' "$tag"
+}
+
+# Print the latest release tag, from the redirect of the latest release page.
+# This is not subject to the API's rate limits.
+latest_tag_from_redirect() {
+    location=$(curl -fsS -o /dev/null -w '%{redirect_url}' https://github.com/upsun/cli/releases/latest 2>&1 || true)
+    case "$location" in
+        */releases/tag/*) printf '%s' "${location##*/releases/tag/}" ;;
+        *) output "  [ ] Could not get the latest release from github.com: ${location:-no redirect}" "warning" >&2 ;;
+    esac
 }
 
 # Check that Gzip is installed
@@ -283,7 +335,10 @@ check_ca_certificates() {
 
 check_version() {
     if [ -z "${VERSION}" ]; then
-        tag=$(github_curl https://api.github.com/repos/upsun/cli/releases/latest 2>/dev/null | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
+        tag=$(latest_tag_from_api)
+        if [ -z "$tag" ]; then
+            tag=$(latest_tag_from_redirect)
+        fi
     else
         tag=${VERSION}
     fi
