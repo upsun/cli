@@ -827,9 +827,9 @@ class Api
         if ($refresh === false && !$cached) {
             return [];
         } elseif ($refresh || !$cached) {
-            $complete = true;
+            $incompleteIds = [];
             if ($new) {
-                [$all, $complete] = $this->loadProjectsFromExtendedAccess();
+                [$all, $incompleteIds] = $this->loadProjectsFromExtendedAccess();
             } else {
                 $this->io->debug('Loading account information to fetch the projects list');
                 $all = [];
@@ -840,8 +840,8 @@ class Api
             $projects = [];
             $hiddenIds = [];
             foreach ($all as $project) {
-                // A project's vendor may be unknown if its details could not be loaded.
-                if ((!$complete && $project->vendor === null) || $this->matchesVendorFilter($vendorFilter, $project)) {
+                // A project's vendor is unknown if its details could not be loaded.
+                if ((isset($incompleteIds[$project->id]) && $project->vendor === null) || $this->matchesVendorFilter($vendorFilter, $project)) {
                     $projects[] = $project;
                 } else {
                     $hiddenIds[$project->id] = $project->id;
@@ -854,10 +854,10 @@ class Api
                     implode(', ', $hiddenIds),
                 ));
             }
-            if ($complete) {
-                $this->userCache()->save($cacheKey, $projects, $this->config->getInt('api.projects_ttl'));
-            } else {
+            if ($incompleteIds) {
                 $this->stdErr->writeln('<comment>Warning: some project details could not be loaded. Try again later, or run with -v for details.</comment>');
+            } else {
+                $this->userCache()->save($cacheKey, $projects, $this->config->getInt('api.projects_ttl'));
             }
         } else {
             $projects = $cached;
@@ -870,9 +870,10 @@ class Api
     /**
      * Loads the user's projects from their extended access grants.
      *
-     * References are loaded on a best-effort basis: a project without one is listed with only its ID and organization.
+     * References are loaded on a best-effort basis: a project whose references were not returned is listed with only
+     * its ID and organization. A project whose reference was returned as null (e.g. a deleted project) is skipped.
      *
-     * @return array{BasicProjectInfo[], bool} The projects, and whether all of their details were loaded.
+     * @return array{BasicProjectInfo[], array<string, string>} The projects, and the IDs of those with missing details.
      */
     private function loadProjectsFromExtendedAccess(): array
     {
@@ -885,7 +886,6 @@ class Api
 
         // Resolve each reference link separately, so that one failure does not lose the others. The client would
         // also hide a failure in a PHP warning.
-        $complete = true;
         $resolver = new Resolver($httpClient, $url);
         $links = is_array($data['_links'] ?? null) ? $data['_links'] : [];
         foreach ($links as $key => $link) {
@@ -895,9 +895,9 @@ class Api
             unset($links[$key]);
             try {
                 $refs = $resolver->resolveReferences(['_links' => [$key => $link]]);
-            } catch (GuzzleException $e) {
-                $complete = false;
-                $message = ApiErrorMessage::fromThrowable($e) ?? $e->getMessage();
+            } catch (\Exception|\TypeError $e) {
+                // E.g. an error status, or a response that is not JSON.
+                $message = ($e instanceof GuzzleException ? ApiErrorMessage::fromThrowable($e) : null) ?? $e->getMessage();
                 $this->stdErr->writeln('Failed to load references: ' . $message, OutputInterface::VERBOSITY_VERBOSE);
                 continue;
             }
@@ -908,36 +908,50 @@ class Api
             }
         }
         $data['_links'] = $links;
+        $projectRefs = is_array($data['ref:projects'] ?? null) ? $data['ref:projects'] : [];
+        $orgRefs = is_array($data['ref:organizations'] ?? null) ? $data['ref:organizations'] : [];
 
         $projects = [];
-        $unresolvedIds = [];
+        $incompleteIds = [];
+        $notFoundIds = [];
         foreach (UserExtendedAccess::wrapCollection($data, $url, $httpClient) as $access) {
+            $orgId = $access->organization_id;
+            $orgMissing = $orgId !== '' && !array_key_exists($orgId, $orgRefs);
             try {
                 $project = BasicProjectInfo::fromExtendedAccess($access);
                 // The vendor is not set if the organization reference is missing.
                 $project->vendor ??= null;
                 $projects[] = $project;
+                if ($orgMissing) {
+                    $incompleteIds[$project->id] = $project->id;
+                }
             } catch (ProjectReferenceException $e) {
                 $id = $e->getProjectId();
+                if (array_key_exists($id, $projectRefs)) {
+                    $notFoundIds[$id] = $id;
+                    continue;
+                }
                 $stub = new ProjectStub([
                     'id' => $id,
                     'title' => '',
-                    'organization_id' => $access->organization_id,
+                    'organization_id' => $orgId,
                 ], $url, $httpClient);
                 $project = BasicProjectInfo::fromStub($stub);
                 $project->organization_ref = $access->getOrganizationInfo();
                 $vendor = $project->organization_ref?->getProperty('vendor', false);
                 $project->vendor = is_string($vendor) ? $vendor : null;
                 $projects[] = $project;
-                $unresolvedIds[$id] = $id;
+                $incompleteIds[$id] = $id;
             }
         }
-        if ($unresolvedIds) {
-            $complete = false;
-            $this->stdErr->writeln('Projects without details: ' . implode(', ', $unresolvedIds), OutputInterface::VERBOSITY_VERBOSE);
+        if ($incompleteIds) {
+            $this->stdErr->writeln('Projects with missing details: ' . implode(', ', $incompleteIds), OutputInterface::VERBOSITY_VERBOSE);
+        }
+        if ($notFoundIds) {
+            $this->stdErr->writeln('Skipped access grants for projects that were not found: ' . implode(', ', $notFoundIds), OutputInterface::VERBOSITY_VERBOSE);
         }
 
-        return [$projects, $complete];
+        return [$projects, $incompleteIds];
     }
 
     /**

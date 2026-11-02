@@ -179,9 +179,10 @@ func TestProjectListUnresolvedProjects(t *testing.T) {
 		makeOrg("org-id-1", "org-1", "Org 1", myUserID, "flexible"),
 		makeOrg("org-id-acme", "org-acme", "Acme", myUserID, "flexible"),
 	})
-	// The mock returns a null reference for "project-missing", which is not set.
+	// The mock returns a null reference for "project-deleted", which is not set.
 	apiHandler.SetProjects([]*mockapi.Project{
 		makeProject("project-id-1", "org-id-1", "test-vendor", "Project 1", "region-1"),
+		makeProject("project-no-vendor", "org-id-1", "", "No Vendor", "region-1"),
 		makeProject("project-acme", "org-id-acme", "acme", "Acme Project", "region-1"),
 	})
 	grant := func(projectID, orgID string) *mockapi.UserGrant {
@@ -195,56 +196,54 @@ func TestProjectListUnresolvedProjects(t *testing.T) {
 	}
 	apiHandler.SetUserGrants([]*mockapi.UserGrant{
 		grant("project-id-1", "org-id-1"),
-		grant("project-missing", "org-id-1"),
+		grant("project-no-vendor", "org-id-1"),
+		grant("project-deleted", "org-id-1"),
 		grant("project-acme", "org-id-acme"),
 	})
 
 	f := newCommandFactory(t, apiServer.URL, authServer.URL)
-
-	// Projects without details are listed by ID. The warning is repeated, as an incomplete list is not cached.
-	for range 2 {
-		stdOut, stdErr, err := f.RunCombinedOutput("pro", "--format", "csv", "--columns", "id,title,organization_name")
-		assert.NoError(t, err)
-		assert.Equal(t, "ID,Title,Org name\nproject-missing,[Untitled Project],org-1\nproject-id-1,Project 1,org-1\n", stdOut)
-		assert.Contains(t, stdErr, "some project details could not be loaded")
-		assert.NotContains(t, stdErr, "project-missing")
-	}
-
-	// Details are shown in verbose output.
-	_, stdErr, err := f.RunCombinedOutput("pro", "-v")
-	assert.NoError(t, err)
-	assert.Contains(t, stdErr, "Projects without details: project-missing")
-
-	_, stdErr, err = f.RunCombinedOutput("pro", "-vvv")
-	assert.NoError(t, err)
-	assert.Contains(t, stdErr, "Projects hidden by the vendor filter (test-vendor): project-acme")
+	allIDs := []string{"project-id-1", "project-no-vendor", "project-deleted", "project-acme"}
 
 	// If a reference request fails, projects are listed by ID, including those with an unknown vendor.
 	apiHandler.FailNext("GET", "/ref/projects", http.StatusBadGateway, "<html>Bad Gateway</html>")
 	stdOut, stdErr, err := f.RunCombinedOutput("pro", "--pipe", "-v")
 	assert.NoError(t, err)
-	assert.ElementsMatch(t, []string{"project-id-1", "project-missing", "project-acme"}, strings.Fields(stdOut))
+	assert.ElementsMatch(t, allIDs, strings.Fields(stdOut))
 	assert.Contains(t, stdErr, "some project details could not be loaded")
 	assert.Contains(t, stdErr, "Failed to load references: The API returned 502 Bad Gateway")
 	assert.NotContains(t, stdErr, "You do not have any")
 
-	// Projects keep an unknown vendor if organization details cannot be loaded.
-	apiHandler.SetProjects([]*mockapi.Project{
-		makeProject("project-id-1", "org-id-1", "test-vendor", "Project 1", "region-1"),
-		makeProject("project-no-vendor", "org-id-1", "", "No Vendor", "region-1"),
-	})
-	apiHandler.SetUserGrants([]*mockapi.UserGrant{
-		grant("project-id-1", "org-id-1"),
-		grant("project-no-vendor", "org-id-1"),
-	})
+	// The incomplete list was not cached. A grant for a project that was not found is skipped, and projects with
+	// a known vendor, or no vendor, are filtered as usual.
+	stdOut, stdErr, err = f.RunCombinedOutput("pro", "--format", "csv", "--columns", "id,title,organization_name")
+	assert.NoError(t, err)
+	assert.Equal(t, "ID,Title,Org name\nproject-id-1,Project 1,org-1\n", stdOut)
+	assert.NotContains(t, stdErr, "could not be loaded")
+
+	_, stdErr, err = f.RunCombinedOutput("pro", "--refresh", "1", "-vvv")
+	assert.NoError(t, err)
+	assert.Contains(t, stdErr, "Skipped access grants for projects that were not found: project-deleted")
+	assert.Contains(t, stdErr, "Projects hidden by the vendor filter (test-vendor): ")
+	assert.Contains(t, stdErr, "project-acme")
+	assert.Contains(t, stdErr, "project-no-vendor")
+	assert.NotContains(t, stdErr, "could not be loaded")
+
+	// If organization details cannot be loaded, only projects with an unknown vendor are kept.
 	apiHandler.FailNext("GET", "/ref/organizations", http.StatusBadGateway, "<html>Bad Gateway</html>")
-	stdOut, stdErr, err = f.RunCombinedOutput("pro", "--pipe")
+	stdOut, stdErr, err = f.RunCombinedOutput("pro", "--pipe", "--refresh", "1")
 	assert.NoError(t, err)
 	assert.ElementsMatch(t, []string{"project-id-1", "project-no-vendor"}, strings.Fields(stdOut))
 	assert.Contains(t, stdErr, "some project details could not be loaded")
 
+	// A reference response that is not JSON is handled in the same way.
+	apiHandler.FailNext("GET", "/ref/projects", http.StatusOK, "<html>Sign in</html>")
+	stdOut, stdErr, err = f.RunCombinedOutput("pro", "--pipe", "--refresh", "1")
+	assert.NoError(t, err)
+	assert.ElementsMatch(t, allIDs, strings.Fields(stdOut))
+	assert.Contains(t, stdErr, "some project details could not be loaded")
+
 	// The table renders projects without details.
 	apiHandler.FailNext("GET", "/ref/projects", http.StatusBadGateway, "<html>Bad Gateway</html>")
-	stdOut = f.Run("pro", "--columns", "id,title,region,status,created_at")
-	assert.Contains(t, stdOut, "project-no-vendor")
+	stdOut = f.Run("pro", "--refresh", "1", "--columns", "id,title,region,status,created_at")
+	assert.Contains(t, stdOut, "project-deleted")
 }
