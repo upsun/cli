@@ -46,7 +46,7 @@ class DbSizeCommand extends CommandBase
     {
         $this
             ->addOption('bytes', 'B', InputOption::VALUE_NONE, 'Show sizes in bytes.')
-            ->addOption('cleanup', 'C', InputOption::VALUE_NONE, 'Check if tables can be cleaned up and show me recommendations (InnoDb only).');
+            ->addOption('cleanup', 'C', InputOption::VALUE_NONE, 'Deprecated: use the db:mysql-optimize command instead.');
         $help = self::ESTIMATE_WARNING;
         if ($this->config->getBool('api.metrics')) {
             $this->stability = self::STABILITY_DEPRECATED;
@@ -136,7 +136,7 @@ class DbSizeCommand extends CommandBase
                 }
                 [$schema, $table] = explode("\t", $row);
 
-                return sprintf('ALTER TABLE `%s`.`%s` ENGINE="InnoDB";', $schema, $table);
+                return sprintf('ALTER TABLE %s.%s ENGINE="InnoDB";', DbMysqlOptimizeCommand::quoteIdentifier($schema), DbMysqlOptimizeCommand::quoteIdentifier($table));
             }, $rows),
         );
     }
@@ -148,6 +148,13 @@ class DbSizeCommand extends CommandBase
      */
     private function checkInnoDbTablesInNeedOfOptimizing(HostInterface $host, array $database, InputInterface $input): void
     {
+        $this->stdErr->writeln('');
+        $this->stdErr->writeln('<options=bold;fg=yellow>Deprecated:</> The --cleanup option is deprecated and will be removed in a future version.');
+        $this->stdErr->writeln(\sprintf(
+            'To find tables with reclaimable space, and check whether they can be rebuilt safely, run: <comment>%s db:mysql-optimize</comment>',
+            $this->config->getStr('application.executable'),
+        ));
+
         $tablesNeedingCleanup = $host->runCommand($this->getMysqlCommand($database), true, true, $this->mysqlTablesInNeedOfOptimizing());
         $queries = [];
         if (is_string($tablesNeedingCleanup)) {

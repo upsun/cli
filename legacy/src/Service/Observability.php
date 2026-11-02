@@ -7,6 +7,7 @@ namespace Platformsh\Cli\Service;
 use GuzzleHttp\Exception\BadResponseException;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Psr7\Request;
+use Platformsh\Cli\Model\Metrics\Query;
 use Platformsh\Client\Exception\ApiResponseException;
 use Platformsh\Client\Model\Environment;
 
@@ -63,6 +64,36 @@ readonly class Observability
         }
 
         return $data;
+    }
+
+    /**
+     * Returns the latest metrics reported by a service, from the resources overview.
+     *
+     * @param string[] $types The metric types (e.g. "disk").
+     * @param string[] $aggs  The aggregations (e.g. "avg").
+     *
+     * @return array<mixed>|null The service's latest data point, or null if metrics are not available.
+     */
+    public function latestServiceMetrics(Environment $environment, string $service, array $types, array $aggs, int $range = 600): ?array
+    {
+        if (!$link = self::getLink($this->getEntrypoint($environment), 'resources_overview')) {
+            return null;
+        }
+        $now = time();
+        $query = (new Query($now - $range, $now, null))
+            ->setServices([$service])
+            ->setTypes($types)
+            ->setAggs($aggs);
+        $data = $this->get($link . $query->asString());
+        $points = self::nested($data, 'data');
+        foreach (array_reverse(is_array($points) ? $points : []) as $point) {
+            $metrics = self::nested($point, 'services', $service);
+            if (is_array($metrics)) {
+                return $metrics;
+            }
+        }
+
+        return null;
     }
 
     /**
