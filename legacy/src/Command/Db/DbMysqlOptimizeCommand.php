@@ -321,7 +321,7 @@ class DbMysqlOptimizeCommand extends CommandBase
         $tables = $this->sampleRows($host, $mysql, $server, $tables);
 
         $tables = array_values(array_filter($tables, fn(TableCandidate $t): bool => $t->reclaimable() >= $minReclaimable
-            && $t->reclaimable() * 100 >= $minPercent * $t->size()));
+            && $t->reclaimable() * 100 >= $minPercent * $t->size($server)));
         usort($tables, fn(TableCandidate $a, TableCandidate $b): int => $b->reclaimable() <=> $a->reclaimable());
 
         return $tables;
@@ -586,9 +586,9 @@ class DbMysqlOptimizeCommand extends CommandBase
             $rows[] = [
                 'schema' => $t->schema,
                 'table' => $t->name,
-                'size' => $formatSize($t->size()),
+                'size' => $formatSize($t->size($server)),
                 'reclaimable' => $formatSize($t->reclaimable()),
-                'percent' => $t->size() > 0 ? \sprintf('%.0f%%', $t->reclaimable() / $t->size() * 100) : '',
+                'percent' => $t->size($server) > 0 && !$t->inSharedTablespace($server) ? \sprintf('%.0f%%', $t->reclaimable() / $t->size($server) * 100) : '',
                 'disk_needed' => $formatSize($t->diskNeeded()),
                 'disk_fits' => $formatFits($headroom?->diskFits($t->diskNeeded())),
                 'tmp_needed' => $formatSize($t->tmpNeeded()),

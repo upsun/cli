@@ -186,7 +186,7 @@ func TestDbMysqlOptimizeReport(t *testing.T) {
 main,cache,4294967296,1073741824,25%,4732852633,false,1073741824,false
 main,search,367001600,360710144,98%,15309209,true,104857600,true
 main,logs,274726912,176422912,64%,116523008,true,52428800,true
-main,we`+"`"+`ird,230686720,125829120,55%,104857600,true,0,true
+main,we`+"`"+`ird,104857600,125829120,,104857600,true,0,true
 `, output)
 
 	output = p.f.Run(args("--format", "tsv", "--no-header", "--columns", "table,notes")...)

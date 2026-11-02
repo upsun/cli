@@ -54,9 +54,15 @@ readonly class TableCandidate
 
     /**
      * The size of the table's data, indexes and free extents (about the size of its file).
+     *
+     * In a shared tablespace, the free extents are the tablespace's, so they are not counted.
      */
-    public function size(): int
+    public function size(MysqlServerInfo $server): int
     {
+        if ($this->inSharedTablespace($server)) {
+            return $this->dataLength + $this->indexLength;
+        }
+
         return $this->dataLength + $this->indexLength + $this->dataFree;
     }
 
@@ -89,7 +95,7 @@ readonly class TableCandidate
             return $this->dataFree;
         }
 
-        return max($this->dataFree, $this->size() - $rebuilt);
+        return max($this->dataFree, $this->dataLength + $this->indexLength + $this->dataFree - $rebuilt);
     }
 
     /**

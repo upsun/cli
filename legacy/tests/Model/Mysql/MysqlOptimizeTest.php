@@ -74,8 +74,11 @@ class MysqlOptimizeTest extends TestCase
         // 90 MiB of data and 10 MiB of indexes, with 5 MiB of free extents.
         $table = new TableCandidate('s', 't', 90 * $mib, 10 * $mib, 5 * $mib, rows: 10240);
 
-        // The size includes the free extents.
-        $this->assertSame(105 * $mib, $table->size());
+        // The size includes the free extents, unless they are a shared tablespace's.
+        $server = new MysqlServerInfo(['version' => '8.0.36', 'innodb_file_per_table' => 'ON']);
+        $this->assertSame(105 * $mib, $table->size($server));
+        $this->assertSame(100 * $mib, (new TableCandidate('s', 't', 90 * $mib, 10 * $mib, 5 * $mib, sameFree: 1))->size($server));
+        $this->assertSame(100 * $mib, $table->size(new MysqlServerInfo(['version' => '8.0.36', 'innodb_file_per_table' => 'OFF'])));
 
         // Without a sample, only the free extents are reclaimable, and a rebuild needs the current data and indexes.
         $this->assertNull($table->rebuiltSize());
