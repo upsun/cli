@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -34,6 +33,7 @@ type fakeGitHub struct {
 	apiStatus       int      // If set, the status of the latest release API response (for an accepted or no token).
 	checksumsStatus int      // If set, the status of the checksums.txt response.
 	badChecksums    bool     // If set, checksums.txt lists wrong checksums.
+	unlisted        bool     // If set, checksums.txt does not list the archive for this platform.
 
 	mu       sync.Mutex
 	requests []fakeGitHubRequest
@@ -80,10 +80,22 @@ func newFakeGitHub(t *testing.T) *fakeGitHub {
 		if g.badChecksums {
 			sum = sha256.Sum256([]byte("other"))
 		}
-		// The archives are the same on every platform.
-		for _, platform := range []string{"darwin_all", "linux_amd64", "linux_arm64"} {
-			_, _ = fmt.Fprintf(w, "%s  upsun_%s_%s.tar.gz\n", hex.EncodeToString(sum[:]), version, platform)
+		// The archives are the same on every platform. This platform's archive is listed last, without a
+		// trailing newline, to check that the installer reads that line.
+		thisPlatform := "linux_" + runtime.GOARCH
+		if runtime.GOOS == "darwin" {
+			thisPlatform = "darwin_all"
 		}
+		var lines []string
+		for _, platform := range []string{"darwin_all", "linux_amd64", "linux_arm64"} {
+			if platform != thisPlatform {
+				lines = append(lines, fmt.Sprintf("%x  upsun_%s_%s.tar.gz", sum, version, platform))
+			}
+		}
+		if !g.unlisted {
+			lines = append(lines, fmt.Sprintf("%x  upsun_%s_%s.tar.gz", sum, version, thisPlatform))
+		}
+		_, _ = fmt.Fprint(w, strings.Join(lines, "\n"))
 	})
 	g.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		g.mu.Lock()
@@ -528,6 +540,7 @@ func TestInstallerChecksum(t *testing.T) {
 		name            string
 		checksumsStatus int
 		badChecksums    bool
+		unlisted        bool
 		exclude         []string
 
 		wantInstalled bool
@@ -542,6 +555,11 @@ func TestInstallerChecksum(t *testing.T) {
 			name:         "mismatch",
 			badChecksums: true,
 			wantOutput:   []string{"checksum mismatch for upsun_1.2.3_", "Installation failed"},
+		},
+		{
+			name:       "archive not listed",
+			unlisted:   true,
+			wantOutput: []string{".tar.gz is not listed in ", "/checksums.txt", "Installation failed"},
 		},
 		{
 			name:            "missing checksums.txt",
@@ -561,6 +579,7 @@ func TestInstallerChecksum(t *testing.T) {
 			g := newFakeGitHub(t)
 			g.checksumsStatus = c.checksumsStatus
 			g.badChecksums = c.badChecksums
+			g.unlisted = c.unlisted
 
 			r := runInstaller(t, g, nil, nil, c.exclude...)
 			if c.wantInstalled {
@@ -568,6 +587,12 @@ func TestInstallerChecksum(t *testing.T) {
 			} else {
 				assert.Error(t, r.err)
 				assert.NoFileExists(t, r.binPath)
+				// Only the test's own files are left in TMPDIR.
+				entries, err := os.ReadDir(filepath.Dir(filepath.Dir(r.binPath)))
+				require.NoError(t, err)
+				for _, e := range entries {
+					assert.Contains(t, []string{"home", "fake-bin", "path-bin", "install.log"}, e.Name())
+				}
 			}
 			for _, s := range c.wantOutput {
 				assert.Contains(t, r.output, s)

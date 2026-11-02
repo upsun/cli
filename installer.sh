@@ -780,20 +780,22 @@ is_ci() {
     fi
 }
 
-# Verify a downloaded file against the release's checksums.txt, or exit.
+# Verify a downloaded file against the release's checksums.txt.
 # Arguments: file path, file name in checksums.txt
+# Returns 1 after printing an error if it cannot be verified.
 verify_checksum() {
     checksums_url="${URL}/${tag}/checksums.txt"
     output "  Downloading ${checksums_url}"
     checksums_file=$(mktemp)
     if ! github_curl "$checksums_url" > "$checksums_file"; then
-        rm -f "$checksums_file" "$1"
+        rm -f "$checksums_file"
         output "  could not download the checksums file" "error"
-        exit_with_error
+        return 1
     fi
 
     expected=""
-    while read -r sum name; do
+    # The last line is read even without a trailing newline.
+    while read -r sum name || [ -n "$sum" ]; do
         if [ "$name" = "$2" ]; then
             expected="$sum"
             break
@@ -801,16 +803,18 @@ verify_checksum() {
     done < "$checksums_file"
     rm -f "$checksums_file"
     if [ -z "$expected" ]; then
-        rm -f "$1"
         output "  ${2} is not listed in ${checksums_url}" "error"
-        exit_with_error
+        return 1
     fi
 
-    actual=$($cmd_shasum "$1" | cut -d ' ' -f 1)
+    if ! actual=$($cmd_shasum "$1"); then
+        output "  could not compute the checksum with ${cmd_shasum}" "error"
+        return 1
+    fi
+    actual="${actual%% *}"
     if [ "$actual" != "$expected" ]; then
-        rm -f "$1"
         output "  checksum mismatch for ${2}: expected ${expected}, got ${actual}" "error"
-        exit_with_error
+        return 1
     fi
     output "  Verified the SHA-256 checksum"
 }
@@ -825,11 +829,15 @@ install_raw() {
     tmp_dir=$(mktemp -d)
     tmp_name="$binary-"$(date +"%s")
     if ! github_curl "$url" > "${tmp_dir}/${tmp_name}.tgz"; then
+        rm -rf "$tmp_dir"
         output "  the download failed" "error"
         exit_with_error
     fi
 
-    verify_checksum "${tmp_dir}/${tmp_name}.tgz" "$archive"
+    if ! verify_checksum "${tmp_dir}/${tmp_name}.tgz" "$archive"; then
+        rm -rf "$tmp_dir"
+        exit_with_error
+    fi
 
     output "  Uncompressing archive"
     tar -C "${tmp_dir}" -xzf "${tmp_dir}/${tmp_name}.tgz"
