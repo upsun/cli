@@ -206,11 +206,12 @@ func TestProjectListUnresolvedProjects(t *testing.T) {
 
 	// If a reference request fails, projects are listed by ID, including those with an unknown vendor.
 	apiHandler.FailNext("GET", "/ref/projects", http.StatusBadGateway, "<html>Bad Gateway</html>")
-	stdOut, stdErr, err := f.RunCombinedOutput("pro", "--pipe", "-v")
+	stdOut, stdErr, err := f.RunCombinedOutput("pro", "--pipe", "-vvv")
 	assert.NoError(t, err)
 	assert.ElementsMatch(t, allIDs, strings.Fields(stdOut))
 	assert.Contains(t, stdErr, "some project details could not be loaded")
 	assert.Contains(t, stdErr, "Failed to load references: The API returned 502 Bad Gateway")
+	assert.Contains(t, stdErr, "Missing details for 4/4 projects: ")
 	assert.NotContains(t, stdErr, "You do not have any")
 
 	// The incomplete list was not cached. A grant for a project that was not found is skipped, and projects with
@@ -222,7 +223,7 @@ func TestProjectListUnresolvedProjects(t *testing.T) {
 
 	_, stdErr, err = f.RunCombinedOutput("pro", "--refresh", "1", "-vvv")
 	assert.NoError(t, err)
-	assert.Contains(t, stdErr, "Skipped access grants for projects that were not found: project-deleted")
+	assert.Contains(t, stdErr, "Missing details for 1/4 projects: project-deleted")
 	assert.Contains(t, stdErr, "Projects hidden by the vendor filter (test-vendor): ")
 	assert.Contains(t, stdErr, "project-acme")
 	assert.Contains(t, stdErr, "project-no-vendor")

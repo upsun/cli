@@ -914,7 +914,9 @@ class Api
         $projects = [];
         $incompleteIds = [];
         $notFoundIds = [];
+        $grantCount = 0;
         foreach (UserExtendedAccess::wrapCollection($data, $url, $httpClient) as $access) {
+            $grantCount++;
             $orgId = $access->organization_id;
             $orgMissing = $orgId !== '' && !array_key_exists($orgId, $orgRefs);
             try {
@@ -944,11 +946,9 @@ class Api
                 $incompleteIds[$id] = $id;
             }
         }
-        if ($incompleteIds) {
-            $this->stdErr->writeln('Projects with missing details: ' . implode(', ', $incompleteIds), OutputInterface::VERBOSITY_VERBOSE);
-        }
-        if ($notFoundIds) {
-            $this->io->debug('Skipped access grants for projects that were not found: ' . implode(', ', $notFoundIds));
+        // Projects returned as null (e.g. deleted) are skipped, while those not returned are listed by ID.
+        if ($missingIds = $incompleteIds + $notFoundIds) {
+            $this->io->debug(sprintf('Missing details for %d/%d projects: %s', count($missingIds), $grantCount, implode(', ', $missingIds)));
         }
 
         return [$projects, $incompleteIds];
