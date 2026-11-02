@@ -1,4 +1,4 @@
-package commands
+package authchannel
 
 import (
 	"bufio"
@@ -26,10 +26,10 @@ import (
 	"github.com/upsun/cli/internal/config"
 )
 
-func TestAuthChannelServer(t *testing.T) {
+func TestServer(t *testing.T) {
 	t.Setenv("TEST_HOME", t.TempDir())
 	t.Setenv("TEST_API_DISABLE_CREDENTIAL_HELPERS", "1")
-	s := &authChannelServer{cnf: testConfig(), stderr: io.Discard, managers: map[string]*auth.Manager{}}
+	s := &server{newManager: newTestManager, debugLog: noLog, managers: map[string]*auth.Manager{}}
 	client, server := net.Pipe()
 	defer client.Close()
 	done := make(chan struct{})
@@ -66,12 +66,12 @@ func TestAuthChannelServer(t *testing.T) {
 	<-done
 }
 
-// TestPrepareAuthChannel checks that a child process can send requests on the channel, one connection for each, that
+// TestPrepare checks that a child process can send requests on the channel, one connection for each, that
 // connections from other processes are refused, and that the child does not inherit the token variables, or the
 // channel variables of a parent wrapper.
-func TestPrepareAuthChannel(t *testing.T) {
+func TestPrepare(t *testing.T) {
 	if os.Getenv("TEST_AUTH_CHANNEL_CHILD") == "1" {
-		authChannelChild(t)
+		channelChild(t)
 		return
 	}
 	t.Setenv("TEST_HOME", t.TempDir())
@@ -79,19 +79,19 @@ func TestPrepareAuthChannel(t *testing.T) {
 	t.Setenv("TEST_API_ACCESS_TOKEN", "raw-token")
 	t.Setenv("TEST_API_TOKEN", "raw-token")
 
-	cmd := exec.Command(os.Args[0], "-test.run=^TestPrepareAuthChannel$") //nolint:gosec
+	cmd := exec.Command(os.Args[0], "-test.run=^TestPrepare$") //nolint:gosec
 	cmd.Env = append(os.Environ(), "TEST_AUTH_CHANNEL_CHILD=1", "TEST_WRAPPER_AUTH_SOCKET=parent",
 		"TEST_WRAPPER_AUTH_PIPE=parent")
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
-	started, done, err := prepareAuthChannel(testConfig(), io.Discard)(cmd)
+	started, done, err := Prepare(testConfig(), newTestManager, noLog)(cmd)
 	require.NoError(t, err)
 	defer done()
 	env := envMap(cmd.Env)
 
 	// A connection from another process (here, this one) is refused, and closed.
-	other, err := dialAuthChannel(func(name string) string { return env[name] })
+	other, err := dialChannel(func(name string) string { return env[name] })
 	require.NoError(t, err)
 	defer other.Close()
 	require.NoError(t, cmd.Start())
@@ -105,7 +105,7 @@ func TestPrepareAuthChannel(t *testing.T) {
 	assert.JSONEq(t, `{"refused": true}`, string(b))
 
 	// A connection that sends nothing is refused after a timeout.
-	silent, err := dialAuthChannel(func(name string) string { return env[name] })
+	silent, err := dialChannel(func(name string) string { return env[name] })
 	require.NoError(t, err)
 	defer silent.Close()
 	require.NoError(t, silent.SetDeadline(time.Now().Add(10*time.Second)))
@@ -127,10 +127,10 @@ func TestPrepareAuthChannel(t *testing.T) {
 	}
 }
 
-// authChannelChild sends two requests as the legacy CLI does, and prints the responses and the relevant variables.
-func authChannelChild(t *testing.T) {
+// channelChild sends two requests as the legacy CLI does, and prints the responses and the relevant variables.
+func channelChild(t *testing.T) {
 	for range 2 {
-		conn, err := dialAuthChannel(os.Getenv)
+		conn, err := dialChannel(os.Getenv)
 		require.NoError(t, err)
 		_, err = conn.Write([]byte(`{"command": "token", "session_id": "default"}` + "\n"))
 		require.NoError(t, err)
@@ -154,9 +154,9 @@ func TestServeListener_AcceptError(t *testing.T) {
 	t.Setenv("TEST_HOME", t.TempDir())
 	t.Setenv("TEST_API_DISABLE_CREDENTIAL_HELPERS", "1")
 	cmd := &exec.Cmd{}
-	l, err := listenAuthChannel(testConfig(), cmd)
+	l, err := listen(testConfig(), cmd, noLog)
 	require.NoError(t, err)
-	s := &authChannelServer{cnf: testConfig(), stderr: io.Discard, managers: map[string]*auth.Manager{}}
+	s := &server{newManager: newTestManager, debugLog: noLog, managers: map[string]*auth.Manager{}}
 	ctx, cancel := context.WithCancel(context.Background())
 	pid := make(chan int, 1)
 	pid <- os.Getpid()
@@ -172,7 +172,7 @@ func TestServeListener_AcceptError(t *testing.T) {
 	}()
 	env := envMap(cmd.Env)
 
-	conn, err := dialAuthChannel(func(name string) string { return env[name] })
+	conn, err := dialChannel(func(name string) string { return env[name] })
 	require.NoError(t, err)
 	defer conn.Close()
 	_, err = conn.Write([]byte(`{"command": "other", "session_id": "default"}` + "\n"))
@@ -206,14 +206,14 @@ func (l *failOnceListener) Accept() (net.Conn, error) {
 	return l.Listener.Accept()
 }
 
-// TestPrepareAuthChannel_ListenError checks that a token set in the environment is not passed on if the channel cannot
+// TestPrepare_ListenError checks that a token set in the environment is not passed on if the channel cannot
 // be created.
-func TestPrepareAuthChannel_ListenError(t *testing.T) {
+func TestPrepare_ListenError(t *testing.T) {
 	t.Setenv("TEST_HOME", t.TempDir())
 	t.Setenv("TEST_API_DISABLE_CREDENTIAL_HELPERS", "1")
-	orig := listenAuth
-	t.Cleanup(func() { listenAuth = orig })
-	listenAuth = func(*config.Config, *exec.Cmd) (net.Listener, error) {
+	orig := listenFunc
+	t.Cleanup(func() { listenFunc = orig })
+	listenFunc = func(*config.Config, *exec.Cmd, func(string, ...any)) (net.Listener, error) {
 		return nil, errors.New("no socket")
 	}
 
@@ -226,7 +226,7 @@ func TestPrepareAuthChannel_ListenError(t *testing.T) {
 	}
 	for _, c := range cases {
 		cmd := &exec.Cmd{Env: c.env}
-		_, _, err := prepareAuthChannel(testConfig(), io.Discard)(cmd)
+		_, _, err := Prepare(testConfig(), newTestManager, noLog)(cmd)
 		if c.wantErr != "" {
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), c.wantErr)
@@ -248,3 +248,20 @@ func TestWithoutEnv(t *testing.T) {
 	assert.Equal(t, want, withoutEnv(env, "TEST_TOKEN", "TEST_API_TOKEN", "TEST_API_ACCESS_TOKEN"))
 	assert.Len(t, env, 7, "the input must not be changed")
 }
+
+func testConfig() *config.Config {
+	cnf := &config.Config{}
+	cnf.Application.Name = "Test CLI"
+	cnf.Application.EnvPrefix = "TEST_"
+	cnf.Application.Slug = "test-cli"
+	cnf.Application.UserConfigDir = ".test-cli"
+	cnf.API.BaseURL = "https://localhost"
+	cnf.API.AuthURL = "https://localhost"
+	return cnf
+}
+
+func newTestManager() (*auth.Manager, error) {
+	return auth.NewManager(testConfig(), io.Discard)
+}
+
+func noLog(string, ...any) {}

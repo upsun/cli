@@ -19,6 +19,8 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/upsun/cli/internal"
+	"github.com/upsun/cli/internal/auth"
+	"github.com/upsun/cli/internal/authchannel"
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/config/alt"
 	"github.com/upsun/cli/internal/legacy"
@@ -366,7 +368,8 @@ func makeLegacyCLIWrapper(cnf *config.Config, stdout, stderr io.Writer, stdin io
 		if authStderr == nil {
 			authStderr = io.Discard
 		}
-		c.PrepareCmd = prepareAuthChannel(cnf, authStderr)
+		newManager := func() (*auth.Manager, error) { return newAuthManager(cnf, authStderr) }
+		c.PrepareCmd = authchannel.Prepare(cnf, newManager, debugLogf)
 	}
 	return c
 }

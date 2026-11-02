@@ -1,11 +1,11 @@
-package commands
+// Package authchannel serves auth requests from the legacy CLI, over a channel that only its process can use.
+package authchannel
 
 import (
 	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -20,14 +20,14 @@ import (
 	"github.com/upsun/cli/internal/config"
 )
 
-// authChannelRequest is a request from the legacy CLI, for the same results as the auth:internal command.
-type authChannelRequest struct {
+// request is a request from the legacy CLI, for the same results as the auth:internal command.
+type request struct {
 	Command   string `json:"command"` // "token" or "status"
 	SessionID string `json:"session_id"`
 	Rejected  string `json:"rejected_sha256,omitempty"` // The hex SHA-256 hash of an access token the API rejected.
 }
 
-type authChannelResponse struct {
+type response struct {
 	Result        any                      `json:"result,omitempty"`
 	LoginRequired *auth.LoginRequiredError `json:"login_required,omitempty"`
 	Error         string                   `json:"error,omitempty"`
@@ -36,11 +36,11 @@ type authChannelResponse struct {
 	Refused bool `json:"refused,omitempty"`
 }
 
-// authChannelTimeout bounds each request, as a refresh can wait for another process's lock.
-const authChannelTimeout = 5 * time.Minute
+// requestTimeout bounds each request, as a refresh can wait for another process's lock.
+const requestTimeout = 5 * time.Minute
 
-// prepareAuthChannel listens for connections from a legacy CLI command (listenAuthChannel), and serves auth requests on
-// them while the command runs. This replaces running the auth:internal command for each request.
+// Prepare returns a function that listens for connections from a legacy CLI command, and serves auth requests on them
+// while the command runs. This replaces running the auth:internal command for each request.
 //
 // The legacy CLI connects for each request, so that the processes it starts (e.g. Git hooks) do not inherit a
 // connection, and only connections from the process that this one started are accepted. This process's ID is also
@@ -49,15 +49,19 @@ const authChannelTimeout = 5 * time.Minute
 //
 // The legacy CLI does not need the API token or access token while it can use the channel, so they are removed from its
 // environment, and so from the processes it starts. Whether one is set is passed instead.
-func prepareAuthChannel(cnf *config.Config, stderr io.Writer) func(cmd *exec.Cmd) (func(), func(), error) {
+//
+// newManager returns an auth manager for the configured session, and debugLog logs debug messages.
+func Prepare(
+	cnf *config.Config, newManager func() (*auth.Manager, error), debugLog func(format string, args ...any),
+) func(cmd *exec.Cmd) (started, done func(), err error) {
 	noop := func() {}
 	return func(cmd *exec.Cmd) (func(), func(), error) {
 		prefix := cnf.Application.EnvPrefix
 		// A parent wrapper's channel would refuse this child, or be closed.
 		cmd.Env = withoutEnv(cmd.Env, prefix+"WRAPPER_AUTH_SOCKET", prefix+"WRAPPER_AUTH_PIPE", prefix+"WRAPPER_PID")
-		m, err := newAuthManager(cnf, stderr)
+		m, err := newManager()
 		if err != nil {
-			debugLogf("Auth channel not available: %s", err)
+			debugLog("Auth channel not available: %s", err)
 			return noop, noop, nil
 		}
 		tokenVars := []string{prefix + "TOKEN", prefix + "API_TOKEN", prefix + "API_ACCESS_TOKEN"}
@@ -69,14 +73,14 @@ func prepareAuthChannel(cnf *config.Config, stderr io.Writer) func(cmd *exec.Cmd
 		})
 		env := cmd.Env
 		cmd.Env = withoutEnv(cmd.Env, tokenVars...)
-		l, err := listenAuth(cnf, cmd)
+		l, err := listenFunc(cnf, cmd, debugLog)
 		if err != nil {
 			// The token is not passed on in the environment instead.
 			if len(setTokenVars) > 0 {
 				return nil, nil, fmt.Errorf("could not create the channel that passes the token set in %s to the "+
 					"legacy CLI: %w", strings.Join(setTokenVars, ", "), err)
 			}
-			debugLogf("Auth channel not available: %s", err)
+			debugLog("Auth channel not available: %s", err)
 			cmd.Env = env
 			return noop, noop, nil
 		}
@@ -89,7 +93,11 @@ func prepareAuthChannel(cnf *config.Config, stderr io.Writer) func(cmd *exec.Cmd
 			}
 			cmd.Env = append(cmd.Env, prefix+"WRAPPER_HAS_TOKEN="+value)
 		}
-		s := &authChannelServer{cnf: cnf, stderr: stderr, managers: map[string]*auth.Manager{m.Settings.SessionID: m}}
+		s := &server{
+			newManager: newManager,
+			debugLog:   debugLog,
+			managers:   map[string]*auth.Manager{m.Settings.SessionID: m},
+		}
 		ctx, cancel := context.WithCancel(context.Background())
 		pid := make(chan int, 1)
 		done := make(chan struct{})
@@ -106,8 +114,8 @@ func prepareAuthChannel(cnf *config.Config, stderr io.Writer) func(cmd *exec.Cmd
 	}
 }
 
-// listenAuth is listenAuthChannel, which tests replace.
-var listenAuth = listenAuthChannel
+// listenFunc is listen, which tests replace.
+var listenFunc = listen
 
 // withoutEnv returns env without the named variables.
 func withoutEnv(env []string, names ...string) []string {
@@ -125,9 +133,9 @@ func sameEnvName(a, b string) bool {
 	return a == b
 }
 
-type authChannelServer struct {
-	cnf    *config.Config
-	stderr io.Writer
+type server struct {
+	newManager func() (*auth.Manager, error)
+	debugLog   func(format string, args ...any)
 
 	mu       sync.Mutex
 	managers map[string]*auth.Manager // By session ID.
@@ -135,7 +143,7 @@ type authChannelServer struct {
 
 // serveListener serves connections from the child process, whose ID is sent on pid once it has started, until the
 // listener is closed. Connections from other processes, such as those that the child starts, are closed.
-func (s *authChannelServer) serveListener(ctx context.Context, l net.Listener, pid <-chan int) {
+func (s *server) serveListener(ctx context.Context, l net.Listener, pid <-chan int) {
 	childPID := 0
 	var delay time.Duration
 	for {
@@ -146,7 +154,7 @@ func (s *authChannelServer) serveListener(ctx context.Context, l net.Listener, p
 			}
 			// Other errors can be transient, e.g. a client that disconnects while it connects.
 			delay = min(max(2*delay, 10*time.Millisecond), 250*time.Millisecond)
-			debugLogf("Auth channel: %s (retrying in %s)", err, delay)
+			s.debugLog("Auth channel: %s (retrying in %s)", err, delay)
 			select {
 			case <-time.After(delay):
 			case <-ctx.Done():
@@ -165,7 +173,7 @@ func (s *authChannelServer) serveListener(ctx context.Context, l net.Listener, p
 			}
 		}
 		if p, err := peerPID(conn); err != nil || p != childPID {
-			debugLogf("Auth channel: refused a connection from process %d (%v)", p, err)
+			s.debugLog("Auth channel: refused a connection from process %d (%v)", p, err)
 			refuse(conn)
 			continue
 		}
@@ -185,12 +193,12 @@ func refuse(conn net.Conn) {
 	_ = conn.SetReadDeadline(time.Now().Add(refuseTimeout))
 	_, _ = bufio.NewReader(conn).ReadBytes('\n')
 	_ = conn.SetWriteDeadline(time.Now().Add(refuseTimeout))
-	_ = json.NewEncoder(conn).Encode(&authChannelResponse{Refused: true})
+	_ = json.NewEncoder(conn).Encode(&response{Refused: true})
 	_ = conn.Close()
 }
 
 // serve answers requests in order, each as a line of JSON, until the connection is closed.
-func (s *authChannelServer) serve(ctx context.Context, conn net.Conn) {
+func (s *server) serve(ctx context.Context, conn net.Conn) {
 	r := bufio.NewReader(conn)
 	enc := json.NewEncoder(conn)
 	for {
@@ -204,25 +212,25 @@ func (s *authChannelServer) serve(ctx context.Context, conn net.Conn) {
 	}
 }
 
-func (s *authChannelServer) handle(ctx context.Context, line []byte) *authChannelResponse {
-	var req authChannelRequest
+func (s *server) handle(ctx context.Context, line []byte) *response {
+	var req request
 	if err := json.Unmarshal(line, &req); err != nil {
-		return &authChannelResponse{Error: fmt.Sprintf("invalid request: %s", err)}
+		return &response{Error: fmt.Sprintf("invalid request: %s", err)}
 	}
-	debugLogf("Auth channel request: %s", req.Command)
-	ctx, cancel := context.WithTimeout(ctx, authChannelTimeout)
+	s.debugLog("Auth channel request: %s", req.Command)
+	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
 	result, err := s.result(ctx, &req)
 	if lerr, ok := auth.AsLoginRequired(err); ok {
-		return &authChannelResponse{LoginRequired: lerr}
+		return &response{LoginRequired: lerr}
 	}
 	if err != nil {
-		return &authChannelResponse{Error: err.Error()}
+		return &response{Error: err.Error()}
 	}
-	return &authChannelResponse{Result: result}
+	return &response{Result: result}
 }
 
-func (s *authChannelServer) result(ctx context.Context, req *authChannelRequest) (any, error) {
+func (s *server) result(ctx context.Context, req *request) (any, error) {
 	m, err := s.manager(req.SessionID)
 	if err != nil {
 		return nil, err
@@ -238,7 +246,7 @@ func (s *authChannelServer) result(ctx context.Context, req *authChannelRequest)
 }
 
 // manager returns a manager for the session that the legacy CLI uses, which session:switch can change.
-func (s *authChannelServer) manager(sessionID string) (*auth.Manager, error) {
+func (s *server) manager(sessionID string) (*auth.Manager, error) {
 	if err := config.ValidateSessionID(sessionID); err != nil {
 		return nil, err
 	}
@@ -247,7 +255,7 @@ func (s *authChannelServer) manager(sessionID string) (*auth.Manager, error) {
 	if m, ok := s.managers[sessionID]; ok {
 		return m, nil
 	}
-	m, err := newAuthManager(s.cnf, s.stderr)
+	m, err := s.newManager()
 	if err != nil {
 		return nil, err
 	}

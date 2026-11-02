@@ -1,4 +1,4 @@
-package commands
+package authchannel
 
 import "golang.org/x/sys/unix"
 

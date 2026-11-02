@@ -1,4 +1,4 @@
-package commands
+package authchannel
 
 import (
 	"crypto/rand"
@@ -12,8 +12,8 @@ import (
 	"github.com/upsun/cli/internal/config"
 )
 
-// listenAuthChannel listens on a new named pipe, whose name is passed to cmd in <PREFIX>WRAPPER_AUTH_PIPE.
-func listenAuthChannel(cnf *config.Config, cmd *exec.Cmd) (net.Listener, error) {
+// listen listens on a new named pipe, whose name is passed to cmd in <PREFIX>WRAPPER_AUTH_PIPE.
+func listen(cnf *config.Config, cmd *exec.Cmd, _ func(string, ...any)) (net.Listener, error) {
 	token := windows.GetCurrentProcessToken()
 	user, err := token.GetTokenUser()
 	if err != nil {
@@ -33,8 +33,8 @@ func listenAuthChannel(cnf *config.Config, cmd *exec.Cmd) (net.Listener, error) 
 // pipeSDDL gives the user full access to the pipe, and no one else: the default DACL gives Everyone read access.
 // go-winio also rejects remote clients, and fails if a pipe with the name exists.
 //
-// If elevated, the pipe gets a high integrity label: without one, the user's processes that are not elevated could also
-// open it or create instances of it.
+// If elevated, the pipe gets a high integrity label, so that the user's processes that are not elevated cannot write to
+// it or create instances of it.
 func pipeSDDL(sid *windows.SID, elevated bool) string {
 	sddl := "O:" + sid.String() + "D:P(A;;GA;;;" + sid.String() + ")"
 	if elevated {

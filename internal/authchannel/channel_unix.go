@@ -1,6 +1,6 @@
 //go:build !windows
 
-package commands
+package authchannel
 
 import (
 	"errors"
@@ -18,24 +18,24 @@ import (
 	"github.com/upsun/cli/internal/config"
 )
 
-// authDirPrefix is the prefix of the name of an auth channel's directory, which is followed by the ID of the process
+// dirPrefix is the prefix of the name of an auth channel's directory, which is followed by the ID of the process
 // that listens on its socket.
-const authDirPrefix = "cli-auth-"
+const dirPrefix = "cli-auth-"
 
-// staleAuthDirAge is the minimum age of an auth channel's directory that may be removed by another process, so that
+// staleDirAge is the minimum age of an auth channel's directory that may be removed by another process, so that
 // one is not removed before its socket is created.
-const staleAuthDirAge = time.Minute
+const staleDirAge = time.Minute
 
-// listenAuthChannel listens on a Unix socket in a new temporary directory, which only the current user can access. Its
+// listen listens on a Unix socket in a new temporary directory, which only the current user can access. Its
 // path is passed to cmd in <PREFIX>WRAPPER_AUTH_SOCKET.
 //
 // The directory is removed when the listener is closed. Directories that are left over, if this process is ended by a
 // signal, are removed by a later one, while the legacy CLI runs.
-func listenAuthChannel(cnf *config.Config, cmd *exec.Cmd) (net.Listener, error) {
-	parents := authSocketParents(cnf)
+func listen(cnf *config.Config, cmd *exec.Cmd, debugLog func(string, ...any)) (net.Listener, error) {
+	parents := socketParents(cnf)
 	var errs []error
 	for _, parent := range parents {
-		dir, err := os.MkdirTemp(parent, authDirPrefix+strconv.Itoa(os.Getpid())+"-")
+		dir, err := os.MkdirTemp(parent, dirPrefix+strconv.Itoa(os.Getpid())+"-")
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -52,17 +52,17 @@ func listenAuthChannel(cnf *config.Config, cmd *exec.Cmd) (net.Listener, error) 
 		go func() {
 			defer close(swept)
 			for _, p := range parents {
-				removeStaleAuthDirs(p)
+				removeStaleDirs(p, debugLog)
 			}
 		}()
-		return &unixAuthListener{UnixListener: l, dir: dir, swept: swept}, nil
+		return &unixListener{UnixListener: l, dir: dir, swept: swept}, nil
 	}
 	return nil, errors.Join(errs...)
 }
 
-// authSocketParents returns the directories in which to try to create the socket's directory: the system's temporary
+// socketParents returns the directories in which to try to create the socket's directory: the system's temporary
 // directory, the CLI's own (which the legacy CLI needs anyway), then /tmp.
-func authSocketParents(cnf *config.Config) []string {
+func socketParents(cnf *config.Config) []string {
 	var dirs []string
 	add := func(dir string) {
 		// A socket's path is limited to 104 bytes on macOS, and 108 on Linux.
@@ -78,36 +78,36 @@ func authSocketParents(cnf *config.Config) []string {
 	return dirs
 }
 
-type unixAuthListener struct {
+type unixListener struct {
 	*net.UnixListener
 	dir   string
 	swept chan struct{} // Closed when stale directories have been removed.
 }
 
 // Close stops listening and removes the socket's directory, once stale directories have been removed.
-func (l *unixAuthListener) Close() error {
+func (l *unixListener) Close() error {
 	err := errors.Join(l.UnixListener.Close(), os.RemoveAll(l.dir))
 	<-l.swept
 	return err
 }
 
-// removeStaleAuthDirs removes the current user's auth channel directories in parent that are no longer used: their
+// removeStaleDirs removes the current user's auth channel directories in parent that are no longer used: their
 // process does not exist, and nothing listens on their socket. The socket is checked too, as the process may be in
 // another PID namespace (e.g. in a container that shares the directory).
-func removeStaleAuthDirs(parent string) {
+func removeStaleDirs(parent string, debugLog func(string, ...any)) {
 	entries, err := os.ReadDir(parent)
 	if err != nil {
 		return
 	}
 	for _, e := range entries {
-		pid, ok := authDirPID(e.Name())
+		pid, ok := dirPID(e.Name())
 		// IsDir does not follow symbolic links.
 		if !ok || !e.IsDir() || processExists(pid) {
 			continue
 		}
 		dir := filepath.Join(parent, e.Name())
 		info, err := os.Lstat(dir)
-		if err != nil || !info.IsDir() || time.Since(info.ModTime()) < staleAuthDirAge {
+		if err != nil || !info.IsDir() || time.Since(info.ModTime()) < staleDirAge {
 			continue
 		}
 		if st, ok := info.Sys().(*syscall.Stat_t); !ok || int(st.Uid) != os.Getuid() {
@@ -116,14 +116,14 @@ func removeStaleAuthDirs(parent string) {
 		if socketInUse(filepath.Join(dir, "s")) {
 			continue
 		}
-		debugLogf("Removing a stale auth channel directory: %s", dir)
+		debugLog("Removing a stale auth channel directory: %s", dir)
 		_ = os.RemoveAll(dir)
 	}
 }
 
-// authDirPID returns the process ID in the name of an auth channel directory.
-func authDirPID(name string) (int, bool) {
-	rest, ok := strings.CutPrefix(name, authDirPrefix)
+// dirPID returns the process ID in the name of an auth channel directory.
+func dirPID(name string) (int, bool) {
+	rest, ok := strings.CutPrefix(name, dirPrefix)
 	if !ok {
 		return 0, false
 	}
