@@ -117,7 +117,8 @@ type installerResult struct {
 // runInstaller runs installer.sh with the raw install method, against the fake GitHub.
 // The environment is built from scratch, so that the developer's or CI's tokens are not used.
 // A fake gh CLI is first in the PATH: it is logged in if env has GH_FAKE_TOKEN.
-func runInstaller(t *testing.T, g *fakeGitHub, env []string, homeFiles map[string]string) installerResult {
+// If noJQ is set, jq is left out of the PATH.
+func runInstaller(t *testing.T, g *fakeGitHub, env []string, homeFiles map[string]string, noJQ bool) installerResult {
 	dir := t.TempDir()
 	home := filepath.Join(dir, "home")
 	binDir := filepath.Join(dir, "bin")
@@ -139,12 +140,17 @@ esac
 `
 	require.NoError(t, os.WriteFile(filepath.Join(fakeBin, "gh"), []byte(gh), 0o755))
 
+	path := fakeBin + string(os.PathListSeparator) + os.Getenv("PATH")
+	if noJQ {
+		path = fakeBin + string(os.PathListSeparator) + pathWithout(t, filepath.Join(dir, "path-bin"), "jq")
+	}
+
 	installer, err := filepath.Abs("../installer.sh")
 	require.NoError(t, err)
 	cmd := exec.Command("sh", installer)
 	cmd.Dir = dir
 	cmd.Env = append([]string{
-		"PATH=" + fakeBin + string(os.PathListSeparator) + os.Getenv("PATH"),
+		"PATH=" + path,
 		"HOME=" + home,
 		"TMPDIR=" + dir,
 		"CI=1", // Skips shell completion.
@@ -157,6 +163,28 @@ esac
 	out, err := cmd.CombinedOutput()
 	t.Log(string(out))
 	return installerResult{output: string(out), err: err, binPath: filepath.Join(binDir, "upsun")}
+}
+
+// pathWithout creates a directory of links to the executables in the PATH, leaving out one name, and returns it.
+func pathWithout(t *testing.T, dir, exclude string) string {
+	require.NoError(t, os.MkdirAll(dir, 0o700))
+	for _, pathDir := range filepath.SplitList(os.Getenv("PATH")) {
+		entries, err := os.ReadDir(pathDir)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			link := filepath.Join(dir, e.Name())
+			if e.Name() == exclude || e.IsDir() {
+				continue
+			}
+			if _, err := os.Lstat(link); err == nil {
+				continue // An earlier PATH entry wins.
+			}
+			require.NoError(t, os.Symlink(filepath.Join(pathDir, e.Name()), link))
+		}
+	}
+	return dir
 }
 
 // assertInstalled checks that the installed binary has the version.
@@ -191,6 +219,8 @@ func TestInstallerLatestVersion(t *testing.T) {
 		rateLimitStatus int
 		apiStatus       int
 		noRedirect      bool
+		needsJQ         bool // The case reads Composer auth JSON.
+		noJQ            bool // Leave jq out of the PATH.
 
 		wantVersion string // Empty if the install fails.
 		wantAuth    string // The Authorization header sent to the releases API.
@@ -242,6 +272,7 @@ func TestInstallerLatestVersion(t *testing.T) {
 		},
 		{
 			name:        "rejected gh CLI token falls through to COMPOSER_AUTH",
+			needsJQ:     true,
 			env:         []string{"GH_FAKE_TOKEN=invalid-token", "COMPOSER_AUTH=" + composerAuth},
 			wantVersion: "1.2.3",
 			wantAuth:    "Bearer valid-token",
@@ -252,6 +283,7 @@ func TestInstallerLatestVersion(t *testing.T) {
 		},
 		{
 			name:        "rejected COMPOSER_AUTH token falls through to auth.json",
+			needsJQ:     true,
 			env:         []string{`COMPOSER_AUTH={"github-oauth":{"github.com":"invalid-token"}}`},
 			homeFiles:   map[string]string{".global/auth.json": composerAuth},
 			wantVersion: "1.2.3",
@@ -273,6 +305,7 @@ func TestInstallerLatestVersion(t *testing.T) {
 		},
 		{
 			name:        "COMPOSER_AUTH",
+			needsJQ:     true,
 			env:         []string{"COMPOSER_AUTH=" + composerAuth},
 			wantVersion: "1.2.3",
 			wantAuth:    "Bearer valid-token",
@@ -280,6 +313,7 @@ func TestInstallerLatestVersion(t *testing.T) {
 		},
 		{
 			name:        "project container auth.json",
+			needsJQ:     true,
 			homeFiles:   map[string]string{".global/auth.json": composerAuth},
 			wantVersion: "1.2.3",
 			wantAuth:    "Bearer valid-token",
@@ -287,11 +321,20 @@ func TestInstallerLatestVersion(t *testing.T) {
 		},
 		{
 			name:        "COMPOSER_AUTH without a github.com token",
+			needsJQ:     true,
 			env:         []string{"COMPOSER_AUTH={\"gitlab-oauth\":{\"gitlab.com\":\"x\"}}"},
 			homeFiles:   map[string]string{".global/auth.json": composerAuth},
 			wantVersion: "1.2.3",
 			wantAuth:    "Bearer valid-token",
 			wantOutput:  []string{".global/auth.json"},
+		},
+		{
+			name:        "Composer auth JSON is ignored without jq",
+			env:         []string{"COMPOSER_AUTH=" + composerAuth},
+			homeFiles:   map[string]string{".global/auth.json": composerAuth},
+			noJQ:        true,
+			wantVersion: "1.2.3",
+			dontOutput:  []string{"GitHub auth", "GitHub token"},
 		},
 		{
 			name:        "invalid token",
@@ -333,12 +376,17 @@ func TestInstallerLatestVersion(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
+			if c.needsJQ {
+				if _, err := exec.LookPath("jq"); err != nil {
+					t.Skip("jq is not installed")
+				}
+			}
 			g := newFakeGitHub(t)
 			g.rateLimitStatus = c.rateLimitStatus
 			g.apiStatus = c.apiStatus
 			g.noRedirect = c.noRedirect
 
-			r := runInstaller(t, g, c.env, c.homeFiles)
+			r := runInstaller(t, g, c.env, c.homeFiles, c.noJQ)
 			if c.wantVersion == "" {
 				assert.Error(t, r.err)
 				assert.NoFileExists(t, r.binPath)

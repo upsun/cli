@@ -250,8 +250,9 @@ check_curl() {
 
 # Print the github.com token from Composer auth JSON (read from stdin), if any.
 # See https://getcomposer.org/doc/articles/authentication-for-private-packages.md#github-oauth
+# This needs jq, which Upsun containers have: without it, no token is found.
 github_token_from_composer_auth() {
-    tr -d '\r\n' | sed -n 's/.*"github-oauth"[[:space:]]*:[[:space:]]*{[^}]*"github\.com"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1
+    jq -r '."github-oauth"."github.com" | strings' 2>/dev/null || true
 }
 
 # Try a GitHub token: use it unless GitHub rejects it.
