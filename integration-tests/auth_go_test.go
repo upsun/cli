@@ -6,12 +6,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -329,12 +331,10 @@ func TestErrorOutput_QuietOverride(t *testing.T) {
 	}
 }
 
-// TestAuthChannel checks that the legacy CLI gets tokens from the wrapper over the inherited socket.
+// TestAuthChannel checks that the legacy CLI gets tokens from the wrapper over its channel (an inherited socket, or a
+// named pipe on Windows), rather than by running auth:internal.
 func TestAuthChannel(t *testing.T) {
 	t.Parallel()
-	if runtime.GOOS == "windows" {
-		t.Skip("the legacy CLI runs auth:internal on Windows")
-	}
 	authServer := mockapi.NewAuthServer(t)
 	defer authServer.Close()
 	apiServer := newMyUserAPI(t)
@@ -349,7 +349,7 @@ func TestAuthChannel(t *testing.T) {
 }
 
 // TestAuthChannel_TokenNotInherited checks that processes started by the legacy CLI, such as Git hooks, do not inherit
-// the API token, and that a CLI command run by them does not use other credentials instead.
+// the API token or the auth channel, and that a CLI command run by them does not use other credentials instead.
 func TestAuthChannel_TokenNotInherited(t *testing.T) {
 	t.Parallel()
 	if !goAuthMode() {
@@ -364,9 +364,13 @@ func TestAuthChannel_TokenNotInherited(t *testing.T) {
 	})
 	tmp := t.TempDir()
 	envFile, nestedFile := filepath.Join(tmp, "env"), filepath.Join(tmp, "nested")
+	socketsFile := filepath.Join(tmp, "sockets")
 	hooksDir := filepath.Join(repo, ".git", "hooks")
 	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
 	hook := []byte("#!/bin/sh\nenv > '" + envFile + "'\n" +
+		// lsof exits with 1 if it finds no Unix socket, so it is checked first with the hook's stdin.
+		"if lsof -a -p $$ -d 0 > /dev/null; then lsof -a -p $$ -U > '" + socketsFile + "'; " +
+		"else echo 'lsof failed' > '" + socketsFile + "'; fi\n" +
 		`"$` + EnvPrefix + `WRAPPER_EXECUTABLE" auth:token -W > '` + nestedFile + `' 2>&1; echo "exit $?" >> '` +
 		nestedFile + "'\n")
 	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "pre-push"), hook, 0o755))
@@ -386,11 +390,91 @@ func TestAuthChannel_TokenNotInherited(t *testing.T) {
 	}
 	assert.Equal(t, map[string]string{EnvPrefix + "WRAPPER_HAS_TOKEN": "1", "CLI_SSH_NO_REFRESH": "1"}, env)
 
+	b, err = os.ReadFile(socketsFile)
+	require.NoError(t, err)
+	assert.Empty(t, string(b), "the hook must not inherit Unix sockets")
+
 	b, err = os.ReadFile(nestedFile)
 	require.NoError(t, err)
 	assert.Contains(t, string(b), "but it is not passed on")
 	assert.Contains(t, string(b), "exit 1")
 	assert.NotContains(t, string(b), "stored-token")
+}
+
+// TestAuthChannel_Terminated checks that the wrapper is ended by SIGTERM while the legacy CLI runs, and that the auth
+// channel's socket directory that it leaves is removed by a later run.
+func TestAuthChannel_Terminated(t *testing.T) {
+	t.Parallel()
+	if !goAuthMode() {
+		t.Skip("the auth channel is only used with Go auth")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("uses SIGTERM")
+	}
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+	apiHandler := mockapi.NewHandler(t)
+	apiHandler.SetMyUser(&mockapi.User{ID: "u1", Username: "testuser", Email: "test@example.com"})
+	// The user request waits, so that the legacy CLI is running when it is terminated.
+	requested, release := make(chan struct{}, 1), make(chan struct{})
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == "/users/me" {
+			select {
+			case requested <- struct{}{}:
+			default:
+			}
+			<-release
+		}
+		apiHandler.ServeHTTP(w, req)
+	}))
+	defer apiServer.Close()
+	// The handler must be released before the server can close, also if the test fails.
+	releaseOnce := sync.OnceFunc(func() { close(release) })
+	defer releaseOnce()
+	// A short path, so that the CLI does not use another directory for the socket.
+	tmp, err := os.MkdirTemp("/tmp", "cli-test-")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(tmp) })
+
+	f := newGoAuthCommandFactory(t, apiServer.URL, authServer.URL)
+	f.extraEnv = append(f.extraEnv, "TMPDIR="+tmp)
+	cmd := f.buildCommand("auth:info", "id", "--refresh")
+	require.NoError(t, cmd.Start())
+	t.Cleanup(func() {
+		if cmd.ProcessState == nil {
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+		}
+	})
+	select {
+	case <-requested:
+	case <-time.After(30 * time.Second):
+		releaseOnce()
+		require.Fail(t, "no user request")
+	}
+	sockets, err := filepath.Glob(filepath.Join(tmp, "cli-auth-*"))
+	require.NoError(t, err)
+	require.Len(t, sockets, 1)
+
+	require.NoError(t, cmd.Process.Signal(syscall.SIGTERM))
+	// The legacy CLI, which outlives the wrapper, finishes once the request is answered.
+	releaseOnce()
+	var exitErr *exec.ExitError
+	require.ErrorAs(t, cmd.Wait(), &exitErr)
+	ws, ok := exitErr.Sys().(syscall.WaitStatus)
+	require.True(t, ok)
+	assert.True(t, ws.Signaled() && ws.Signal() == syscall.SIGTERM, "status: %v", ws)
+	left, err := filepath.Glob(filepath.Join(tmp, "cli-auth-*"))
+	require.NoError(t, err)
+	require.Equal(t, sockets, left, "the socket's directory is left")
+
+	// A later run removes it, once it is old enough not to be one that is being created.
+	old := time.Now().Add(-2 * time.Minute)
+	require.NoError(t, os.Chtimes(sockets[0], old, old))
+	f.Run("auth:info", "id")
+	left, err = filepath.Glob(filepath.Join(tmp, "cli-auth-*"))
+	require.NoError(t, err)
+	assert.Empty(t, left, "the socket directories must be removed")
 }
 
 // TestAuthAccessTokenPrecedence checks that an access token set via the environment is used in PHP commands instead of

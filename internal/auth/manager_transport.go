@@ -35,7 +35,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, t.stepUpError(ctx, resp)
 	}
 	flush(resp.Body)
-	tok, err = t.Manager.Token(ctx, tok.AccessToken)
+	tok, err = t.Manager.Token(ctx, TokenHash(tok.AccessToken))
 	if err != nil {
 		return nil, err
 	}

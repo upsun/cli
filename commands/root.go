@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/fatih/color"
@@ -18,6 +19,8 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/upsun/cli/internal"
+	"github.com/upsun/cli/internal/auth"
+	"github.com/upsun/cli/internal/authchannel"
 	"github.com/upsun/cli/internal/config"
 	"github.com/upsun/cli/internal/config/alt"
 	"github.com/upsun/cli/internal/legacy"
@@ -335,7 +338,11 @@ func exitWithError(err error) {
 	var execErr *exec.ExitError
 	if errors.As(err, &execErr) {
 		exitCode := execErr.ExitCode()
-		debugLogf(err.Error())
+		// A process ended by a signal has no exit code: use the status that shells report.
+		if ws, ok := execErr.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
+			exitCode = 128 + int(ws.Signal())
+		}
+		debugLogf("%s", err)
 		waitForUpdateCheck()
 		os.Exit(exitCode)
 	}
@@ -361,7 +368,8 @@ func makeLegacyCLIWrapper(cnf *config.Config, stdout, stderr io.Writer, stdin io
 		if authStderr == nil {
 			authStderr = io.Discard
 		}
-		c.PrepareCmd = prepareAuthChannel(cnf, authStderr)
+		newManager := func() (*auth.Manager, error) { return newAuthManager(cnf, authStderr) }
+		c.PrepareCmd = authchannel.Prepare(cnf, newManager, debugLogf)
 	}
 	return c
 }
