@@ -250,7 +250,7 @@ check_curl() {
 
 # Print the github.com token from Composer auth JSON (read from stdin), if any.
 # See https://getcomposer.org/doc/articles/authentication-for-private-packages.md#github-oauth
-# This needs jq, which Upsun containers have: without it, no token is found.
+# This needs jq, which Upsun containers have.
 github_token_from_composer_auth() {
     jq -r '."github-oauth"."github.com" | strings' 2>/dev/null || true
 }
@@ -299,14 +299,21 @@ setup_github_token() {
         && try_github_token "$(gh auth token 2>/dev/null || true)" "the gh CLI"; then
         return
     fi
+    auth_file="${HOME:-}/.global/auth.json"
+    if ! command -v jq >/dev/null 2>&1; then
+        if [ -n "${COMPOSER_AUTH:-}" ] || { [ -n "${HOME:-}" ] && [ -r "${auth_file}" ]; }; then
+            output "  [ ] Composer auth was found, but jq is not installed to read a GitHub token from it" "warning"
+        fi
+        return
+    fi
     if [ -n "${COMPOSER_AUTH:-}" ] \
         && try_github_token "$(printf '%s' "${COMPOSER_AUTH}" | github_token_from_composer_auth)" "the COMPOSER_AUTH env variable"; then
         return
     fi
     # The token that Upsun provides in project containers. It allows for higher
     # rate limits but is otherwise unprivileged.
-    if [ -n "${HOME:-}" ] && [ -r "${HOME}/.global/auth.json" ]; then
-        try_github_token "$(github_token_from_composer_auth < "${HOME}/.global/auth.json")" "${HOME}/.global/auth.json" || true
+    if [ -n "${HOME:-}" ] && [ -r "${auth_file}" ]; then
+        try_github_token "$(github_token_from_composer_auth < "${auth_file}")" "${auth_file}" || true
     fi
 }
 

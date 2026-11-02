@@ -329,12 +329,13 @@ func TestInstallerLatestVersion(t *testing.T) {
 			wantOutput:  []string{".global/auth.json"},
 		},
 		{
-			name:        "Composer auth JSON is ignored without jq",
+			name:        "Composer auth JSON is skipped without jq",
 			env:         []string{"COMPOSER_AUTH=" + composerAuth},
 			homeFiles:   map[string]string{".global/auth.json": composerAuth},
 			noJQ:        true,
 			wantVersion: "1.2.3",
-			dontOutput:  []string{"GitHub auth", "GitHub token"},
+			wantOutput:  []string{"Composer auth was found, but jq is not installed to read a GitHub token from it"},
+			dontOutput:  []string{"Using GitHub auth"},
 		},
 		{
 			name:        "invalid token",
