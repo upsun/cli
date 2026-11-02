@@ -16,7 +16,7 @@ On Linux, macOS, or the Windows Subsystem for Linux (WSL), run:
 curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | bash
 ```
 
-The script uses apt, yum, or apk on Linux, or Homebrew on macOS, if available, or else downloads the binary. For its options, see [docs/installer.md](docs/installer.md).
+The script uses apt, yum, or apk on Linux, or Homebrew on macOS, if available, or else downloads the binary. For its options, and to add the package repositories yourself, see [docs/install.md](docs/install.md).
 
 ### Windows
 
@@ -36,56 +36,6 @@ scoop install upsun
 brew install upsun/tap/upsun-cli
 ```
 
-### Nix profile
-
-Refer to the [Nix documentation if you are not on NixOS](https://nix.dev/manual/nix/2.24/installation/installing-binary.html).
-
-```console
-nix profile install nixpkgs#upsun
-```
-
-### Alpine
-
-```console
-# Add the signing key and repository
-sudo mkdir -p /etc/apk/keys
-sudo curl -fsSL -o /etc/apk/keys/repositories-upsun-com.rsa.pub https://repositories.upsun.com/alpine/repositories-upsun-com.rsa.pub
-echo "https://repositories.upsun.com/alpine" | sudo tee -a /etc/apk/repositories
-
-# Install the CLI
-sudo apk add upsun-cli
-```
-
-### Ubuntu/Debian
-
-```console
-# Add the signing key and repository
-sudo mkdir -p /etc/apt/keyrings
-sudo curl -fsSL https://repositories.upsun.com/gpg.key -o /etc/apt/keyrings/upsun.asc
-echo "deb [signed-by=/etc/apt/keyrings/upsun.asc] https://repositories.upsun.com/debian stable main" | sudo tee /etc/apt/sources.list.d/upsun.list
-
-# Install the CLI
-sudo apt-get update
-sudo apt-get install -y upsun-cli
-```
-
-### RPM (Fedora, RHEL, CentOS, AlmaLinux, Rocky)
-
-```console
-# Add the repository
-sudo tee /etc/yum.repos.d/upsun.repo << 'EOF'
-[upsun]
-name=Upsun CLI
-baseurl=https://repositories.upsun.com/rpm/$basearch
-enabled=1
-gpgcheck=1
-gpgkey=https://repositories.upsun.com/gpg.key
-EOF
-
-# Install the CLI (use yum on older systems)
-sudo dnf install -y upsun-cli
-```
-
 ### npm
 
 If you have Node.js 18 or later, you can install the CLI with npm:
@@ -96,9 +46,13 @@ npm install -g upsun
 
 There is no npm build for 32-bit Linux or Windows on ARM. npm installs don't set up shell completion.
 
-### Manual installation
+### Nix profile
 
-For manual installation, you can also [download the latest binaries](https://github.com/upsun/cli/releases/latest).
+Refer to the [Nix documentation if you are not on NixOS](https://nix.dev/manual/nix/2.24/installation/installing-binary.html).
+
+```console
+nix profile install nixpkgs#upsun
+```
 
 ### Docker
 
@@ -107,6 +61,10 @@ The CLI is also available as a Docker image:
 ```console
 docker run --rm -it ghcr.io/upsun/cli
 ```
+
+### Manual installation
+
+For manual installation, you can also [download the latest binaries](https://github.com/upsun/cli/releases/latest).
 
 ## Upgrade
 
@@ -130,23 +88,9 @@ scoop update upsun
 brew update && brew upgrade upsun/tap/upsun-cli
 ```
 
-### Alpine
+### Linux packages
 
-```console
-sudo apk update && sudo apk upgrade upsun-cli
-```
-
-### Ubuntu/Debian
-
-```console
-sudo apt-get update && sudo apt-get upgrade upsun-cli
-```
-
-### CentOS/RHEL/Fedora
-
-```console
-sudo dnf upgrade -y upsun-cli
-```
+Upgrade with your system's package manager (apt, dnf/yum, or apk).
 
 ### npm
 
