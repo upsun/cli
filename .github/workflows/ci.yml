@@ -258,9 +258,16 @@ jobs:
           name: php-coverage-html
           path: dist/php-coverage/html
 
-  # Builds the CLI for macOS and Windows, for integration tests on those platforms.
+  # Builds the CLI for all platforms, for integration tests on macOS and Windows, and for reviewers to test.
   build-cross:
     runs-on: ubuntu-latest
+
+    outputs:
+      linux-amd64: ${{ steps.upload-linux-amd64.outputs.artifact-url }}
+      linux-arm64: ${{ steps.upload-linux-arm64.outputs.artifact-url }}
+      darwin-amd64: ${{ steps.upload-darwin-amd64.outputs.artifact-url }}
+      darwin-arm64: ${{ steps.upload-darwin-arm64.outputs.artifact-url }}
+      windows-amd64: ${{ steps.upload-windows-amd64.outputs.artifact-url }}
 
     steps:
       - name: Check out repository code
@@ -292,31 +299,124 @@ jobs:
       - name: Build platform.phar
         run: make phar
 
+      # 0.0.0 versions are dev builds, which do not check for updates.
       - name: Build CLIs
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
+          version=0.0.0-${PR:+pr}${PR:-$GITHUB_REF_NAME}+${SHA:0:7}
           php_version=$(sed -n 's/^PHP_VERSION = //p' Makefile)
-          for target in darwin/arm64 windows/amd64; do
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
             goos=${target%/*} goarch=${target#*/}
             make php GOOS=$goos GOARCH=$goarch
             ext=; [ $goos = windows ] && ext=.exe
             CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build \
-              -ldflags "-X github.com/upsun/cli/internal/legacy.PHPVersion=$php_version" \
-              -o dist/cross/$goos/upsun$ext ./cmd/platform
+              -ldflags "-X github.com/upsun/cli/internal/config.Version=$version -X github.com/upsun/cli/internal/legacy.PHPVersion=$php_version" \
+              -o dist/cross/$goos-$goarch/upsun$ext ./cmd/platform
           done
 
-      - name: Upload macOS CLI
+      - name: Upload CLI (linux-amd64)
+        id: upload-linux-amd64
         uses: actions/upload-artifact@v7
         with:
-          name: cli-darwin
-          path: dist/cross/darwin/
-          retention-days: 1
+          name: cli-linux-amd64
+          path: dist/cross/linux-amd64/
+          retention-days: 7
 
-      - name: Upload Windows CLI
+      - name: Upload CLI (linux-arm64)
+        id: upload-linux-arm64
         uses: actions/upload-artifact@v7
         with:
-          name: cli-windows
-          path: dist/cross/windows/
-          retention-days: 1
+          name: cli-linux-arm64
+          path: dist/cross/linux-arm64/
+          retention-days: 7
+
+      - name: Upload CLI (darwin-amd64)
+        id: upload-darwin-amd64
+        uses: actions/upload-artifact@v7
+        with:
+          name: cli-darwin-amd64
+          path: dist/cross/darwin-amd64/
+          retention-days: 7
+
+      - name: Upload CLI (darwin-arm64)
+        id: upload-darwin-arm64
+        uses: actions/upload-artifact@v7
+        with:
+          name: cli-darwin-arm64
+          path: dist/cross/darwin-arm64/
+          retention-days: 7
+
+      - name: Upload CLI (windows-amd64)
+        id: upload-windows-amd64
+        uses: actions/upload-artifact@v7
+        with:
+          name: cli-windows-amd64
+          path: dist/cross/windows-amd64/
+          retention-days: 7
+
+  # Comments on pull requests with the CLI builds, except from forks, as their code is untrusted.
+  comment-builds:
+    needs: build-cross
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+
+    # Runs for one push at a time, so that there is only one comment.
+    concurrency:
+      group: comment-builds-${{ github.event.pull_request.number }}
+
+    steps:
+      - name: Create or update the comment
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_ID: ${{ github.run_id }}
+          URLS: ${{ toJSON(needs.build-cross.outputs) }}
+        run: |
+          marker='<!-- cli-pr-builds -->'
+          {
+            echo "$marker"
+            echo "### CLI builds"
+            echo
+            echo "Built from $SHA (merged into the base branch). Downloads need a GitHub login, and expire after 7 days."
+            echo
+            echo '| Platform | Download |'
+            echo '| --- | --- |'
+            for name in linux-amd64 linux-arm64 darwin-amd64 darwin-arm64 windows-amd64; do
+              echo "| $name | [cli-$name]($(echo "$URLS" | jq -r --arg n "$name" '.[$n]')) |"
+            done
+            echo
+            echo 'Or download one with the [GitHub CLI](https://cli.github.com/), e.g.:'
+            echo
+            echo '```sh'
+            echo "gh run download $RUN_ID -R $REPO -n cli-linux-amd64"
+            echo 'chmod +x upsun'
+            echo './upsun --version'
+            echo '```'
+            echo
+            echo 'On macOS, if you downloaded it with a browser, remove the quarantine attribute before running it: `xattr -d com.apple.quarantine upsun`.'
+          } > body.md
+          # A run for an older push may finish later: it must not replace the comment.
+          head=$(gh api "repos/$REPO/pulls/$PR" --jq .head.sha)
+          if [ "$head" != "$SHA" ]; then
+            echo "The pull request has a newer commit."
+            exit 0
+          fi
+          ids=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id")
+          id=${ids%%$'\n'*}
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@body.md >/dev/null
+          else
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@body.md >/dev/null
+          fi
 
   integration-test-cross:
     needs: build-cross
@@ -325,10 +425,10 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            artifact: cli-darwin
+            artifact: cli-darwin-arm64
             executable: upsun
           - os: windows-latest
-            artifact: cli-windows
+            artifact: cli-windows-amd64
             executable: upsun.exe
     runs-on: ${{ matrix.os }}
 

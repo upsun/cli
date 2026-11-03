@@ -39,6 +39,13 @@ func TestNotificationFromState(t *testing.T) {
 		assert.Nil(t, notificationFromState(newState("v0.9.0", 0), "upsun/cli", "v1.0.0", now))
 	})
 
+	t.Run("nightly build", func(t *testing.T) {
+		const nightly = "5.15.3-nightly.20261103+abc1234"
+		assert.Nil(t, notificationFromState(newState("v5.15.2", 0), "upsun/cli", nightly, now))
+		assert.NotNil(t, notificationFromState(newState("v5.15.3", 0), "upsun/cli", nightly, now))
+		assert.NotNil(t, notificationFromState(newState("v5.16.0", 0), "upsun/cli", nightly, now))
+	})
+
 	t.Run("notified within the past week is throttled", func(t *testing.T) {
 		lastNotified := int64(now - 3*24*60*60) // 3 days ago
 		assert.Nil(t, notificationFromState(newState("v2.0.0", lastNotified), "upsun/cli", "v1.0.0", now))
@@ -117,6 +124,25 @@ func TestLatestWingetVersion(t *testing.T) {
 				assert.NoError(t, err)
 			}
 			assert.Equal(t, c.want, got)
+		})
+	}
+}
+
+func TestIsDevVersion(t *testing.T) {
+	cases := []struct {
+		version string
+		dev     bool
+	}{
+		{"0.0.0", true},
+		{"0.0.0-pr123+abc1234", true},
+		{"v0.0.0-20261103101500-abc123456789+dirty", true},
+		{"5.15.2", false},
+		{"v5.15.2", false},
+		{"5.15.3-2026-11-03-abc1234-next", false},
+	}
+	for _, c := range cases {
+		t.Run(c.version, func(t *testing.T) {
+			assert.Equal(t, c.dev, isDevVersion(c.version))
 		})
 	}
 }

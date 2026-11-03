@@ -36,6 +36,7 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Finder\Finder;
 
 #[AsCommand(name: 'project:create', description: 'Create a new project', aliases: ['create'])]
 class ProjectCreateCommand extends CommandBase
@@ -53,6 +54,9 @@ class ProjectCreateCommand extends CommandBase
     protected function configure(): void
     {
         $this->selector->addOrganizationOptions($this->getDefinition());
+        if ($this->config->getBool('api.organizations') && ($orgTypes = $this->config->getStrList('api.organization_types'))) {
+            $this->addOption('type', null, InputOption::VALUE_REQUIRED, 'The organization type (' . implode(' or ', $orgTypes) . ')', null, $orgTypes);
+        }
 
         Form::fromArray($this->getFields())->configureInputDefinition($this->getDefinition());
 
@@ -78,6 +82,9 @@ class ProjectCreateCommand extends CommandBase
                 to STDERR.
                 EOF,
         );
+        if ($this->getDefinition()->hasOption('type')) {
+            $this->setHelp($this->getHelp() . "\n\nIf the repository's configuration is for a different organization type than the\nselected organization, you will be asked to confirm.");
+        }
     }
 
     /**
@@ -102,16 +109,29 @@ class ProjectCreateCommand extends CommandBase
         // Identify an organization that should own the project.
         $organization = null;
         $setupOptions = null;
+        $showOrgType = $input->hasOption('type');
+        $orgType = $showOrgType ? (string) Option::stringOrNull($input, 'type') : '';
+        if ($orgType !== '' && !in_array($orgType, $this->config->getStrList('api.organization_types'), true)) {
+            $this->stdErr->writeln(sprintf('Invalid organization type: <error>%s</error>', $orgType));
+            $this->stdErr->writeln('Available types: <info>' . implode('</info>, <info>', $this->config->getStrList('api.organization_types')) . '</info>');
+
+            return 1;
+        }
         if ($this->config->getBool('api.organizations')) {
+            $selectOrganization = fn(): Organization => $this->selector->selectOrganization($input, 'create-subscription', filterByType: $orgType, showType: $showOrgType);
             try {
-                $organization = $this->selector->selectOrganization($input, 'create-subscription');
+                $organization = $selectOrganization();
             } catch (NoOrganizationsException $e) {
-                $this->stdErr->writeln('You do not yet own nor belong to an organization in which you can create a project.');
-                if ($e->getTotalNumOrgs() === 0 && $input->isInteractive() && $this->config->isCommandEnabled('organization:create') && $this->questionHelper->confirm('Do you want to create an organization now?')) {
-                    if ($this->subCommandRunner->run('organization:create') !== 0) {
+                $this->stdErr->writeln(sprintf(
+                    'You do not yet own nor belong to %s in which you can create a project.',
+                    $orgType !== '' ? sprintf('a <comment>%s</comment> organization', $orgType) : 'an organization',
+                ));
+                // With a type filter, an organization of that type can be created even if others exist.
+                if (($e->getTotalNumOrgs() === 0 || $orgType !== '') && $input->isInteractive() && $this->config->isCommandEnabled('organization:create') && $this->questionHelper->confirm('Do you want to create an organization now?')) {
+                    if ($this->subCommandRunner->run('organization:create', $orgType !== '' ? ['--type' => $orgType] : []) !== 0) {
                         return 1;
                     }
-                    $organization = $this->selector->selectOrganization($input, 'create-subscription');
+                    $organization = $selectOrganization();
                 } else {
                     return 1;
                 }
@@ -121,7 +141,7 @@ class ProjectCreateCommand extends CommandBase
                 return 1;
             }
 
-            $this->stdErr->writeln('Creating a project under the organization ' . $this->api->getOrganizationLabel($organization));
+            $this->stdErr->writeln('Creating a project under the organization ' . $this->api->getOrganizationLabel($organization, 'info', $showOrgType));
             $this->stdErr->writeln('');
 
             $setupOptions = $organization->getSetupOptions();
@@ -136,6 +156,25 @@ class ProjectCreateCommand extends CommandBase
             $this->stdErr->writeln('Use <info>git init<info> to create a repository.');
 
             return 1;
+        }
+
+        // Check the repository's configuration matches the organization type.
+        if ($organization && $showOrgType && $gitRoot !== false) {
+            $configType = $this->detectConfigType($gitRoot);
+            $type = (string) $organization->type;
+            if ($configType !== null && in_array($type, ['flexible', 'fixed'], true) && $configType !== $type) {
+                $this->stdErr->writeln(sprintf(
+                    'The repository contains <comment>%s</comment> configuration, but the organization %s has the type <comment>%s</comment>.',
+                    $configType,
+                    $this->api->getOrganizationLabel($organization, 'comment'),
+                    $type,
+                ));
+                // In non-interactive mode this is only a warning, so as not to break automation (use --type instead).
+                if ($input->isInteractive() && !$this->questionHelper->confirm('Are you sure you want to continue?', false)) {
+                    return 1;
+                }
+                $this->stdErr->writeln('');
+            }
         }
 
         $form = Form::fromArray($this->getFields($setupOptions));
@@ -613,6 +652,49 @@ class ProjectCreateCommand extends CommandBase
                 },
             ]),
         ];
+    }
+
+    /**
+     * Detects the organization type that a repository's configuration is for, from its root directory.
+     *
+     * The .platform directory alone is not used, as it may only contain local CLI files. Per-app config files are
+     * searched for up to the same depth as the ApplicationFinder.
+     *
+     * @return 'flexible'|'fixed'|null
+     */
+    private function detectConfigType(string $dir): ?string
+    {
+        // Only the standard config names are known (as in the Go lint command).
+        if (!in_array($this->config->getStr('service.project_config_dir'), ['.upsun', '.platform'], true)
+            || !in_array($this->config->getStrOrNull('service.app_config_file'), [null, '', '.platform.app.yaml'], true)) {
+            return null;
+        }
+        $flex = glob($dir . '/.upsun/*.yaml') || glob($dir . '/.upsun/*.yml');
+        $fixed = false;
+        foreach (['.platform/applications', '.platform/routes', '.platform/services'] as $base) {
+            $fixed = $fixed || file_exists("$dir/$base.yaml") || file_exists("$dir/$base.yml");
+        }
+        if (!$fixed) {
+            $fixed = (new Finder())->in($dir)
+                ->files()
+                ->name(['.platform.app.yaml', '.platform.app.yml'])
+                ->ignoreDotFiles(false)
+                ->ignoreUnreadableDirs()
+                ->ignoreVCS(true)
+                ->exclude(['builds', 'node_modules', 'vendor'])
+                // Skip hidden directories, e.g. .venv or .cache.
+                ->filter(fn(\SplFileInfo $f): bool => !$f->isDir() || !str_starts_with($f->getFilename(), '.'), true)
+                ->depth('< 5')
+                ->hasResults();
+        }
+        if ($flex && !$fixed) {
+            return 'flexible';
+        }
+        if ($fixed && !$flex) {
+            return 'fixed';
+        }
+
+        return null;
     }
 
     /**

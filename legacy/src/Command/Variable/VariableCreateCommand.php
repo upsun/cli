@@ -142,7 +142,7 @@ class VariableCreateCommand extends CommandBase
             $previousValues = $e->getPreviousValues();
             $field = $e->getField();
             $conditions = $field->getConditions();
-            if (isset($previousValues['level']) && isset($conditions['level']) && is_string($conditions['level']) && $previousValues['level'] !== $conditions['level']) {
+            if (isset($previousValues['level']) && isset($conditions['level']) && is_string($conditions['level']) && is_string($previousValues['level']) && $previousValues['level'] !== $conditions['level']) {
                 $this->stdErr->writeln(\sprintf(
                     'The option <error>--%s</error> can only be used for variables at the <comment>%s</comment> level, not at the <comment>%s</comment> level.',
                     $field->getOptionName(),
@@ -151,7 +151,7 @@ class VariableCreateCommand extends CommandBase
                 ));
                 return 1;
             }
-            if ($field->getOptionName() === 'prefix' && isset($previousValues['name'])) {
+            if ($field->getOptionName() === 'prefix' && isset($previousValues['name']) && is_string($previousValues['name'])) {
                 $this->stdErr->writeln(\sprintf(
                     'The option <error>--prefix</error> cannot be used, as the name already has a prefix: <comment>%s</comment>',
                     $previousValues['name'],
@@ -166,6 +166,10 @@ class VariableCreateCommand extends CommandBase
                 $values['name'] = rtrim((string) $values['prefix'], ':') . ':' . $values['name'];
             }
             unset($values['prefix']);
+        }
+        $name = $values['name'] ?? null;
+        if (!is_string($name)) {
+            throw new \LogicException('No variable name');
         }
 
         $environment = null;
@@ -189,9 +193,9 @@ class VariableCreateCommand extends CommandBase
 
         // Validate the variable name for "env:"-prefixed variables.
         $envPrefixLength = 4;
-        if (substr((string) $values['name'], 0, $envPrefixLength) === 'env:'
-            && !preg_match('/^[a-z][a-z0-9_]*$/i', substr((string) $values['name'], $envPrefixLength))) {
-            $this->stdErr->writeln('The environment variable name is invalid: <error>' . substr((string) $values['name'], $envPrefixLength) . '</error>');
+        if (substr($name, 0, $envPrefixLength) === 'env:'
+            && !preg_match('/^[a-z][a-z0-9_]*$/i', substr($name, $envPrefixLength))) {
+            $this->stdErr->writeln('The environment variable name is invalid: <error>' . substr($name, $envPrefixLength) . '</error>');
             $this->stdErr->writeln('Environment variable names can only contain letters (A-Z), digits (0-9), and underscores. The first character must be a letter.');
 
             return 1;
@@ -217,10 +221,10 @@ class VariableCreateCommand extends CommandBase
                     unset($values['visible_runtime']);
                 }
 
-                if ($environment->getVariable($values['name'])) {
+                if ($environment->getVariable($name)) {
                     $this->stdErr->writeln(sprintf(
                         'The variable <error>%s</error> already exists on the environment <error>%s</error>',
-                        $values['name'],
+                        $name,
                         $environment->id,
                     ));
 
@@ -229,7 +233,7 @@ class VariableCreateCommand extends CommandBase
 
                 $this->stdErr->writeln(sprintf(
                     'Creating variable <info>%s</info> on the environment <info>%s</info>',
-                    $values['name'],
+                    $name,
                     $environment->id,
                 ));
 
@@ -253,10 +257,10 @@ class VariableCreateCommand extends CommandBase
                 break;
 
             case 'project':
-                if ($project->getVariable($values['name'])) {
+                if ($project->getVariable($name)) {
                     $this->stdErr->writeln(sprintf(
                         'The variable <error>%s</error> already exists on the project %s',
-                        $values['name'],
+                        $name,
                         $this->api->getProjectLabel($project, 'error'),
                     ));
 
@@ -264,7 +268,7 @@ class VariableCreateCommand extends CommandBase
                 }
                 $this->stdErr->writeln(sprintf(
                     'Creating variable <info>%s</info> on the project %s',
-                    $values['name'],
+                    $name,
                     $this->api->getProjectLabel($project, 'info'),
                 ));
 

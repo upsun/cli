@@ -21,6 +21,9 @@ vendor_name="Upsun"
 
 : "${URL:=${RELEASES_URL}/download}"
 
+# The downloads of the nightly build (VERSION=nightly), from a separate repository.
+: "${NIGHTLY_URL:=https://github.com/upsun/cli-nightly/releases/download}"
+
 # Force Upsun CLI installation in this directory instead of system directory
 : "${INSTALL_DIR:=}"
 
@@ -396,6 +399,14 @@ check_ca_certificates() {
 }
 
 check_version() {
+    if [ "${VERSION}" = "nightly" ]; then
+        tag="nightly"
+        version="nightly"
+        URL="${NIGHTLY_URL}"
+        output "  [*] Using the nightly build, of unreleased code" "warning"
+        return
+    fi
+
     if [ -z "${VERSION}" ]; then
         tag=""
         latest_tag_from_redirect || latest_tag_from_api_with_auth || true
@@ -472,6 +483,10 @@ check_architecture() {
 check_install_method() {
     if [ "brew" = "${INSTALL_METHOD}" ]; then
         INSTALL_METHOD="homebrew"
+    fi
+    # The nightly build is only a download.
+    if [ "${VERSION}" = "nightly" ] && [ -z "${INSTALL_METHOD}" ]; then
+        INSTALL_METHOD="raw"
     fi
 
     if [ "linux" = "$kernel" ]; then

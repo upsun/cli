@@ -127,12 +127,17 @@ func MarkNotified(cnf *config.Config) {
 // shouldCheckForUpdate checks updates are not disabled and the environment is a terminal.
 // The release repository comes from the embedded config, as the binary is the same with CLI_CONFIG_FILE.
 func shouldCheckForUpdate(cnf *config.Config) bool {
-	return config.Version != "0.0.0" &&
+	return !isDevVersion(config.Version) &&
 		cnf.Embedded().Wrapper.GitHubRepo != "" &&
 		cnf.Updates.Check &&
 		os.Getenv(cnf.Application.EnvPrefix+"UPDATES_CHECK") != "0" &&
 		!isCI() && !IsAutoUpdating(cnf) &&
 		terminal.IsTerminal(os.Stdout) && terminal.IsTerminal(os.Stderr)
+}
+
+// isDevVersion checks whether a version is from a development or pull request build (0.0.0, with any suffix).
+func isDevVersion(v string) bool {
+	return strings.HasPrefix(strings.TrimPrefix(v, "v"), "0.0.0")
 }
 
 func isCI() bool {

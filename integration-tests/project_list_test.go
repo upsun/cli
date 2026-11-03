@@ -108,6 +108,12 @@ project-id-1	Project 1	region-1	org-1	flexible
 	assertTrimmed(t, `
 ID	Title	Region	Org name	Org type
 project-id-1	Project 1	region-1	org-1	flexible
+`, f.Run("pro", "-v", "--format", "plain", "--type", "flexible"))
+
+	// The old option name still works.
+	assertTrimmed(t, `
+ID	Title	Region	Org name	Org type
+project-id-1	Project 1	region-1	org-1	flexible
 `, f.Run("pro", "-v", "--format", "plain", "--org-type", "flexible"))
 
 	assertTrimmed(t, `

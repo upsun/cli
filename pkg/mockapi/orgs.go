@@ -102,6 +102,9 @@ func (h *Handler) handleCreateOrg(w http.ResponseWriter, req *http.Request) {
 	org.Owner = h.myUser.ID
 	org.Capabilities = []string{}
 	org.Links = MakeHALLinks("self=/organizations/" + url.PathEscape(org.ID))
+	if h.orgs == nil {
+		h.orgs = make(map[string]*Org)
+	}
 	h.orgs[org.ID] = &org
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(&org)
