@@ -59,8 +59,7 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $options = [];
-        $options['query']['filter[status][in]'] = 'active,suspended';
+        $options = ['query' => ['filter[status][in]' => 'active,suspended']];
 
         $count = Option::stringOrNull($input, 'count');
         $itemsPerPage = max(1, min($this->config->getInt('pagination.count'), self::MAX_COUNT));

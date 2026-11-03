@@ -81,21 +81,18 @@ class ProjectDeleteCommand extends CommandBase
             }
         }
 
-        try {
-            if ($subscription === null) {
-                $url = '/organizations/' . rawurlencode($project->getProperty('organization')) . '/projects/' . rawurlencode($project->id);
-                $this->api->getHttpClient()->request('DELETE', $url);
-            } else {
+        if ($subscription === null) {
+            $this->api->getHttpClient()->request('DELETE', $this->api->getOrgProjectsUrl($project) . '/' . rawurlencode($project->id));
+        } else {
+            try {
                 $subscription->delete();
-            }
-        } catch (ClientException $e) {
-            if ($e->getResponse()->getStatusCode() === 403 && $subscription !== null) {
-                if ($project->owner !== $this->api->getMyUserId()) {
+            } catch (ClientException $e) {
+                if ($e->getResponse()->getStatusCode() === 403 && $project->owner !== $this->api->getMyUserId()) {
                     $this->stdErr->writeln("Only the project's owner can delete it.");
                     return 1;
                 }
+                throw $e;
             }
-            throw $e;
         }
 
         $this->api->clearProjectsCache();

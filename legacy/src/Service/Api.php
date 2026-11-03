@@ -2061,6 +2061,18 @@ class Api
     }
 
     /**
+     * Returns the URL of the Projects API collection for a project's organization.
+     */
+    public function getOrgProjectsUrl(Project $project): string
+    {
+        $organizationId = $project->getProperty('organization');
+        if (!\is_string($organizationId) || $organizationId === '') {
+            throw new \RuntimeException('Failed to find the organization of the project: ' . $project->id);
+        }
+        return '/organizations/' . rawurlencode($organizationId) . '/projects';
+    }
+
+    /**
      * Returns the Console URL for a project, with caching.
      */
     public function getConsoleURL(Project $project, bool $reset = false): string
@@ -2087,10 +2099,10 @@ class Api
 
             return ltrim($this->config->getStr('service.console_url'), '/') . '/' . rawurlencode((string) $firstSegment) . '/' . rawurlencode($project->id);
         } else {
-            $url = '/organizations/' . rawurlencode($project->getProperty('organization')) . '/projects';
-            $orgProject = OrgProject::get($project->id, $url, $this->getHttpClient());
-            if ($orgProject && $orgProject->project_ui) {
-                return $orgProject->project_ui;
+            $orgProject = OrgProject::get($project->id, $this->getOrgProjectsUrl($project), $this->getHttpClient());
+            $projectUi = $orgProject ? $orgProject->getProperty('project_ui', false) : null;
+            if (\is_string($projectUi) && $projectUi !== '') {
+                return $projectUi;
             }
         }
         throw new \RuntimeException('Failed to load Console URL for project: ' . $project->id);
