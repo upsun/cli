@@ -29,6 +29,29 @@ Build a snapshot for a vendor:
 make vendor-snapshot VENDOR_NAME='Vendor Name' VENDOR_BINARY='vendorcli'
 ```
 
+## Testing a pull request
+
+CI builds the CLI for each platform. For pull requests from branches in this
+repository (not forks), a comment lists the builds, which can be downloaded with
+a GitHub login for 7 days, e.g.:
+
+```console
+gh run download <run-id> -R upsun/cli -n cli-linux-amd64
+chmod +x upsun
+./upsun --version
+```
+
+On macOS, if you downloaded a build with a browser, remove the quarantine
+attribute first: `xattr -d com.apple.quarantine upsun`.
+
+## Nightly builds
+
+The [Nightly workflow](../.github/workflows/nightly.yml) builds `main` every day, if it has changed, and replaces the assets of the `nightly` prerelease in [upsun/cli-nightly](https://github.com/upsun/cli-nightly/releases/tag/nightly). It uses a separate repository because releases here are immutable. Its version is the next patch version, e.g. `5.15.3-nightly.20261103+abc1234`, and its asset names have `nightly` in place of the version.
+
+Install it with `VERSION=nightly` (see [install.md](install.md#examples)), or download it from the release. It only publishes archives and checksums: not packages, Homebrew, Scoop, npm, winget or Docker. Its update check reads stable releases in this repository as usual, so it only shows a notice for a newer stable release.
+
+Run the workflow manually to build again (`force`), or to build without publishing (`dry_run`, the assets are kept as a workflow artifact). A run on another branch publishes that branch, until the next scheduled run.
+
 ## Releasing
 
 Releases are automated via GitHub Actions. To create a new release:
