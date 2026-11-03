@@ -14,12 +14,18 @@ class TerminalWidthTest extends TestCase
     protected function setUp(): void
     {
         $this->columns = getenv('COLUMNS');
+        $this->resetCapture();
     }
 
     protected function tearDown(): void
     {
         putenv($this->columns === false ? 'COLUMNS' : 'COLUMNS=' . $this->columns);
-        TerminalWidth::captureEnv();
+        $this->resetCapture();
+    }
+
+    private function resetCapture(): void
+    {
+        (new \ReflectionProperty(TerminalWidth::class, 'columnsFromUser'))->setValue(null, null);
     }
 
     public function testUsesColumnsSetBeforeStartup(): void
@@ -35,6 +41,15 @@ class TerminalWidthTest extends TestCase
         TerminalWidth::captureEnv();
         // Symfony's Application exports the width on startup.
         putenv('COLUMNS=123');
+        $this->assertSame(150, FakeTerminalWidth::get());
+    }
+
+    public function testIgnoresColumnsSetBeforeNestedRun(): void
+    {
+        putenv('COLUMNS');
+        TerminalWidth::captureEnv();
+        putenv('COLUMNS=123');
+        TerminalWidth::captureEnv();
         $this->assertSame(150, FakeTerminalWidth::get());
     }
 

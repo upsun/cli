@@ -13,19 +13,21 @@ use Symfony\Component\Console\Terminal;
  */
 class TerminalWidth
 {
-    private static bool $columnsFromUser = true;
+    private static ?bool $columnsFromUser = null;
 
     /**
      * Records whether COLUMNS was set by the user. Call this before Symfony sets it.
+     *
+     * Only the first call counts, as nested applications (e.g. in the multi command) run after it is set.
      */
     public static function captureEnv(): void
     {
-        self::$columnsFromUser = getenv('COLUMNS') !== false;
+        self::$columnsFromUser ??= getenv('COLUMNS') !== false;
     }
 
     public static function get(): int
     {
-        if (!self::$columnsFromUser && ($width = static::readWidth()) !== null) {
+        if (self::$columnsFromUser === false && ($width = static::readWidth()) !== null) {
             return $width;
         }
 
