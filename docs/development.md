@@ -29,6 +29,20 @@ Build a snapshot for a vendor:
 make vendor-snapshot VENDOR_NAME='Vendor Name' VENDOR_BINARY='vendorcli'
 ```
 
+## Testing a pull request
+
+CI builds the CLI for each platform. For pull requests from branches in this
+repository (not forks), a comment lists the builds, which can be downloaded with
+a GitHub login for 7 days, e.g.:
+
+```console
+gh run download <run-id> -R upsun/cli -n cli-linux-amd64
+chmod +x upsun
+./upsun --version
+```
+
+On macOS, remove the quarantine attribute first: `xattr -d com.apple.quarantine upsun`.
+
 ## Releasing
 
 Releases are automated via GitHub Actions. To create a new release:

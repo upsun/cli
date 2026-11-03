@@ -120,3 +120,22 @@ func TestLatestWingetVersion(t *testing.T) {
 		})
 	}
 }
+
+func TestIsDevVersion(t *testing.T) {
+	cases := []struct {
+		version string
+		dev     bool
+	}{
+		{"0.0.0", true},
+		{"0.0.0-pr123+abc1234", true},
+		{"v0.0.0-20261103101500-abc123456789+dirty", true},
+		{"5.15.2", false},
+		{"v5.15.2", false},
+		{"5.15.3-2026-11-03-abc1234-next", false},
+	}
+	for _, c := range cases {
+		t.Run(c.version, func(t *testing.T) {
+			assert.Equal(t, c.dev, isDevVersion(c.version))
+		})
+	}
+}
