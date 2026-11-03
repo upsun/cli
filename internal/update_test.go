@@ -39,6 +39,13 @@ func TestNotificationFromState(t *testing.T) {
 		assert.Nil(t, notificationFromState(newState("v0.9.0", 0), "upsun/cli", "v1.0.0", now))
 	})
 
+	t.Run("nightly build", func(t *testing.T) {
+		const nightly = "5.15.3-nightly.20261103+abc1234"
+		assert.Nil(t, notificationFromState(newState("v5.15.2", 0), "upsun/cli", nightly, now))
+		assert.NotNil(t, notificationFromState(newState("v5.15.3", 0), "upsun/cli", nightly, now))
+		assert.NotNil(t, notificationFromState(newState("v5.16.0", 0), "upsun/cli", nightly, now))
+	})
+
 	t.Run("notified within the past week is throttled", func(t *testing.T) {
 		lastNotified := int64(now - 3*24*60*60) // 3 days ago
 		assert.Nil(t, notificationFromState(newState("v2.0.0", lastNotified), "upsun/cli", "v1.0.0", now))

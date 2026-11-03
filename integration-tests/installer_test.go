@@ -67,10 +67,11 @@ func newFakeGitHub(t *testing.T) *fakeGitHub {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = fmt.Fprintf(w, "{\n  \"name\": %q,\n  \"tag_name\": %q\n}\n", g.tag, g.tag)
 	})
-	mux.HandleFunc("GET /upsun/cli/releases/download/{tag}/{file}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /upsun/{repo}/releases/download/{tag}/{file}", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(fakeCLIArchive(t, strings.TrimPrefix(r.PathValue("tag"), "v")))
 	})
-	mux.HandleFunc("GET /upsun/cli/releases/download/{tag}/checksums.txt", func(w http.ResponseWriter, r *http.Request) {
+	checksumsPath := "GET /upsun/{repo}/releases/download/{tag}/checksums.txt"
+	mux.HandleFunc(checksumsPath, func(w http.ResponseWriter, r *http.Request) {
 		if g.checksumsStatus != 0 {
 			w.WriteHeader(g.checksumsStatus)
 			return
@@ -187,6 +188,7 @@ esac
 		"INSTALL_LOG=" + filepath.Join(dir, "install.log"),
 		"RELEASES_URL=" + g.srv.URL + "/upsun/cli/releases",
 		"RELEASES_API_URL=" + g.srv.URL + "/api/repos/upsun/cli/releases",
+		"NIGHTLY_URL=" + g.srv.URL + "/upsun/cli-nightly/releases/download",
 	}, env...)
 	out, err := cmd.CombinedOutput()
 	t.Log(string(out))
@@ -525,6 +527,24 @@ func TestInstallerLatestVersion(t *testing.T) {
 			assert.Equal(t, c.wantAPIAuth, g.authHeaders(apiPath), "API requests")
 		})
 	}
+}
+
+func TestInstallerNightly(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test due to -short flag")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("installer.sh does not run on Windows")
+	}
+	t.Parallel()
+
+	g := newFakeGitHub(t)
+	r := runInstaller(t, g, []string{"VERSION=nightly"}, nil)
+	assertInstalled(t, r, "nightly")
+	assert.Contains(t, r.output, "Using the nightly build")
+	assert.Len(t, g.authHeaders("/upsun/cli-nightly/releases/download/nightly/"), 2, "archive and checksums requests")
+	assert.Empty(t, g.authHeaders("/upsun/cli/"), "no stable release requests")
+	assert.Empty(t, g.authHeaders("/api/"), "no API requests")
 }
 
 func TestInstallerChecksum(t *testing.T) {
