@@ -70,7 +70,8 @@ func newFakeGitHub(t *testing.T) *fakeGitHub {
 	mux.HandleFunc("GET /upsun/{repo}/releases/download/{tag}/{file}", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(fakeCLIArchive(t, strings.TrimPrefix(r.PathValue("tag"), "v")))
 	})
-	mux.HandleFunc("GET /upsun/{repo}/releases/download/{tag}/checksums.txt", func(w http.ResponseWriter, r *http.Request) {
+	checksumsPath := "GET /upsun/{repo}/releases/download/{tag}/checksums.txt"
+	mux.HandleFunc(checksumsPath, func(w http.ResponseWriter, r *http.Request) {
 		if g.checksumsStatus != 0 {
 			w.WriteHeader(g.checksumsStatus)
 			return
