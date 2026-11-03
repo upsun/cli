@@ -14,7 +14,7 @@ func TestHelp(t *testing.T) {
 
 	//nolint:lll
 	assert.Contains(t, f.Run("help", "pro"),
-		"platform-test projects [--pipe] [--region REGION] [--title TITLE] [--my] [--refresh REFRESH] [--sort SORT] [--reverse] [--page PAGE] [-c|--count COUNT] [-o|--org ORG] [--org-type ORG-TYPE] [--format FORMAT] [--columns COLUMNS] [--no-header] [--date-fmt DATE-FMT]")
+		"platform-test projects [--pipe] [--region REGION] [--title TITLE] [--my] [--refresh REFRESH] [--sort SORT] [--reverse] [--page PAGE] [-c|--count COUNT] [-o|--org ORG] [--type TYPE] [--format FORMAT] [--columns COLUMNS] [--no-header] [--date-fmt DATE-FMT]")
 
 	actListHelp := f.Run("help", "act", "--format", "json")
 	var helpData struct {

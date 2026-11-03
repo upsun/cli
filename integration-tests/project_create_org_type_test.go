@@ -46,31 +46,31 @@ func TestProjectCreateOrgType(t *testing.T) {
 	}
 
 	t.Run("specified org with matching type", func(t *testing.T) {
-		_, stderr, err := f.RunCombinedOutput(append(createArgs, "--org", "flex-org", "--org-type", "flexible")...)
+		_, stderr, err := f.RunCombinedOutput(append(createArgs, "--org", "flex-org", "--type", "flexible")...)
 		require.NoError(t, err)
 		assert.Contains(t, stderr, "Creating a project under the organization Flex Org (flex-org) (type: flexible)")
 	})
 
 	t.Run("specified org with another type", func(t *testing.T) {
-		_, stderr, err := f.RunCombinedOutput(append(createArgs, "--org", "flex-org", "--org-type", "fixed")...)
+		_, stderr, err := f.RunCombinedOutput(append(createArgs, "--org", "flex-org", "--type", "fixed")...)
 		assertExitCode(t, 1, err)
 		assert.Contains(t, stderr, "The organization Flex Org (flex-org) has the type flexible, not fixed.")
 	})
 
 	t.Run("invalid type", func(t *testing.T) {
-		_, stderr, err := f.RunCombinedOutput(append(createArgs, "--org", "flex-org", "--org-type", "other")...)
+		_, stderr, err := f.RunCombinedOutput(append(createArgs, "--org", "flex-org", "--type", "other")...)
 		assertExitCode(t, 1, err)
 		assert.Contains(t, stderr, "Invalid organization type: other")
 	})
 
 	t.Run("one org of the type is selected by default", func(t *testing.T) {
-		_, stderr, err := f.RunInteractive("\n\n", append(createArgs, "--org-type", "flexible", "--no-set-remote")...)
+		_, stderr, err := f.RunInteractive("\n\n", append(createArgs, "--type", "flexible", "--no-set-remote")...)
 		require.NoError(t, err)
 		assert.Contains(t, stderr, "Selected organization: Flex Org (flex-org) (type: flexible) (by default)")
 	})
 
 	t.Run("chooser is filtered by type", func(t *testing.T) {
-		_, stderr, err := f.RunInteractive("1\n\n\n", append(createArgs, "--org-type", "fixed", "--no-set-remote")...)
+		_, stderr, err := f.RunInteractive("1\n\n\n", append(createArgs, "--type", "fixed", "--no-set-remote")...)
 		require.NoError(t, err)
 		assert.Contains(t, stderr, "Fixed Org (fixed-org) (type: fixed)")
 		assert.Contains(t, stderr, "Fixed Two (fixed-two) (type: fixed)")
@@ -140,7 +140,7 @@ func TestProjectCreateOrgType_CreateOrg(t *testing.T) {
 	// Answers: create an organization, its label, name (default), country, and confirmation.
 	// The mock API does not give the new organization a create-subscription link, so the command then fails.
 	_, stderr, err := f.RunInteractive("y\nTest Org\n\nUS\ny\n",
-		"project:create", "--title", "Test", "--region", "test-region", "--org-type", "fixed", "--no-set-remote")
+		"project:create", "--title", "Test", "--region", "test-region", "--type", "fixed", "--no-set-remote")
 	assertExitCode(t, 1, err)
 	assert.Contains(t, stderr, "Created organization")
 	requests := apiHandler.Requests("POST", "/organizations")

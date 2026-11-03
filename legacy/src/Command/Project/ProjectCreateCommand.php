@@ -55,7 +55,7 @@ class ProjectCreateCommand extends CommandBase
     {
         $this->selector->addOrganizationOptions($this->getDefinition());
         if ($this->config->getBool('api.organizations') && ($orgTypes = $this->config->getStrList('api.organization_types'))) {
-            $this->addOption('org-type', null, InputOption::VALUE_REQUIRED, 'The organization type (' . implode(' or ', $orgTypes) . ')', null, $orgTypes);
+            $this->addOption('type', null, InputOption::VALUE_REQUIRED, 'The organization type (' . implode(' or ', $orgTypes) . ')', null, $orgTypes);
         }
 
         Form::fromArray($this->getFields())->configureInputDefinition($this->getDefinition());
@@ -82,7 +82,7 @@ class ProjectCreateCommand extends CommandBase
                 to STDERR.
                 EOF,
         );
-        if ($this->getDefinition()->hasOption('org-type')) {
+        if ($this->getDefinition()->hasOption('type')) {
             $this->setHelp($this->getHelp() . "\n\nIf the repository's configuration is for a different organization type than the\nselected organization, you will be asked to confirm.");
         }
     }
@@ -109,8 +109,8 @@ class ProjectCreateCommand extends CommandBase
         // Identify an organization that should own the project.
         $organization = null;
         $setupOptions = null;
-        $showOrgType = $input->hasOption('org-type');
-        $orgType = $showOrgType ? (string) Option::stringOrNull($input, 'org-type') : '';
+        $showOrgType = $input->hasOption('type');
+        $orgType = $showOrgType ? (string) Option::stringOrNull($input, 'type') : '';
         if ($orgType !== '' && !in_array($orgType, $this->config->getStrList('api.organization_types'), true)) {
             $this->stdErr->writeln(sprintf('Invalid organization type: <error>%s</error>', $orgType));
             $this->stdErr->writeln('Available types: <info>' . implode('</info>, <info>', $this->config->getStrList('api.organization_types')) . '</info>');
