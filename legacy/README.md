@@ -38,6 +38,3 @@ After changing services or commands, delete the cached container
 
 To build the embedded phar, run `make phar` or `make single` from the
 repository root.
-
-A Docker development environment is available: copy `.env-dist` to `.env`,
-then run `docker-compose up -d` and `docker-compose exec cli bash`.
