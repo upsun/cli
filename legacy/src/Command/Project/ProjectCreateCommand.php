@@ -122,8 +122,12 @@ class ProjectCreateCommand extends CommandBase
             try {
                 $organization = $selectOrganization();
             } catch (NoOrganizationsException $e) {
-                $this->stdErr->writeln('You do not yet own nor belong to an organization in which you can create a project.');
-                if ($e->getTotalNumOrgs() === 0 && $input->isInteractive() && $this->config->isCommandEnabled('organization:create') && $this->questionHelper->confirm('Do you want to create an organization now?')) {
+                $this->stdErr->writeln(sprintf(
+                    'You do not yet own nor belong to %s in which you can create a project.',
+                    $orgType !== '' ? sprintf('a <comment>%s</comment> organization', $orgType) : 'an organization',
+                ));
+                // With a type filter, an organization of that type can be created even if others exist.
+                if (($e->getTotalNumOrgs() === 0 || $orgType !== '') && $input->isInteractive() && $this->config->isCommandEnabled('organization:create') && $this->questionHelper->confirm('Do you want to create an organization now?')) {
                     if ($this->subCommandRunner->run('organization:create', $orgType !== '' ? ['--type' => $orgType] : []) !== 0) {
                         return 1;
                     }
@@ -165,7 +169,8 @@ class ProjectCreateCommand extends CommandBase
                     $this->api->getOrganizationLabel($organization, 'comment'),
                     $type,
                 ));
-                if (!$this->questionHelper->confirm('Are you sure you want to continue?', false)) {
+                // In non-interactive mode this is only a warning, so as not to break automation (use --type instead).
+                if ($input->isInteractive() && !$this->questionHelper->confirm('Are you sure you want to continue?', false)) {
                     return 1;
                 }
                 $this->stdErr->writeln('');
@@ -659,6 +664,11 @@ class ProjectCreateCommand extends CommandBase
      */
     private function detectConfigType(string $dir): ?string
     {
+        // Only the standard config names are known (as in the Go lint command).
+        if (!in_array($this->config->getStr('service.project_config_dir'), ['.upsun', '.platform'], true)
+            || !in_array($this->config->getStrOrNull('service.app_config_file'), [null, '', '.platform.app.yaml'], true)) {
+            return null;
+        }
         $flex = glob($dir . '/.upsun/*.yaml') || glob($dir . '/.upsun/*.yml');
         $fixed = false;
         foreach (['.platform/applications', '.platform/routes', '.platform/services'] as $base) {
@@ -672,6 +682,8 @@ class ProjectCreateCommand extends CommandBase
                 ->ignoreUnreadableDirs()
                 ->ignoreVCS(true)
                 ->exclude(['builds', 'node_modules', 'vendor'])
+                // Skip hidden directories, e.g. .venv or .cache.
+                ->filter(fn(\SplFileInfo $f): bool => !$f->isDir() || !str_starts_with($f->getFilename(), '.'), true)
                 ->depth('< 5')
                 ->hasResults();
         }

@@ -97,11 +97,22 @@ func TestProjectCreateOrgType(t *testing.T) {
 		{name: "fixed config, fixed org", files: []string{".platform/routes.yaml"}, org: "fixed-org", stdin: "\n\n"},
 		{name: "nested fixed app config, flex org", files: []string{"app/.platform.app.yaml"}, org: "flex-org",
 			stdin: "n\n", wantErr: true},
+		{name: "hidden directories are skipped", files: []string{".venv/app/.platform.app.yaml"}, org: "flex-org",
+			stdin: "\n\n"},
 		// The .platform directory may only contain local CLI files.
 		{name: "local files only", files: []string{".platform/local/project.yaml"}, org: "fixed-org", stdin: "\n\n"},
 		{name: "both config styles", files: []string{".upsun/config.yaml", ".platform.app.yaml"}, org: "fixed-org",
 			stdin: "\n\n"},
 	}
+	t.Run("mismatch in non-interactive mode", func(t *testing.T) {
+		f := f.forSubtest(t)
+		f.dir = writeFiles(t, ".upsun/config.yaml")
+		_, stderr, err := f.RunCombinedOutput(append(createArgs, "--org", "fixed-org", "--no-set-remote")...)
+		require.NoError(t, err)
+		assert.Contains(t, stderr, mismatch)
+		assert.NotContains(t, stderr, "[y/N]")
+	})
+
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			f := f.forSubtest(t)
@@ -132,6 +143,10 @@ func TestProjectCreateOrgType_CreateOrg(t *testing.T) {
 	defer authServer.Close()
 
 	apiHandler := mockapi.NewHandler(t)
+	// The user has only a flexible organization.
+	org := makeOrg("flex-org-id", "flex-org", "Flex Org", "my-user-id", "flexible")
+	org.Links["create-subscription"] = mockapi.HALLink{HREF: "/organizations/flex-org-id/subscriptions"}
+	apiHandler.SetOrgs([]*mockapi.Org{org})
 	apiServer := httptest.NewServer(apiHandler)
 	defer apiServer.Close()
 
@@ -142,6 +157,7 @@ func TestProjectCreateOrgType_CreateOrg(t *testing.T) {
 	_, stderr, err := f.RunInteractive("y\nTest Org\n\nUS\ny\n",
 		"project:create", "--title", "Test", "--region", "test-region", "--type", "fixed", "--no-set-remote")
 	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "You do not yet own nor belong to a fixed organization in which you can create a project.")
 	assert.Contains(t, stderr, "Created organization")
 	requests := apiHandler.Requests("POST", "/organizations")
 	require.Len(t, requests, 1)
