@@ -1657,19 +1657,23 @@ class Api
     }
 
     /**
-     * Returns an organization label.
+     * Returns an organization label, optionally with its type.
      */
-    public function getOrganizationLabel(Organization $organization, string|false $tag = 'info'): string
+    public function getOrganizationLabel(Organization $organization, string|false $tag = 'info', bool $withType = false): string
     {
         $name = $organization->name;
         $label = $organization->label;
+        $type = $withType ? (string) $organization->type : '';
         $use_label = strlen($label) > 0 && $label !== $name;
         $pattern = $use_label ? '%2$s (%3$s)' : '%3$s';
         if ($tag !== false) {
             $pattern = $use_label ? '<%1$s>%2$s</%1$s> (%3$s)' : '<%1$s>%3$s</%1$s>';
         }
+        if ($type !== '') {
+            $pattern .= $tag !== false ? ' (type: <%1$s>%4$s</%1$s>)' : ' (type: %4$s)';
+        }
 
-        return sprintf($pattern, $tag, $label, $name);
+        return sprintf($pattern, $tag, $label, $name, $type);
     }
 
     /**

@@ -1112,15 +1112,20 @@ class Selector implements CompleterInterface
      *   If no organization is specified, this filters the list of the organizations presented to those with the given
      *   capability.
      * @param bool $skipCache
+     * @param string $filterByType
+     *   Filters the list of organizations presented to those of the given type, and validates the type of a specified
+     *   organization.
+     * @param bool $showType
+     *   Shows the organization type in labels.
      *
      * @return Organization
      * @throws NoOrganizationsException if the user does not have any organizations matching the filter
-     * @throws \InvalidArgumentException if no organization is specified
+     * @throws \InvalidArgumentException if no organization is specified, or if it does not have the type
      *@see Selector::addOrganizationOptions()
      *
      * @todo include this in getSelection according to config
      */
-    public function selectOrganization(InputInterface $input, string|array $filterByLink = '', string $filterByCapability = '', bool $skipCache = false): Organization
+    public function selectOrganization(InputInterface $input, string|array $filterByLink = '', string $filterByCapability = '', bool $skipCache = false, string $filterByType = '', bool $showType = false): Organization
     {
         if (!$this->config->getBool('api.organizations')) {
             throw new \BadMethodCallException('Organizations are not enabled');
@@ -1135,6 +1140,18 @@ class Selector implements CompleterInterface
             }
             return $filterLinks === [];
         };
+        $hasType = fn(Organization $org): bool => $filterByType === '' || $org->type === $filterByType;
+        $checkType = function (Organization $org) use ($hasType, $filterByType): void {
+            if (!$hasType($org)) {
+                throw new InvalidArgumentException(\sprintf(
+                    'The organization %s has the type %s, not %s.',
+                    $this->api->getOrganizationLabel($org, false),
+                    $org->type ?: 'unknown',
+                    $filterByType,
+                ));
+            }
+        };
+        $label = fn(Organization $org, string|false $tag = 'info'): string => $this->api->getOrganizationLabel($org, $tag, $showType);
 
         $explicitProject = $input->hasOption('project') && Option::stringOrNull($input, 'project');
         $selection = $explicitProject ? $this->getSelection($input) : new Selection();
@@ -1160,6 +1177,7 @@ class Selector implements CompleterInterface
                     throw new InvalidArgumentException("The project $project->id is not part of the organization $organization->id");
                 }
             }
+            $checkType($organization);
 
             return $organization;
         }
@@ -1167,7 +1185,8 @@ class Selector implements CompleterInterface
         if ($explicitProject) {
             $organization = $this->api->getOrganizationById($selection->getProject()->getProperty('organization'), $skipCache);
             if ($organization) {
-                $this->stdErr->writeln(\sprintf('Project organization: %s', $this->api->getOrganizationLabel($organization)));
+                $checkType($organization);
+                $this->stdErr->writeln(\sprintf('Project organization: %s', $label($organization)));
                 return $organization;
             }
         } elseif (($currentProject = $this->getCurrentProject(true)) && $currentProject->hasProperty('organization')) {
@@ -1179,17 +1198,20 @@ class Selector implements CompleterInterface
                 $organization = false;
             }
             if ($organization) {
-                if ($hasFilterLink($organization)) {
+                if ($hasFilterLink($organization) && $hasType($organization)) {
                     if ($this->stdErr->isVerbose()) {
                         $this->ensurePrintedSelection(new Selection(project: $currentProject));
-                        $this->stdErr->writeln(\sprintf('Project organization: %s', $this->api->getOrganizationLabel($organization)));
+                        $this->stdErr->writeln(\sprintf('Project organization: %s', $label($organization)));
                     }
                     return $organization;
                 } elseif ($this->stdErr->isVerbose()) {
                     $this->stdErr->writeln(sprintf(
-                        'Not auto-selecting project organization %s (it does not have the link <comment>%s</comment>)',
-                        $this->api->getOrganizationLabel($organization, 'comment'),
+                        $hasType($organization)
+                            ? 'Not auto-selecting project organization %s (it does not have the link <comment>%s</comment>)'
+                            : 'Not auto-selecting project organization %s (it does not have the type <comment>%3$s</comment>)',
+                        $label($organization, 'comment'),
                         \implode('</comment> or <comment>', $filterLinks),
+                        $filterByType,
                     ));
                 }
             }
@@ -1216,7 +1238,10 @@ class Selector implements CompleterInterface
             if ($filterByCapability !== '' && !in_array($filterByCapability, $organization->capabilities, true)) {
                 continue;
             }
-            $options[$organization->id] = $this->api->getOrganizationLabel($organization, false);
+            if (!$hasType($organization)) {
+                continue;
+            }
+            $options[$organization->id] = $label($organization, false);
             $byId[$organization->id] = $organization;
             if ($organization->owner_id === $userId) {
                 $owned[$organization->id] = $organization;
@@ -1231,6 +1256,9 @@ class Selector implements CompleterInterface
             if ($filterByCapability !== '') {
                 $filters[] = sprintf('capability "%s"', $filterByCapability);
             }
+            if ($filterByType !== '') {
+                $filters[] = sprintf('type "%s"', $filterByType);
+            }
             if ($filters) {
                 $message = sprintf('No organizations found (filtered by %s).', implode(' and ', $filters));
             }
@@ -1239,7 +1267,7 @@ class Selector implements CompleterInterface
         if (count($byId) === 1) {
             /** @var Organization $organization */
             $organization = reset($byId);
-            $this->stdErr->writeln(\sprintf('Selected organization: %s (by default)', $this->api->getOrganizationLabel($organization)));
+            $this->stdErr->writeln(\sprintf('Selected organization: %s (by default)', $label($organization)));
             return $organization;
         }
         $default = null;

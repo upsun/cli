@@ -75,7 +75,8 @@ class ProjectListCommand extends CommandBase
         if ($organizationsEnabled) {
             $this->addOption('org', 'o', InputOption::VALUE_REQUIRED, 'Filter by organization name or ID');
             if ($this->config->get('api.organization_types')) {
-                $this->addOption('org-type', null, InputOption::VALUE_REQUIRED, 'Filter by organization type');
+                $this->addOption('type', null, InputOption::VALUE_REQUIRED, 'Filter by organization type');
+                $this->addHiddenOption('org-type', null, InputOption::VALUE_REQUIRED, 'Alias of --type');
             }
         }
 
@@ -111,8 +112,8 @@ class ProjectListCommand extends CommandBase
         if (($org = $input->hasOption('org') ? Option::stringOrNull($input, 'org') : null) !== null) {
             $filters['org'] = $org;
         }
-        if (($orgType = $input->hasOption('org-type') ? Option::stringOrNull($input, 'org-type') : null) !== null) {
-            $filters['org-type'] = $orgType;
+        if (($orgType = $input->hasOption('type') ? Option::stringOrNull($input, 'type') ?? Option::stringOrNull($input, 'org-type') : null) !== null) {
+            $filters['type'] = $orgType;
         }
         $this->filterProjects($projects, $filters);
 
@@ -281,7 +282,7 @@ class ProjectListCommand extends CommandBase
                     });
                     break;
 
-                case 'org-type':
+                case 'type':
                     $projects = \array_filter($projects, function (BasicProjectInfo $info) use ($value) {
                         if (empty($info->organization_ref)) {
                             return false;
