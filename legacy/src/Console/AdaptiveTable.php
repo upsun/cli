@@ -9,7 +9,6 @@ use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Helper\TableCell;
 use Symfony\Component\Console\Helper\TableSeparator;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Terminal;
 
 /**
  * Extends the Symfony Console Table to make it adaptive to the terminal width.
@@ -39,7 +38,7 @@ class AdaptiveTable extends Table
     {
         $this->maxTableWidth = $maxTableWidth !== null
             ? $maxTableWidth
-            : (new Terminal())->getWidth();
+            : TerminalWidth::get();
 
         parent::__construct($this->outputCopy);
     }

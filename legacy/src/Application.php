@@ -15,6 +15,7 @@ use Platformsh\Cli\Console\EnabledCommandLoader;
 use Platformsh\Cli\Console\HiddenAliasesCommandLoader;
 use Platformsh\Cli\Console\HiddenAliasesPass;
 use Platformsh\Cli\Console\HiddenInputOption;
+use Platformsh\Cli\Console\TerminalWidth;
 use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\LegacyMigration;
@@ -295,6 +296,20 @@ class Application extends ParentApplication
         $output->writeln('', OutputInterface::VERBOSITY_QUIET);
         // A console exception is rendered without its file and line.
         $this->doRenderThrowable(new class ($message) extends \RuntimeException implements ConsoleExceptionInterface {}, $output);
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * The parent exports the terminal width as COLUMNS, so this records first whether the user set it.
+     *
+     * @see TerminalWidth
+     */
+    public function run(?InputInterface $input = null, ?OutputInterface $output = null): int
+    {
+        TerminalWidth::captureEnv();
+
+        return parent::run($input, $output);
     }
 
     /**
