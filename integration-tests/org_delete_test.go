@@ -94,7 +94,7 @@ Subscription ID,Project ID,Title,Region
 	assertTrimmed(t, "project1,active\nproject2,active\nproject3,active", f.Run("org:projects", "-o", "org-1",
 		"--format", "csv", "--no-header", "--columns", "project_id,status"))
 
-	// Projects are listed with the Projects API, which leaves out deleted projects by default.
+	// Projects are listed with the Projects API, filtered by status.
 	listRequests := apiHandler.Requests("GET", "/organizations/org-id-1/projects")
 	require.NotEmpty(t, listRequests)
 	for _, r := range listRequests {

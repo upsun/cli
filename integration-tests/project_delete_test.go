@@ -35,8 +35,8 @@ func TestProjectClearBuildCache(t *testing.T) {
 	assert.Equal(t, "project.clear_build_cache", activities[0].Type)
 }
 
-// setUpProjectDelete serves a project, owned by another user, and its subscription.
-// It returns a function that reports whether the subscription was deleted.
+// setUpProjectDelete serves a project, owned by another user, with a subscription in the mock API.
+// It returns a function that reports whether the project was deleted (directly or with its subscription).
 func setUpProjectDelete(t *testing.T, deleteStatus int) (f *cmdFactory, projectID string, deleted func() bool) {
 	apiHandler, projectID := newProjectDeleteAPI(t, deleteStatus)
 	deleted = func() bool { return !slices.Contains(apiHandler.ProjectIDs(), projectID) }
