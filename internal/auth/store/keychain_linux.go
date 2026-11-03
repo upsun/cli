@@ -12,8 +12,12 @@ const (
 	defaultCollection = dbus.ObjectPath("/org/freedesktop/secrets/aliases/default")
 )
 
-// secretServiceUnlocked checks whether the Secret Service's default collection is unlocked, without starting a
-// session bus or the service.
+// secretServiceProviders are the D-Bus names of the Secret Service providers that are used: GNOME Keyring and
+// KWallet. Others, e.g. KeePassXC, may ask the user to confirm each new process that reads a secret.
+var secretServiceProviders = []string{"org.gnome.keyring", "org.kde.ksecretd", "org.kde.kwalletd6", "org.kde.kwalletd5"}
+
+// secretServiceUnlocked checks whether a known Secret Service provider is running, and its default collection is
+// unlocked, without starting a session bus or the service.
 func secretServiceUnlocked() bool {
 	conn, err := dbus.SessionBusPrivateNoAutoStartup()
 	if err != nil {
@@ -26,15 +30,33 @@ func secretServiceUnlocked() bool {
 	if err := conn.Hello(); err != nil {
 		return false
 	}
-	var hasOwner bool
-	call := conn.BusObject().Call("org.freedesktop.DBus.NameHasOwner", 0, secretServiceName)
-	if err := call.Store(&hasOwner); err != nil || !hasOwner {
+	if !knownSecretServiceProvider(conn) {
 		return false
 	}
 	v, err := conn.Object(secretServiceName, keyringCollection(conn)).GetProperty(
 		"org.freedesktop.Secret.Collection.Locked")
 	locked, ok := v.Value().(bool)
 	return err == nil && ok && !locked
+}
+
+// knownSecretServiceProvider checks whether the Secret Service is provided by a process that also owns one of the
+// secretServiceProviders names.
+func knownSecretServiceProvider(conn *dbus.Conn) bool {
+	owner, err := nameOwner(conn, secretServiceName)
+	if err != nil {
+		return false
+	}
+	return slices.ContainsFunc(secretServiceProviders, func(name string) bool {
+		o, err := nameOwner(conn, name)
+		return err == nil && o == owner
+	})
+}
+
+// nameOwner returns the unique connection name that owns a D-Bus name. It returns an error if the name has no owner.
+func nameOwner(conn *dbus.Conn, name string) (string, error) {
+	var owner string
+	err := conn.BusObject().Call("org.freedesktop.DBus.GetNameOwner", 0, name).Store(&owner)
+	return owner, err
 }
 
 // keyringCollection returns the collection that go-keyring uses: "login" if it exists, or else the default.
