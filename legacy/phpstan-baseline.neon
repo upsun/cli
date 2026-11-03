@@ -2961,7 +2961,7 @@ parameters:
 		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 5
+			count: 2
 			path: src/Command/Variable/VariableCreateCommand.php
 
 		-
@@ -2971,21 +2971,9 @@ parameters:
 			path: src/Command/Variable/VariableCreateCommand.php
 
 		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Client\\Model\\Environment\:\:getVariable\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Variable/VariableCreateCommand.php
-
-		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Client\\Model\\Project\:\:getVariable\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Variable/VariableCreateCommand.php
-
-		-
 			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
-			count: 5
+			count: 1
 			path: src/Command/Variable/VariableCreateCommand.php
 
 		-
