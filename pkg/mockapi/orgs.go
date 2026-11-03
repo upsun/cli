@@ -137,6 +137,8 @@ type OrgProject struct {
 	Region         string    `json:"region"`
 	Vendor         string    `json:"vendor"`
 	Status         string    `json:"status"`
+	SubscriptionID string    `json:"subscription_id,omitempty"`
+	ProjectUI      string    `json:"project_ui,omitempty"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 	Links          HalLinks  `json:"_links"`
@@ -158,17 +160,7 @@ func (h *Handler) handleListOrgProjects(w http.ResponseWriter, req *http.Request
 			if p.Organization != orgID {
 				continue
 			}
-			items = append(items, &OrgProject{
-				ID:             p.ID,
-				OrganizationID: orgID,
-				Title:          p.Title,
-				Region:         p.Region,
-				Vendor:         p.Vendor,
-				Status:         orgProjectStatus,
-				CreatedAt:      p.CreatedAt,
-				UpdatedAt:      p.UpdatedAt,
-				Links:          MakeHALLinks("self=/organizations/" + url.PathEscape(orgID) + "/projects/" + url.PathEscape(p.ID)),
-			})
+			items = append(items, orgProject(p))
 		}
 	}
 	slices.SortFunc(items, func(a, b *OrgProject) int { return strings.Compare(a.ID, b.ID) })
@@ -178,6 +170,60 @@ func (h *Handler) handleListOrgProjects(w http.ResponseWriter, req *http.Request
 		return
 	}
 	_ = json.NewEncoder(w).Encode(map[string]any{"count": len(items), "items": page, "_links": links})
+}
+
+func orgProject(p *Project) *OrgProject {
+	return &OrgProject{
+		ID:             p.ID,
+		OrganizationID: p.Organization,
+		Title:          p.Title,
+		Region:         p.Region,
+		Vendor:         p.Vendor,
+		Status:         orgProjectStatus,
+		SubscriptionID: p.SubscriptionID,
+		ProjectUI:      p.ProjectUI,
+		CreatedAt:      p.CreatedAt,
+		UpdatedAt:      p.UpdatedAt,
+		Links: MakeHALLinks("self=/organizations/" + url.PathEscape(p.Organization) +
+			"/projects/" + url.PathEscape(p.ID)),
+	}
+}
+
+func (h *Handler) handleGetOrgProject(w http.ResponseWriter, req *http.Request) {
+	h.RLock()
+	defer h.RUnlock()
+	p, ok := h.projects[chi.URLParam(req, "project_id")]
+	if !ok || p.Organization != chi.URLParam(req, "organization_id") {
+		writeProblem(w, http.StatusNotFound, errors.New("project not found"))
+		return
+	}
+	_ = json.NewEncoder(w).Encode(orgProject(p))
+}
+
+// handleDeleteOrgProject deletes a project. The API marks it as deleted; the mock removes it.
+func (h *Handler) handleDeleteOrgProject(w http.ResponseWriter, req *http.Request) {
+	h.Lock()
+	defer h.Unlock()
+	projectID := chi.URLParam(req, "project_id")
+	p, ok := h.projects[projectID]
+	if !ok || p.Organization != chi.URLParam(req, "organization_id") {
+		writeProblem(w, http.StatusNotFound, errors.New("project not found"))
+		return
+	}
+	delete(h.projects, projectID)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ProjectIDs returns the IDs of the projects.
+func (s *store) ProjectIDs() []string {
+	s.RLock()
+	defer s.RUnlock()
+	ids := make([]string, 0, len(s.projects))
+	for id := range s.projects {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	return ids
 }
 
 const (

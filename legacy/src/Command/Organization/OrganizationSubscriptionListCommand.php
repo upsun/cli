@@ -11,15 +11,15 @@ use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Console\ProgressMessage;
 use Platformsh\Cli\Service\Table;
 use Platformsh\Cli\Util\PaginationUtil;
-use Platformsh\Client\Model\Subscription;
+use Platformsh\Client\Model\Organization\Project as OrgProject;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Platformsh\Cli\Console\HiddenAliases;
 
-#[AsCommand(name: 'organization:subscription:list', description: 'List subscriptions within an organization', aliases: ['org:subs'])]
-#[HiddenAliases(['organization:subscriptions'])]
+#[AsCommand(name: 'organization:subscription:list', description: 'List projects and their subscriptions within an organization', aliases: ['org:subs', 'org:projects'])]
+#[HiddenAliases(['organization:subscriptions', 'organization:projects'])]
 class OrganizationSubscriptionListCommand extends OrganizationCommandBase
 {
     /** The maximum page size allowed by the API. */
@@ -31,6 +31,7 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
         'project_id' => 'Project ID',
         'project_title' => 'Title',
         'project_region' => 'Region',
+        'status' => 'Status',
         'created_at' => 'Created at',
         'updated_at' => 'Updated at',
     ];
@@ -58,10 +59,7 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $options = [];
-        $options['query']['filter']['status']['value'][] = 'active';
-        $options['query']['filter']['status']['value'][] = 'suspended';
-        $options['query']['filter']['status']['operator'] = 'IN';
+        $options = ['query' => ['filter[status][in]' => 'active,suspended']];
 
         $count = Option::stringOrNull($input, 'count');
         $itemsPerPage = max(1, min($this->config->getInt('pagination.count'), self::MAX_COUNT));
@@ -93,21 +91,21 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
         $organization = $this->selector->selectOrganization($input);
 
         $httpClient = $this->api->getHttpClient();
-        $subscriptions = [];
-        $url = $organization->getUri() . '/subscriptions';
+        $projects = [];
+        $url = '/organizations/' . rawurlencode($organization->id) . '/projects';
         $pageNumber = 1;
         $hasNextPage = false;
         $progress = new ProgressMessage($output);
         while (true) {
-            $progress->showIfOutputDecorated(\sprintf('Loading subscriptions (page %d)...', $pageNumber));
-            $collection = Subscription::getPagedCollection($url, $httpClient, $options);
+            $progress->showIfOutputDecorated(\sprintf('Loading projects (page %d)...', $pageNumber));
+            $result = OrgProject::getCollectionWithParent($url, $httpClient, $options);
             $progress->done();
             // The API paginates with a cursor, so pages before the requested
             // one have to be fetched, and discarded, to reach it.
             if ($pageNumber >= $requestedPage) {
-                $subscriptions = \array_merge($subscriptions, $collection['items']);
+                $projects = \array_merge($projects, $result['items']);
             }
-            $nextPage = PaginationUtil::nextPage($collection['next'], $url, $options['query']);
+            $nextPage = PaginationUtil::nextPage($result['collection']->getNextPageUrl(), $url, $options['query']);
             $hasNextPage = $nextPage !== null;
             if (!$hasNextPage || (!$fetchAllPages && $pageNumber >= $requestedPage)) {
                 break;
@@ -116,23 +114,32 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
             $pageNumber++;
         }
 
-        if (empty($subscriptions)) {
+        if (empty($projects)) {
             if ($requestedPage > 1) {
-                $this->stdErr->writeln('No subscriptions were found on this page.');
+                $this->stdErr->writeln('No projects were found on this page.');
                 return 0;
             }
-            $this->stdErr->writeln(\sprintf('No subscriptions were found belonging to the organization %s.', $this->api->getOrganizationLabel($organization)));
+            $this->stdErr->writeln(\sprintf('No projects were found belonging to the organization %s.', $this->api->getOrganizationLabel($organization)));
             return 0;
         }
 
         $rows = [];
-        foreach ($subscriptions as $subscription) {
-            $row = $subscription->getProperties();
-            $rows[] = $row;
+        foreach ($projects as $project) {
+            $data = $project->getData();
+            $value = fn(string $key): string => isset($data[$key]) && \is_scalar($data[$key]) ? (string) $data[$key] : '';
+            $rows[] = [
+                'id' => $value('subscription_id'),
+                'project_id' => $value('id'),
+                'project_title' => $value('title'),
+                'project_region' => $value('region'),
+                'status' => $value('status'),
+                'created_at' => $value('created_at'),
+                'updated_at' => $value('updated_at'),
+            ];
         }
 
         if (!$this->table->formatIsMachineReadable()) {
-            $title = \sprintf('Subscriptions belonging to the organization <info>%s</info>', $this->api->getOrganizationLabel($organization));
+            $title = \sprintf('Projects belonging to the organization <info>%s</info>', $this->api->getOrganizationLabel($organization));
             if (($pageNumber > 1 || $hasNextPage) && !$fetchAllPages) {
                 $title .= \sprintf(' (page %d)', $pageNumber);
             }
@@ -142,7 +149,7 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
         $this->table->render($rows, $this->tableHeader, $this->defaultColumns);
 
         if (!$this->table->formatIsMachineReadable() && $hasNextPage) {
-            $this->stdErr->writeln(\sprintf('More subscriptions are available on the next page (<info>--page %d</info>)', $pageNumber + 1));
+            $this->stdErr->writeln(\sprintf('More projects are available on the next page (<info>--page %d</info>)', $pageNumber + 1));
             $this->stdErr->writeln('List all items with: <info>--count 0</info> (<info>-c0</info>)');
         }
 

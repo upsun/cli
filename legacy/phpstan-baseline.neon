@@ -1939,36 +1939,6 @@ parameters:
 			path: src/Command/Organization/OrganizationListCommand.php
 
 		-
-			message: '#^Cannot access an offset on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Organization/OrganizationSubscriptionListCommand.php
-
-		-
-			message: '#^Cannot access offset ''filter'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Organization/OrganizationSubscriptionListCommand.php
-
-		-
-			message: '#^Cannot access offset ''status'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Organization/OrganizationSubscriptionListCommand.php
-
-		-
-			message: '#^Cannot access offset ''value'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Organization/OrganizationSubscriptionListCommand.php
-
-		-
-			message: '#^Parameter \#1 \$rows of method Platformsh\\Cli\\Service\\Table\:\:render\(\) expects array\<array\<int\|string, float\|int\|string\|Symfony\\Component\\Console\\Helper\\TableCell\>\|Symfony\\Component\\Console\\Helper\\TableSeparator\>, list\<array\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Organization/OrganizationSubscriptionListCommand.php
-
-		-
 			message: '#^Parameter \#1 \$permissions of method Platformsh\\Cli\\Command\\Organization\\User\\OrganizationUserCommandBase\:\:listPermissions\(\) expects array\<string\>\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 1

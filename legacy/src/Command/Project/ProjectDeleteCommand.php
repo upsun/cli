@@ -46,12 +46,18 @@ class ProjectDeleteCommand extends CommandBase
         $selection = $this->selector->getSelection($input);
 
         $project = $selection->getProject();
-        $subscriptionId = (string) $project->getSubscriptionId();
-        $subscription = $this->api->loadSubscription($subscriptionId, $project);
-        if (!$subscription) {
-            $this->stdErr->writeln('Subscription not found: <error>' . $subscriptionId . '</error>');
-            $this->stdErr->writeln('Unable to delete the project.');
-            return 1;
+        $subscription = null;
+        $orgProjectUrl = null;
+        if ($this->config->getBool('api.organizations')) {
+            $orgProjectUrl = $this->api->getOrgProjectsUrl($project) . '/' . rawurlencode($project->id);
+        } else {
+            $subscriptionId = (string) $project->getSubscriptionId();
+            $subscription = $this->api->loadSubscription($subscriptionId, $project);
+            if (!$subscription) {
+                $this->stdErr->writeln('Subscription not found: <error>' . $subscriptionId . '</error>');
+                $this->stdErr->writeln('Unable to delete the project.');
+                return 1;
+            }
         }
 
         $confirmQuestionLines = [
@@ -78,16 +84,18 @@ class ProjectDeleteCommand extends CommandBase
             }
         }
 
-        try {
-            $subscription->delete();
-        } catch (ClientException $e) {
-            if ($e->getResponse()->getStatusCode() === 403 && !$this->config->getBool('api.organizations')) {
-                if ($project->owner !== $this->api->getMyUserId()) {
+        if ($orgProjectUrl !== null) {
+            $this->api->getHttpClient()->request('DELETE', $orgProjectUrl);
+        } elseif ($subscription !== null) {
+            try {
+                $subscription->delete();
+            } catch (ClientException $e) {
+                if ($e->getResponse()->getStatusCode() === 403 && $project->owner !== $this->api->getMyUserId()) {
                     $this->stdErr->writeln("Only the project's owner can delete it.");
                     return 1;
                 }
+                throw $e;
             }
-            throw $e;
         }
 
         $this->api->clearProjectsCache();
