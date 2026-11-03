@@ -53,6 +53,9 @@ class ProjectCreateCommand extends CommandBase
     protected function configure(): void
     {
         $this->selector->addOrganizationOptions($this->getDefinition());
+        if ($this->config->getBool('api.organizations') && ($orgTypes = $this->config->getStrList('api.organization_types'))) {
+            $this->addOption('org-type', null, InputOption::VALUE_REQUIRED, 'The organization type (' . implode(' or ', $orgTypes) . ')', null, $orgTypes);
+        }
 
         Form::fromArray($this->getFields())->configureInputDefinition($this->getDefinition());
 
@@ -78,6 +81,9 @@ class ProjectCreateCommand extends CommandBase
                 to STDERR.
                 EOF,
         );
+        if ($this->getDefinition()->hasOption('org-type')) {
+            $this->setHelp($this->getHelp() . "\n\nIf the repository's configuration is for a different organization type than the\nselected organization, you will be asked to confirm.");
+        }
     }
 
     /**
@@ -102,16 +108,25 @@ class ProjectCreateCommand extends CommandBase
         // Identify an organization that should own the project.
         $organization = null;
         $setupOptions = null;
+        $showOrgType = $input->hasOption('org-type');
+        $orgType = $showOrgType ? (string) Option::stringOrNull($input, 'org-type') : '';
+        if ($orgType !== '' && !in_array($orgType, $this->config->getStrList('api.organization_types'), true)) {
+            $this->stdErr->writeln(sprintf('Invalid organization type: <error>%s</error>', $orgType));
+            $this->stdErr->writeln('Available types: <info>' . implode('</info>, <info>', $this->config->getStrList('api.organization_types')) . '</info>');
+
+            return 1;
+        }
         if ($this->config->getBool('api.organizations')) {
+            $selectOrganization = fn(): Organization => $this->selector->selectOrganization($input, 'create-subscription', filterByType: $orgType, showType: $showOrgType);
             try {
-                $organization = $this->selector->selectOrganization($input, 'create-subscription');
+                $organization = $selectOrganization();
             } catch (NoOrganizationsException $e) {
                 $this->stdErr->writeln('You do not yet own nor belong to an organization in which you can create a project.');
                 if ($e->getTotalNumOrgs() === 0 && $input->isInteractive() && $this->config->isCommandEnabled('organization:create') && $this->questionHelper->confirm('Do you want to create an organization now?')) {
                     if ($this->subCommandRunner->run('organization:create') !== 0) {
                         return 1;
                     }
-                    $organization = $this->selector->selectOrganization($input, 'create-subscription');
+                    $organization = $selectOrganization();
                 } else {
                     return 1;
                 }
@@ -121,7 +136,7 @@ class ProjectCreateCommand extends CommandBase
                 return 1;
             }
 
-            $this->stdErr->writeln('Creating a project under the organization ' . $this->api->getOrganizationLabel($organization));
+            $this->stdErr->writeln('Creating a project under the organization ' . $this->api->getOrganizationLabel($organization, 'info', $showOrgType));
             $this->stdErr->writeln('');
 
             $setupOptions = $organization->getSetupOptions();
@@ -136,6 +151,24 @@ class ProjectCreateCommand extends CommandBase
             $this->stdErr->writeln('Use <info>git init<info> to create a repository.');
 
             return 1;
+        }
+
+        // Check the repository's configuration matches the organization type.
+        if ($organization && $showOrgType && $gitRoot !== false) {
+            $configType = $this->detectConfigType($gitRoot);
+            $type = (string) $organization->type;
+            if ($configType !== null && in_array($type, ['flexible', 'fixed'], true) && $configType !== $type) {
+                $this->stdErr->writeln(sprintf(
+                    'The repository contains <comment>%s</comment> configuration, but the organization %s has the type <comment>%s</comment>.',
+                    $configType,
+                    $this->api->getOrganizationLabel($organization, 'comment'),
+                    $type,
+                ));
+                if (!$this->questionHelper->confirm('Are you sure you want to continue?', false)) {
+                    return 1;
+                }
+                $this->stdErr->writeln('');
+            }
         }
 
         $form = Form::fromArray($this->getFields($setupOptions));
@@ -613,6 +646,30 @@ class ProjectCreateCommand extends CommandBase
                 },
             ]),
         ];
+    }
+
+    /**
+     * Detects the organization type that a repository's configuration is for, from its root directory.
+     *
+     * The .platform directory alone is not used, as it may only contain local CLI files.
+     *
+     * @return 'flexible'|'fixed'|null
+     */
+    private function detectConfigType(string $dir): ?string
+    {
+        $flex = glob($dir . '/.upsun/*.yaml') || glob($dir . '/.upsun/*.yml');
+        $fixed = false;
+        foreach (['.platform.app', '.platform/applications', '.platform/routes', '.platform/services'] as $base) {
+            $fixed = $fixed || file_exists("$dir/$base.yaml") || file_exists("$dir/$base.yml");
+        }
+        if ($flex && !$fixed) {
+            return 'flexible';
+        }
+        if ($fixed && !$flex) {
+            return 'fixed';
+        }
+
+        return null;
     }
 
     /**
