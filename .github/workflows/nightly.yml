@@ -6,6 +6,9 @@ name: Nightly
 on:
   schedule:
     - cron: "17 3 * * *"
+  # Temporary, to test the first publish from this branch.
+  push:
+    branches: [ci/nightly-prerelease]
   workflow_dispatch:
     inputs:
       force:
