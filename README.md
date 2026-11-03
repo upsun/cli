@@ -58,6 +58,8 @@ docker run --rm -it ghcr.io/upsun/cli
 
 For manual installation, you can also [download the latest binaries](https://github.com/upsun/cli/releases/latest).
 
+To try unreleased changes, install the [nightly build](docs/development.md#nightly-builds) with `VERSION=nightly` (see [docs/install.md](docs/install.md#examples)).
+
 ## Getting started
 
 ```console

@@ -123,6 +123,8 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 
 ### Build System
 
+**Nightly**: `.github/workflows/nightly.yml` builds a snapshot daily (`NIGHTLY=1 make snapshot-no-nfpm`, versioned `<next patch>-nightly.<date>+<commit>`), and replaces the assets of the `nightly` prerelease in `upsun/cli-nightly` (with a GitHub App token), as releases in this repository are immutable. `scripts/nightly-assets.sh` renames the archives with `nightly` in place of the version, for the installer's `VERSION=nightly`. No other channel is published.
+
 **winget**: GoReleaser only generates the `Upsun.CLI` manifests. The release workflow's `winget` job submits them with `scripts/winget-submit.sh`: it pushes a branch to the `upsun/winget-pkgs` fork and opens a PR to `microsoft/winget-pkgs`, with a bot's classic token (`WINGET_GITHUB_TOKEN`). It also sets the moniker to `upsun`, as GoReleaser sets it to the package name. It is a separate job so that a failure does not block the rest of the release.
 
 **Multi-Vendor Support**:
