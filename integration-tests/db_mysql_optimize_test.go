@@ -314,14 +314,14 @@ func TestDbMysqlOptimizeExecute(t *testing.T) {
 	assert.Contains(t, stdErr, "Rebuilding main.logs... [OK]")
 	assert.Equal(t, []string{"ALTER TABLE `main`.`logs` FORCE, ALGORITHM=INPLACE, LOCK=NONE;"}, alters())
 
-	// With --force, tables that do not fit are rebuilt too, with warnings.
+	// With --force, tables that do not fit are rebuilt too, with warnings, and the smallest rebuild runs first.
 	_, stdErr, err = p.f.RunCombinedOutput(append(args, "--force")...)
 	require.NoError(t, err, stdErr)
 	assert.Contains(t, stdErr, "Warning: There is not enough free disk space to rebuild main.cache")
 	assert.Equal(t, []string{
 		"ALTER TABLE `main`.`logs` FORCE, ALGORITHM=INPLACE, LOCK=NONE;",
-		"ALTER TABLE `main`.`cache` FORCE, ALGORITHM=INPLACE, LOCK=NONE;",
 		"ALTER TABLE `main`.`logs` FORCE, ALGORITHM=INPLACE, LOCK=NONE;",
+		"ALTER TABLE `main`.`cache` FORCE, ALGORITHM=INPLACE, LOCK=NONE;",
 	}, alters())
 
 	_, stdErr, err = p.f.RunCombinedOutput("db:mysql-optimize", "-p", layoutProjectID, "-e", "main", "--force")

@@ -122,6 +122,7 @@ class DbMysqlOptimizeCommand extends CommandBase
             which is the same rebuild as <comment>OPTIMIZE TABLE</comment>, but fails instead of locking the table if it cannot be done online.
 
             A rebuild copies the table: it needs free disk space for the rebuilt table, and temporary space for its indexes.
+            The tables are rebuilt one at a time, the smallest first, so that the space freed by each rebuild is available for the next.
             The disk and /tmp usage are read from the metrics API: if they are unknown, or a table does not fit
             (leaving at least <comment>{$reserve}%</comment> of the volume free), the tables are not rebuilt, unless <comment>--force</comment> is used.
 
@@ -625,6 +626,8 @@ class DbMysqlOptimizeCommand extends CommandBase
             $this->stdErr->writeln('No tables can be rebuilt.');
             return false;
         }
+        // The smallest rebuilds run first, so that the space they free is available for the larger ones.
+        usort($toRebuild, fn(TableCandidate $a, TableCandidate $b): int => $a->diskNeeded() <=> $b->diskNeeded());
 
         $problems = [];
         if ($headroom === null) {
