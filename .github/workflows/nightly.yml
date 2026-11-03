@@ -36,9 +36,10 @@ jobs:
         id: check
         env:
           FORCE: ${{ inputs.force }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           built=$(curl -fsSL "https://github.com/${NIGHTLY_REPO}/releases/download/nightly/commit.txt" || true)
-          if [ "$FORCE" != "true" ] && [ "$built" = "$GITHUB_SHA" ]; then
+          if [ "$FORCE" != "true" ] && [ "$DRY_RUN" != "true" ] && [ "$built" = "$GITHUB_SHA" ]; then
             echo "The nightly is already from ${GITHUB_SHA}." >> "$GITHUB_STEP_SUMMARY"
             echo "build=false" >> "$GITHUB_OUTPUT"
           else
@@ -167,8 +168,10 @@ jobs:
           if ! gh release view nightly --repo "$NIGHTLY_REPO" > /dev/null; then
             gh release create nightly --repo "$NIGHTLY_REPO" --prerelease --title "Nightly" --notes ""
           fi
-          # The checksums and the commit are uploaded last, as installs verify archives against the checksums.
+          # Assets are replaced one by one, so an install during the upload may fail (e.g. a checksum mismatch).
+          # commit.txt is uploaded last, so that a failed upload is retried on the next run.
           gh release upload nightly --repo "$NIGHTLY_REPO" --clobber nightly/*.tar.gz nightly/*.zip
-          gh release upload nightly --repo "$NIGHTLY_REPO" --clobber nightly/checksums.txt nightly/commit.txt
+          gh release upload nightly --repo "$NIGHTLY_REPO" --clobber nightly/checksums.txt
+          gh release upload nightly --repo "$NIGHTLY_REPO" --clobber nightly/commit.txt
           gh release edit nightly --repo "$NIGHTLY_REPO" --prerelease --title "Nightly ${VERSION}" --notes "$notes"
           echo "Published ${VERSION}: https://github.com/${NIGHTLY_REPO}/releases/tag/nightly" >> "$GITHUB_STEP_SUMMARY"
