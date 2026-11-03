@@ -169,9 +169,9 @@ jobs:
             gh release create nightly --repo "$NIGHTLY_REPO" --prerelease --title "Nightly" --notes ""
           fi
           # Assets are replaced one by one, so an install during the upload may fail (e.g. a checksum mismatch).
-          # commit.txt is uploaded last, so that a failed upload is retried on the next run.
+          # commit.txt is uploaded last, so that a failed publish is retried on the next run.
           gh release upload nightly --repo "$NIGHTLY_REPO" --clobber nightly/*.tar.gz nightly/*.zip
           gh release upload nightly --repo "$NIGHTLY_REPO" --clobber nightly/checksums.txt
-          gh release upload nightly --repo "$NIGHTLY_REPO" --clobber nightly/commit.txt
           gh release edit nightly --repo "$NIGHTLY_REPO" --prerelease --title "Nightly ${VERSION}" --notes "$notes"
+          gh release upload nightly --repo "$NIGHTLY_REPO" --clobber nightly/commit.txt
           echo "Published ${VERSION}: https://github.com/${NIGHTLY_REPO}/releases/tag/nightly" >> "$GITHUB_STEP_SUMMARY"
