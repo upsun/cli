@@ -125,14 +125,16 @@ class OrganizationSubscriptionListCommand extends OrganizationCommandBase
 
         $rows = [];
         foreach ($projects as $project) {
+            $data = $project->getData();
+            $value = fn(string $key): string => isset($data[$key]) && \is_scalar($data[$key]) ? (string) $data[$key] : '';
             $rows[] = [
-                'id' => $project->subscription_id,
-                'project_id' => $project->id,
-                'project_title' => $project->title,
-                'project_region' => $project->region,
-                'status' => $project->status,
-                'created_at' => $project->created_at,
-                'updated_at' => $project->updated_at,
+                'id' => $value('subscription_id'),
+                'project_id' => $value('id'),
+                'project_title' => $value('title'),
+                'project_region' => $value('region'),
+                'status' => $value('status'),
+                'created_at' => $value('created_at'),
+                'updated_at' => $value('updated_at'),
             ];
         }
 
