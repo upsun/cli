@@ -46,12 +46,15 @@ class ProjectDeleteCommand extends CommandBase
         $selection = $this->selector->getSelection($input);
 
         $project = $selection->getProject();
-        $subscriptionId = (string) $project->getSubscriptionId();
-        $subscription = $this->api->loadSubscription($subscriptionId, $project);
-        if (!$subscription) {
-            $this->stdErr->writeln('Subscription not found: <error>' . $subscriptionId . '</error>');
-            $this->stdErr->writeln('Unable to delete the project.');
-            return 1;
+        $subscription = null;
+        if (!$this->config->getBool('api.organizations')) {
+            $subscriptionId = (string) $project->getSubscriptionId();
+            $subscription = $this->api->loadSubscription($subscriptionId, $project);
+            if (!$subscription) {
+                $this->stdErr->writeln('Subscription not found: <error>' . $subscriptionId . '</error>');
+                $this->stdErr->writeln('Unable to delete the project.');
+                return 1;
+            }
         }
 
         $confirmQuestionLines = [
@@ -79,9 +82,14 @@ class ProjectDeleteCommand extends CommandBase
         }
 
         try {
-            $subscription->delete();
+            if ($subscription === null) {
+                $url = '/organizations/' . rawurlencode($project->getProperty('organization')) . '/projects/' . rawurlencode($project->id);
+                $this->api->getHttpClient()->request('DELETE', $url);
+            } else {
+                $subscription->delete();
+            }
         } catch (ClientException $e) {
-            if ($e->getResponse()->getStatusCode() === 403 && !$this->config->getBool('api.organizations')) {
+            if ($e->getResponse()->getStatusCode() === 403 && $subscription !== null) {
                 if ($project->owner !== $this->api->getMyUserId()) {
                     $this->stdErr->writeln("Only the project's owner can delete it.");
                     return 1;

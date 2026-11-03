@@ -50,6 +50,7 @@ use Platformsh\Client\Model\Environment;
 use Platformsh\Client\Model\EnvironmentType;
 use Platformsh\Client\Model\Organization\Member;
 use Platformsh\Client\Model\Organization\Organization;
+use Platformsh\Client\Model\Organization\Project as OrgProject;
 use Platformsh\Client\Model\Project;
 use Platformsh\Client\Model\ProjectStub;
 use Platformsh\Client\Model\Ref\Resolver;
@@ -2064,7 +2065,11 @@ class Api
      */
     public function getConsoleURL(Project $project, bool $reset = false): string
     {
-        if ($this->config->has('service.console_url') && $this->config->getBool('api.organizations')) {
+        if (!$this->config->getBool('api.organizations')) {
+            if ($subscription = $this->loadSubscription((string) $project->getSubscriptionId(), $project)) {
+                return $subscription->project_ui;
+            }
+        } elseif ($this->config->has('service.console_url')) {
             // Load the organization name if possible.
             $firstSegment = $organizationId = $project->getProperty('organization');
             try {
@@ -2081,8 +2086,12 @@ class Api
             }
 
             return ltrim($this->config->getStr('service.console_url'), '/') . '/' . rawurlencode((string) $firstSegment) . '/' . rawurlencode($project->id);
-        } elseif ($subscription = $this->loadSubscription((string) $project->getSubscriptionId(), $project)) {
-            return $subscription->project_ui;
+        } else {
+            $url = '/organizations/' . rawurlencode($project->getProperty('organization')) . '/projects';
+            $orgProject = OrgProject::get($project->id, $url, $this->getHttpClient());
+            if ($orgProject && $orgProject->project_ui) {
+                return $orgProject->project_ui;
+            }
         }
         throw new \RuntimeException('Failed to load Console URL for project: ' . $project->id);
     }

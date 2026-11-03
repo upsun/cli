@@ -70,6 +70,8 @@ type Project struct {
 	Subscription ProjectSubscriptionInfo `json:"subscription,omitempty"`
 
 	SubscriptionID string `json:"-"`
+	// ProjectUI is the Console URL served by the Projects API.
+	ProjectUI string `json:"-"`
 
 	// Settings are served at the project's /settings path, if set.
 	Settings map[string]any `json:"-"`

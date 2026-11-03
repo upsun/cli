@@ -28,7 +28,7 @@ func TestOrgDelete(t *testing.T) {
 	_, stderr, err := f.RunCombinedOutput("organization:delete", "-o", "org-1", "--yes")
 	assertExitCode(t, 1, err)
 	assert.Contains(t, stderr, "The organization Org 1 (org-1) still owns project(s), so it cannot be deleted.")
-	assert.Contains(t, stderr, "To list the organization's projects, run: platform-test org:subscriptions")
+	assert.Contains(t, stderr, "To list the organization's projects, run: platform-test org:projects")
 
 	// The confirmation defaults to "no".
 	_, stderr, err = f.RunCombinedOutput("organization:delete", "-o", "org-2")
@@ -40,6 +40,7 @@ func TestOrgDelete(t *testing.T) {
 	require.NoError(t, err, stderr)
 	assert.Contains(t, stderr, "The organization Org 2 (org-2) was deleted.")
 	assert.Equal(t, []string{"org-id-1"}, apiHandler.OrgIDs())
+	assert.Empty(t, apiHandler.Requests("GET", "/organizations/*/subscriptions"))
 }
 
 func TestOrgSubscriptionList(t *testing.T) {
@@ -75,15 +76,26 @@ Subscription ID,Project ID,Title,Region
 
 	_, stderr, err = f.RunCombinedOutput("org:subs", "-o", "org-1", "--count", "2")
 	require.NoError(t, err, stderr)
-	assert.Contains(t, stderr, "Subscriptions belonging to the organization Org 1 (org-1) (page 1)")
-	assert.Contains(t, stderr, "More subscriptions are available on the next page (--page 2)")
+	assert.Contains(t, stderr, "Projects belonging to the organization Org 1 (org-1) (page 1)")
+	assert.Contains(t, stderr, "More projects are available on the next page (--page 2)")
 
 	assertTrimmed(t, "1001\n1002\n1003", f.Run("org:subs", "-o", "org-1", "--format", "plain", "--no-header",
 		"--columns", "id", "--count", "1", "-c0"))
 
 	_, stderr, err = f.RunCombinedOutput("org:subs", "-o", "org-2")
 	require.NoError(t, err, stderr)
-	assert.Contains(t, stderr, "No subscriptions were found belonging to the organization Org 2 (org-2).")
+	assert.Contains(t, stderr, "No projects were found belonging to the organization Org 2 (org-2).")
+
+	assertTrimmed(t, "project1,active\nproject2,active\nproject3,active", f.Run("org:projects", "-o", "org-1",
+		"--format", "csv", "--no-header", "--columns", "project_id,status"))
+
+	// Only active and suspended projects are listed.
+	listRequests := apiHandler.Requests("GET", "/organizations/org-id-1/projects")
+	require.NotEmpty(t, listRequests)
+	for _, r := range listRequests {
+		assert.Equal(t, "active,suspended", r.Query.Get("filter[status][in]"))
+	}
+	assert.Empty(t, apiHandler.Requests("GET", "/organizations/*/subscriptions"))
 
 	for _, count := range []string{"101", "1.5", "1e1"} {
 		_, stderr, err = f.RunCombinedOutput("org:subs", "-o", "org-1", "--count", count)

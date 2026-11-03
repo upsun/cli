@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -36,10 +37,13 @@ func TestProjectClearBuildCache(t *testing.T) {
 	assert.Equal(t, "project.clear_build_cache", activities[0].Type)
 }
 
-// setUpProjectDelete serves a project, owned by another user, and its subscription.
-// It returns a function that reports whether the subscription was deleted.
-func setUpProjectDelete(t *testing.T, deleteStatus int) (f *cmdFactory, projectID string, deleted func() bool) {
-	apiHandler := mockapi.NewHandler(t)
+// setUpProjectDelete serves a project, owned by another user, in an organization. Its subscription is served for the
+// legacy path (without the Organizations API), where deleting it returns deleteStatus. The returned function reports
+// whether the project or its subscription was deleted.
+func setUpProjectDelete(t *testing.T, deleteStatus int) (
+	f *cmdFactory, apiHandler *mockapi.Handler, projectID string, deleted func() bool,
+) {
+	apiHandler = mockapi.NewHandler(t)
 	orgID := "org-id"
 	apiHandler.SetOrgs([]*mockapi.Org{{
 		ID: orgID, Type: "flexible", Name: "acme", Label: "Acme", Owner: "my-user-id",
@@ -48,43 +52,50 @@ func setUpProjectDelete(t *testing.T, deleteStatus int) (f *cmdFactory, projectI
 	projectID = mockapi.ProjectID()
 	subscriptionID := "123456"
 	apiHandler.SetProjects([]*mockapi.Project{{
-		ID:           projectID,
-		Title:        "My Project",
-		Organization: orgID,
-		Owner:        "other-user-id",
-		Links:        mockapi.MakeHALLinks("self=/projects/" + projectID),
-		Subscription: mockapi.ProjectSubscriptionInfo{LicenseURI: "/licenses/" + subscriptionID},
+		ID:             projectID,
+		Title:          "My Project",
+		Organization:   orgID,
+		Owner:          "other-user-id",
+		Links:          mockapi.MakeHALLinks("self=/projects/" + projectID),
+		Subscription:   mockapi.ProjectSubscriptionInfo{LicenseURI: "/licenses/" + subscriptionID},
+		SubscriptionID: subscriptionID,
 	}})
 
 	var subscriptionDeleted atomic.Bool
-	for _, path := range []string{
-		"/subscriptions/" + subscriptionID,
-		"/organizations/" + orgID + "/subscriptions/" + subscriptionID,
-	} {
-		apiHandler.Get(path, func(w http.ResponseWriter, _ *http.Request) {
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id":         subscriptionID,
-				"project_id": projectID,
-				"status":     "active",
-				"_links":     mockapi.MakeHALLinks("self=" + path),
-			})
+	path := "/subscriptions/" + subscriptionID
+	apiHandler.Get(path, func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":         subscriptionID,
+			"project_id": projectID,
+			"status":     "active",
+			"_links":     mockapi.MakeHALLinks("self=" + path),
 		})
-		apiHandler.Delete(path, func(w http.ResponseWriter, _ *http.Request) {
-			if deleteStatus == http.StatusNoContent {
-				subscriptionDeleted.Store(true)
-				w.WriteHeader(deleteStatus)
-				return
-			}
+	})
+	apiHandler.Delete(path, func(w http.ResponseWriter, _ *http.Request) {
+		if deleteStatus == http.StatusNoContent {
+			subscriptionDeleted.Store(true)
 			w.WriteHeader(deleteStatus)
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"status": deleteStatus,
-				"title":  http.StatusText(deleteStatus),
-				"detail": "you do not have permission to access this subscription or it does not exist",
-			})
-		})
-	}
+			return
+		}
+		w.WriteHeader(deleteStatus)
+		_, _ = w.Write([]byte(mockapi.Problem(deleteStatus,
+			"you do not have permission to access this subscription or it does not exist")))
+	})
 
-	return serveAPI(t, apiHandler), projectID, subscriptionDeleted.Load
+	deleted = func() bool {
+		return subscriptionDeleted.Load() || !slices.Contains(apiHandler.ProjectIDs(), projectID)
+	}
+	return serveAPI(t, apiHandler), apiHandler, projectID, deleted
+}
+
+// useLegacyOrgsConfig makes the CLI run without the Organizations API.
+func useLegacyOrgsConfig(t *testing.T, f *cmdFactory) {
+	baseConfig, err := os.ReadFile("config.yaml")
+	require.NoError(t, err)
+	configFile := filepath.Join(t.TempDir(), "config.yaml")
+	config := strings.Replace(string(baseConfig), "  organizations: true\n", "  organizations: false\n", 1)
+	require.NoError(t, os.WriteFile(configFile, []byte(config), 0o600))
+	f.useConfig(configFile)
 }
 
 func TestProjectDelete(t *testing.T) {
@@ -92,7 +103,7 @@ func TestProjectDelete(t *testing.T) {
 
 	t.Run("not confirmed", func(t *testing.T) {
 		t.Parallel()
-		f, projectID, deleted := setUpProjectDelete(t, http.StatusNoContent)
+		f, _, projectID, deleted := setUpProjectDelete(t, http.StatusNoContent)
 
 		// The confirmation defaults to "no".
 		_, stderr, err := f.RunCombinedOutput("project:delete", projectID)
@@ -112,7 +123,7 @@ func TestProjectDelete(t *testing.T) {
 
 	t.Run("interactive", func(t *testing.T) {
 		t.Parallel()
-		f, projectID, deleted := setUpProjectDelete(t, http.StatusNoContent)
+		f, _, projectID, deleted := setUpProjectDelete(t, http.StatusNoContent)
 
 		_, stderr, err := f.RunInteractive("y\nMy Project\n", "project:delete", projectID)
 		require.NoError(t, err, stderr)
@@ -122,25 +133,46 @@ func TestProjectDelete(t *testing.T) {
 
 	t.Run("yes", func(t *testing.T) {
 		t.Parallel()
-		f, projectID, deleted := setUpProjectDelete(t, http.StatusNoContent)
+		f, apiHandler, projectID, deleted := setUpProjectDelete(t, http.StatusNoContent)
 
 		_, stderr, err := f.RunCombinedOutput("project:delete", "-p", projectID, "--yes")
 		require.NoError(t, err, stderr)
 		assert.Contains(t, stderr, "was deleted.")
 		assert.True(t, deleted())
+		assert.Len(t, apiHandler.Requests("DELETE", "/organizations/org-id/projects/"+projectID), 1)
+		assert.Empty(t, apiHandler.Requests("GET", "/subscriptions/*"))
+	})
+
+	t.Run("forbidden", func(t *testing.T) {
+		t.Parallel()
+		f, apiHandler, projectID, deleted := setUpProjectDelete(t, http.StatusNoContent)
+		apiHandler.FailNext("DELETE", "/organizations/*/projects/*", http.StatusForbidden,
+			mockapi.Problem(http.StatusForbidden, "access denied"))
+
+		_, stderr, err := f.RunCombinedOutput("project:delete", "-p", projectID, "--yes")
+		assert.Error(t, err)
+		assert.Contains(t, stderr, "access denied")
+		assert.False(t, deleted())
+	})
+
+	t.Run("without the Organizations API", func(t *testing.T) {
+		t.Parallel()
+		f, apiHandler, projectID, deleted := setUpProjectDelete(t, http.StatusNoContent)
+		useLegacyOrgsConfig(t, f)
+
+		_, stderr, err := f.RunCombinedOutput("project:delete", "-p", projectID, "--yes")
+		require.NoError(t, err, stderr)
+		assert.Contains(t, stderr, "was deleted.")
+		assert.True(t, deleted())
+		assert.Contains(t, apiHandler.ProjectIDs(), projectID)
 	})
 
 	t.Run("not the owner", func(t *testing.T) {
 		t.Parallel()
-		f, projectID, deleted := setUpProjectDelete(t, http.StatusForbidden)
+		f, _, projectID, deleted := setUpProjectDelete(t, http.StatusForbidden)
 
 		// The owner check only applies without the Organizations API.
-		baseConfig, err := os.ReadFile("config.yaml")
-		require.NoError(t, err)
-		configFile := filepath.Join(t.TempDir(), "config.yaml")
-		config := strings.Replace(string(baseConfig), "  organizations: true\n", "  organizations: false\n", 1)
-		require.NoError(t, os.WriteFile(configFile, []byte(config), 0o600))
-		f.useConfig(configFile)
+		useLegacyOrgsConfig(t, f)
 
 		_, stderr, err := f.RunCombinedOutput("project:delete", "-p", projectID, "--yes")
 		assertExitCode(t, 1, err)

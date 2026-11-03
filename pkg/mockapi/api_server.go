@@ -130,6 +130,8 @@ func NewHandler(t *testing.T) *Handler {
 	h.Get("/users/{user_id}/organizations", h.handleListOrgs)
 	h.Get("/ref/organizations", h.handleOrgRefs)
 	h.Get("/organizations/{organization_id}/projects", h.handleListOrgProjects)
+	h.Get("/organizations/{organization_id}/projects/{project_id}", h.handleGetOrgProject)
+	h.Delete("/organizations/{organization_id}/projects/{project_id}", h.handleDeleteOrgProject)
 
 	h.Post("/organizations/{organization_id}/subscriptions", h.handleCreateSubscription)
 	h.Get("/organizations/{organization_id}/subscriptions", h.handleListOrgSubscriptions)
