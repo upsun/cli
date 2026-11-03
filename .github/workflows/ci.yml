@@ -365,8 +365,13 @@ jobs:
     permissions:
       pull-requests: write
 
+    # Runs for one push at a time, so that there is only one comment.
+    concurrency:
+      group: comment-builds-${{ github.event.pull_request.number }}
+
     steps:
       - name: Create or update the comment
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -396,10 +401,17 @@ jobs:
             echo './upsun --version'
             echo '```'
             echo
-            echo 'On macOS, remove the quarantine attribute before running it: `xattr -d com.apple.quarantine upsun`.'
+            echo 'On macOS, if you downloaded it with a browser, remove the quarantine attribute before running it: `xattr -d com.apple.quarantine upsun`.'
           } > body.md
-          id=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
-            --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\")))][0].id // empty" | head -n1)
+          # A run for an older push may finish later: it must not replace the comment.
+          head=$(gh api "repos/$REPO/pulls/$PR" --jq .head.sha)
+          if [ "$head" != "$SHA" ]; then
+            echo "The pull request has a newer commit."
+            exit 0
+          fi
+          ids=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id")
+          id=${ids%%$'\n'*}
           if [ -n "$id" ]; then
             gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@body.md >/dev/null
           else

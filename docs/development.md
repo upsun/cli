@@ -41,7 +41,8 @@ chmod +x upsun
 ./upsun --version
 ```
 
-On macOS, remove the quarantine attribute first: `xattr -d com.apple.quarantine upsun`.
+On macOS, if you downloaded a build with a browser, remove the quarantine
+attribute first: `xattr -d com.apple.quarantine upsun`.
 
 ## Releasing
 
