@@ -10,7 +10,7 @@ curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | bash
 
 ### Install method
 
-On Linux, the script uses apt, yum, or apk, and on macOS, Homebrew, if available. Otherwise it uses the `raw` method: a binary download from the GitHub release. It also uses the `raw` method on FreeBSD, and on Linux in CI or when `VERSION` is set.
+On Linux, the script uses apt, yum, or apk, and on macOS, Homebrew, if available. Otherwise it uses the `raw` method: a binary download from the GitHub release. It also uses the `raw` method on FreeBSD, on Linux in CI or when `VERSION` is set, and for `VERSION=nightly`.
 
 The `raw` method verifies the archive against the release's `checksums.txt` (SHA-256). It needs `sha256sum` or `shasum`, and fails if neither is available, if `checksums.txt` cannot be downloaded, or if the checksum does not match.
 
@@ -23,7 +23,7 @@ Outside CI, the `raw` method also installs shell completion for the current user
 * `INSTALL_LOG`: the install log file
 * `INSTALL_METHOD`: force an install method: `apt`, `yum`, `apk`, `homebrew` (or `brew`), or `raw`
 * `INSTALL_DIR`: the installation directory for the `raw` method; for example, `INSTALL_DIR=$HOME/.local/bin` for a single-user installation
-* `VERSION`: the version of the CLI to install, if not the latest one
+* `VERSION`: the version of the CLI to install, if not the latest one, or `nightly` for the [nightly build](development.md#nightly-builds)
 * `CONFIG_URL`: the URL of an alternative CLI configuration, installed after the CLI with `upsun config:install --force`. Its executable is put next to `upsun` if that directory is writable (except with Homebrew). As root, outside the home directory, the configuration is put in `/etc/upsun/platform-alt` so that other users can run it; only root updates it
 
 ### Examples
@@ -38,6 +38,12 @@ Install a specific version:
 
 ```console
 curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | VERSION=5.0.0 bash
+```
+
+Install the nightly build, of unreleased code:
+
+```console
+curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | VERSION=nightly bash
 ```
 
 Install in a directory owned by the user:
