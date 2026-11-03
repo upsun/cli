@@ -36,6 +36,7 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Finder\Finder;
 
 #[AsCommand(name: 'project:create', description: 'Create a new project', aliases: ['create'])]
 class ProjectCreateCommand extends CommandBase
@@ -123,7 +124,7 @@ class ProjectCreateCommand extends CommandBase
             } catch (NoOrganizationsException $e) {
                 $this->stdErr->writeln('You do not yet own nor belong to an organization in which you can create a project.');
                 if ($e->getTotalNumOrgs() === 0 && $input->isInteractive() && $this->config->isCommandEnabled('organization:create') && $this->questionHelper->confirm('Do you want to create an organization now?')) {
-                    if ($this->subCommandRunner->run('organization:create') !== 0) {
+                    if ($this->subCommandRunner->run('organization:create', $orgType !== '' ? ['--type' => $orgType] : []) !== 0) {
                         return 1;
                     }
                     $organization = $selectOrganization();
@@ -651,7 +652,8 @@ class ProjectCreateCommand extends CommandBase
     /**
      * Detects the organization type that a repository's configuration is for, from its root directory.
      *
-     * The .platform directory alone is not used, as it may only contain local CLI files.
+     * The .platform directory alone is not used, as it may only contain local CLI files. Per-app config files are
+     * searched for up to the same depth as the ApplicationFinder.
      *
      * @return 'flexible'|'fixed'|null
      */
@@ -659,8 +661,19 @@ class ProjectCreateCommand extends CommandBase
     {
         $flex = glob($dir . '/.upsun/*.yaml') || glob($dir . '/.upsun/*.yml');
         $fixed = false;
-        foreach (['.platform.app', '.platform/applications', '.platform/routes', '.platform/services'] as $base) {
+        foreach (['.platform/applications', '.platform/routes', '.platform/services'] as $base) {
             $fixed = $fixed || file_exists("$dir/$base.yaml") || file_exists("$dir/$base.yml");
+        }
+        if (!$fixed) {
+            $fixed = (new Finder())->in($dir)
+                ->files()
+                ->name(['.platform.app.yaml', '.platform.app.yml'])
+                ->ignoreDotFiles(false)
+                ->ignoreUnreadableDirs()
+                ->ignoreVCS(true)
+                ->exclude(['builds', 'node_modules', 'vendor'])
+                ->depth('< 5')
+                ->hasResults();
         }
         if ($flex && !$fixed) {
             return 'flexible';

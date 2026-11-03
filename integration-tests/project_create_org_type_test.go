@@ -95,6 +95,8 @@ func TestProjectCreateOrgType(t *testing.T) {
 			wantErr: true},
 		{name: "flex config, flex org", files: []string{".upsun/config.yaml"}, org: "flex-org", stdin: "\n\n"},
 		{name: "fixed config, fixed org", files: []string{".platform/routes.yaml"}, org: "fixed-org", stdin: "\n\n"},
+		{name: "nested fixed app config, flex org", files: []string{"app/.platform.app.yaml"}, org: "flex-org",
+			stdin: "n\n", wantErr: true},
 		// The .platform directory may only contain local CLI files.
 		{name: "local files only", files: []string{".platform/local/project.yaml"}, org: "fixed-org", stdin: "\n\n"},
 		{name: "both config styles", files: []string{".upsun/config.yaml", ".platform.app.yaml"}, org: "fixed-org",
@@ -122,4 +124,26 @@ func TestProjectCreateOrgType(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestProjectCreateOrgType_CreateOrg(t *testing.T) {
+	t.Parallel()
+	authServer := mockapi.NewAuthServer(t)
+	defer authServer.Close()
+
+	apiHandler := mockapi.NewHandler(t)
+	apiServer := httptest.NewServer(apiHandler)
+	defer apiServer.Close()
+
+	f := newCommandFactory(t, apiServer.URL, authServer.URL)
+
+	// Answers: create an organization, its label, name (default), country, and confirmation.
+	// The mock API does not give the new organization a create-subscription link, so the command then fails.
+	_, stderr, err := f.RunInteractive("y\nTest Org\n\nUS\ny\n",
+		"project:create", "--title", "Test", "--region", "test-region", "--org-type", "fixed", "--no-set-remote")
+	assertExitCode(t, 1, err)
+	assert.Contains(t, stderr, "Created organization")
+	requests := apiHandler.Requests("POST", "/organizations")
+	require.Len(t, requests, 1)
+	assert.Equal(t, "fixed", jsonObject(t, requests[0].Body)["type"])
 }
