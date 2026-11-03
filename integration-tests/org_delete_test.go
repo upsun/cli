@@ -40,9 +40,9 @@ func TestOrgDelete(t *testing.T) {
 	require.NoError(t, err, stderr)
 	assert.Contains(t, stderr, "The organization Org 2 (org-2) was deleted.")
 	assert.Equal(t, []string{"org-id-1"}, apiHandler.OrgIDs())
-	assert.Empty(t, apiHandler.Requests("GET", "/organizations/*/subscriptions"))
 
-	// The same projects are checked as listed by org:projects.
+	// Projects are checked with the Projects API, with the same filter as org:subs.
+	assert.Empty(t, apiHandler.Requests("GET", "/organizations/*/subscriptions"))
 	for _, r := range apiHandler.Requests("GET", "/organizations/*/projects") {
 		assert.Equal(t, "active,suspended", r.Query.Get("filter[status][in]"))
 	}
@@ -94,7 +94,7 @@ Subscription ID,Project ID,Title,Region
 	assertTrimmed(t, "project1,active\nproject2,active\nproject3,active", f.Run("org:projects", "-o", "org-1",
 		"--format", "csv", "--no-header", "--columns", "project_id,status"))
 
-	// Only active and suspended projects are listed.
+	// Projects are listed with the Projects API, which leaves out deleted projects by default.
 	listRequests := apiHandler.Requests("GET", "/organizations/org-id-1/projects")
 	require.NotEmpty(t, listRequests)
 	for _, r := range listRequests {

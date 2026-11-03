@@ -77,6 +77,24 @@ func (h *Handler) handleGetSubscription(w http.ResponseWriter, req *http.Request
 	_ = json.NewEncoder(w).Encode(sub)
 }
 
+// handleDeleteSubscription deletes a subscription and its project.
+func (h *Handler) handleDeleteSubscription(w http.ResponseWriter, req *http.Request) {
+	h.Lock()
+	defer h.Unlock()
+	id := chi.URLParam(req, "subscription_id")
+	if h.findSubscription(id, chi.URLParam(req, "organization_id")) == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	for projectID, p := range h.projects {
+		if p.SubscriptionID == id {
+			delete(h.projects, projectID)
+		}
+	}
+	delete(h.subscriptions, id)
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *Handler) handleCanCreateSubscriptions(w http.ResponseWriter, req *http.Request) {
 	h.RLock()
 	defer h.RUnlock()

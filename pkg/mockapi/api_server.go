@@ -137,6 +137,8 @@ func NewHandler(t *testing.T) *Handler {
 	h.Get("/organizations/{organization_id}/subscriptions", h.handleListOrgSubscriptions)
 	h.Get("/subscriptions/{subscription_id}", h.handleGetSubscription)
 	h.Get("/organizations/{organization_id}/subscriptions/{subscription_id}", h.handleGetSubscription)
+	h.Delete("/subscriptions/{subscription_id}", h.handleDeleteSubscription)
+	h.Delete("/organizations/{organization_id}/subscriptions/{subscription_id}", h.handleDeleteSubscription)
 	h.Get("/organizations/{organization_id}/subscriptions/can-create", h.handleCanCreateSubscriptions)
 	h.Get("/organizations/{organization_id}/setup/options", func(w http.ResponseWriter, _ *http.Request) {
 		type options struct {
