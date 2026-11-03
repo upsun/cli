@@ -47,7 +47,10 @@ class ProjectDeleteCommand extends CommandBase
 
         $project = $selection->getProject();
         $subscription = null;
-        if (!$this->config->getBool('api.organizations')) {
+        $orgProjectUrl = null;
+        if ($this->config->getBool('api.organizations')) {
+            $orgProjectUrl = $this->api->getOrgProjectsUrl($project) . '/' . rawurlencode($project->id);
+        } else {
             $subscriptionId = (string) $project->getSubscriptionId();
             $subscription = $this->api->loadSubscription($subscriptionId, $project);
             if (!$subscription) {
@@ -81,9 +84,9 @@ class ProjectDeleteCommand extends CommandBase
             }
         }
 
-        if ($subscription === null) {
-            $this->api->getHttpClient()->request('DELETE', $this->api->getOrgProjectsUrl($project) . '/' . rawurlencode($project->id));
-        } else {
+        if ($orgProjectUrl !== null) {
+            $this->api->getHttpClient()->request('DELETE', $orgProjectUrl);
+        } elseif ($subscription !== null) {
             try {
                 $subscription->delete();
             } catch (ClientException $e) {

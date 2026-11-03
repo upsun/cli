@@ -41,6 +41,11 @@ func TestOrgDelete(t *testing.T) {
 	assert.Contains(t, stderr, "The organization Org 2 (org-2) was deleted.")
 	assert.Equal(t, []string{"org-id-1"}, apiHandler.OrgIDs())
 	assert.Empty(t, apiHandler.Requests("GET", "/organizations/*/subscriptions"))
+
+	// The same projects are checked as listed by org:projects.
+	for _, r := range apiHandler.Requests("GET", "/organizations/*/projects") {
+		assert.Equal(t, "active,suspended", r.Query.Get("filter[status][in]"))
+	}
 }
 
 func TestOrgSubscriptionList(t *testing.T) {

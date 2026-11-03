@@ -2065,7 +2065,7 @@ class Api
      */
     public function getOrgProjectsUrl(Project $project): string
     {
-        $organizationId = $project->getProperty('organization');
+        $organizationId = $project->getProperty('organization', false, false);
         if (!\is_string($organizationId) || $organizationId === '') {
             throw new \RuntimeException('Failed to find the organization of the project: ' . $project->id);
         }

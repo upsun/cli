@@ -30,7 +30,7 @@ class OrganizationDeleteCommand extends OrganizationCommandBase
         $organization = $this->selector->selectOrganization($input);
 
         $url = '/organizations/' . rawurlencode($organization->id) . '/projects';
-        $projects = OrgProject::getCollectionWithParent($url, $this->api->getHttpClient(), ['query' => ['page[size]' => 1]])['items'];
+        $projects = OrgProject::getCollectionWithParent($url, $this->api->getHttpClient(), ['query' => ['filter[status][in]' => 'active,suspended', 'page[size]' => 1]])['items'];
         if (!empty($projects)) {
             $this->stdErr->writeln(\sprintf('The organization %s still owns project(s), so it cannot be deleted.', $this->api->getOrganizationLabel($organization, 'comment')));
             $this->stdErr->writeln('');
