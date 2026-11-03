@@ -86,7 +86,10 @@ checksum:
   name_template: checksums.txt
 
 snapshot:
-  version_template: '{{ incpatch .Version }}-{{ .Now.Format "2006-01-02" }}-{{ .ShortCommit }}-next'
+  # With NIGHTLY=1 (the nightly workflow), e.g. 5.15.3-nightly.20261103+abc1234.
+  version_template: >-
+    {{ if eq (envOrDefault "NIGHTLY" "") "1" }}{{ incpatch .Version }}-nightly.{{ .Now.Format "20060102" }}+{{ .ShortCommit }}
+    {{- else }}{{ incpatch .Version }}-{{ .Now.Format "2006-01-02" }}-{{ .ShortCommit }}-next{{ end }}
 
 changelog:
   sort: asc

@@ -1,0 +1,174 @@
+name: Nightly
+
+# Builds the CLI from the current commit, and replaces the assets of the "nightly" prerelease in a separate repository.
+# This repository has immutable releases, so a release's tag and assets cannot change.
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Build even if the nightly is already from this commit
+        type: boolean
+        default: false
+      dry_run:
+        description: Build without publishing (the assets are kept as a workflow artifact)
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: nightly
+
+env:
+  NIGHTLY_REPO: upsun/cli-nightly
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      build: ${{ steps.check.outputs.build }}
+    steps:
+      - name: Check if the nightly is from this commit
+        id: check
+        env:
+          FORCE: ${{ inputs.force }}
+        run: |
+          built=$(curl -fsSL "https://github.com/${NIGHTLY_REPO}/releases/download/nightly/commit.txt" || true)
+          if [ "$FORCE" != "true" ] && [ "$built" = "$GITHUB_SHA" ]; then
+            echo "The nightly is already from ${GITHUB_SHA}." >> "$GITHUB_STEP_SUMMARY"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: check
+    if: needs.check.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.assets.outputs.version }}
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: ./go.mod
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          extensions: curl, openssl, phar, zlib
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(cd legacy && composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('legacy/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install legacy dependencies
+        run: cd legacy && composer install --no-interaction
+
+      - name: Get the GoReleaser version from the Makefile
+        id: tool-versions
+        run: echo "goreleaser=$(grep '^GORELEASER_VERSION' Makefile | cut -d= -f2 | tr -d ' ')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache PHP binaries
+        uses: actions/cache@v6
+        id: php-cache
+        with:
+          path: |
+            internal/legacy/archives/php_*
+            internal/legacy/archives/php-version
+          key: php-binaries-v3-${{ hashFiles('internal/legacy/php_sha256sums.txt') }}
+
+      - name: Download all PHP binaries
+        if: steps.php-cache.outputs.cache-hit != 'true'
+        run: make download-php
+
+      - name: Cache Go binaries
+        uses: actions/cache@v6
+        with:
+          path: ~/go/bin
+          key: ${{ runner.os }}-go-bin-goreleaser-${{ steps.tool-versions.outputs.goreleaser }}
+
+      - name: Install GoReleaser
+        run: make goreleaser
+
+      - name: Build snapshot
+        env:
+          NIGHTLY: "1"
+        run: make snapshot-no-nfpm
+
+      - name: Prepare assets
+        id: assets
+        run: bash scripts/nightly-assets.sh dist nightly
+
+      - name: Upload assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: nightly
+          path: nightly
+          retention-days: 7
+          if-no-files-found: error
+
+  # A separate job, so that the token is not available to the build.
+  publish:
+    needs: build
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    environment: production
+    permissions: {}
+    steps:
+      - name: Download assets
+        uses: actions/download-artifact@v8
+        with:
+          name: nightly
+          path: nightly
+
+      - name: Generate GitHub App token for the nightly repository
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: upsun
+          repositories: cli-nightly
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          notes="Built from ${GITHUB_REPOSITORY}@${GITHUB_SHA} (${GITHUB_REF_NAME}). It is unreleased and may be broken: use it to try changes before they are released.
+
+          Install it on Linux or macOS:
+
+          \`\`\`console
+          curl -fsSL https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/installer.sh | VERSION=nightly bash
+          \`\`\`"
+          if ! gh release view nightly --repo "$NIGHTLY_REPO" > /dev/null; then
+            gh release create nightly --repo "$NIGHTLY_REPO" --prerelease --title "Nightly" --notes ""
+          fi
+          # The checksums and the commit are uploaded last, as installs verify archives against the checksums.
+          gh release upload nightly --repo "$NIGHTLY_REPO" --clobber nightly/*.tar.gz nightly/*.zip
+          gh release upload nightly --repo "$NIGHTLY_REPO" --clobber nightly/checksums.txt nightly/commit.txt
+          gh release edit nightly --repo "$NIGHTLY_REPO" --prerelease --title "Nightly ${VERSION}" --notes "$notes"
+          echo "Published ${VERSION}: https://github.com/${NIGHTLY_REPO}/releases/tag/nightly" >> "$GITHUB_STEP_SUMMARY"
