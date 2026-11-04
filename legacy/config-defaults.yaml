@@ -275,7 +275,7 @@ api:
   # "auto" (from the Observability API if it is available for the environment, otherwise SSH).
   log_protocol: ssh
 
-  # Whether to show network storage metrics (the "storage" mountpoint) in metrics commands.
+  # Whether to show network storage and object storage metrics in metrics commands.
   metrics_storage: true
 
   # Whether the Flexible Resources API (AKA sizing/scaling) is enabled.

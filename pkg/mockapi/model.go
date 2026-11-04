@@ -173,7 +173,8 @@ type App struct {
 	Size string `json:"size,omitempty"`
 	Disk int    `json:"disk"`
 
-	Mounts map[string]Mount `json:"mounts"`
+	Mounts    map[string]Mount `json:"mounts"`
+	Resources map[string]any   `json:"resources,omitempty"`
 
 	Web     map[string]any `json:"web,omitempty"`
 	Runtime map[string]any `json:"runtime,omitempty"`

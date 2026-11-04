@@ -17,6 +17,7 @@ use Platformsh\Cli\Service\Observability;
 use Platformsh\Cli\Service\PropertyFormatter;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\Api;
+use Platformsh\Cli\Service\ResourcesUtil;
 use Platformsh\Cli\Service\Table;
 use Symfony\Contracts\Service\Attribute\Required;
 use GuzzleHttp\Exception\BadResponseException;
@@ -30,6 +31,8 @@ use Platformsh\Cli\Model\Metrics\Query;
 use Platformsh\Cli\Model\Metrics\TimeSpec;
 use Platformsh\Cli\Util\Wildcard;
 use Platformsh\Client\Exception\ApiResponseException;
+use Platformsh\Client\Model\Deployment\WebApp;
+use Platformsh\Client\Model\Deployment\Worker;
 use Platformsh\Client\Model\Environment;
 use Symfony\Component\Console\Helper\TableSeparator;
 use Symfony\Component\Console\Input\InputInterface;
@@ -42,6 +45,7 @@ abstract class MetricsCommandBase extends CommandBase
     private Config $config;
     private Api $api;
     private Observability $observability;
+    private ResourcesUtil $resourcesUtil;
 
     public const MIN_INTERVAL = 60; // 1 minute
 
@@ -50,6 +54,9 @@ abstract class MetricsCommandBase extends CommandBase
 
     // The mountpoint key of the network storage volume (used by "storage" mounts).
     public const STORAGE_MOUNTPOINT = 'storage';
+
+    // The mountpoint key of an app's object storage, whose inodes are the object count.
+    public const OBJECT_STORAGE_MOUNTPOINT = 'object storage';
 
     // Data points that started within this many seconds of now may still be missing services.
     private const LATEST_SETTLE_TIME = 120;
@@ -70,8 +77,9 @@ abstract class MetricsCommandBase extends CommandBase
     }
 
     #[Required]
-    public function autowire(Api $api, Config $config, Io $io, Observability $observability, PropertyFormatter $propertyFormatter): void
+    public function autowire(Api $api, Config $config, Io $io, Observability $observability, PropertyFormatter $propertyFormatter, ResourcesUtil $resourcesUtil): void
     {
+        $this->resourcesUtil = $resourcesUtil;
         $this->observability = $observability;
         $this->api = $api;
         $this->config = $config;
@@ -313,51 +321,103 @@ abstract class MetricsCommandBase extends CommandBase
     }
 
     /**
+     * Returns fields for an app's object storage, keyed by $prefix.
+     *
+     * @return array<string, Field>
+     */
+    protected function objectStorageFields(bool $bytes, string $prefix): array
+    {
+        $m = self::OBJECT_STORAGE_MOUNTPOINT;
+
+        return [
+            $prefix . 'used' => new Field(
+                $bytes ? Format::Rounded : Format::Disk,
+                new SourceField(MetricKind::DiskUsed, Aggregation::Avg, $m),
+            ),
+            $prefix . 'limit' => new Field(
+                $bytes ? Format::Rounded : Format::Disk,
+                new SourceField(MetricKind::DiskLimit, Aggregation::Max, $m),
+            ),
+            $prefix . 'percent' => new Field(
+                Format::Percent,
+                new SourceFieldPercentage(
+                    new SourceField(MetricKind::DiskUsed, Aggregation::Avg, $m),
+                    new SourceField(MetricKind::DiskLimit, Aggregation::Max, $m)
+                ),
+            ),
+            $prefix . 'count' => new Field(
+                Format::Rounded,
+                new SourceField(MetricKind::InodesUsed, Aggregation::Avg, $m),
+            ),
+        ];
+    }
+
+    /**
      * Adjusts the table header and default columns for storage metrics.
      *
-     * Storage columns are removed if storage metrics are disabled. Otherwise,
-     * the $storageColumns are shown by default in machine-readable formats
-     * (for stable output), or in tables if the environment uses storage.
+     * Storage and object storage columns are removed if storage metrics are
+     * disabled. Otherwise, the $storageColumns and $objectStorageColumns are
+     * shown by default in machine-readable formats (for stable output), or in
+     * tables if the environment uses storage or object storage respectively.
      *
      * @param array<string, string> $header
      * @param string[] $defaultColumns
      * @param array<mixed> $values
      * @param string[] $storageColumns
+     * @param string[] $objectStorageColumns
      * @return array{array<string, string>, string[]}
      */
-    protected function storageColumns(array $header, array $defaultColumns, array $values, array $storageColumns, Environment $environment): array
+    protected function storageColumns(array $header, array $defaultColumns, array $values, array $storageColumns, array $objectStorageColumns, Environment $environment): array
     {
         if (!$this->storageMetricsEnabled()) {
-            return [array_filter($header, fn($key): bool => !str_starts_with($key, 'storage_'), ARRAY_FILTER_USE_KEY), $defaultColumns];
+            return [array_filter($header, fn($key): bool => !str_starts_with($key, 'storage_') && !str_starts_with($key, 'object_'), ARRAY_FILTER_USE_KEY), $defaultColumns];
         }
-        if ($this->table->formatIsMachineReadable() || $this->usesStorage($values, $environment)) {
-            return [$header, array_merge($defaultColumns, $storageColumns)];
+        $machineReadable = $this->table->formatIsMachineReadable();
+        $mountpoints = $machineReadable ? [] : $this->reportedMountpoints($values);
+        if ($machineReadable || $this->usesStorage($mountpoints, $environment)) {
+            $defaultColumns = array_merge($defaultColumns, $storageColumns);
+        }
+        if ($machineReadable || $this->usesObjectStorage($mountpoints, $environment)) {
+            $defaultColumns = array_merge($defaultColumns, $objectStorageColumns);
         }
 
         return [$header, $defaultColumns];
     }
 
     /**
-     * Checks if any of the returned services reports storage or has storage mounts.
+     * Returns the mountpoints reported by each service in the metrics data, keyed by service name.
      *
      * @param array<mixed> $values
+     * @return array<array<mixed>>
      */
-    private function usesStorage(array $values, Environment $environment): bool
+    private function reportedMountpoints(array $values): array
     {
-        $serviceNames = [];
-        foreach ($values['data'] as $point) {
-            foreach ($point['services'] ?? [] as $name => $service) {
-                if (isset($service['mountpoints'][self::STORAGE_MOUNTPOINT])) {
-                    return true;
-                }
-                $serviceNames[$name] = true;
+        $result = [];
+        $data = $values['data'] ?? [];
+        foreach (\is_array($data) ? $data : [] as $point) {
+            $services = \is_array($point) ? $point['services'] ?? [] : [];
+            foreach (\is_array($services) ? $services : [] as $name => $service) {
+                $mountpoints = \is_array($service) ? $service['mountpoints'] ?? [] : [];
+                $result[$name] = ($result[$name] ?? []) + (\is_array($mountpoints) ? $mountpoints : []);
             }
         }
-        $deployment = $this->api->getCurrentDeployment($environment);
-        foreach (array_merge($deployment->webapps, $deployment->workers) as $name => $app) {
-            if (!isset($serviceNames[$name])) {
-                continue;
+
+        return $result;
+    }
+
+    /**
+     * Checks if any of the returned services reports storage or has storage mounts.
+     *
+     * @param array<array<mixed>> $mountpoints
+     */
+    private function usesStorage(array $mountpoints, Environment $environment): bool
+    {
+        foreach ($mountpoints as $serviceMountpoints) {
+            if (isset($serviceMountpoints[self::STORAGE_MOUNTPOINT])) {
+                return true;
             }
+        }
+        foreach ($this->returnedApps($mountpoints, $environment) as $app) {
             foreach ($app->getProperty('mounts', false) ?: [] as $mount) {
                 if (($mount['source'] ?? null) === 'storage') {
                     return true;
@@ -366,6 +426,40 @@ abstract class MetricsCommandBase extends CommandBase
         }
 
         return false;
+    }
+
+    /**
+     * Checks if any of the returned services reports object storage or has an object storage quota.
+     *
+     * @param array<array<mixed>> $mountpoints
+     */
+    private function usesObjectStorage(array $mountpoints, Environment $environment): bool
+    {
+        foreach ($mountpoints as $serviceMountpoints) {
+            if (isset($serviceMountpoints[self::OBJECT_STORAGE_MOUNTPOINT])) {
+                return true;
+            }
+        }
+        foreach ($this->returnedApps($mountpoints, $environment) as $app) {
+            if ($app instanceof WebApp && ($this->resourcesUtil->resources($app)['object_storage'] ?? 0) > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Returns the deployment's apps and workers that are in the metrics data.
+     *
+     * @param array<array<mixed>> $mountpoints
+     * @return array<WebApp|Worker>
+     */
+    private function returnedApps(array $mountpoints, Environment $environment): array
+    {
+        $deployment = $this->api->getCurrentDeployment($environment);
+
+        return array_intersect_key(array_merge($deployment->webapps, $deployment->workers), $mountpoints);
     }
 
     protected function getChooseEnvFilter(): ?callable
@@ -584,8 +678,8 @@ abstract class MetricsCommandBase extends CommandBase
             if (!isset($point['mountpoints'][$sourceField->mountpoint])) {
                 return null;
             }
-            // The storage volume may not report every metric.
-            if ($sourceField->mountpoint === self::STORAGE_MOUNTPOINT) {
+            // Storage volumes may not report every metric.
+            if (\in_array($sourceField->mountpoint, [self::STORAGE_MOUNTPOINT, self::OBJECT_STORAGE_MOUNTPOINT], true)) {
                 return $point['mountpoints'][$sourceField->mountpoint][$sourceField->source->value][$sourceField->aggregation->value] ?? null;
             }
             if (!isset($point['mountpoints'][$sourceField->mountpoint][$sourceField->source->value])) {
