@@ -115,7 +115,7 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 **Table Output**: `internal/table/`
 - Renders tables with the same `--format`, `--columns` and `--no-header` options as the legacy CLI's `Table` service
 - The `csv`, `tsv` and `plain` formats match the legacy output, with ANSI escape sequences removed
-- The `table` format wraps cells to the terminal width (a port of the legacy `AdaptiveTable`), and supports ANSI-styled cells
+- The `table` format wraps cells to the terminal width (a port of the legacy `AdaptiveTable`), and supports ANSI-styled cells. Headers are wrapped too, at word boundaries, only if the table does not fit
 
 **Project Initialization**: `internal/init/` and `internal/platformify/`
 - `init` generates a starter configuration with AI (`internal/init`, using the whatsun library for codebase analysis), or with a guided wizard (`internal/platformify`, formerly the Platformify project), which also supports Fixed configuration

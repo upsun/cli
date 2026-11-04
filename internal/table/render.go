@@ -72,13 +72,13 @@ func renderTable(w io.Writer, header []string, rows [][]string, noWrap []bool, m
 		}
 	}
 
-	// Wrap the rows (not the header) to fit the maximum width.
+	// Wrap the header and rows to fit the maximum width.
 	bodyStart := 0
 	if header != nil {
 		bodyStart = 1
 	}
 	maxColumnWidths := maxColumnWidths(split, bodyStart, noWrap, maxWidth)
-	for _, row := range split[bodyStart:] {
+	for _, row := range split {
 		for j, lines := range row {
 			if cellWidth(lines) > maxColumnWidths[j] {
 				row[j] = wrapCell(lines, maxColumnWidths[j])
