@@ -142,6 +142,54 @@ class AdaptiveTableTest extends TestCase
     }
 
     /**
+     * Test that headers are wrapped at word boundaries if the table does not fit.
+     */
+    public function testAdaptedHeaders(): void
+    {
+        $headers = ['Service', 'Disk %', 'Instance disk inodes %', 'Object storage %', 'Memory %'];
+        $rows = [
+            ['app', '12.5%', '3.1%', '45.0%', '60.2%'],
+            ['database', '80.0%', '0.4%', '', '75.9%'],
+        ];
+
+        $buffer = new BufferedOutput();
+        $table = new AdaptiveTable($buffer, 60);
+        $table->setHeaders($headers);
+        $table->setRows($rows);
+        $table->render();
+
+        $expected = <<<'EOT'
+            +----------+-------+---------------+-----------+--------+
+            | Service  | Disk  | Instance disk | Object    | Memory |
+            |          | %     | inodes %      | storage % | %      |
+            +----------+-------+---------------+-----------+--------+
+            | app      | 12.5% | 3.1%          | 45.0%     | 60.2%  |
+            | database | 80.0% | 0.4%          |           | 75.9%  |
+            +----------+-------+---------------+-----------+--------+
+
+            EOT;
+        $this->assertEquals($expected, $buffer->fetch());
+
+        // A table that fits is not changed.
+        $buffer = new BufferedOutput();
+        $table = new AdaptiveTable($buffer, 76);
+        $table->setHeaders($headers);
+        $table->setRows($rows);
+        $table->render();
+
+        $expected = <<<'EOT'
+            +----------+--------+------------------------+------------------+----------+
+            | Service  | Disk % | Instance disk inodes % | Object storage % | Memory % |
+            +----------+--------+------------------------+------------------+----------+
+            | app      | 12.5%  | 3.1%                   | 45.0%            | 60.2%    |
+            | database | 80.0%  | 0.4%                   |                  | 75.9%    |
+            +----------+--------+------------------------+------------------+----------+
+
+            EOT;
+        $this->assertEquals($expected, $buffer->fetch());
+    }
+
+    /**
      * Test that the width of unbroken words is reduced for the table to fit.
      */
     public function testAdaptedRowsReduceUnbrokenWidth(): void

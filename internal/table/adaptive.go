@@ -38,7 +38,8 @@ func terminalWidth() int {
 // (its longest word, up to maxUnbrokenWidth, or less if needed to fit). If the maximum widths do not fit, each
 // column gets its minimum width plus a share of the remaining space, in proportion to the difference between its
 // maximum and minimum.
-// The rows before bodyStart are header rows, which are not wrapped.
+// The rows before bodyStart are header rows, whose words are not broken, so a header's longest word is also a
+// minimum width. Header rows are wrapped even in noWrap columns, as in the legacy CLI.
 func maxColumnWidths(rows [][][]string, bodyStart int, noWrap []bool, maxWidth int) []int {
 	count := len(rows[0])
 	maxWidths := make([]int, count)
@@ -48,9 +49,12 @@ func maxColumnWidths(rows [][][]string, bodyStart int, noWrap []bool, maxWidth i
 		for j, lines := range row {
 			w := cellWidth(lines)
 			maxWidths[j] = max(maxWidths[j], w)
-			if (j < len(noWrap) && noWrap[j]) || i < bodyStart {
+			switch {
+			case i < bodyStart:
+				fixedWidths[j] = max(fixedWidths[j], min(longestWordWidth(lines), w))
+			case j < len(noWrap) && noWrap[j]:
 				fixedWidths[j] = max(fixedWidths[j], w)
-			} else {
+			default:
 				// A cell at its full width is not wrapped, so its minimum is no more than that.
 				wordWidths[j] = max(wordWidths[j], min(longestWordWidth(lines), w))
 			}

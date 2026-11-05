@@ -94,7 +94,7 @@ class AdaptiveTable extends Table
     }
 
     /**
-     * Adapt rows based on the terminal width.
+     * Adapt rows and headers based on the terminal width.
      */
     protected function adaptRows(): void
     {
@@ -102,6 +102,8 @@ class AdaptiveTable extends Table
         // column meets the max column width.
         $maxColumnWidths = $this->getMaxColumnWidths();
         $this->setRows($this->adaptCells($this->rowsCopy, $maxColumnWidths));
+        // The parent method is used, so that headersCopy keeps the original headers.
+        parent::setHeaders($this->adaptCells($this->headersCopy, $maxColumnWidths));
     }
 
     /**
@@ -327,7 +329,8 @@ class AdaptiveTable extends Table
      *
      * This is similar to a web browser's automatic table layout. Each column
      * has a maximum width (its widest cell) and a minimum width (its longest
-     * word, up to $maxUnbrokenWidth, or less if needed to fit). If the maximum widths do not fit, each
+     * word, up to $maxUnbrokenWidth, or less if needed to fit, and at least the
+     * longest word of its header). If the maximum widths do not fit, each
      * column gets its minimum width plus a share of the remaining space, in
      * proportion to the difference between its maximum and minimum widths.
      *
@@ -357,10 +360,13 @@ class AdaptiveTable extends Table
                 $cellWidth = (int) ceil($this->getCellWidth($cell));
                 $maxWidths[$column] = max($maxWidths[$column] ?? 0, $cellWidth);
 
-                // Non-wrapping cells and table headers are never wrapped.
-                // Otherwise, track the width of the longest word.
-                if (($cell instanceof AdaptiveTableCell && !$cell->canWrap()) || !isset($this->rowsCopy[$rowNum])) {
+                // Non-wrapping cells are never wrapped, and the words in
+                // headers are never broken. Otherwise, track the width of the
+                // longest word.
+                if ($cell instanceof AdaptiveTableCell && !$cell->canWrap()) {
                     $fixedWidths[$column] = max($fixedWidths[$column] ?? 0, $cellWidth);
+                } elseif (!isset($this->rowsCopy[$rowNum])) {
+                    $fixedWidths[$column] = max($fixedWidths[$column] ?? 0, min((int) ceil($this->getLongestWordWidth($cell)), $cellWidth));
                 } else {
                     // A cell at its full width is not wrapped, so its minimum is no more than that.
                     $wordWidths[$column] = max($wordWidths[$column] ?? 0, min((int) ceil($this->getLongestWordWidth($cell)), $cellWidth));

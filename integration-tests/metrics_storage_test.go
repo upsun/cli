@@ -287,7 +287,8 @@ func TestMetricsStorage(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			f, _, projectID := setupMetricsTest(t, c.opts)
-			f.extraEnv = c.env
+			// The terminal is wide enough for headers not to wrap.
+			f.extraEnv = append([]string{"COLUMNS=500"}, c.env...)
 			args := append([]string{}, c.args...)
 			args = append(args, "-p", projectID, "-e", "main")
 			stdout, stderr, err := f.RunCombinedOutput(args...)
