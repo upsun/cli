@@ -222,18 +222,58 @@ func TestRenderTableWrapping(t *testing.T) {
 `,
 		},
 		{
-			name:    "no-wrap columns and headers keep their width",
+			name:    "no-wrap columns keep their width",
 			columns: []Column{{Header: "A long header"}, {Header: "URL", NoWrap: true}, {Header: "Notes"}},
 			rows:    [][]string{{"x", "https://example.com/long/path", "some notes that wrap"}},
 			width:   40,
-			want: `+---------------+-------------------------------+-------+
-| A long header | URL                           | Notes |
-+---------------+-------------------------------+-------+
-| x             | https://example.com/long/path | some  |
-|               |                               | notes |
-|               |                               | that  |
-|               |                               | wrap  |
-+---------------+-------------------------------+-------+
+			want: `+--------+-------------------------------+-------+
+| A long | URL                           | Notes |
+| header |                               |       |
++--------+-------------------------------+-------+
+| x      | https://example.com/long/path | some  |
+|        |                               | notes |
+|        |                               | that  |
+|        |                               | wrap  |
++--------+-------------------------------+-------+
+`,
+		},
+		{
+			name: "headers wrap at word boundaries if the table does not fit",
+			columns: []Column{
+				{Header: "Service"}, {Header: "Disk %"}, {Header: "Instance disk inodes %"},
+				{Header: "Object storage %"}, {Header: "Memory %"},
+			},
+			rows: [][]string{
+				{"app", "12.5%", "3.1%", "45.0%", "60.2%"},
+				{"database", "80.0%", "0.4%", "", "75.9%"},
+			},
+			width: 60,
+			want: `+----------+-------+---------------+-----------+--------+
+| Service  | Disk  | Instance disk | Object    | Memory |
+|          | %     | inodes %      | storage % | %      |
++----------+-------+---------------+-----------+--------+
+| app      | 12.5% | 3.1%          | 45.0%     | 60.2%  |
+| database | 80.0% | 0.4%          |           | 75.9%  |
++----------+-------+---------------+-----------+--------+
+`,
+		},
+		{
+			name: "headers do not wrap if the table fits",
+			columns: []Column{
+				{Header: "Service"}, {Header: "Disk %"}, {Header: "Instance disk inodes %"},
+				{Header: "Object storage %"}, {Header: "Memory %"},
+			},
+			rows: [][]string{
+				{"app", "12.5%", "3.1%", "45.0%", "60.2%"},
+				{"database", "80.0%", "0.4%", "", "75.9%"},
+			},
+			width: 76,
+			want: `+----------+--------+------------------------+------------------+----------+
+| Service  | Disk % | Instance disk inodes % | Object storage % | Memory % |
++----------+--------+------------------------+------------------+----------+
+| app      | 12.5%  | 3.1%                   | 45.0%            | 60.2%    |
+| database | 80.0%  | 0.4%                   |                  | 75.9%    |
++----------+--------+------------------------+------------------+----------+
 `,
 		},
 		{
