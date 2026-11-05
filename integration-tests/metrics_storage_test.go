@@ -22,6 +22,13 @@ func mountpointMetrics(diskUsed, diskLimit, inodesUsed, inodesLimit float64) map
 	}
 }
 
+// objectStorageMetrics has no inodes limit, like the API.
+var objectStorageMetrics = map[string]any{
+	"disk_used":   map[string]any{"avg": 400},
+	"disk_limit":  map[string]any{"max": 1000},
+	"inodes_used": map[string]any{"avg": 25},
+}
+
 // filterServices applies the services[] query filter, like the API.
 func filterServices(req *http.Request, services map[string]any) map[string]any {
 	var names []string
@@ -42,7 +49,14 @@ func filterServices(req *http.Request, services map[string]any) map[string]any {
 	return filtered
 }
 
-func setupMetricsTest(t *testing.T, withStorage, withStorageMount bool) (
+type metricsTestOptions struct {
+	storage       bool           // Services report network storage.
+	storageMount  bool           // The app has a storage mount.
+	objectStorage map[string]any // The app's object storage metrics, if any.
+	objectQuota   int            // The app's object storage quota (MB).
+}
+
+func setupMetricsTest(t *testing.T, opts metricsTestOptions) (
 	f *cmdFactory, apiHandler *mockapi.Handler, projectID string,
 ) {
 	authServer := mockapi.NewAuthServer(t)
@@ -63,8 +77,11 @@ func setupMetricsTest(t *testing.T, withStorage, withStorageMount bool) (
 	main := makeEnv(projectID, "main", "production", "active", nil)
 	obsPath := "/projects/" + projectID + "/environments/main/observability"
 	app := mockapi.App{Name: "app", Type: "php:8.4", Size: "AUTO"}
-	if withStorageMount {
+	if opts.storageMount {
 		app.Mounts = map[string]mockapi.Mount{"/files": {Source: "storage", SourcePath: "files"}}
+	}
+	if opts.objectQuota > 0 {
+		app.Resources = map[string]any{"disk": map[string]any{"object": opts.objectQuota}}
 	}
 	main.SetCurrentDeployment(&mockapi.Deployment{
 		WebApps: map[string]mockapi.App{
@@ -106,7 +123,7 @@ func setupMetricsTest(t *testing.T, withStorage, withStorageMount bool) (
 			"/mnt": mountpointMetrics(250, 1000, 5, 1000),
 			"/tmp": mountpointMetrics(10, 1000, 1, 1000),
 		}
-		if withStorage {
+		if opts.storage {
 			appMounts["storage"] = mountpointMetrics(920, 1000, 30, 100)
 			// Storage with a partial set of inode metrics.
 			dbMounts["storage"] = map[string]any{
@@ -114,6 +131,9 @@ func setupMetricsTest(t *testing.T, withStorage, withStorageMount bool) (
 				"disk_limit":   map[string]any{"max": 1000},
 				"inodes_limit": map[string]any{"max": 100},
 			}
+		}
+		if opts.objectStorage != nil {
+			appMounts["object storage"] = opts.objectStorage
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"_grain": 60,
@@ -135,26 +155,25 @@ func setupMetricsTest(t *testing.T, withStorage, withStorageMount bool) (
 func TestMetricsStorage(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		name             string
-		withStorage      bool
-		withStorageMount bool
-		env              []string
-		args             []string
-		want             string
-		notWant          string
+		name    string
+		opts    metricsTestOptions
+		env     []string
+		args    []string
+		want    string
+		notWant string
 	}{
 		{
-			name:        "all storage columns",
-			withStorage: true,
+			name: "all storage columns",
+			opts: metricsTestOptions{storage: true},
 			args: []string{"metrics:all", "-1", "--no-header", "--format", "plain",
 				"-c", "service,disk_percent,storage_percent,storage_inodes_percent"},
 			want: "app\t10.0%\t92.0%\t30.0%\ndb\t25.0%\t50.0%\t\n",
 		},
 		{
-			name:        "all table shows storage when present",
-			withStorage: true,
-			args:        []string{"metrics:all", "-1"},
-			want:        "Storage %",
+			name: "all table shows storage when present",
+			opts: metricsTestOptions{storage: true},
+			args: []string{"metrics:all", "-1"},
+			want: "Storage %",
 		},
 		{
 			name:    "all table hides storage when absent",
@@ -162,51 +181,112 @@ func TestMetricsStorage(t *testing.T) {
 			notWant: "Storage",
 		},
 		{
-			name:             "all table shows storage when the deployment has storage mounts",
-			withStorageMount: true,
-			args:             []string{"metrics:all", "-1"},
-			want:             "Storage %",
+			name: "all table shows storage when the deployment has storage mounts",
+			opts: metricsTestOptions{storageMount: true},
+			args: []string{"metrics:all", "-1"},
+			want: "Storage %",
 		},
 		{
-			name:             "all table ignores storage mounts of filtered-out apps",
-			withStorageMount: true,
-			args:             []string{"metrics:all", "-1", "-s", "db"},
-			notWant:          "Storage",
+			name:    "all table ignores storage mounts of filtered-out apps",
+			opts:    metricsTestOptions{storageMount: true},
+			args:    []string{"metrics:all", "-1", "-s", "db"},
+			notWant: "Storage",
 		},
 		{
 			name: "all csv always includes storage",
 			args: []string{"metrics:all", "-1", "--format", "csv"},
-			want: "/tmp inodes %,Storage %,Storage inodes %\n",
+			want: "/tmp inodes %,Storage %,Storage inodes %,Object storage %\n",
 		},
 		{
-			name:        "disk-usage storage columns",
-			withStorage: true,
+			name: "all object storage columns",
+			opts: metricsTestOptions{objectStorage: objectStorageMetrics},
+			args: []string{"metrics:all", "-1", "--no-header", "-B", "--format", "plain",
+				"-c", "service,object_storage_used,object_storage_limit,object_storage_percent,object_storage_count"},
+			want: "app\t400\t1000\t40.0%\t25\ndb\t\t\t\t\n",
+		},
+		{
+			name: "all object storage without a quota",
+			opts: metricsTestOptions{objectStorage: map[string]any{
+				"disk_used":   map[string]any{"avg": 400},
+				"inodes_used": map[string]any{"avg": 25},
+			}},
+			args: []string{"metrics:all", "-1", "--no-header", "-B", "--format", "plain", "-s", "app",
+				"-c", "service,object_storage_used,object_storage_limit,object_storage_percent,object_storage_count"},
+			want: "app\t400\t\t\t25\n",
+		},
+		{
+			name: "all table shows object storage when present",
+			opts: metricsTestOptions{objectStorage: objectStorageMetrics},
+			args: []string{"metrics:all", "-1"},
+			want: "Object storage %",
+		},
+		{
+			name:    "all table hides object storage when absent",
+			args:    []string{"metrics:all", "-1"},
+			notWant: "Object",
+		},
+		{
+			name: "all table shows object storage when the app has a quota",
+			opts: metricsTestOptions{objectQuota: 1024},
+			args: []string{"metrics:all", "-1"},
+			want: "Object storage %",
+		},
+		{
+			name:    "all table ignores object storage quotas of filtered-out apps",
+			opts:    metricsTestOptions{objectQuota: 1024},
+			args:    []string{"metrics:all", "-1", "-s", "db"},
+			notWant: "Object",
+		},
+		{
+			name: "disk-usage storage columns",
+			opts: metricsTestOptions{storage: true},
 			args: []string{"disk", "-1", "--no-header", "-B", "--format", "plain",
 				"-c", "service,storage_used,storage_limit,storage_percent,storage_ipercent"},
 			want: "app\t920\t1000\t92.0%\t30.0%\ndb\t500\t1000\t50.0%\t\n",
 		},
 		{
-			name:        "disk-usage table shows storage when present",
-			withStorage: true,
-			args:        []string{"disk", "-1"},
-			want:        "Storage used",
+			name: "disk-usage table shows storage when present",
+			opts: metricsTestOptions{storage: true},
+			args: []string{"disk", "-1"},
+			want: "Storage used",
 		},
 		{
 			name: "disk-usage csv always includes storage",
 			args: []string{"disk", "-1", "--format", "csv"},
-			want: "/tmp %,Storage used,Storage limit,Storage %,Storage inodes %\n",
+			want: "/tmp %,Storage used,Storage limit,Storage %,Storage inodes %," +
+				"Object storage used,Object storage limit,Object storage %\n",
 		},
 		{
-			name:        "disabled",
-			withStorage: true,
-			env:         []string{"TEST_CLI_API_METRICS_STORAGE=0"},
-			args:        []string{"metrics:all", "-1", "--format", "csv"},
-			notWant:     "Storage",
+			name: "disk-usage object storage columns",
+			opts: metricsTestOptions{objectStorage: objectStorageMetrics},
+			args: []string{"disk", "-1", "--no-header", "-B", "--format", "plain", "-s", "app",
+				"-c", "service,object_used,object_limit,object_percent,object_count"},
+			want: "app\t400\t1000\t40.0%\t25\n",
+		},
+		{
+			name: "disk-usage table shows object storage when present",
+			opts: metricsTestOptions{objectStorage: objectStorageMetrics},
+			args: []string{"disk", "-1"},
+			want: "Object storage used",
+		},
+		{
+			name:    "disabled",
+			opts:    metricsTestOptions{storage: true},
+			env:     []string{"TEST_CLI_API_METRICS_STORAGE=0"},
+			args:    []string{"metrics:all", "-1", "--format", "csv"},
+			notWant: "Storage",
+		},
+		{
+			name:    "disabled object storage",
+			opts:    metricsTestOptions{objectStorage: objectStorageMetrics},
+			env:     []string{"TEST_CLI_API_METRICS_STORAGE=0"},
+			args:    []string{"disk", "-1", "--format", "csv"},
+			notWant: "Object",
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			f, _, projectID := setupMetricsTest(t, c.withStorage, c.withStorageMount)
+			f, _, projectID := setupMetricsTest(t, c.opts)
 			// The terminal is wide enough for headers not to wrap.
 			f.extraEnv = append([]string{"COLUMNS=500"}, c.env...)
 			args := append([]string{}, c.args...)
@@ -226,10 +306,12 @@ func TestMetricsStorage(t *testing.T) {
 
 func TestMetricsStorageDisabledColumn(t *testing.T) {
 	t.Parallel()
-	f, _, projectID := setupMetricsTest(t, true, false)
+	f, _, projectID := setupMetricsTest(t, metricsTestOptions{storage: true, objectStorage: objectStorageMetrics})
 	f.extraEnv = []string{"TEST_CLI_API_METRICS_STORAGE=0"}
 
-	_, stderr, err := f.RunCombinedOutput("disk", "-1", "-c", "storage_used", "-p", projectID, "-e", "main")
-	assert.Error(t, err)
-	assert.Contains(t, stderr, "Column not found: storage_used")
+	for _, col := range []string{"storage_used", "object_used"} {
+		_, stderr, err := f.RunCombinedOutput("disk", "-1", "-c", col, "-p", projectID, "-e", "main")
+		assert.Error(t, err)
+		assert.Contains(t, stderr, "Column not found: "+col)
+	}
 }
