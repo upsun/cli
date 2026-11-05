@@ -61,6 +61,11 @@ class AllMetricsCommand extends MetricsCommandBase
         'storage_inodes_used' => 'Storage inodes used',
         'storage_inodes_limit' => 'Storage inodes limit',
         'storage_inodes_percent' => 'Storage inodes %',
+
+        'object_storage_used' => 'Object storage used',
+        'object_storage_limit' => 'Object storage limit',
+        'object_storage_percent' => 'Object storage %',
+        'object_storage_count' => 'Object count',
     ];
 
     /** @var string[] */
@@ -215,9 +220,10 @@ class AllMetricsCommand extends MetricsCommandBase
         ];
         if ($this->storageMetricsEnabled()) {
             $fields += $this->storageFields($bytes, 'storage_inodes_');
+            $fields += $this->objectStorageFields($bytes, 'object_storage_');
         }
         $rows = $this->buildRows($values, $fields, $environment);
-        [$header, $defaultColumns] = $this->storageColumns(self::TABLE_HEADER, $this->defaultColumns, $values, ['storage_percent', 'storage_inodes_percent'], $environment);
+        [$header, $defaultColumns] = $this->storageColumns(self::TABLE_HEADER, $this->defaultColumns, $values, ['storage_percent', 'storage_inodes_percent'], ['object_storage_percent'], $environment);
 
         if (!$this->table->formatIsMachineReadable()) {
             $formatter = $this->propertyFormatter;

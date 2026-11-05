@@ -46,6 +46,10 @@ class DiskUsageCommand extends MetricsCommandBase
         'storage_iused' => 'Storage inodes used',
         'storage_ilimit' => 'Storage inodes limit',
         'storage_ipercent' => 'Storage inodes %',
+        'object_used' => 'Object storage used',
+        'object_limit' => 'Object storage limit',
+        'object_percent' => 'Object storage %',
+        'object_count' => 'Object count',
     ];
     /** @var string[] */
     private array $defaultColumns = ['timestamp', 'service', 'used', 'limit', 'percent', 'ipercent', 'tmp_percent'];
@@ -151,9 +155,10 @@ class DiskUsageCommand extends MetricsCommandBase
         ];
         if ($this->storageMetricsEnabled()) {
             $fields += $this->storageFields($bytes, 'storage_i');
+            $fields += $this->objectStorageFields($bytes, 'object_');
         }
         $rows = $this->buildRows($values, $fields, $environment);
-        [$header, $defaultColumns] = $this->storageColumns(self::TABLE_HEADER, $this->defaultColumns, $values, ['storage_used', 'storage_limit', 'storage_percent', 'storage_ipercent'], $environment);
+        [$header, $defaultColumns] = $this->storageColumns(self::TABLE_HEADER, $this->defaultColumns, $values, ['storage_used', 'storage_limit', 'storage_percent', 'storage_ipercent'], ['object_used', 'object_limit', 'object_percent'], $environment);
 
         if (!$this->table->formatIsMachineReadable()) {
             $formatter = $this->propertyFormatter;

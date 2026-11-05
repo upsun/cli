@@ -1411,7 +1411,7 @@ parameters:
 			path: src/Command/Metrics/AllMetricsCommand.php
 
 		-
-			message: '#^Parameter \#5 \$environment of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:storageColumns\(\) expects Platformsh\\Client\\Model\\Environment, mixed given\.$#'
+			message: '#^Parameter \#6 \$environment of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:storageColumns\(\) expects Platformsh\\Client\\Model\\Environment, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Metrics/AllMetricsCommand.php
@@ -1519,7 +1519,7 @@ parameters:
 			path: src/Command/Metrics/DiskUsageCommand.php
 
 		-
-			message: '#^Parameter \#5 \$environment of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:storageColumns\(\) expects Platformsh\\Client\\Model\\Environment, mixed given\.$#'
+			message: '#^Parameter \#6 \$environment of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:storageColumns\(\) expects Platformsh\\Client\\Model\\Environment, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Metrics/DiskUsageCommand.php
@@ -1575,7 +1575,7 @@ parameters:
 		-
 			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
 			identifier: foreach.nonIterable
-			count: 5
+			count: 3
 			path: src/Command/Metrics/MetricsCommandBase.php
 
 		-
@@ -1597,25 +1597,13 @@ parameters:
 			path: src/Command/Metrics/MetricsCommandBase.php
 
 		-
-			message: '#^Cannot access offset ''mountpoints'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/MetricsCommandBase.php
-
-		-
 			message: '#^Cannot access offset ''services'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 4
+			count: 3
 			path: src/Command/Metrics/MetricsCommandBase.php
 
 		-
 			message: '#^Cannot access offset ''source'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/MetricsCommandBase.php
-
-		-
-			message: '#^Cannot access offset ''storage'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
 			path: src/Command/Metrics/MetricsCommandBase.php
@@ -1713,7 +1701,7 @@ parameters:
 		-
 			message: '#^Possibly invalid array key type mixed\.$#'
 			identifier: offsetAccess.invalidOffset
-			count: 6
+			count: 5
 			path: src/Command/Metrics/MetricsCommandBase.php
 
 		-

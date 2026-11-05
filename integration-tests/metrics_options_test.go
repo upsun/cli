@@ -60,7 +60,7 @@ func TestMetricsTimeOptions(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			f, apiHandler, projectID := setupMetricsTest(t, false, false)
+			f, apiHandler, projectID := setupMetricsTest(t, metricsTestOptions{})
 			args := append([]string{"metrics:cpu", "-p", projectID, "-e", "main", "--to", to, "--format", "csv"}, c.args...)
 			_, stderr, err := f.RunCombinedOutput(args...)
 			requests := apiHandler.Requests("GET", "/projects/*/environments/main/observability/resources/overview")
@@ -103,7 +103,7 @@ func TestMetricsServiceOptions(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			f, apiHandler, projectID := setupMetricsTest(t, false, false)
+			f, apiHandler, projectID := setupMetricsTest(t, metricsTestOptions{})
 			args := append([]string{"metrics:memory", "-p", projectID, "-e", "main", "--format", "csv"}, c.args...)
 			_, stderr, err := f.RunCombinedOutput(args...)
 			if c.wantErr != "" {
@@ -160,7 +160,7 @@ func TestMetricsDisplayOptions(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			f, _, projectID := setupMetricsTest(t, false, false)
+			f, _, projectID := setupMetricsTest(t, metricsTestOptions{})
 			args := append(slices.Clone(c.args), "-p", projectID, "-e", "main", "--format", "csv", "--date-fmt", "c")
 			stdout, stderr, err := f.RunCombinedOutput(args...)
 			require.NoError(t, err, stderr)
