@@ -26,12 +26,12 @@ func TestAppList(t *testing.T) {
 
 	projectID := mockapi.ProjectID()
 
+	// Without disk columns, app:list does not request the project's settings, which fail here.
 	apiHandler.SetProjects([]*mockapi.Project{{
 		ID: projectID,
 		Links: mockapi.MakeHALLinks("self=/projects/"+projectID,
 			"environments=/projects/"+projectID+"/environments"),
 		DefaultBranch: "main",
-		Settings:      map[string]any{},
 	}})
 
 	main := makeEnv(projectID, "main", "production", "active", nil)
@@ -90,7 +90,6 @@ func TestAppListEmptyLocalConfig(t *testing.T) {
 	apiHandler.SetProjects([]*mockapi.Project{{
 		ID:            layoutProjectID,
 		DefaultBranch: "main",
-		Settings:      map[string]any{},
 		Repository:    mockapi.ProjectRepository{URL: layoutGitURL},
 		Links: mockapi.MakeHALLinks(
 			"self=/projects/"+layoutProjectID,

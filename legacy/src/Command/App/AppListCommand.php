@@ -101,7 +101,10 @@ class AppListCommand extends CommandBase
         }
 
         // An app's top-level disk is its storage with flexible resources, or its instance disk otherwise.
-        $flexible = $this->api->supportsSizingApi($selection->getProject(), $deployment);
+        // This may need a request for the project's settings, so it is only done when a disk column is shown.
+        $shownColumns = $this->table->columnsToDisplay($headers + ['disk' => 'Disk'], $defaultColumns);
+        $flexible = array_intersect(['disk', 'storage', 'instance_disk'], $shownColumns) !== []
+            && $this->api->supportsSizingApi($selection->getProject(), $deployment);
         $this->table->replaceDeprecatedColumns(['disk' => $flexible ? 'storage' : 'instance_disk'], $input, $output);
 
         $rows = [];
