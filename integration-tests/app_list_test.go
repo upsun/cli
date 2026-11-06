@@ -31,6 +31,7 @@ func TestAppList(t *testing.T) {
 		Links: mockapi.MakeHALLinks("self=/projects/"+projectID,
 			"environments=/projects/"+projectID+"/environments"),
 		DefaultBranch: "main",
+		Settings:      map[string]any{},
 	}})
 
 	main := makeEnv(projectID, "main", "production", "active", nil)
@@ -89,6 +90,7 @@ func TestAppListEmptyLocalConfig(t *testing.T) {
 	apiHandler.SetProjects([]*mockapi.Project{{
 		ID:            layoutProjectID,
 		DefaultBranch: "main",
+		Settings:      map[string]any{},
 		Repository:    mockapi.ProjectRepository{URL: layoutGitURL},
 		Links: mockapi.MakeHALLinks(
 			"self=/projects/"+layoutProjectID,
@@ -144,13 +146,17 @@ func TestAppListEmptyLocalConfig(t *testing.T) {
 func TestAppListDisks(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		name        string
-		flexible    bool
-		wantApps    string
-		wantAppDisk string
+		name          string
+		flexible      bool
+		noProjectInfo bool
+		wantApps      string
+		wantAppDisk   string
 	}{
 		{name: "flexible", flexible: true, wantApps: "app\t2048\t8192\n", wantAppDisk: "storage"},
 		{name: "fixed", wantApps: "app\t\t2048\n", wantAppDisk: "instance_disk"},
+		// Without project_info in the deployment, the project's settings are read.
+		{name: "flexible without project_info", flexible: true, noProjectInfo: true,
+			wantApps: "app\t2048\t8192\n", wantAppDisk: "storage"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -162,7 +168,12 @@ func TestAppListDisks(t *testing.T) {
 				Links: mockapi.MakeHALLinks("self=/projects/"+projectID,
 					"environments=/projects/"+projectID+"/environments"),
 				DefaultBranch: "main",
+				Settings:      map[string]any{"sizing_api_enabled": c.flexible},
 			}})
+			projectInfo := map[string]any{"settings": map[string]any{"sizing_api_enabled": c.flexible}}
+			if c.noProjectInfo {
+				projectInfo = nil
+			}
 			main := makeEnv(projectID, "main", "production", "active", nil)
 			main.SetCurrentDeployment(&mockapi.Deployment{
 				WebApps: map[string]mockapi.App{"app": {
@@ -171,7 +182,7 @@ func TestAppListDisks(t *testing.T) {
 					Resources: map[string]any{"disk": map[string]any{"storage": 2048, "instance": 8192, "temporary": 8192}},
 				}},
 				Services:    map[string]mockapi.Service{"db": {Type: "mariadb:11.4", Size: "AUTO", Disk: 1024}},
-				ProjectInfo: map[string]any{"settings": map[string]any{"sizing_api_enabled": c.flexible}},
+				ProjectInfo: projectInfo,
 				Links:       mockapi.MakeHALLinks("self=/projects/" + projectID + "/environments/main/deployment/current"),
 			})
 			apiHandler.SetEnvironments([]*mockapi.Environment{main})
