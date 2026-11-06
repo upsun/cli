@@ -138,3 +138,66 @@ func TestAppListEmptyLocalConfig(t *testing.T) {
 		})
 	}
 }
+
+// TestAppListDisks checks the storage and instance disk columns of apps and services, with and without flexible
+// resources.
+func TestAppListDisks(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name        string
+		flexible    bool
+		wantApps    string
+		wantAppDisk string
+	}{
+		{name: "flexible", flexible: true, wantApps: "app\t2048\t8192\n", wantAppDisk: "storage"},
+		{name: "fixed", wantApps: "app\t\t2048\n", wantAppDisk: "instance_disk"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			apiHandler := mockapi.NewHandler(t)
+			projectID := mockapi.ProjectID()
+			apiHandler.SetProjects([]*mockapi.Project{{
+				ID: projectID,
+				Links: mockapi.MakeHALLinks("self=/projects/"+projectID,
+					"environments=/projects/"+projectID+"/environments"),
+				DefaultBranch: "main",
+			}})
+			main := makeEnv(projectID, "main", "production", "active", nil)
+			main.SetCurrentDeployment(&mockapi.Deployment{
+				WebApps: map[string]mockapi.App{"app": {
+					Name: "app", Type: "golang:1.23", Size: "AUTO", Disk: 2048,
+					Mounts:    map[string]mockapi.Mount{"/cache": {Source: "instance", SourcePath: "cache"}},
+					Resources: map[string]any{"disk": map[string]any{"storage": 2048, "instance": 8192, "temporary": 8192}},
+				}},
+				Services:    map[string]mockapi.Service{"db": {Type: "mariadb:11.4", Size: "AUTO", Disk: 1024}},
+				ProjectInfo: map[string]any{"settings": map[string]any{"sizing_api_enabled": c.flexible}},
+				Links:       mockapi.MakeHALLinks("self=/projects/" + projectID + "/environments/main/deployment/current"),
+			})
+			apiHandler.SetEnvironments([]*mockapi.Environment{main})
+			f := serveAPI(t, apiHandler)
+
+			run := func(args ...string) (string, string) {
+				args = append(args, "-p", projectID, "-e", "main", "--format", "tsv", "--no-header")
+				stdout, stderr, err := f.RunCombinedOutput(args...)
+				require.NoError(t, err, stderr)
+				return stdout, stderr
+			}
+
+			stdout, stderr := run("apps", "-c", "name,storage,instance_disk")
+			assert.Equal(t, c.wantApps, stdout)
+			assert.NotContains(t, stderr, "DEPRECATED")
+
+			stdout, stderr = run("apps", "-c", "name,disk")
+			assert.Equal(t, "app\t2048\n", stdout)
+			assert.Contains(t, stderr, "The column disk has been replaced by "+c.wantAppDisk+".")
+
+			stdout, _ = run("services", "-c", "name,storage")
+			assert.Equal(t, "db\t1024\n", stdout)
+
+			stdout, stderr = run("services", "-c", "name,disk")
+			assert.Equal(t, "db\t1024\n", stdout)
+			assert.Contains(t, stderr, "The column disk has been replaced by storage.")
+		})
+	}
+}

@@ -14,6 +14,7 @@ use Platformsh\Cli\Service\Table;
 use Platformsh\Client\Exception\EnvironmentStateException;
 use Platformsh\Client\Model\Deployment\Task;
 use Platformsh\Client\Model\Deployment\WebApp;
+use Platformsh\Client\Model\Deployment\Worker;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Input\InputInterface;
@@ -32,15 +33,17 @@ class ResourcesGetCommand extends ResourcesCommandBase
         'cpu_type' => 'CPU type',
         'cpu' => 'CPU',
         'memory' => 'Memory (MB)',
-        'disk' => 'Disk (MB)',
+        'storage' => 'Storage (MB)',
+        'instance_disk' => 'Instance disk (MB)',
         'object_storage' => 'Object storage (MB)',
         'instance_count' => 'Instances',
         'base_memory' => 'Base memory',
         'memory_ratio' => 'Memory ratio',
     ];
 
+    // New columns go last, so that scripts reading columns by position still work.
     /** @var string[] */
-    protected array $defaultColumns = ['service', 'profile_size', 'cpu_type', 'cpu', 'memory', 'disk', 'object_storage', 'instance_count'];
+    protected array $defaultColumns = ['service', 'profile_size', 'cpu_type', 'cpu', 'memory', 'storage', 'instance_count', 'instance_disk', 'object_storage'];
 
     public function __construct(private readonly Api $api, private readonly Config $config, private readonly PropertyFormatter $propertyFormatter, private readonly ResourcesUtil $resourcesUtil, private readonly Selector $selector, private readonly Table $table)
     {
@@ -67,6 +70,8 @@ class ResourcesGetCommand extends ResourcesCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $this->table->replaceDeprecatedColumns(['disk' => 'storage'], $input, $output);
+
         $selection = $this->selector->getSelection($input);
         if (!$this->api->supportsSizingApi($selection->getProject())) {
             $this->resourcesUtil->writeSizingApiDisabledError($selection->getProject());
@@ -119,6 +124,7 @@ class ResourcesGetCommand extends ResourcesCommandBase
         $autoscalingIndicator = '<comment>(A)</comment>';
         $hasAutoscalingIndicator = false;
         $hasObjectStorage = false;
+        $hasInstanceDisk = false;
         foreach ($services as $name => $service) {
             $properties = $service->getProperties();
             $resources = $this->resourcesUtil->resources($service);
@@ -135,7 +141,8 @@ class ResourcesGetCommand extends ResourcesCommandBase
                 'profile_size' => $empty,
                 'base_memory' => $empty,
                 'memory_ratio' => $empty,
-                'disk' => $empty,
+                'storage' => $empty,
+                'instance_disk' => $empty,
                 'object_storage' => $empty,
                 'instance_count' => $empty,
                 'cpu_type' => $empty,
@@ -164,14 +171,24 @@ class ResourcesGetCommand extends ResourcesCommandBase
             }
 
             if (!$this->resourcesUtil->supportsDisk($service)) {
-                $row['disk'] = $notApplicable;
+                $row['storage'] = $notApplicable;
             } elseif (array_key_exists('disk', $properties)) {
                 $disk = $this->resourcesUtil->disk($service);
                 if (empty($disk)) {
-                    $row['disk'] = empty($properties['resources']) ? $empty : '';
+                    $row['storage'] = empty($properties['resources']) ? $empty : '';
                 } else {
-                    $row['disk'] = $this->propertyFormatter->format($disk, 'disk');
+                    $row['storage'] = $this->propertyFormatter->format($disk, 'disk');
                 }
+            }
+
+            // Only apps and workers have an instance disk, used by instance mounts.
+            if (!$service instanceof WebApp && !$service instanceof Worker) {
+                $row['instance_disk'] = $notApplicable;
+            } elseif (($instanceDisk = $this->resourcesUtil->instanceDisk($service)) !== null) {
+                $row['instance_disk'] = $this->propertyFormatter->format($instanceDisk, 'disk');
+                $hasInstanceDisk = true;
+            } else {
+                $row['instance_disk'] = '';
             }
 
             // Object storage is only available on apps.
@@ -195,9 +212,14 @@ class ResourcesGetCommand extends ResourcesCommandBase
             $rows[] = $row;
         }
 
+        // Tables hide empty columns, while machine-readable formats keep the same columns for every environment.
         $defaultColumns = $this->defaultColumns;
-        if (!$hasObjectStorage) {
+        $machineReadable = $this->table->formatIsMachineReadable();
+        if (!$hasObjectStorage && !$machineReadable) {
             $defaultColumns = array_values(array_diff($defaultColumns, ['object_storage']));
+        }
+        if (!$hasInstanceDisk && !$machineReadable) {
+            $defaultColumns = array_values(array_diff($defaultColumns, ['instance_disk']));
         }
         $this->table->render($rows, $this->tableHeader, $defaultColumns);
 

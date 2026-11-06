@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -96,4 +97,84 @@ func TestResourcesGet_Filters(t *testing.T) {
 			assert.Contains(t, stderr, c.wantStdErr)
 		})
 	}
+}
+
+// TestResourcesGet_Disks checks the storage and instance disk columns of apps, workers and services.
+func TestResourcesGet_Disks(t *testing.T) {
+	t.Parallel()
+	disk := func(storage, instance any) map[string]any {
+		return map[string]any{"profile_size": "0.5", "minimum": map[string]any{"disk": 0}, "disk": map[string]any{
+			"storage": storage, "instance": instance, "temporary": 8192,
+		}}
+	}
+	instanceMount := map[string]any{"/cache": map[string]any{"source": "instance", "source_path": "cache"}}
+	next := nextDeployment(map[string]any{
+		"app": map[string]any{
+			"name": "app", "type": "golang:1.23", "container_profile": "BALANCED",
+			"resources": disk(512, 8192), "disk": 512, "mounts": instanceMount,
+		},
+	}, map[string]any{
+		"BALANCED": map[string]any{"0.5": map[string]any{"cpu": 0.5, "memory": 1024, "cpu_type": "shared"}},
+	})
+	next["workers"] = map[string]any{
+		"app--queue": map[string]any{
+			"name": "app--queue", "type": "golang:1.23", "container_profile": "BALANCED",
+			"resources": disk(nil, 2048), "mounts": instanceMount,
+		},
+		// The API sets an instance disk size even without instance mounts.
+		"app--mail": map[string]any{
+			"name": "app--mail", "type": "golang:1.23", "container_profile": "BALANCED",
+			"resources": disk(nil, 8192), "mounts": map[string]any{},
+		},
+	}
+	next["services"] = map[string]any{
+		"db": map[string]any{
+			"type": "mariadb:11.4", "container_profile": "BALANCED",
+			"resources": map[string]any{
+				"profile_size": "0.5", "minimum": map[string]any{"disk": 256},
+				"disk": map[string]any{"storage": 1024, "instance": 8192, "temporary": 8192},
+			},
+			"disk": 1024,
+		},
+	}
+	apiHandler := mockapi.NewHandler(t)
+	projectID, _ := setUpResourcesProject(apiHandler, "org-id-1", next)
+	f := serveAPI(t, apiHandler)
+
+	run := func(args ...string) (string, string) {
+		args = append([]string{"resources:get", "-p", projectID, "-e", "main"}, args...)
+		stdout, stderr, err := f.RunCombinedOutput(args...)
+		require.NoError(t, err, stderr)
+		return stdout, stderr
+	}
+
+	stdout, stderr := run("--columns", "service,storage,instance_disk")
+	assertTrimmed(t, `
++------------+--------------+--------------------+
+| Container  | Storage (MB) | Instance disk (MB) |
++------------+--------------+--------------------+
+| app        | 512          | 8192               |
+| app--mail  | N/A          |                    |
+| app--queue | N/A          | 2048               |
+| db         | 1024         | N/A                |
++------------+--------------+--------------------+
+`, stdout)
+	assert.NotContains(t, stderr, "DEPRECATED")
+
+	stdout, _ = run()
+	assert.Contains(t, stdout, "| Storage (MB) | Instances | Instance disk (MB) |")
+
+	// Instance disk is a default column only if a shown app or worker has instance mounts.
+	stdout, _ = run("--service", "app--mail,db")
+	assert.Contains(t, stdout, "| Storage (MB) |")
+	assert.NotContains(t, stdout, "Instance disk")
+
+	// Machine-readable formats always have the same default columns, with new columns last.
+	stdout, _ = run("--service", "app--mail,db", "--format", "csv")
+	assert.True(t, strings.HasPrefix(stdout,
+		"Container,Size,CPU type,CPU,Memory (MB),Storage (MB),Instances,Instance disk (MB),Object storage (MB)\n"), stdout)
+
+	stdout, stderr = run("--columns", "service,disk", "--format", "csv", "--no-header")
+	assert.Equal(t, "app,512\napp--mail,\napp--queue,\ndb,1024\n", stdout)
+	assert.Contains(t, stderr, "The column disk has been replaced by storage.")
 }

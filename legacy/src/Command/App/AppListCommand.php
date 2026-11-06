@@ -11,6 +11,7 @@ use Platformsh\Cli\Service\Api;
 use Platformsh\Cli\Local\ApplicationFinder;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\PropertyFormatter;
+use Platformsh\Cli\Service\ResourcesUtil;
 use Platformsh\Cli\Command\CommandBase;
 use Platformsh\Cli\Service\Table;
 use Platformsh\Client\Model\Deployment\EnvironmentDeployment;
@@ -23,11 +24,11 @@ use Symfony\Component\Console\Output\OutputInterface;
 class AppListCommand extends CommandBase
 {
     /** @var array<string|int, string> */
-    private array $tableHeader = ['Name', 'Type', 'disk' => 'Disk', 'Size', 'path' => 'Path'];
+    private array $tableHeader = ['Name', 'Type', 'storage' => 'Storage', 'instance_disk' => 'Instance disk', 'Size', 'path' => 'Path'];
     /** @var string[] */
     private array $defaultColumns = ['name', 'type'];
 
-    public function __construct(private readonly Api $api, private readonly ApplicationFinder $applicationFinder, private readonly Config $config, private readonly PropertyFormatter $propertyFormatter, private readonly Selector $selector, private readonly Table $table)
+    public function __construct(private readonly Api $api, private readonly ApplicationFinder $applicationFinder, private readonly Config $config, private readonly PropertyFormatter $propertyFormatter, private readonly ResourcesUtil $resourcesUtil, private readonly Selector $selector, private readonly Table $table)
     {
         parent::__construct();
     }
@@ -99,9 +100,20 @@ class AppListCommand extends CommandBase
             $defaultColumns[] = 'path';
         }
 
+        // An app's top-level disk is its storage with flexible resources, or its instance disk otherwise.
+        $info = $deployment->getProperty('project_info', false);
+        $flexible = is_array($info) && is_array($info['settings'] ?? null) && !empty($info['settings']['sizing_api_enabled']);
+        $this->table->replaceDeprecatedColumns(['disk' => $flexible ? 'storage' : 'instance_disk'], $input, $output);
+
         $rows = [];
         foreach ($apps as $app) {
-            $row = [$app->name, $this->propertyFormatter->format($app->type, 'service_type'), 'disk' => (string) $app->disk, $app->size];
+            $row = [
+                $app->name,
+                $this->propertyFormatter->format($app->type, 'service_type'),
+                'storage' => $flexible ? (string) $app->disk : '',
+                'instance_disk' => $flexible ? (string) $this->resourcesUtil->instanceDisk($app) : (string) $app->disk,
+                $app->size,
+            ];
             if ($showLocalPath) {
                 $row['path'] = $getLocalPath($app->name);
             }

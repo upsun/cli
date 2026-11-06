@@ -21,7 +21,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class ServiceListCommand extends CommandBase
 {
     /** @var array<string|int, string> */
-    private array $tableHeader = ['Name', 'Type', 'disk' => 'Disk (MiB)', 'Size'];
+    private array $tableHeader = ['Name', 'Type', 'storage' => 'Storage (MiB)', 'Size'];
 
     public function __construct(private readonly Api $api, private readonly Config $config, private readonly PropertyFormatter $propertyFormatter, private readonly Selector $selector, private readonly Table $table)
     {
@@ -44,6 +44,8 @@ class ServiceListCommand extends CommandBase
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $this->table->replaceDeprecatedColumns(['disk' => 'storage'], $input, $output);
+
         $selection = $this->selector->getSelection($input);
 
         // Find a list of deployed services.
@@ -71,7 +73,7 @@ class ServiceListCommand extends CommandBase
             $row = [
                 $name,
                 $this->propertyFormatter->format($service->type, 'service_type'),
-                'disk' => $service->disk !== null ? $service->disk : '',
+                'storage' => $service->disk !== null ? $service->disk : '',
                 $service->size,
             ];
             $rows[] = $row;
