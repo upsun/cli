@@ -9,9 +9,9 @@ import (
 	"github.com/upsun/cli/pkg/mockapi"
 )
 
-// TestResourcesSet_DiskKeywords checks the documented 'default' and 'min'
-// values for --disk.
-func TestResourcesSet_DiskKeywords(t *testing.T) {
+// TestResourcesSet_StorageKeywords checks the documented 'default' and 'min'
+// values for --storage.
+func TestResourcesSet_StorageKeywords(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		value string
@@ -46,7 +46,7 @@ func TestResourcesSet_DiskKeywords(t *testing.T) {
 
 			stdout, stderr, err := f.RunCombinedOutput(
 				"resources:set", "-p", projectID, "-e", "main", "--no-wait", "--yes",
-				"--disk", "app:"+c.value,
+				"--storage", "app:"+c.value,
 			)
 			require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
 			assert.EqualValues(t, c.want, patchedApp(t, apiHandler, projectID)["disk"])
