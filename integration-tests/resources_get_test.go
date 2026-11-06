@@ -154,9 +154,9 @@ func TestResourcesGet_Disks(t *testing.T) {
 | Container  | Storage (MB) | Instance disk (MB) |
 +------------+--------------+--------------------+
 | app        | 512          | 8192               |
-| app--mail  | N/A          |                    |
-| app--queue | N/A          | 2048               |
-| db         | 1024         | N/A                |
+| app--mail  |              |                    |
+| app--queue |              | 2048               |
+| db         | 1024         |                    |
 +------------+--------------+--------------------+
 `, stdout)
 	assert.NotContains(t, stderr, "DEPRECATED")

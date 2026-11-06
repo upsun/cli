@@ -14,7 +14,6 @@ use Platformsh\Cli\Service\Table;
 use Platformsh\Client\Exception\EnvironmentStateException;
 use Platformsh\Client\Model\Deployment\Task;
 use Platformsh\Client\Model\Deployment\WebApp;
-use Platformsh\Client\Model\Deployment\Worker;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Input\InputInterface;
@@ -115,7 +114,6 @@ class ResourcesGetCommand extends ResourcesCommandBase
         }
 
         $empty = $this->table->formatIsMachineReadable() ? '' : '<comment>not set</comment>';
-        $notApplicable = $this->table->formatIsMachineReadable() ? '' : 'N/A';
 
         $containerProfiles = $this->sortContainerProfiles($this->resourcesUtil->containerProfiles($nextDeployment));
 
@@ -170,8 +168,9 @@ class ResourcesGetCommand extends ResourcesCommandBase
                 }
             }
 
+            // Cells are blank where a container type cannot have a value.
             if (!$this->resourcesUtil->supportsDisk($service)) {
-                $row['storage'] = $notApplicable;
+                $row['storage'] = '';
             } elseif (array_key_exists('disk', $properties)) {
                 $disk = $this->resourcesUtil->disk($service);
                 if (empty($disk)) {
@@ -182,18 +181,15 @@ class ResourcesGetCommand extends ResourcesCommandBase
             }
 
             // Only apps and workers have an instance disk, used by instance mounts.
-            if (!$service instanceof WebApp && !$service instanceof Worker) {
-                $row['instance_disk'] = $notApplicable;
-            } elseif (($instanceDisk = $this->resourcesUtil->instanceDisk($service)) !== null) {
+            $row['instance_disk'] = '';
+            if (($instanceDisk = $this->resourcesUtil->instanceDisk($service)) !== null) {
                 $row['instance_disk'] = $this->propertyFormatter->format($instanceDisk, 'disk');
                 $hasInstanceDisk = true;
-            } else {
-                $row['instance_disk'] = '';
             }
 
             // Object storage is only available on apps.
             if (!$service instanceof WebApp) {
-                $row['object_storage'] = $notApplicable;
+                $row['object_storage'] = '';
             } elseif (isset($resources['object_storage'])) {
                 $row['object_storage'] = (string) $resources['object_storage'];
                 if ($resources['object_storage'] > 0) {
@@ -203,7 +199,7 @@ class ResourcesGetCommand extends ResourcesCommandBase
 
             // Tasks are run-to-completion containers and have no instance count.
             if ($service instanceof Task) {
-                $row['instance_count'] = $notApplicable;
+                $row['instance_count'] = '';
             } else {
                 $instanceCount = $this->resourcesUtil->instanceCount($service);
                 $row['instance_count'] = $instanceCount !== null ? $this->propertyFormatter->format($instanceCount, 'instance_count') : '1';
