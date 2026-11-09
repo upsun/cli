@@ -6,6 +6,11 @@ on:
   schedule:
     - cron: "30 6 * * *"
   workflow_dispatch:
+    inputs:
+      cooldown_days:
+        description: Only use releases published at least this many days ago (0 to skip the cooldown, e.g. for a security fix)
+        type: number
+        default: 2
 
 permissions:
   contents: read
@@ -32,6 +37,8 @@ jobs:
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
+          # Empty on scheduled runs, so the script's default applies.
+          COOLDOWN_DAYS: ${{ inputs.cooldown_days }}
         run: |
           scripts/update-php.sh "$RUNNER_TEMP/title" "$RUNNER_TEMP/body"
           if [[ -f "$RUNNER_TEMP/title" ]]; then
