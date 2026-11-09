@@ -34,12 +34,13 @@ php_build=$(makefile_var PHP_BUILD)
 old_tag="php-$php_version-$php_build"
 minor=$(cut -d. -f1,2 <<< "$php_version")
 
-tags=$(gh release list --repo "$repo" --exclude-drafts --exclude-pre-releases --limit 100 \
-  --json tagName,publishedAt \
-  | jq -r --argjson days "$cooldown_days" \
-    '.[] | select((.publishedAt | fromdateiso8601) <= now - $days * 86400) | .tagName' \
-  | grep -E "^php-${minor//./\\.}\.[0-9]+-[0-9]+$" || true)
-new_tag=$(sort -V <<< "$tags" | tail -n1)
+releases=$(gh release list --repo "$repo" --exclude-drafts --exclude-pre-releases --limit 100 \
+  --json tagName,publishedAt)
+tag_pattern="^php-${minor//./\\.}\.[0-9]+-[0-9]+$"
+all_tags=$(jq -r '.[].tagName' <<< "$releases")
+cooled_tags=$(jq -r --argjson days "$cooldown_days" \
+  '.[] | select((.publishedAt | fromdateiso8601) <= now - $days * 86400) | .tagName' <<< "$releases")
+new_tag=$({ grep -E "$tag_pattern" <<< "$cooled_tags" || true; } | sort -V | tail -n1)
 if [[ -z "$new_tag" ]]; then
   echo "No release found for PHP $minor published at least $cooldown_days day(s) ago" \
     "(set COOLDOWN_DAYS=0 to skip the cooldown)" >&2
@@ -52,6 +53,10 @@ if [[ "$new_tag" == "$old_tag" ]]; then
 fi
 # The pinned release may be newer than the cooldown allows, if it was updated manually.
 if [[ "$(sort -V <<< "$old_tag"$'\n'"$new_tag" | tail -n1)" != "$new_tag" ]]; then
+  if ! grep -qxF "$old_tag" <<< "$all_tags"; then
+    echo "The pinned release $old_tag was not found (it may have been deleted or marked as a pre-release)" >&2
+    exit 1
+  fi
   echo "Up to date: $old_tag is newer than $new_tag, the latest release published at least $cooldown_days day(s) ago"
   exit 0
 fi
