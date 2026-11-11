@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
 # Updates the pinned PHP build (in the Makefile and the checksums file) to the latest cli-php-builds release for the
-# current PHP minor version.
+# current PHP minor version, among those published at least COOLDOWN_DAYS days ago (default 2), so that problems with
+# new upstream releases can be found first. Set COOLDOWN_DAYS=0 to skip the cooldown, e.g. for a security fix.
 # Writes a pull request title and body to the files given as arguments, if anything changed.
 # Requires: gh (authenticated), jq, curl, sha256sum.
 set -euo pipefail
 
 title_file=${1:?Usage: $0 TITLE_FILE BODY_FILE}
 body_file=${2:?Usage: $0 TITLE_FILE BODY_FILE}
+cooldown_days=${COOLDOWN_DAYS:-2}
+if ! [[ "$cooldown_days" =~ ^[0-9]+$ ]]; then
+  echo "COOLDOWN_DAYS must be a whole number of days: $cooldown_days" >&2
+  exit 1
+fi
 
 repo=upsun/cli-php-builds
 sums_file=internal/legacy/php_sha256sums.txt
@@ -28,11 +34,16 @@ php_build=$(makefile_var PHP_BUILD)
 old_tag="php-$php_version-$php_build"
 minor=$(cut -d. -f1,2 <<< "$php_version")
 
-new_tag=$(gh release list --repo "$repo" --exclude-drafts --exclude-pre-releases --limit 100 \
-  --json tagName --jq '.[].tagName' \
-  | grep -E "^php-${minor//./\\.}\.[0-9]+-[0-9]+$" | sort -V | tail -n1 || true)
+releases=$(gh release list --repo "$repo" --exclude-drafts --exclude-pre-releases --limit 100 \
+  --json tagName,publishedAt)
+tag_pattern="^php-${minor//./\\.}\.[0-9]+-[0-9]+$"
+all_tags=$(jq -r '.[].tagName' <<< "$releases")
+cooled_tags=$(jq -r --argjson days "$cooldown_days" \
+  '.[] | select((.publishedAt | fromdateiso8601) <= now - $days * 86400) | .tagName' <<< "$releases")
+new_tag=$({ grep -E "$tag_pattern" <<< "$cooled_tags" || true; } | sort -V | tail -n1)
 if [[ -z "$new_tag" ]]; then
-  echo "No release found for PHP $minor" >&2
+  echo "No release found for PHP $minor published at least $cooldown_days day(s) ago" \
+    "(set COOLDOWN_DAYS=0 to skip the cooldown)" >&2
   exit 1
 fi
 
@@ -40,9 +51,14 @@ if [[ "$new_tag" == "$old_tag" ]]; then
   echo "Up to date: $old_tag"
   exit 0
 fi
+# The pinned release may be newer than the cooldown allows, if it was updated manually.
 if [[ "$(sort -V <<< "$old_tag"$'\n'"$new_tag" | tail -n1)" != "$new_tag" ]]; then
-  echo "The latest release $new_tag is older than $old_tag" >&2
-  exit 1
+  if ! grep -qxF "$old_tag" <<< "$all_tags"; then
+    echo "The pinned release $old_tag was not found (it may have been deleted or marked as a pre-release)" >&2
+    exit 1
+  fi
+  echo "Up to date: $old_tag is newer than $new_tag, the latest release published at least $cooldown_days day(s) ago"
+  exit 0
 fi
 new_version=$(sed -E 's/^php-(.*)-[0-9]+$/\1/' <<< "$new_tag")
 new_build=${new_tag##*-}

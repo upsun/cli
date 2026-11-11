@@ -6,6 +6,11 @@ on:
   schedule:
     - cron: "30 6 * * *"
   workflow_dispatch:
+    inputs:
+      cooldown_days:
+        description: Only use releases published at least this many days ago (0 to skip the cooldown, e.g. for a security fix)
+        type: number
+        default: 2
 
 permissions:
   contents: read
@@ -32,22 +37,31 @@ jobs:
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
+          # Empty on scheduled runs, so the script's default applies.
+          COOLDOWN_DAYS: ${{ inputs.cooldown_days }}
         run: |
           scripts/update-php.sh "$RUNNER_TEMP/title" "$RUNNER_TEMP/body"
           if [[ -f "$RUNNER_TEMP/title" ]]; then
             echo "title=$(cat "$RUNNER_TEMP/title")" >> "$GITHUB_OUTPUT"
           fi
 
-      # Skips pushing again (and re-running CI) if the branch already has this update.
+      # Skips pushing again (and re-running CI) if the branch already has this
+      # build, or a newer one (e.g. from a run that skipped the cooldown).
       - name: Check the existing branch
         id: existing
         if: steps.check.outputs.title
-        env:
-          TITLE: ${{ steps.check.outputs.title }}
         run: |
-          if git fetch --depth=1 origin "$BRANCH" 2>/dev/null \
-            && [[ "$(git log -1 --format=%s FETCH_HEAD)" == "$TITLE" ]]; then
-            echo "up_to_date=true" >> "$GITHUB_OUTPUT"
+          pinned() {
+            echo "$(sed -n 's/^PHP_VERSION = //p' "$1")-$(sed -n 's/^PHP_BUILD = //p' "$1")"
+          }
+          if git fetch --depth=1 origin "$BRANCH" 2>/dev/null; then
+            git show FETCH_HEAD:Makefile > "$RUNNER_TEMP/branch.mk"
+            new=$(pinned Makefile)
+            existing=$(pinned "$RUNNER_TEMP/branch.mk")
+            if [[ "$(printf '%s\n' "$new" "$existing" | sort -V | tail -n1)" == "$existing" ]]; then
+              echo "The branch already has PHP $existing"
+              echo "up_to_date=true" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - name: Verify the downloads
