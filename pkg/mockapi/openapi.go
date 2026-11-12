@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
-	"fmt"
 	"io"
 	"net/http"
 	"path"
-	"strings"
 	"sync"
 	"testing"
 
@@ -41,13 +39,12 @@ var notInSpec = []string{
 	"PATCH /projects/*/environments/*/settings",
 	"POST /projects/*/integrations/*/validate",
 	"GET /projects/*/integrations/*/activities",
-	// The Auth API's SSH keys, and the endpoint that says which API owns them.
+	// The endpoint that says which API owns SSH keys, and the Accounts API's SSH keys, used when it does not exist.
 	"GET /ssh-key-source",
-	"* /users/*/ssh-keys",
-	"* /users/*/ssh-keys/*",
-	// The CLI follows an entrypoint link to /observability/, with a trailing slash, and to logs/query.
+	"POST /ssh_keys",
+	"* /ssh_keys/*",
+	// The CLI follows an entrypoint link to /observability/, with a trailing slash.
 	"GET /projects/*/environments/*/observability/",
-	"GET /projects/*/environments/*/observability/logs/query",
 	// The AI configuration API, used by init.
 	"POST /ai/generate-configuration",
 	// Test routes.
@@ -85,9 +82,7 @@ func loadOpenAPIRouter(ignoreRequired bool) (routers.Router, error) {
 	for _, p := range doc.Paths.Map() {
 		p.Servers = nil
 	}
-	if err := patchSpec(doc); err != nil {
-		return nil, err
-	}
+	patchSpec(doc)
 	if ignoreRequired {
 		seen := map[*openapi3.Schema]bool{}
 		for _, s := range doc.Components.Schemas {
@@ -128,30 +123,8 @@ func removeRequired(ref *openapi3.SchemaRef, seen map[*openapi3.Schema]bool) {
 	}
 }
 
-// integrationTypes maps the spec's integration schema names (without "Integration") to their types.
-var integrationTypes = map[string]string{
-	"Bitbucket":       "bitbucket",
-	"BitbucketServer": "bitbucket_server",
-	"Blackfire":       "blackfire",
-	"Email":           "health.email",
-	"Fastly":          "fastly",
-	"GitLab":          "gitlab",
-	"Github":          "github",
-	"HealthWebHook":   "health.webhook",
-	"HttpLog":         "httplog",
-	"NewRelic":        "newrelic",
-	"OtlpLog":         "otlplog",
-	"PagerDuty":       "health.pagerduty",
-	"Script":          "script",
-	"Slack":           "health.slack",
-	"Splunk":          "splunk",
-	"Sumologic":       "sumologic",
-	"Syslog":          "syslog",
-	"WebHook":         "webhook",
-}
-
 // patchSpec fixes differences between the spec and the API, where the API client depends on them.
-func patchSpec(doc *openapi3.T) error { //nolint:funlen // A list of patches.
+func patchSpec(doc *openapi3.T) { //nolint:funlen // A list of patches.
 	schemas := doc.Components.Schemas
 	object := openapi3.NewObjectSchema().NewRef()
 	str := openapi3.NewStringSchema().NewRef()
@@ -167,20 +140,6 @@ func patchSpec(doc *openapi3.T) error { //nolint:funlen // A list of patches.
 	// Shown by project:info, and used by the api.vendor_filter config.
 	schemas["Project"].Value.WithPropertyRef("vendor", str)
 	schemas["ProjectReference"].Value.WithPropertyRef("vendor", str)
-	// Only the type tells integrations apart, but the spec doesn't restrict it.
-	for _, name := range []string{"Integration", "IntegrationCreateCreateInput"} {
-		for _, ref := range schemas[name].Value.OneOf {
-			prefix := strings.TrimPrefix(ref.Ref, "#/components/schemas/")
-			prefix, _, _ = strings.Cut(prefix, "Integration")
-			t, ok := integrationTypes[prefix]
-			if !ok {
-				return fmt.Errorf("unknown integration schema: %s", ref.Ref)
-			}
-			typ := *ref.Value.Properties["type"].Value
-			typ.Enum = []any{t}
-			ref.Value.Properties["type"] = typ.NewRef()
-		}
-	}
 	// The API supports a redaction setting on log forwarding integrations, but the published spec lags behind.
 	for _, prefix := range []string{"HttpLog", "NewRelic", "OtlpLog", "Splunk", "Sumologic", "Syslog"} {
 		for _, suffix := range []string{"Integration", "IntegrationCreateInput", "IntegrationCreateCreateInput",
@@ -195,7 +154,7 @@ func patchSpec(doc *openapi3.T) error { //nolint:funlen // A list of patches.
 	for _, ref := range integrationPatch.OneOf {
 		ref.Value.Required = nil
 	}
-	integrationPatch.AnyOf, integrationPatch.OneOf = integrationPatch.OneOf, nil
+	integrationPatch.AnyOf, integrationPatch.OneOf, integrationPatch.Discriminator = integrationPatch.OneOf, nil, nil
 	// The API returns an app's stack as configured, which the CLI supports in several forms (see TestEnvironmentXdebug).
 	for _, kind := range []string{"webapps", "workers"} {
 		app := schemas["Deployment"].Value.Properties[kind].Value.AdditionalProperties.Schema.Value
@@ -222,6 +181,8 @@ func patchSpec(doc *openapi3.T) error { //nolint:funlen // A list of patches.
 	r.Required = append(r.Required, "replacement_for")
 	// The spec only has the tasks' sizing, but the API returns their whole config (see the client's Task class).
 	schemas["Deployment"].Value.Properties["tasks"].Value.AdditionalProperties.Schema = object
+	// The spec's Task schema (returned by the tasks endpoints) is a copy of the deployment's task builders.
+	*schemas["Task"].Value = *openapi3.NewObjectSchema()
 	// The spec nests each service's settings and triggers one level too deep, and omits the service's "enabled".
 	services := schemas["AutoscalerSettings"].Value.Properties["services"].Value
 	services.AdditionalProperties.Schema = schemas["AutoscalerServiceSettings"]
@@ -230,16 +191,10 @@ func patchSpec(doc *openapi3.T) error { //nolint:funlen // A list of patches.
 			schemas["AutoscalerTriggers"].Value.Properties[name] = trigger
 		}
 	}
-	// Each route type has its own schema, and an original_url (shown by route:list).
-	routeTypes := map[string]string{"ProxyRoute": "proxy", "RedirectRoute": "redirect", "UpstreamRoute": "upstream"}
-	for name, t := range routeTypes {
-		route := schemas[name].Value
-		typ := *route.Properties["type"].Value
-		typ.Enum = []any{t}
-		route.Properties["type"] = typ.NewRef()
-		route.WithPropertyRef("original_url", str)
+	// Routes have an original_url (shown by route:list).
+	for _, name := range []string{"ProxyRoute", "RedirectRoute", "UpstreamRoute"} {
+		schemas[name].Value.WithPropertyRef("original_url", str)
 	}
-	return nil
 }
 
 var validationOptions = &openapi3filter.Options{
