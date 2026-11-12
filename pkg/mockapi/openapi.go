@@ -181,6 +181,13 @@ func patchSpec(doc *openapi3.T) { //nolint:funlen // A list of patches.
 	r.Required = append(r.Required, "replacement_for")
 	// The spec only has the tasks' sizing, but the API returns their whole config (see the client's Task class).
 	schemas["Deployment"].Value.Properties["tasks"].Value.AdditionalProperties.Schema = object
+	// The API also accepts the legacy string for a code source integration's init resources (it sets "development").
+	for _, s := range schemas {
+		if p := s.Value.Properties["environment_init_resources"]; p != nil {
+			anyOf := openapi3.NewAnyOfSchema(p.Value, openapi3.NewStringSchema())
+			s.Value.Properties["environment_init_resources"] = anyOf.NewRef()
+		}
+	}
 	// The spec's Task schema (returned by the tasks endpoints) is a copy of the deployment's task builders.
 	*schemas["Task"].Value = *openapi3.NewObjectSchema()
 	// The spec nests each service's settings and triggers one level too deep, and omits the service's "enabled".
