@@ -184,8 +184,16 @@ func patchSpec(doc *openapi3.T) { //nolint:funlen // A list of patches.
 	// The API also accepts the legacy string for a code source integration's init resources (it sets "development").
 	for _, s := range schemas {
 		if p := s.Value.Properties["environment_init_resources"]; p != nil {
-			anyOf := openapi3.NewAnyOfSchema(p.Value, openapi3.NewStringSchema())
+			legacy := openapi3.NewStringSchema().WithEnum("default", "manual", "minimum", "parent")
+			anyOf := openapi3.NewAnyOfSchema(p.Value, legacy)
 			s.Value.Properties["environment_init_resources"] = anyOf.NewRef()
+		}
+	}
+	// The logs query's sort parameter is order_by, not order.
+	logsQuery := doc.Paths.Value("/projects/{projectId}/environments/{environmentId}/observability/logs/query").Get
+	for _, p := range logsQuery.Parameters {
+		if p.Value.Name == "order" {
+			p.Value.Name = "order_by"
 		}
 	}
 	// The spec's Task schema (returned by the tasks endpoints) is a copy of the deployment's task builders.
