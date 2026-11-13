@@ -26,6 +26,7 @@ func TestAppList(t *testing.T) {
 
 	projectID := mockapi.ProjectID()
 
+	// Without disk columns, app:list does not request the project's settings, which fail here.
 	apiHandler.SetProjects([]*mockapi.Project{{
 		ID: projectID,
 		Links: mockapi.MakeHALLinks("self=/projects/"+projectID,
@@ -135,6 +136,78 @@ func TestAppListEmptyLocalConfig(t *testing.T) {
 			stdOut, stdErr, err := f.RunCombinedOutput("apps", "--format", "tsv", "--columns", "name,path")
 			require.NoError(t, err, "stderr: %s", stdErr)
 			assertTrimmed(t, "Name\tPath\napp\t", stdOut)
+		})
+	}
+}
+
+// TestAppListDisks checks the storage and instance disk columns of apps and services, with and without flexible
+// resources.
+func TestAppListDisks(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name          string
+		flexible      bool
+		noProjectInfo bool
+		wantApps      string
+		wantAppDisk   string
+	}{
+		{name: "flexible", flexible: true, wantApps: "app\t2048\t8192\n", wantAppDisk: "storage"},
+		{name: "fixed", wantApps: "app\t\t2048\n", wantAppDisk: "instance_disk"},
+		// Without project_info in the deployment, the project's settings are read.
+		{name: "flexible without project_info", flexible: true, noProjectInfo: true,
+			wantApps: "app\t2048\t8192\n", wantAppDisk: "storage"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			apiHandler := mockapi.NewHandler(t)
+			projectID := mockapi.ProjectID()
+			apiHandler.SetProjects([]*mockapi.Project{{
+				ID: projectID,
+				Links: mockapi.MakeHALLinks("self=/projects/"+projectID,
+					"environments=/projects/"+projectID+"/environments"),
+				DefaultBranch: "main",
+				Settings:      map[string]any{"sizing_api_enabled": c.flexible},
+			}})
+			projectInfo := map[string]any{"settings": map[string]any{"sizing_api_enabled": c.flexible}}
+			if c.noProjectInfo {
+				projectInfo = nil
+			}
+			main := makeEnv(projectID, "main", "production", "active", nil)
+			main.SetCurrentDeployment(&mockapi.Deployment{
+				WebApps: map[string]mockapi.App{"app": {
+					Name: "app", Type: "golang:1.23", Size: "AUTO", Disk: 2048,
+					Mounts:    map[string]mockapi.Mount{"/cache": {Source: "instance", SourcePath: "cache"}},
+					Resources: map[string]any{"disk": map[string]any{"storage": 2048, "instance": 8192, "temporary": 8192}},
+				}},
+				Services:    map[string]mockapi.Service{"db": {Type: "mariadb:11.4", Size: "AUTO", Disk: 1024}},
+				ProjectInfo: projectInfo,
+				Links:       mockapi.MakeHALLinks("self=/projects/" + projectID + "/environments/main/deployment/current"),
+			})
+			apiHandler.SetEnvironments([]*mockapi.Environment{main})
+			f := serveAPI(t, apiHandler)
+
+			run := func(args ...string) (string, string) {
+				args = append(args, "-p", projectID, "-e", "main", "--format", "tsv", "--no-header")
+				stdout, stderr, err := f.RunCombinedOutput(args...)
+				require.NoError(t, err, stderr)
+				return stdout, stderr
+			}
+
+			stdout, stderr := run("apps", "-c", "name,storage,instance_disk")
+			assert.Equal(t, c.wantApps, stdout)
+			assert.NotContains(t, stderr, "DEPRECATED")
+
+			stdout, stderr = run("apps", "-c", "name,disk")
+			assert.Equal(t, "app\t2048\n", stdout)
+			assert.Contains(t, stderr, "The column disk has been replaced by "+c.wantAppDisk+".")
+
+			stdout, _ = run("services", "-c", "name,storage")
+			assert.Equal(t, "db\t1024\n", stdout)
+
+			stdout, stderr = run("services", "-c", "name,disk")
+			assert.Equal(t, "db\t1024\n", stdout)
+			assert.Contains(t, stderr, "The column disk has been replaced by storage.")
 		})
 	}
 }
