@@ -252,10 +252,12 @@ func TestActivityListExcludeType(t *testing.T) {
 		args       []string
 		wantOut    string
 		wantStdErr string
+		wantErr    bool
 	}{
 		{args: []string{"-x", "cron"}, wantOut: "push1\nbackup\npush2"},
 		{args: []string{"-x", "cron", "--limit", "2"}, wantOut: "push1\nbackup"},
 		{args: []string{"-x", "environment.cron,backup"}, wantOut: "push1\npush2"},
+		{args: []string{"-x", "*"}, wantErr: true, wantStdErr: "No activities found"},
 		{
 			args:       []string{"-x", "some_new_type,push"},
 			wantOut:    "cron1\ncron2\ncron3\nbackup",
@@ -267,12 +269,20 @@ func TestActivityListExcludeType(t *testing.T) {
 		args := append([]string{"activity:list", "-p", layoutProjectID, "--all",
 			"--format", "plain", "--columns", "id", "--no-header"}, c.args...)
 		stdout, stderr, err := p.f.RunCombinedOutput(args...)
-		require.NoError(t, err, stderr)
+		if c.wantErr {
+			assert.Error(t, err)
+		} else {
+			require.NoError(t, err, stderr)
+		}
 		assertTrimmed(t, c.wantOut, stdout)
 		assert.Contains(t, stderr, c.wantStdErr)
 
 		reqs := p.api.Requests("GET", "/projects/"+layoutProjectID+"/activities")[before:]
-		assert.NotEmpty(t, reqs)
+		if c.wantErr {
+			assert.Empty(t, reqs)
+		} else {
+			assert.NotEmpty(t, reqs)
+		}
 		for _, r := range reqs {
 			types := r.Query["type"]
 			assert.Contains(t, types, "environment.deploy")

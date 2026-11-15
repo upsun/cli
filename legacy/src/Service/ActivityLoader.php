@@ -89,6 +89,9 @@ readonly class ActivityLoader
         // The API cannot exclude types, so the other known types are included instead.
         if (empty($typesFilter) && !empty($typesToExclude)) {
             $typesFilter = array_values(array_diff($availableTypes, $typesToExclude));
+            if (empty($typesFilter)) {
+                return [];
+            }
         }
         if (!empty($typesFilter) && $this->stdErr->isDebug()) {
             $this->stdErr->writeln('<options=reverse>DEBUG</> Selected activity type(s): ' . implode(',', $typesFilter));
