@@ -19,8 +19,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 readonly class ActivityLoader
 {
-    private const EXCLUDE_PAGE_SIZE = 100;
-
     private OutputInterface $stdErr;
 
     /**
@@ -70,8 +68,6 @@ readonly class ActivityLoader
             $toExclude = Wildcard::select($availableTypes, [$requestedExcludeType]) ?: Wildcard::select($availableTypes, ['%.' . $requestedExcludeType]);
             if (empty($toExclude)) {
                 $this->stdErr->writeln('Unrecognized activity type to exclude: <comment>' . $requestedExcludeType . '</comment>');
-                $typesToExclude[] = $requestedExcludeType;
-                $typesToExclude[] = '%.' . $requestedExcludeType;
             } else {
                 $typesToExclude = array_merge($typesToExclude, $toExclude);
             }
@@ -90,6 +86,10 @@ readonly class ActivityLoader
                 $this->stdErr->writeln('The <comment>--exclude-type</comment> and <comment>--type</comment> options conflict.');
             }
         }
+        // The API cannot exclude types, so the other known types are included instead.
+        if (empty($typesFilter) && !empty($typesToExclude)) {
+            $typesFilter = array_values(array_diff($availableTypes, $typesToExclude));
+        }
         if (!empty($typesFilter) && $this->stdErr->isDebug()) {
             $this->stdErr->writeln('<options=reverse>DEBUG</> Selected activity type(s): ' . implode(',', $typesFilter));
         }
@@ -102,9 +102,7 @@ readonly class ActivityLoader
                 throw new InvalidArgumentException('Invalid --start date: ' . $start);
             }
         }
-        // The API cannot exclude types, so they are excluded here (unless types are included).
-        $excludeTypes = empty($typesFilter) ? $typesToExclude : [];
-        $activities = $this->load($apiResource, $limit, $typesFilter, $startsAt, $state, $result, null, $excludeTypes);
+        $activities = $this->load($apiResource, $limit, $typesFilter, $startsAt, $state, $result);
         if ($withOperation) {
             $activities = array_filter($activities, fn(Activity $activity): bool => $activity->operationAvailable($withOperation));
         }
@@ -122,12 +120,10 @@ readonly class ActivityLoader
      * @param string|string[]|null    $result
      * @param callable|null $stopCondition
      *   A test to perform on each activity. If it returns true, loading is stopped.
-     * @param string[] $excludeTypes
-     *   Types to exclude, which may contain wildcards.
      *
      * @return Activity[]
      */
-    public function load(HasActivitiesInterface $apiResource, ?int $limit = null, array $types = [], int|DateTime|null $startsAt = null, array|string|null $state = null, array|string|null $result = null, ?callable $stopCondition = null, array $excludeTypes = []): array
+    public function load(HasActivitiesInterface $apiResource, ?int $limit = null, array $types = [], int|DateTime|null $startsAt = null, array|string|null $state = null, array|string|null $result = null, ?callable $stopCondition = null): array
     {
         $progress = new ProgressBar($this->getProgressOutput());
         $progress->setMessage('Loading activities...');
@@ -148,10 +144,6 @@ readonly class ActivityLoader
             }
             // A next page starts with the last activity seen, so it needs one more.
             $count = $limit ? $limit - count($activities) + ($last !== null ? 1 : 0) : 0;
-            if ($count && $excludeTypes) {
-                // Fetch larger pages, which excluded activities may fill.
-                $count = max($count, self::EXCLUDE_PAGE_SIZE);
-            }
             $nextActivities = $apiResource->getActivities($count, $types, $startsAt, $state, $result);
             $new = false;
             foreach ($nextActivities as $activity) {
@@ -161,9 +153,6 @@ readonly class ActivityLoader
                 $seen[$activity->id] = true;
                 $last = $activity;
                 $new = true;
-                if ($excludeTypes && Wildcard::select([$activity->type], $excludeTypes)) {
-                    continue;
-                }
                 $activities[$activity->id] = $activity;
                 if (isset($stopCondition) && $stopCondition($activity)) {
                     $progress->setProgress(count($activities));
@@ -208,33 +197,37 @@ readonly class ActivityLoader
             'environment.domain.create',
             'environment.domain.delete',
             'environment.domain.update',
+            'environment.edge.update',
             'environment.initialize',
+            'environment.maintenance.redeploy',
             'environment.merge',
             'environment.merge-pr',
+            'environment.migrate',
             'environment.operation',
             'environment.pause',
             'environment.push',
             'environment.redeploy',
+            'environment.resources.update',
             'environment.restore',
             'environment.resume',
-            'environment.resources.update',
-            'environment.update.privileged_configuration',
-            'environment.version.create',
-            'environment.version.update',
-            'environment.version.delete',
             'environment.route.create',
             'environment.route.delete',
             'environment.route.update',
+            'environment.router.update',
             'environment.source-operation',
             'environment.subscription.update',
             'environment.synchronize',
             'environment.task',
             'environment.update.http_access',
+            'environment.update.privileged_configuration',
             'environment.update.restrict_robots',
             'environment.update.smtp',
             'environment.variable.create',
             'environment.variable.delete',
             'environment.variable.update',
+            'environment.version.create',
+            'environment.version.delete',
+            'environment.version.update',
             'environment_type.access.create',
             'environment_type.access.delete',
             'environment_type.access.update',
@@ -256,13 +249,20 @@ readonly class ActivityLoader
             'project.domain.create',
             'project.domain.delete',
             'project.domain.update',
+            'project.edge.update',
+            'project.metrics.disable',
             'project.metrics.enable',
             'project.metrics.update',
-            'project.metrics.disable',
             'project.modify.title',
+            'project.resume',
+            'project.subscription.migrate_to_resources',
+            'project.subscription.plan.development',
+            'project.subscription.update.resources',
+            'project.suspend',
             'project.variable.create',
             'project.variable.delete',
             'project.variable.update',
+            'task.cleanup',
         ];
     }
 }

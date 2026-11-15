@@ -226,7 +226,8 @@ func TestActivityCancelFilters(t *testing.T) {
 	}
 }
 
-// TestActivityListExcludeType checks that --exclude-type keeps types the CLI does not know, and fills the --limit.
+// TestActivityListExcludeType checks that --exclude-type includes the other known types in one request, as the API
+// cannot exclude types.
 func TestActivityListExcludeType(t *testing.T) {
 	t.Parallel()
 	p := setUpProject(t, makeEnv(layoutProjectID, "main", "production", "active", nil))
@@ -239,12 +240,12 @@ func TestActivityListExcludeType(t *testing.T) {
 		}
 	}
 	p.api.SetProjectActivities(layoutProjectID, []*mockapi.Activity{
-		activity("new1", "environment.some_new_type", 1),
-		activity("cron1", "environment.cron", 2),
-		activity("cron2", "environment.cron", 3),
+		activity("cron1", "environment.cron", 1),
+		activity("cron2", "environment.cron", 2),
+		activity("push1", "environment.push", 3),
 		activity("cron3", "environment.cron", 4),
-		activity("push", "environment.push", 5),
-		activity("new2", "environment.some_new_type", 6),
+		activity("backup", "environment.backup", 5),
+		activity("push2", "environment.push", 6),
 	})
 
 	cases := []struct {
@@ -252,20 +253,33 @@ func TestActivityListExcludeType(t *testing.T) {
 		wantOut    string
 		wantStdErr string
 	}{
-		{args: []string{"-x", "cron"}, wantOut: "new1\npush\nnew2"},
-		{args: []string{"-x", "cron", "--limit", "2"}, wantOut: "new1\npush"},
+		{args: []string{"-x", "cron"}, wantOut: "push1\nbackup\npush2"},
+		{args: []string{"-x", "cron", "--limit", "2"}, wantOut: "push1\nbackup"},
+		{args: []string{"-x", "environment.cron,backup"}, wantOut: "push1\npush2"},
 		{
 			args:       []string{"-x", "some_new_type,push"},
-			wantOut:    "cron1\ncron2\ncron3",
+			wantOut:    "cron1\ncron2\ncron3\nbackup",
 			wantStdErr: "Unrecognized activity type to exclude: some_new_type",
 		},
 	}
 	for _, c := range cases {
+		before := len(p.api.Requests("GET", "/projects/"+layoutProjectID+"/activities"))
 		args := append([]string{"activity:list", "-p", layoutProjectID, "--all",
 			"--format", "plain", "--columns", "id", "--no-header"}, c.args...)
 		stdout, stderr, err := p.f.RunCombinedOutput(args...)
 		require.NoError(t, err, stderr)
 		assertTrimmed(t, c.wantOut, stdout)
 		assert.Contains(t, stderr, c.wantStdErr)
+
+		reqs := p.api.Requests("GET", "/projects/"+layoutProjectID+"/activities")[before:]
+		assert.NotEmpty(t, reqs)
+		for _, r := range reqs {
+			types := r.Query["type"]
+			assert.Contains(t, types, "environment.deploy")
+			for _, x := range strings.Split(c.args[1], ",") {
+				assert.NotContains(t, types, x)
+				assert.NotContains(t, types, "environment."+x)
+			}
+		}
 	}
 }
