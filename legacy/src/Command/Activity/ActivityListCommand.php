@@ -74,7 +74,8 @@ class ActivityListCommand extends ActivityCommandBase
             'Exclude activities by type.'
             . "\n" . ArrayArgument::SPLIT_HELP
             . "\nThe first part of the activity name can be omitted, e.g. 'cron' can exclude 'environment.cron' activities."
-            . "\nThe % or * characters can be used as a wildcard to exclude types.",
+            . "\nThe % or * characters can be used as a wildcard to exclude types."
+            . "\nThe API cannot exclude types, so only the other known types are listed.",
             null,
             ActivityLoader::getAvailableTypes(),
         );
