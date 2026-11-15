@@ -68,8 +68,7 @@ class IntegrationActivityListCommand extends IntegrationCommandBase
                 InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
                 'Exclude activities by type.'
                 . "\n" . ArrayArgument::SPLIT_HELP
-                . "\nThe % or * characters can be used as a wildcard to exclude types."
-                . "\nThe API cannot exclude types, so only the other known types are listed.",
+                . "\nThe % or * characters can be used as a wildcard to exclude types.",
             )
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Limit the number of results displayed', self::DEFAULT_LIST_LIMIT)
             ->addOption('start', null, InputOption::VALUE_REQUIRED, 'Only activities created before this date will be listed')
