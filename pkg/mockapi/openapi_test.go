@@ -79,6 +79,13 @@ func TestValidateOpenAPI(t *testing.T) {
 			resp: `{"anything": true}`,
 		},
 		{
+			name: "invalid logs query order", method: "GET",
+			route:   "/projects/{p}/environments/{e}/observability/logs/query",
+			path:    "/projects/p/environments/e/observability/logs/query?from=1&to=2&order_by=UP",
+			resp:    `{}`,
+			wantErr: `parameter "order_by"`,
+		},
+		{
 			name: "unknown route", method: "GET", path: "/unknown",
 			resp:    `{}`,
 			wantErr: "no matching operation",
