@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"os/exec"
@@ -43,7 +44,9 @@ type installProbe struct {
 	getenv       func(string) string
 	fileExists   func(string) bool
 	brewPrefix   func() (string, bool)
+	pkgRepo      string // the host of the package repository, e.g. "repositories.upsun.com"
 	pkgManager   func(exe string) InstallMethod
+	repoInUse    func(m InstallMethod, repo string) bool
 }
 
 var (
@@ -75,7 +78,9 @@ func newInstallProbe(cnf *config.Config) *installProbe {
 		getenv:       getenvFunc,
 		fileExists:   fileExists,
 		brewPrefix:   brewPrefix,
+		pkgRepo:      bin.Wrapper.PackageRepository,
 		pkgManager:   owningPackageManager,
+		repoInUse:    packageRepositoryInUse,
 	}
 }
 
@@ -98,7 +103,7 @@ func detectInstallMethod(p *installProbe) InstallMethod {
 		return m
 	}
 	if packageMarkerExists(p.exe, p.slug, p.fileExists) {
-		if m := p.pkgManager(p.exe); m != InstallUnknown {
+		if m := p.packageMethod(); m != InstallUnknown {
 			return m
 		}
 		return InstallPackage
@@ -119,13 +124,54 @@ func detectInstallMethod(p *installProbe) InstallMethod {
 	if inStandardBinDir(p.exe) {
 		// Packages installed before the marker file existed lack it.
 		if p.goos == "linux" {
-			if m := p.pkgManager(p.exe); m != InstallUnknown {
+			if m := p.packageMethod(); m != InstallUnknown {
 				return m
 			}
 		}
 		return InstallScript
 	}
 	return InstallUnknown
+}
+
+// packageMethod returns the install method of the package manager that owns
+// the executable, or InstallUnknown if none does. It is InstallPackage unless
+// the package manager uses the package repository: a downloaded package (e.g.
+// installed with "dpkg -i") cannot be upgraded with the package manager.
+func (p *installProbe) packageMethod() InstallMethod {
+	m := p.pkgManager(p.exe)
+	if m == InstallUnknown || m == InstallPackage {
+		return m
+	}
+	if p.pkgRepo == "" || !p.repoInUse(m, p.pkgRepo) {
+		return InstallPackage
+	}
+	return m
+}
+
+// packageRepoFiles lists the files (as glob patterns) that configure each package manager's repositories.
+var packageRepoFiles = map[InstallMethod][]string{
+	InstallApt: {"/etc/apt/sources.list", "/etc/apt/sources.list.d/*"},
+	InstallDnf: {"/etc/yum.repos.d/*.repo"},
+	InstallYum: {"/etc/yum.repos.d/*.repo"},
+	InstallApk: {"/etc/apk/repositories", "/etc/apk/repositories.d/*"},
+}
+
+// packageRepositoryInUse reports whether a package manager's configuration mentions the repository.
+func packageRepositoryInUse(m InstallMethod, repo string) bool {
+	return anyFileContains(packageRepoFiles[m], repo)
+}
+
+// anyFileContains reports whether a file matching one of the glob patterns contains s.
+func anyFileContains(patterns []string, s string) bool {
+	for _, pattern := range patterns {
+		paths, _ := filepath.Glob(pattern)
+		for _, path := range paths {
+			if b, err := os.ReadFile(path); err == nil && bytes.Contains(b, []byte(s)) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // overrideMethod reads a forced install method from the environment or config.

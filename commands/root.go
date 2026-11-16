@@ -330,7 +330,7 @@ func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod, exe st
 		}
 	case internal.InstallApt, internal.InstallDnf, internal.InstallYum, internal.InstallApk:
 		if pkg := cnf.Wrapper.PackageName; pkg != "" {
-			return packageUpgradeCommand(method, pkg, geteuid() == 0)
+			return packageUpgradeCommand(method, pkg, privilegeCommand(geteuid() == 0, exec.LookPath))
 		}
 	case internal.InstallScript:
 		// The raw method replaces the binary in INSTALL_DIR; without it, the
@@ -346,9 +346,24 @@ func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod, exe st
 // geteuid can be replaced in tests.
 var geteuid = os.Geteuid
 
+// privilegeCommand returns the command to run another as root: none for root,
+// doas if it is installed and sudo is not (e.g. on Alpine), or else sudo.
+func privilegeCommand(root bool, lookPath func(string) (string, error)) string {
+	if root {
+		return ""
+	}
+	if _, err := lookPath("sudo"); err != nil {
+		if _, err := lookPath("doas"); err == nil {
+			return "doas"
+		}
+	}
+	return "sudo"
+}
+
 // packageUpgradeCommand returns the command to refresh a system package
-// manager's index and upgrade a package, with sudo unless running as root.
-func packageUpgradeCommand(method internal.InstallMethod, pkg string, root bool) string {
+// manager's index and upgrade a package, running each part with the privilege
+// command, if any.
+func packageUpgradeCommand(method internal.InstallMethod, pkg, privilege string) string {
 	var cmds []string
 	switch method {
 	case internal.InstallApt:
@@ -356,13 +371,14 @@ func packageUpgradeCommand(method internal.InstallMethod, pkg string, root bool)
 	case internal.InstallDnf:
 		cmds = []string{"dnf upgrade --refresh " + pkg}
 	case internal.InstallYum:
-		cmds = []string{"yum upgrade " + pkg}
+		// Without this, yum uses its cached metadata for hours.
+		cmds = []string{"yum clean expire-cache", "yum upgrade " + pkg}
 	case internal.InstallApk:
 		cmds = []string{"apk add --upgrade --update-cache " + pkg}
 	}
-	if !root {
+	if privilege != "" {
 		for i := range cmds {
-			cmds[i] = "sudo " + cmds[i]
+			cmds[i] = privilege + " " + cmds[i]
 		}
 	}
 	return strings.Join(cmds, " && ")

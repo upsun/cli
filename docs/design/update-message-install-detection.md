@@ -21,11 +21,18 @@ got a new release when they happened to upgrade. This revision changes that:
   printing a notice. For RPM it is `dnf` if that is on `PATH`, or else `yum`.
   The methods are `apt`, `dnf`, `yum` and `apk`; `package` remains for a
   package with an unknown package manager, which gets the generic link.
+- A downloaded package (installed with `dpkg -i`, `rpm -i` or
+  `apk add --allow-untrusted`) cannot be upgraded with the package manager. So
+  the method is only `apt`, `dnf`, `yum` or `apk` if the package manager's
+  configuration (`/etc/apt/sources.list*`, `/etc/yum.repos.d/*.repo`,
+  `/etc/apk/repositories*`) mentions the repository's host, the new
+  `wrapper.package_repository` config key. Otherwise it is `package`.
 - The package name is the new `wrapper.package_name` config key.
-- Commands, with `sudo` unless running as root:
+- Commands, with `sudo` unless running as root (or `doas`, if it is installed
+  and `sudo` is not, as is usual on Alpine):
   - `apt update && apt install --only-upgrade <package>`
   - `dnf upgrade --refresh <package>`
-  - `yum upgrade <package>`
+  - `yum clean expire-cache && yum upgrade <package>`
   - `apk add --upgrade --update-cache <package>`
 - The weekly throttle is per version: `notified_version` in the state records
   the version last announced, and a newer one is announced without waiting.
@@ -90,7 +97,8 @@ is shown even when the user cannot act on it usefully:
   those channels we print the command rather than executing it (see Phase 2).
 - Changing the network-check throttle, the CI gate, or the TTY gate.
 - Detecting manual `dpkg -i` / `rpm -i` installs that bypass a repo. These are
-  treated as "package" (auto-updating); see Edge cases.
+  treated as "package"; see Edge cases (and the revision above, which does
+  detect them).
 
 ## Phasing
 
@@ -400,9 +408,8 @@ Phase 2:
 ## Edge cases
 
 - **Manual `dpkg -i` / `rpm -i` of a downloaded package** still carries the
-  marker, so it is treated as `package` and suppressed even though it will not
-  auto-update from a repo. Acceptable: the user chose a package format and can
-  re-run the same install, and the GitHub releases page is still discoverable.
+  marker, so it is treated as `package`. Originally that was silent; since the
+  revision at the top, it gets the notice with the generic link.
 - **`brew --prefix` unavailable / slow.** The `/Cellar/` pre-check avoids the
   subprocess in the common non-Homebrew case; if `brew` is missing we fall
   through to `script`/`unknown`, matching today's behavior.
@@ -455,7 +462,7 @@ upgrade line per method, including empty-config fallbacks.
 ## Resolved decisions
 
 - `package` installs: originally silent; now notified (see the revision at the top).
-- Manual `dpkg -i`/`rpm -i`: treated as `package` (suppressed). Acceptable.
+- Manual `dpkg -i`/`rpm -i`: treated as `package`, originally silent; now notified with the generic link.
 - npm upgrade command: global `npm install -g <pkg>@latest`.
 - Ambiguous / no marker: fall back to `script`/`unknown`, advise re-running the
   installer (or the GitHub link).

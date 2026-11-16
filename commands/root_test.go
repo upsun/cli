@@ -2,6 +2,8 @@ package commands
 
 import (
 	"bytes"
+	"os/exec"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,7 +37,7 @@ func TestUpgradeCommandFor(t *testing.T) {
 		{internal.InstallScript, "curl -fsSL https://x.test/i.sh | INSTALL_METHOD=raw INSTALL_DIR=/usr/local/bin sh"},
 		{internal.InstallApt, "sudo apt update && sudo apt install --only-upgrade upsun-cli"},
 		{internal.InstallDnf, "sudo dnf upgrade --refresh upsun-cli"},
-		{internal.InstallYum, "sudo yum upgrade upsun-cli"},
+		{internal.InstallYum, "sudo yum clean expire-cache && sudo yum upgrade upsun-cli"},
 		{internal.InstallApk, "sudo apk add --upgrade --update-cache upsun-cli"},
 		{internal.InstallPackage, ""}, // an unknown package manager falls back to the generic link
 		{internal.InstallUnknown, ""}, // falls back to the generic link
@@ -57,11 +59,26 @@ func TestUpgradeCommandForMissingConfigFallsBack(t *testing.T) {
 	assert.Empty(t, upgradeCommandFor(cnf, internal.InstallApt, "/usr/bin/upsun"))
 }
 
-func TestPackageUpgradeCommandAsRoot(t *testing.T) {
+func TestPackageUpgradeCommandPrivilege(t *testing.T) {
 	assert.Equal(t, "apt update && apt install --only-upgrade upsun-cli",
-		packageUpgradeCommand(internal.InstallApt, "upsun-cli", true))
-	assert.Equal(t, "apk add --upgrade --update-cache upsun-cli",
-		packageUpgradeCommand(internal.InstallApk, "upsun-cli", true))
+		packageUpgradeCommand(internal.InstallApt, "upsun-cli", ""))
+	assert.Equal(t, "doas apk add --upgrade --update-cache upsun-cli",
+		packageUpgradeCommand(internal.InstallApk, "upsun-cli", "doas"))
+}
+
+func TestPrivilegeCommand(t *testing.T) {
+	has := func(names ...string) func(string) (string, error) {
+		return func(name string) (string, error) {
+			if slices.Contains(names, name) {
+				return "/usr/bin/" + name, nil
+			}
+			return "", exec.ErrNotFound
+		}
+	}
+	assert.Empty(t, privilegeCommand(true, has("sudo")))
+	assert.Equal(t, "sudo", privilegeCommand(false, has("sudo", "doas")))
+	assert.Equal(t, "doas", privilegeCommand(false, has("doas")))
+	assert.Equal(t, "sudo", privilegeCommand(false, has()))
 }
 
 func TestShellQuote(t *testing.T) {

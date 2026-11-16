@@ -1,8 +1,10 @@
 package internal
 
 import (
+	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -60,8 +62,32 @@ func TestDetectInstallMethod(t *testing.T) {
 				getenv: func(string) string { return "" }, brewPrefix: noBrew,
 				fileExists: fileAt("/usr/share/upsun/install-source"),
 				pkgManager: func(string) InstallMethod { return InstallApk },
+				pkgRepo:    "repo.example.com",
+				repoInUse:  func(m InstallMethod, repo string) bool { return m == InstallApk && repo == "repo.example.com" },
 			},
 			want: InstallApk,
+		},
+		{
+			name: "package marker present, repository not in use (e.g. dpkg -i)",
+			probe: installProbe{
+				goos: "linux", exe: "/usr/bin/upsun", slug: "upsun",
+				getenv: func(string) string { return "" }, brewPrefix: noBrew,
+				fileExists: fileAt("/usr/share/upsun/install-source"),
+				pkgManager: func(string) InstallMethod { return InstallApt },
+				pkgRepo:    "repo.example.com",
+				repoInUse:  func(InstallMethod, string) bool { return false },
+			},
+			want: InstallPackage,
+		},
+		{
+			name: "package marker present, no repository in config",
+			probe: installProbe{
+				goos: "linux", exe: "/usr/bin/upsun", slug: "upsun",
+				getenv: func(string) string { return "" }, brewPrefix: noBrew,
+				fileExists: fileAt("/usr/share/upsun/install-source"),
+				pkgManager: func(string) InstallMethod { return InstallApt },
+			},
+			want: InstallPackage,
 		},
 		{
 			name: "package marker present, unknown package manager",
@@ -166,6 +192,8 @@ func TestDetectInstallMethod(t *testing.T) {
 					}
 					return InstallUnknown
 				},
+				pkgRepo:   "repo.example.com",
+				repoInUse: func(InstallMethod, string) bool { return true },
 			},
 			want: InstallDnf,
 		},
@@ -195,6 +223,21 @@ func TestDetectInstallMethod(t *testing.T) {
 			assert.Equal(t, c.want, detectInstallMethod(&c.probe))
 		})
 	}
+}
+
+func TestAnyFileContains(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "sources.list.d"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "sources.list"),
+		[]byte("deb http://deb.example.org stable main\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "sources.list.d", "example.list"),
+		[]byte("deb https://repo.example.com/debian stable main\n"), 0o600))
+	patterns := []string{filepath.Join(dir, "sources.list"), filepath.Join(dir, "sources.list.d", "*")}
+
+	assert.True(t, anyFileContains(patterns, "repo.example.com"))
+	assert.False(t, anyFileContains(patterns, "other.example.com"))
+	assert.False(t, anyFileContains(patterns[:1], "repo.example.com"))
+	assert.False(t, anyFileContains(nil, "repo.example.com"))
 }
 
 func TestRPMFrontend(t *testing.T) {
