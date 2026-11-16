@@ -264,6 +264,10 @@ func TestAnyFileEnablesRepoWithOverrides(t *testing.T) {
 			"etc/40-x.repo": "[example]\nenabled=1\n",
 			"usr/50-x.repo": "[example]\nenabled=0\n",
 		}, false},
+		{"masked by a file of the same name", map[string]string{
+			"usr/50-x.repo": "[example]\nenabled=0\n",
+			"etc/50-x.repo": "[example]\npriority=10\n",
+		}, true},
 		{"not a repo file", map[string]string{"etc/50-x.conf": "[example]\nenabled=0\n"}, true},
 	}
 	for _, c := range cases {

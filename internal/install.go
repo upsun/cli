@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"maps"
 	"os"
 	"os/exec"
 	"path"
@@ -194,18 +195,18 @@ func anyFileEnablesRepo(patterns, overridePatterns []string, repo string) bool {
 }
 
 // readOverrides reads the files matching the glob patterns, ordered by file name as DNF applies them.
+// A file masks those of the same name that match an earlier pattern.
 func readOverrides(patterns []string) [][]byte {
-	var paths []string
+	paths := map[string]string{}
 	for _, pattern := range patterns {
 		matches, _ := filepath.Glob(pattern)
-		paths = append(paths, matches...)
+		for _, path := range matches {
+			paths[filepath.Base(path)] = path
+		}
 	}
-	slices.SortStableFunc(paths, func(a, b string) int {
-		return strings.Compare(filepath.Base(a), filepath.Base(b))
-	})
 	var contents [][]byte
-	for _, path := range paths {
-		if b, err := os.ReadFile(path); err == nil {
+	for _, name := range slices.Sorted(maps.Keys(paths)) {
+		if b, err := os.ReadFile(paths[name]); err == nil {
 			contents = append(contents, b)
 		}
 	}
