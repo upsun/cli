@@ -33,6 +33,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  *     minimum: Sizing,
  *     default: Sizing,
  *     object_storage?: int,
+ *     instance_disk?: int,
  * }
  * @phpstan-type ProfileSize array{cpu: float, memory: int, cpu_type: string}
  * @phpstan-type ContainerProfiles array<string, array<int|string, ProfileSize>>
@@ -255,6 +256,9 @@ class ResourcesUtil
         if (isset($disk['object']) && is_int($disk['object'])) {
             $resources['object_storage'] = $disk['object'];
         }
+        if (isset($disk['instance']) && is_int($disk['instance'])) {
+            $resources['instance_disk'] = $disk['instance'];
+        }
 
         return $resources;
     }
@@ -349,6 +353,31 @@ class ResourcesUtil
     {
         $disk = $service->getProperties()['disk'] ?? null;
         return is_int($disk) ? $disk : null;
+    }
+
+    /**
+     * Returns an app's or worker's instance disk size in MB, if it has instance mounts.
+     */
+    public function instanceDisk(WebApp|Worker|Service|Task $service): ?int
+    {
+        if (($service instanceof WebApp || $service instanceof Worker) && self::hasInstanceMounts($service)) {
+            return $this->resources($service)['instance_disk'] ?? null;
+        }
+        return null;
+    }
+
+    /**
+     * Checks whether an app or worker has instance mounts ("local" on Fixed), which use its instance disk.
+     */
+    public static function hasInstanceMounts(WebApp|Worker $app): bool
+    {
+        $mounts = $app->getProperty('mounts', false);
+        foreach (is_array($mounts) ? $mounts : [] as $mount) {
+            if (is_array($mount) && in_array($mount['source'] ?? null, ['instance', 'local'], true)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

@@ -1357,24 +1357,6 @@ parameters:
 			path: src/Command/Local/LocalDrushAliasesCommand.php
 
 		-
-			message: '#^Cannot access offset ''_from'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/AllMetricsCommand.php
-
-		-
-			message: '#^Cannot access offset ''_grain'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/AllMetricsCommand.php
-
-		-
-			message: '#^Cannot access offset ''_to'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/AllMetricsCommand.php
-
-		-
 			message: '#^Parameter \#1 \$duration of method Khill\\Duration\\Duration\:\:humanize\(\) expects float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -1391,48 +1373,6 @@ parameters:
 			identifier: argument.type
 			count: 2
 			path: src/Command/Metrics/AllMetricsCommand.php
-
-		-
-			message: '#^Parameter \#1 \$values of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:buildRows\(\) expects array\<mixed\>, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Metrics/AllMetricsCommand.php
-
-		-
-			message: '#^Parameter \#3 \$environment of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:buildRows\(\) expects Platformsh\\Client\\Model\\Environment, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Metrics/AllMetricsCommand.php
-
-		-
-			message: '#^Parameter \#3 \$values of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:storageColumns\(\) expects array\<mixed\>, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Metrics/AllMetricsCommand.php
-
-		-
-			message: '#^Parameter \#6 \$environment of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:storageColumns\(\) expects Platformsh\\Client\\Model\\Environment, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Metrics/AllMetricsCommand.php
-
-		-
-			message: '#^Cannot access offset ''_from'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/CpuCommand.php
-
-		-
-			message: '#^Cannot access offset ''_grain'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/CpuCommand.php
-
-		-
-			message: '#^Cannot access offset ''_to'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/CpuCommand.php
 
 		-
 			message: '#^Parameter \#1 \$duration of method Khill\\Duration\\Duration\:\:humanize\(\) expects float\|int\|string\|null, mixed given\.$#'
@@ -1453,36 +1393,6 @@ parameters:
 			path: src/Command/Metrics/CpuCommand.php
 
 		-
-			message: '#^Parameter \#1 \$values of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:buildRows\(\) expects array\<mixed\>, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Metrics/CpuCommand.php
-
-		-
-			message: '#^Parameter \#3 \$environment of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:buildRows\(\) expects Platformsh\\Client\\Model\\Environment, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Metrics/CpuCommand.php
-
-		-
-			message: '#^Cannot access offset ''_from'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/DiskUsageCommand.php
-
-		-
-			message: '#^Cannot access offset ''_grain'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/DiskUsageCommand.php
-
-		-
-			message: '#^Cannot access offset ''_to'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/DiskUsageCommand.php
-
-		-
 			message: '#^Parameter \#1 \$duration of method Khill\\Duration\\Duration\:\:humanize\(\) expects float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -1501,48 +1411,6 @@ parameters:
 			path: src/Command/Metrics/DiskUsageCommand.php
 
 		-
-			message: '#^Parameter \#1 \$values of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:buildRows\(\) expects array\<mixed\>, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Metrics/DiskUsageCommand.php
-
-		-
-			message: '#^Parameter \#3 \$environment of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:buildRows\(\) expects Platformsh\\Client\\Model\\Environment, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Metrics/DiskUsageCommand.php
-
-		-
-			message: '#^Parameter \#3 \$values of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:storageColumns\(\) expects array\<mixed\>, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Metrics/DiskUsageCommand.php
-
-		-
-			message: '#^Parameter \#6 \$environment of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:storageColumns\(\) expects Platformsh\\Client\\Model\\Environment, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Metrics/DiskUsageCommand.php
-
-		-
-			message: '#^Cannot access offset ''_from'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/MemCommand.php
-
-		-
-			message: '#^Cannot access offset ''_grain'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/MemCommand.php
-
-		-
-			message: '#^Cannot access offset ''_to'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Command/Metrics/MemCommand.php
-
-		-
 			message: '#^Parameter \#1 \$duration of method Khill\\Duration\\Duration\:\:humanize\(\) expects float\|int\|string\|null, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -1558,24 +1426,12 @@ parameters:
 			message: '#^Parameter \#1 \$value of method Platformsh\\Cli\\Service\\PropertyFormatter\:\:formatDate\(\) expects int\|string, mixed given\.$#'
 			identifier: argument.type
 			count: 2
-			path: src/Command/Metrics/MemCommand.php
-
-		-
-			message: '#^Parameter \#1 \$values of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:buildRows\(\) expects array\<mixed\>, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Metrics/MemCommand.php
-
-		-
-			message: '#^Parameter \#3 \$environment of method Platformsh\\Cli\\Command\\Metrics\\MetricsCommandBase\:\:buildRows\(\) expects Platformsh\\Client\\Model\\Environment, mixed given\.$#'
-			identifier: argument.type
-			count: 1
 			path: src/Command/Metrics/MemCommand.php
 
 		-
 			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
 			identifier: foreach.nonIterable
-			count: 3
+			count: 2
 			path: src/Command/Metrics/MetricsCommandBase.php
 
 		-
@@ -1591,21 +1447,9 @@ parameters:
 			path: src/Command/Metrics/MetricsCommandBase.php
 
 		-
-			message: '#^Cannot access offset ''data'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 3
-			path: src/Command/Metrics/MetricsCommandBase.php
-
-		-
 			message: '#^Cannot access offset ''services'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 3
-			path: src/Command/Metrics/MetricsCommandBase.php
-
-		-
-			message: '#^Cannot access offset ''source'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
 			path: src/Command/Metrics/MetricsCommandBase.php
 
 		-

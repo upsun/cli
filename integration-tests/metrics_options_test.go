@@ -90,9 +90,10 @@ func TestMetricsServiceOptions(t *testing.T) {
 	}{
 		{name: "all services", args: nil},
 		{name: "service", args: []string{"--service", "app"}, wantServices: []string{"app"}},
-		{name: "services with a wildcard", args: []string{"-s", "a*,router"}, wantServices: []string{"app", "router"}},
+		{name: "services with a wildcard", args: []string{"-s", "a*,router"},
+			wantServices: []string{"app", "app--queue", "router"}},
 		{name: "type without a version", args: []string{"--type", "mariadb"}, wantServices: []string{"db"}},
-		{name: "type with a version", args: []string{"--type", "php:8.4"}, wantServices: []string{"app"}},
+		{name: "type with a version", args: []string{"--type", "php:8.4"}, wantServices: []string{"app", "app--queue"}},
 		{name: "service takes precedence over type", args: []string{"--service", "app", "--type", "mariadb"},
 			wantServices: []string{"app"}},
 		{name: "unknown service", args: []string{"--service", "nope"},
@@ -136,25 +137,29 @@ func TestMetricsDisplayOptions(t *testing.T) {
 	}{
 		{
 			name: "all in bytes",
-			args: []string{"metrics:all", "--bytes", "--no-header", "-c", "service,mem_used,disk_used,tmp_disk_limit"},
-			want: "app,256,100,1000\ndb,256,250,1000\n",
+			args: []string{"metrics:all", "--bytes", "--no-header", "-s", "app,db", "-c",
+				"service,mem_used,storage_used,instance_disk_used,tmp_disk_limit"},
+			want: "app,256,,100,1000\ndb,256,250,,1000\n",
 		},
 		{
 			name: "all in units",
-			args: []string{"metrics:all", "--no-header", "-c", "service,mem_used,disk_used"},
-			want: "app,256 B,100 B\ndb,256 B,250 B\n",
+			args: []string{"metrics:all", "--no-header", "-s", "app,db", "-c",
+				"service,mem_used,storage_used,instance_disk_used"},
+			want: "app,256 B,,100 B\ndb,256 B,250 B,\n",
 		},
 		{
 			name: "temporary disk usage",
 			args: []string{"disk", "--tmp", "--bytes"},
 			want: "Timestamp,Service,/tmp used,/tmp limit,/tmp %,/tmp inodes %\n" +
 				"2026-09-23T19:00:00+00:00,app,500,1000,50.0%,4.0%\n" +
-				"2026-09-23T19:00:00+00:00,db,10,1000,1.0%,0.1%\n",
+				"2026-09-23T19:00:00+00:00,app--queue,20,1000,2.0%,0.2%\n" +
+				"2026-09-23T19:00:00+00:00,db,10,1000,1.0%,0.1%\n" +
+				"2026-09-23T19:00:00+00:00,router,30,1000,3.0%,0.3%\n",
 		},
 		{
 			name: "temporary disk usage with columns",
 			args: []string{"disk", "--tmp", "--bytes", "--no-header", "--columns", "service,tmp_used,tmp_iused"},
-			want: "app,500,40\ndb,10,1\n",
+			want: "app,500,40\napp--queue,20,2\ndb,10,1\nrouter,30,3\n",
 		},
 	}
 	for _, c := range cases {

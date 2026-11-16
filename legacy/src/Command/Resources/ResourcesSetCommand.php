@@ -63,13 +63,14 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 . "\nItems are in the format <info>name:value</info> as above.",
             )
             ->addOption(
-                'disk',
-                'D',
+                'storage',
+                null,
                 InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
-                'Set the disk size (in MB) of apps or services.'
+                'Set the storage size (in MB) of apps or services.'
                 . "\nItems are in the format <info>name:value</info> as above."
                 . "\nA value of 'default' will use the default size, and 'min' or 'minimum' will use the minimum.",
             )
+            ->addHiddenOption('disk', 'D', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Deprecated: use --storage instead')
             ->addOption(
                 'object-storage',
                 null,
@@ -93,7 +94,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
         $helpLines = [
             'Configure the resources allocated to apps, workers, tasks and services on an environment.',
             '',
-            'The resources may be the profile size, the instance count, or the disk size (MB).',
+            'The resources may be the profile size, the instance count, the storage size (MB), or the object storage size (MB).',
             'Tasks are run-to-completion containers: only their profile size can be set.',
             '',
             sprintf('Profile sizes are predefined CPU & memory values that can be viewed by running: <info>%s resources:sizes</info>', $this->config->getStr('application.executable')),
@@ -111,7 +112,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
         $this->addExample('Set profile sizes for two apps and a service', '--size frontend:0.1,backend:.25,database:1');
         $this->addExample('Give the "backend" app 3 instances', '--count backend:3');
         $this->addExample('Give the "database_replica" service 2 instances', '--count database_replica:2');
-        $this->addExample('Give 512 MB disk to the "backend" app and 2 GB to the "database" service', '--disk backend:512,database:2048');
+        $this->addExample('Give 512 MB of storage to the "backend" app and 2 GB to the "database" service', '--storage backend:512,database:2048');
         $this->addExample('Give 524288 MB (512 GB) of object storage to the "backend" app', '--object-storage backend:524288');
         $this->addExample('Set the same profile size for the "backend" and "frontend" apps using a wildcard', '--size ' . OsUtil::escapeShellArg('*end:0.1'));
         $this->addExample('Set the same instance count for all apps using a wildcard', '--count ' . OsUtil::escapeShellArg('*:3'));
@@ -119,6 +120,17 @@ class ResourcesSetCommand extends ResourcesCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        // The deprecated --disk option is read in place of --storage.
+        $storageOption = 'storage';
+        if (Option::stringArray($input, 'disk') !== []) {
+            if (Option::stringArray($input, 'storage') !== []) {
+                $this->stdErr->writeln('The <error>--disk</error> and <error>--storage</error> options cannot be used together.');
+                return 1;
+            }
+            $this->io->warnAboutDeprecatedOptions(['disk'], 'The option --%s has been renamed to --storage.');
+            $storageOption = 'disk';
+        }
+
         $selection = $this->selector->getSelection($input);
         if (!$this->api->supportsSizingApi($selection->getProject())) {
             $this->resourcesUtil->writeSizingApiDisabledError($selection->getProject());
@@ -172,8 +184,8 @@ class ResourcesSetCommand extends ResourcesCommandBase
         [$givenCounts, $countErrored] = $this->parseSetting($input, 'count', $services, fn(string $v, string $serviceName, WebApp|Worker|Service|Task $service): int => $this->validateInstanceCount($v, $serviceName, $service, $instanceLimit, !empty($autoscalingEnabled[$serviceName])));
         $errored = $errored || $countErrored;
 
-        // Validate the --disk option.
-        [$givenDiskSizes, $diskErrored] = $this->parseSetting($input, 'disk', $services, fn(string $v, string $serviceName, WebApp|Worker|Service|Task $service): int => $this->validateDiskSize($v, $serviceName, $service));
+        // Validate the --storage option.
+        [$givenDiskSizes, $diskErrored] = $this->parseSetting($input, $storageOption, $services, fn(string $v, string $serviceName, WebApp|Worker|Service|Task $service): int => $this->validateDiskSize($v, $serviceName, $service));
         $errored = $errored || $diskErrored;
 
         // Validate the --object-storage option.
@@ -208,7 +220,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
         $showCompleteForm = $input->isInteractive()
             && Option::stringArray($input, 'size') === []
             && Option::stringArray($input, 'count') === []
-            && Option::stringArray($input, 'disk') === []
+            && Option::stringArray($input, $storageOption) === []
             && Option::stringArray($input, 'object-storage') === [];
 
         $updates = [];
@@ -320,7 +332,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 }
             }
 
-            // Set the disk size.
+            // Set the storage size.
             if ($this->resourcesUtil->supportsDisk($service)) {
                 $diskIsRequiredButUnset = $this->diskIsRequiredButUnset($service);
                 if (isset($givenDiskSizes[$name])) {
@@ -330,12 +342,12 @@ class ResourcesSetCommand extends ResourcesCommandBase
                 } elseif ($showCompleteForm || ($diskIsRequiredButUnset && $input->isInteractive())) {
                     $ensureHeader();
                     $default = $currentDisk ?: $resources['default']['disk'] ?? 512;
-                    $diskSize = $this->questionHelper->askInput('Enter a disk size in MB', (string) $default, ['512', '1024', '2048'], fn($v) => $this->validateDiskSize($v, $name, $service));
+                    $diskSize = $this->questionHelper->askInput('Enter a storage size in MB', (string) $default, ['512', '1024', '2048'], fn($v) => $this->validateDiskSize($v, $name, $service));
                     if ($diskSize !== $currentDisk) {
                         $updates[$group][$name]['disk'] = $diskSize;
                     }
                 } elseif ($diskIsRequiredButUnset) {
-                    $this->stdErr->writeln(sprintf('A disk size is required for the %s <comment>%s</comment>.', $type, $name));
+                    $this->stdErr->writeln(sprintf('A storage size is required for the %s <comment>%s</comment>.', $type, $name));
                     $errored = true;
                 }
             }
@@ -497,7 +509,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
             ));
         }
         if (isset($updates['disk'])) {
-            $this->stdErr->writeln('    Disk: ' . $this->resourcesUtil->formatChange(
+            $this->stdErr->writeln('    Storage: ' . $this->resourcesUtil->formatChange(
                 $this->resourcesUtil->disk($service),
                 $updates['disk'],
                 ' MB',
@@ -609,7 +621,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
     {
         if (!$this->resourcesUtil->supportsDisk($service)) {
             throw new InvalidArgumentException(sprintf(
-                'The %s <error>%s</error> does not support a persistent disk.',
+                'The %s <error>%s</error> does not support storage.',
                 $this->typeName($service),
                 $serviceName,
             ));
@@ -630,13 +642,13 @@ class ResourcesSetCommand extends ResourcesCommandBase
         $size = (int) $value;
         if ($size != $value || $value < 0) {
             throw new InvalidArgumentException(sprintf(
-                'Invalid disk size <error>%s</error>: it must be an integer in MB.',
+                'Invalid storage size <error>%s</error>: it must be an integer in MB.',
                 $value,
             ));
         }
         if (isset($properties['resources']['minimum']['disk']) && $value < $properties['resources']['minimum']['disk']) {
             throw new InvalidArgumentException(sprintf(
-                'Invalid disk size <error>%s</error>: the minimum size for this %s is <error>%d</error> MB.',
+                'Invalid storage size <error>%s</error>: the minimum size for this %s is <error>%d</error> MB.',
                 $value,
                 $this->typeName($service),
                 $properties['resources']['minimum']['disk'],
@@ -723,7 +735,7 @@ class ResourcesSetCommand extends ResourcesCommandBase
     }
 
     /**
-     * Parses a user's list of settings for --size, --instances or --disk.
+     * Parses a user's list of settings for --size, --count, --storage or --object-storage.
      *
      * @template T of int|string
      *

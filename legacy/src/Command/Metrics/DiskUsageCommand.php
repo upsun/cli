@@ -5,12 +5,7 @@ declare(strict_types=1);
 namespace Platformsh\Cli\Command\Metrics;
 
 use Platformsh\Cli\Console\Option;
-use Platformsh\Cli\Model\Metrics\Aggregation;
-use Platformsh\Cli\Model\Metrics\Field;
-use Platformsh\Cli\Model\Metrics\Format;
 use Platformsh\Cli\Model\Metrics\MetricKind;
-use Platformsh\Cli\Model\Metrics\SourceField;
-use Platformsh\Cli\Model\Metrics\SourceFieldPercentage;
 use Platformsh\Cli\Selector\Selector;
 use Khill\Duration\Duration;
 use Platformsh\Cli\Service\PropertyFormatter;
@@ -28,18 +23,6 @@ class DiskUsageCommand extends MetricsCommandBase
         'timestamp' => 'Timestamp',
         'service' => 'Service',
         'type' => 'Type',
-        'used' => 'Used',
-        'limit' => 'Limit',
-        'percent' => 'Used %',
-        'iused' => 'Inodes used',
-        'ilimit' => 'Inodes limit',
-        'ipercent' => 'Inodes %',
-        'tmp_used' => '/tmp used',
-        'tmp_limit' => '/tmp limit',
-        'tmp_percent' => '/tmp %',
-        'tmp_iused' => '/tmp inodes used',
-        'tmp_ilimit' => '/tmp inodes limit',
-        'tmp_ipercent' => '/tmp inodes %',
         'storage_used' => 'Storage used',
         'storage_limit' => 'Storage limit',
         'storage_percent' => 'Storage %',
@@ -50,9 +33,49 @@ class DiskUsageCommand extends MetricsCommandBase
         'object_limit' => 'Object storage limit',
         'object_percent' => 'Object storage %',
         'object_count' => 'Object count',
+        'instance_used' => 'Instance disk used',
+        'instance_limit' => 'Instance disk limit',
+        'instance_percent' => 'Instance disk %',
+        'instance_iused' => 'Instance disk inodes used',
+        'instance_ilimit' => 'Instance disk inodes limit',
+        'instance_ipercent' => 'Instance disk inodes %',
+        'tmp_used' => '/tmp used',
+        'tmp_limit' => '/tmp limit',
+        'tmp_percent' => '/tmp %',
+        'tmp_iused' => '/tmp inodes used',
+        'tmp_ilimit' => '/tmp inodes limit',
+        'tmp_ipercent' => '/tmp inodes %',
+    ];
+    /**
+     * Deprecated columns, with the raw /mnt values of every container. They are added only when requested.
+     *
+     * @var array<string, string>
+     */
+    private const DEPRECATED_HEADER = [
+        'used' => 'Used',
+        'limit' => 'Limit',
+        'percent' => 'Used %',
+        'iused' => 'Inodes used',
+        'ilimit' => 'Inodes limit',
+        'ipercent' => 'Inodes %',
     ];
     /** @var string[] */
-    private array $defaultColumns = ['timestamp', 'service', 'used', 'limit', 'percent', 'ipercent', 'tmp_percent'];
+    private array $defaultColumns = [
+        'timestamp',
+        'service',
+        'storage_used',
+        'storage_limit',
+        'storage_percent',
+        'storage_ipercent',
+        'object_used',
+        'object_limit',
+        'object_percent',
+        'instance_used',
+        'instance_limit',
+        'instance_percent',
+        'instance_ipercent',
+        'tmp_percent',
+    ];
     /** @var string[] */
     private array $tmpReportColumns = ['timestamp', 'service', 'tmp_used', 'tmp_limit', 'tmp_percent', 'tmp_ipercent'];
 
@@ -88,77 +111,25 @@ class DiskUsageCommand extends MetricsCommandBase
 
         $bytes = Option::bool($input, 'bytes');
 
-        $fields = [
-            'used' => new Field(
-                $bytes ? Format::Rounded : Format::Disk,
-                new SourceField(MetricKind::DiskUsed, Aggregation::Avg, '/mnt'),
-            ),
-            'limit' => new Field(
-                $bytes ? Format::Rounded : Format::Disk,
-                new SourceField(MetricKind::DiskLimit, Aggregation::Max, '/mnt'),
-            ),
-            'percent' => new Field(
-                Format::Percent,
-                new SourceFieldPercentage(
-                    new SourceField(MetricKind::DiskUsed, Aggregation::Avg, '/mnt'),
-                    new SourceField(MetricKind::DiskLimit, Aggregation::Max, '/mnt')
-                ),
-            ),
+        $fields = $this->diskFields(self::STORAGE, $bytes, 'storage_', 'storage_i')
+            + $this->objectStorageFields($bytes, 'object_')
+            + $this->diskFields(self::INSTANCE_DISK, $bytes, 'instance_', 'instance_i')
+            + $this->diskFields('/tmp', $bytes, 'tmp_', 'tmp_i');
 
-            'iused' => new Field(
-                Format::Rounded,
-                new SourceField(MetricKind::InodesUsed, Aggregation::Avg, '/mnt'),
-            ),
-            'ilimit' => new Field(
-                Format::Rounded,
-                new SourceField(MetricKind::InodesLimit, Aggregation::Max, '/mnt'),
-            ),
-            'ipercent' => new Field(
-                Format::Percent,
-                new SourceFieldPercentage(
-                    new SourceField(MetricKind::InodesUsed, Aggregation::Avg, '/mnt'),
-                    new SourceField(MetricKind::InodesLimit, Aggregation::Max, '/mnt')
-                ),
-            ),
-
-            'tmp_used' => new Field(
-                $bytes ? Format::Rounded : Format::Disk,
-                new SourceField(MetricKind::DiskUsed, Aggregation::Avg, '/tmp'),
-            ),
-            'tmp_limit' => new Field(
-                $bytes ? Format::Rounded : Format::Disk,
-                new SourceField(MetricKind::DiskLimit, Aggregation::Max, '/tmp'),
-            ),
-            'tmp_percent' => new Field(
-                Format::Percent,
-                new SourceFieldPercentage(
-                    new SourceField(MetricKind::DiskUsed, Aggregation::Avg, '/tmp'),
-                    new SourceField(MetricKind::DiskLimit, Aggregation::Max, '/tmp')
-                ),
-            ),
-
-            'tmp_iused' => new Field(
-                Format::Rounded,
-                new SourceField(MetricKind::InodesUsed, Aggregation::Avg, '/tmp'),
-            ),
-            'tmp_ilimit' => new Field(
-                Format::Rounded,
-                new SourceField(MetricKind::InodesLimit, Aggregation::Max, '/tmp'),
-            ),
-            'tmp_ipercent' => new Field(
-                Format::Percent,
-                new SourceFieldPercentage(
-                    new SourceField(MetricKind::InodesUsed, Aggregation::Avg, '/tmp'),
-                    new SourceField(MetricKind::InodesLimit, Aggregation::Max, '/tmp')
-                ),
-            ),
-        ];
-        if ($this->storageMetricsEnabled()) {
-            $fields += $this->storageFields($bytes, 'storage_i');
-            $fields += $this->objectStorageFields($bytes, 'object_');
+        $replacements = [];
+        foreach (array_keys(self::DEPRECATED_HEADER) as $column) {
+            $replacements[$column] = \sprintf('<info>storage_%s</info> (services) or <info>instance_%1$s</info> (apps and workers)', $column);
         }
+        [$header, $fields] = $this->addDeprecatedColumns(self::TABLE_HEADER, $fields, self::DEPRECATED_HEADER, $this->diskFields('/mnt', $bytes, '', 'i'), $replacements, $output);
+
         $rows = $this->buildRows($values, $fields, $environment);
-        [$header, $defaultColumns] = $this->storageColumns(self::TABLE_HEADER, $this->defaultColumns, $values, ['storage_used', 'storage_limit', 'storage_percent', 'storage_ipercent'], ['object_used', 'object_limit', 'object_percent'], $environment);
+        $defaultColumns = $this->defaultColumns;
+        if (!$this->showInstanceDisk($values, $environment)) {
+            $defaultColumns = array_values(array_diff($defaultColumns, ['instance_used', 'instance_limit', 'instance_percent', 'instance_ipercent']));
+        }
+        if (!$this->showObjectStorage($values, $environment)) {
+            $defaultColumns = array_values(array_diff($defaultColumns, ['object_used', 'object_limit', 'object_percent']));
+        }
 
         if (!$this->table->formatIsMachineReadable()) {
             $formatter = $this->propertyFormatter;

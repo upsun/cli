@@ -149,6 +149,44 @@ class Table implements InputConfiguringInterface
     }
 
     /**
+     * Returns the deprecated columns named in --columns, and outputs a warning for each.
+     *
+     * Commands add these columns to the header only when they are requested,
+     * so that they are not listed in help or matched by wildcards (unless a
+     * wildcard matches no other column). A wildcard that matches both outputs
+     * a notice naming the deprecated columns.
+     *
+     * @param array<string, string> $deprecated
+     *   A map of deprecated column names to a description of their replacements.
+     * @param array<int|string, string|TableCell> $header
+     *   The table header, without the deprecated columns.
+     *
+     * @return string[] The requested deprecated column names (lower-case).
+     */
+    public function requestedDeprecatedColumns(array $deprecated, array $header, OutputInterface $output): array
+    {
+        $stdErr = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;
+        $availableColumns = array_keys(self::availableColumns($header));
+        $requested = [];
+        foreach ($this->specifiedColumns() as $column) {
+            $name = strtolower($column);
+            $matched = isset($deprecated[$name]) ? [$name] : [];
+            if (!$matched && strpbrk($name, '*%') !== false) {
+                $matched = Wildcard::select(array_keys($deprecated), [$name]);
+                if ($matched && Wildcard::select($availableColumns, [$name])) {
+                    $stdErr->writeln(\sprintf('The pattern <comment>%s</comment> no longer matches the deprecated columns: %s. Name them to include them.', $column, implode(', ', $matched)));
+                    continue;
+                }
+            }
+            foreach (array_diff($matched, $requested) as $match) {
+                $stdErr->writeln(\sprintf('<options=reverse>DEPRECATED</> The column <comment>%s</comment> is deprecated: use %s.', $match, $deprecated[$match]));
+                $requested[] = $match;
+            }
+        }
+        return $requested;
+    }
+
+    /**
      * Render an single-dimensional array of values, with their property names.
      *
      * @param array<int|string, string|TableCell> $values

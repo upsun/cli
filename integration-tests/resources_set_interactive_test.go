@@ -10,7 +10,7 @@ import (
 )
 
 // TestResourcesSet_Interactive exercises the interactive resources:set form:
-// the profile size, instance count and disk prompts, change detection, and the
+// the profile size, instance count and storage prompts, change detection, and the
 // resulting deployment update. Accepting every default must change nothing;
 // entering new values must submit them in the deployment PATCH body.
 func TestResourcesSet_Interactive(t *testing.T) {
@@ -38,7 +38,7 @@ func TestResourcesSet_Interactive(t *testing.T) {
 	f := serveAPI(t, apiHandler)
 
 	t.Run("accepting defaults changes nothing", func(t *testing.T) {
-		// Newlines accept the profile size, instance count and disk defaults.
+		// Newlines accept the profile size, instance count and storage defaults.
 		stdout, stderr, err := f.RunInteractive(
 			"\n\n\n",
 			"resources:set", "-p", projectID, "-e", "main", "--no-wait",
@@ -51,12 +51,13 @@ func TestResourcesSet_Interactive(t *testing.T) {
 		require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
 
 		assert.Contains(t, stderr, "Enter the number of instances")
+		assert.Contains(t, stderr, "Enter a storage size in MB")
 		assert.Contains(t, combined, "nothing to update")
 		assert.Empty(t, apiHandler.DeploymentPatches(projectID, "main"), "no deployment update should be submitted")
 	})
 
 	t.Run("entering new values submits them", func(t *testing.T) {
-		// Choose profile size "1", set 2 instances and a 1024 MB disk, confirm.
+		// Choose profile size "1", set 2 instances and 1024 MB of storage, confirm.
 		stdout, stderr, err := f.RunInteractive(
 			"1\n2\n1024\ny\n",
 			"resources:set", "-p", projectID, "-e", "main", "--no-wait",

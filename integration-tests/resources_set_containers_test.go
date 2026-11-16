@@ -151,8 +151,8 @@ func TestResourcesSet_Containers(t *testing.T) {
 			wantOut: []string{"nothing to update"},
 		},
 		{
-			name: "sizes and disks together",
-			args: []string{"--size", "app:1,db:2,cleanup:1", "--disk", "db:2048"},
+			name: "sizes and storage together",
+			args: []string{"--size", "app:1,db:2,cleanup:1", "--storage", "db:2048"},
 			wantPatch: patch{
 				"webapps":  {"app": {"resources": map[string]any{"profile_size": "1"}}},
 				"services": {"db": {"resources": map[string]any{"profile_size": "2"}, "disk": 2048}},
@@ -166,16 +166,55 @@ func TestResourcesSet_Containers(t *testing.T) {
 			wantOut: []string{"Size 3 not found in container profile BALANCED"},
 		},
 		{
-			name:    "disk on a worker",
-			args:    []string{"--disk", "app--queue:512"},
-			wantErr: true,
-			wantOut: []string{"The worker app--queue does not support a persistent disk."},
+			name:      "storage",
+			args:      []string{"--storage", "db:2048"},
+			wantPatch: patch{"services": {"db": {"disk": 2048}}},
+			wantOut:   []string{"Storage: increasing from 1024 MB to 2048 MB"},
 		},
 		{
-			name:    "disk on a service without one",
-			args:    []string{"--disk", "cache:512"},
+			name:      "deprecated --disk",
+			args:      []string{"--disk", "db:2048"},
+			wantPatch: patch{"services": {"db": {"disk": 2048}}},
+			wantOut: []string{
+				"The option --disk has been renamed to --storage.",
+				"Storage: increasing from 1024 MB to 2048 MB",
+			},
+		},
+		{
+			name:      "deprecated -D",
+			args:      []string{"-D", "app:1024"},
+			wantPatch: patch{"webapps": {"app": {"disk": 1024}}},
+			wantOut:   []string{"The option --disk has been renamed to --storage."},
+		},
+		{
+			name:    "invalid deprecated --disk",
+			args:    []string{"--disk", "db:100"},
 			wantErr: true,
-			wantOut: []string{"The service cache does not support a persistent disk."},
+			wantOut: []string{"Error in --disk value:", "Invalid storage size 100"},
+		},
+		{
+			name:    "--disk and --storage together",
+			args:    []string{"--disk", "db:2048", "--storage", "db:2048"},
+			wantErr: true,
+			wantOut: []string{"The --disk and --storage options cannot be used together."},
+		},
+		{
+			name:    "storage on a worker",
+			args:    []string{"--storage", "app--queue:512"},
+			wantErr: true,
+			wantOut: []string{"Error in --storage value:", "The worker app--queue does not support storage."},
+		},
+		{
+			name:    "storage on a service without it",
+			args:    []string{"--storage", "cache:512"},
+			wantErr: true,
+			wantOut: []string{"The service cache does not support storage."},
+		},
+		{
+			name:    "invalid storage",
+			args:    []string{"--storage", "db:100"},
+			wantErr: true,
+			wantOut: []string{"Invalid storage size 100: the minimum size for this service is 256 MB."},
 		},
 		{
 			name:      "app object storage",

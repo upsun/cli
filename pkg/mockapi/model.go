@@ -215,6 +215,8 @@ type Deployment struct {
 	Workers  map[string]Worker  `json:"workers"`
 	Tasks    map[string]App     `json:"tasks,omitempty"`
 
+	ProjectInfo map[string]any `json:"project_info,omitempty"`
+
 	Routes map[string]any `json:"routes"`
 
 	Links HalLinks `json:"_links,omitempty"`

@@ -15,9 +15,9 @@ use Platformsh\Cli\Selector\SelectorConfig;
 use Platformsh\Cli\Service\Io;
 use Platformsh\Cli\Service\Observability;
 use Platformsh\Cli\Service\PropertyFormatter;
+use Platformsh\Cli\Service\ResourcesUtil;
 use Platformsh\Cli\Service\Config;
 use Platformsh\Cli\Service\Api;
-use Platformsh\Cli\Service\ResourcesUtil;
 use Platformsh\Cli\Service\Table;
 use Symfony\Contracts\Service\Attribute\Required;
 use GuzzleHttp\Exception\BadResponseException;
@@ -37,6 +37,7 @@ use Platformsh\Client\Model\Environment;
 use Symfony\Component\Console\Helper\TableSeparator;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
 
 abstract class MetricsCommandBase extends CommandBase
 {
@@ -53,10 +54,14 @@ abstract class MetricsCommandBase extends CommandBase
     public const DEFAULT_RANGE = 600;
 
     // The mountpoint key of the network storage volume (used by "storage" mounts).
-    public const STORAGE_MOUNTPOINT = 'storage';
+    private const NETWORK_STORAGE_MOUNTPOINT = 'storage';
+
+    // Mountpoint keys added to each service's data, by container type (see mapDisks()).
+    protected const STORAGE = '@storage';
+    protected const INSTANCE_DISK = '@instance';
 
     // The mountpoint key of an app's object storage, whose inodes are the object count.
-    public const OBJECT_STORAGE_MOUNTPOINT = 'object storage';
+    protected const OBJECT_STORAGE = 'object storage';
 
     // Data points that started within this many seconds of now may still be missing services.
     private const LATEST_SETTLE_TIME = 120;
@@ -132,7 +137,7 @@ abstract class MetricsCommandBase extends CommandBase
      * @param InputInterface $input
      * @param array<String> $metricTypes
      * @param array<String> $metricAggs
-     * @return array<mixed>
+     * @return array{array<mixed>, Environment}
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
     protected function processQuery(InputInterface $input, array $metricTypes, array $metricAggs): array
@@ -188,7 +193,7 @@ abstract class MetricsCommandBase extends CommandBase
         $content = $result->getBody()->__toString();
         $items = json_decode($content, true);
 
-        if (empty($items)) {
+        if (empty($items) || !is_array($items)) {
             $this->stdErr->writeln('No data points found.');
 
             throw new \RuntimeException('No data points were found in the metrics response.');
@@ -272,52 +277,47 @@ abstract class MetricsCommandBase extends CommandBase
         return $selectedServiceNames;
     }
 
-    protected function storageMetricsEnabled(): bool
-    {
-        return $this->config->getBool('api.metrics_storage');
-    }
-
     /**
-     * Returns fields for the storage volume, with inode fields keyed by $inodesPrefix.
+     * Returns fields for a disk's usage, keyed by $diskPrefix and $inodesPrefix.
      *
      * @return array<string, Field>
      */
-    protected function storageFields(bool $bytes, string $inodesPrefix): array
+    protected function diskFields(string $mountpoint, bool $bytes, string $diskPrefix, string $inodesPrefix): array
     {
-        $m = self::STORAGE_MOUNTPOINT;
+        $used = new SourceField(MetricKind::DiskUsed, Aggregation::Avg, $mountpoint);
+        $limit = new SourceField(MetricKind::DiskLimit, Aggregation::Max, $mountpoint);
+        $iused = new SourceField(MetricKind::InodesUsed, Aggregation::Avg, $mountpoint);
+        $ilimit = new SourceField(MetricKind::InodesLimit, Aggregation::Max, $mountpoint);
 
         return [
-            'storage_used' => new Field(
-                $bytes ? Format::Rounded : Format::Disk,
-                new SourceField(MetricKind::DiskUsed, Aggregation::Avg, $m),
-            ),
-            'storage_limit' => new Field(
-                $bytes ? Format::Rounded : Format::Disk,
-                new SourceField(MetricKind::DiskLimit, Aggregation::Max, $m),
-            ),
-            'storage_percent' => new Field(
-                Format::Percent,
-                new SourceFieldPercentage(
-                    new SourceField(MetricKind::DiskUsed, Aggregation::Avg, $m),
-                    new SourceField(MetricKind::DiskLimit, Aggregation::Max, $m)
-                ),
-            ),
-            $inodesPrefix . 'used' => new Field(
-                Format::Rounded,
-                new SourceField(MetricKind::InodesUsed, Aggregation::Avg, $m),
-            ),
-            $inodesPrefix . 'limit' => new Field(
-                Format::Rounded,
-                new SourceField(MetricKind::InodesLimit, Aggregation::Max, $m),
-            ),
-            $inodesPrefix . 'percent' => new Field(
-                Format::Percent,
-                new SourceFieldPercentage(
-                    new SourceField(MetricKind::InodesUsed, Aggregation::Avg, $m),
-                    new SourceField(MetricKind::InodesLimit, Aggregation::Max, $m)
-                ),
-            ),
+            $diskPrefix . 'used' => new Field($bytes ? Format::Rounded : Format::Disk, $used),
+            $diskPrefix . 'limit' => new Field($bytes ? Format::Rounded : Format::Disk, $limit),
+            $diskPrefix . 'percent' => new Field(Format::Percent, new SourceFieldPercentage($used, $limit)),
+            $inodesPrefix . 'used' => new Field(Format::Rounded, $iused),
+            $inodesPrefix . 'limit' => new Field(Format::Rounded, $ilimit),
+            $inodesPrefix . 'percent' => new Field(Format::Percent, new SourceFieldPercentage($iused, $ilimit)),
         ];
+    }
+
+    /**
+     * Adds the header and fields of the deprecated columns requested in --columns.
+     *
+     * @param array<string, string> $header
+     * @param array<string, Field> $fields
+     * @param array<string, string> $deprecatedHeader
+     * @param array<string, Field> $deprecatedFields
+     * @param array<string, string> $replacements
+     *   A map of deprecated column names to a description of their replacements.
+     * @return array{array<string, string>, array<string, Field>}
+     */
+    protected function addDeprecatedColumns(array $header, array $fields, array $deprecatedHeader, array $deprecatedFields, array $replacements, OutputInterface $output): array
+    {
+        foreach ($this->table->requestedDeprecatedColumns($replacements, $header, $output) as $column) {
+            $header[$column] = $deprecatedHeader[$column];
+            $fields[$column] = $deprecatedFields[$column];
+        }
+
+        return [$header, $fields];
     }
 
     /**
@@ -327,61 +327,66 @@ abstract class MetricsCommandBase extends CommandBase
      */
     protected function objectStorageFields(bool $bytes, string $prefix): array
     {
-        $m = self::OBJECT_STORAGE_MOUNTPOINT;
+        $used = new SourceField(MetricKind::DiskUsed, Aggregation::Avg, self::OBJECT_STORAGE);
+        $limit = new SourceField(MetricKind::DiskLimit, Aggregation::Max, self::OBJECT_STORAGE);
 
         return [
-            $prefix . 'used' => new Field(
-                $bytes ? Format::Rounded : Format::Disk,
-                new SourceField(MetricKind::DiskUsed, Aggregation::Avg, $m),
-            ),
-            $prefix . 'limit' => new Field(
-                $bytes ? Format::Rounded : Format::Disk,
-                new SourceField(MetricKind::DiskLimit, Aggregation::Max, $m),
-            ),
-            $prefix . 'percent' => new Field(
-                Format::Percent,
-                new SourceFieldPercentage(
-                    new SourceField(MetricKind::DiskUsed, Aggregation::Avg, $m),
-                    new SourceField(MetricKind::DiskLimit, Aggregation::Max, $m)
-                ),
-            ),
-            $prefix . 'count' => new Field(
-                Format::Rounded,
-                new SourceField(MetricKind::InodesUsed, Aggregation::Avg, $m),
-            ),
+            $prefix . 'used' => new Field($bytes ? Format::Rounded : Format::Disk, $used),
+            $prefix . 'limit' => new Field($bytes ? Format::Rounded : Format::Disk, $limit),
+            $prefix . 'percent' => new Field(Format::Percent, new SourceFieldPercentage($used, $limit)),
+            $prefix . 'count' => new Field(Format::Rounded, new SourceField(MetricKind::InodesUsed, Aggregation::Avg, self::OBJECT_STORAGE)),
         ];
     }
 
     /**
-     * Adjusts the table header and default columns for storage metrics.
+     * Checks whether instance disk columns should be shown by default.
      *
-     * Storage and object storage columns are removed if storage metrics are
-     * disabled. Otherwise, the $storageColumns and $objectStorageColumns are
-     * shown by default in machine-readable formats (for stable output), or in
-     * tables if the environment uses storage or object storage respectively.
+     * They are shown in machine-readable formats (for stable output), or in
+     * tables if a returned app or worker has instance mounts.
      *
-     * @param array<string, string> $header
-     * @param string[] $defaultColumns
      * @param array<mixed> $values
-     * @param string[] $storageColumns
-     * @param string[] $objectStorageColumns
-     * @return array{array<string, string>, string[]}
      */
-    protected function storageColumns(array $header, array $defaultColumns, array $values, array $storageColumns, array $objectStorageColumns, Environment $environment): array
+    protected function showInstanceDisk(array $values, Environment $environment): bool
     {
-        if (!$this->storageMetricsEnabled()) {
-            return [array_filter($header, fn($key): bool => !str_starts_with($key, 'storage_') && !str_starts_with($key, 'object_'), ARRAY_FILTER_USE_KEY), $defaultColumns];
+        if ($this->table->formatIsMachineReadable()) {
+            return true;
         }
-        $machineReadable = $this->table->formatIsMachineReadable();
-        $mountpoints = $machineReadable ? [] : $this->reportedMountpoints($values);
-        if ($machineReadable || $this->usesStorage($mountpoints, $environment)) {
-            $defaultColumns = array_merge($defaultColumns, $storageColumns);
-        }
-        if ($machineReadable || $this->usesObjectStorage($mountpoints, $environment)) {
-            $defaultColumns = array_merge($defaultColumns, $objectStorageColumns);
+        foreach ($this->returnedApps($this->reportedMountpoints($values), $environment) as $app) {
+            if (ResourcesUtil::hasInstanceMounts($app)) {
+                return true;
+            }
         }
 
-        return [$header, $defaultColumns];
+        return false;
+    }
+
+    /**
+     * Checks whether object storage columns should be shown by default.
+     *
+     * They are shown in machine-readable formats (for stable output), or in
+     * tables if a returned service reports object storage, or a returned app
+     * has an object storage quota.
+     *
+     * @param array<mixed> $values
+     */
+    protected function showObjectStorage(array $values, Environment $environment): bool
+    {
+        if ($this->table->formatIsMachineReadable()) {
+            return true;
+        }
+        $mountpoints = $this->reportedMountpoints($values);
+        foreach ($mountpoints as $serviceMountpoints) {
+            if (isset($serviceMountpoints[self::OBJECT_STORAGE])) {
+                return true;
+            }
+        }
+        foreach ($this->returnedApps($mountpoints, $environment) as $app) {
+            if ($app instanceof WebApp && ($this->resourcesUtil->resources($app)['object_storage'] ?? 0) > 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -403,50 +408,6 @@ abstract class MetricsCommandBase extends CommandBase
         }
 
         return $result;
-    }
-
-    /**
-     * Checks if any of the returned services reports storage or has storage mounts.
-     *
-     * @param array<array<mixed>> $mountpoints
-     */
-    private function usesStorage(array $mountpoints, Environment $environment): bool
-    {
-        foreach ($mountpoints as $serviceMountpoints) {
-            if (isset($serviceMountpoints[self::STORAGE_MOUNTPOINT])) {
-                return true;
-            }
-        }
-        foreach ($this->returnedApps($mountpoints, $environment) as $app) {
-            foreach ($app->getProperty('mounts', false) ?: [] as $mount) {
-                if (($mount['source'] ?? null) === 'storage') {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Checks if any of the returned services reports object storage or has an object storage quota.
-     *
-     * @param array<array<mixed>> $mountpoints
-     */
-    private function usesObjectStorage(array $mountpoints, Environment $environment): bool
-    {
-        foreach ($mountpoints as $serviceMountpoints) {
-            if (isset($serviceMountpoints[self::OBJECT_STORAGE_MOUNTPOINT])) {
-                return true;
-            }
-        }
-        foreach ($this->returnedApps($mountpoints, $environment) as $app) {
-            if ($app instanceof WebApp && ($this->resourcesUtil->resources($app)['object_storage'] ?? 0) > 0) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -595,6 +556,9 @@ abstract class MetricsCommandBase extends CommandBase
                 if (!isset($serviceTypes[$service])) {
                     $serviceTypes[$service] = $this->getServiceType($environment, $service);
                 }
+                if (is_array($byDimension) && is_string($service)) {
+                    $byDimension = $this->mapDisks($byDimension, $this->isService($environment, $service));
+                }
 
                 $row = [];
                 $row['timestamp'] = new AdaptiveTableCell($formattedTimestamp, ['wrap' => false]);
@@ -610,6 +574,51 @@ abstract class MetricsCommandBase extends CommandBase
         }
 
         return $rows;
+    }
+
+    /**
+     * Adds the storage and instance disk to a service's data point, by container type.
+     *
+     * A service's storage is its /mnt volume. An app or worker has network
+     * storage, and its /mnt is its instance disk. Others (e.g. the router)
+     * have neither.
+     *
+     * @param array<mixed> $point
+     * @return array<mixed>
+     */
+    private function mapDisks(array $point, ?bool $isService): array
+    {
+        if (!is_array($point['mountpoints'] ?? null)) {
+            return $point;
+        }
+        $sources = match ($isService) {
+            true => [self::STORAGE => '/mnt'],
+            false => [self::STORAGE => self::NETWORK_STORAGE_MOUNTPOINT, self::INSTANCE_DISK => '/mnt'],
+            null => [],
+        };
+        foreach ($sources as $key => $source) {
+            if (isset($point['mountpoints'][$source])) {
+                $point['mountpoints'][$key] = $point['mountpoints'][$source];
+            }
+        }
+
+        return $point;
+    }
+
+    /**
+     * Checks whether a container is a service (true), or an app or worker (false), or neither (null).
+     */
+    private function isService(Environment $environment, string $name): ?bool
+    {
+        $deployment = $this->api->getCurrentDeployment($environment);
+        if (isset($deployment->services[$name])) {
+            return true;
+        }
+        if (isset($deployment->webapps[$name]) || isset($deployment->workers[$name])) {
+            return false;
+        }
+
+        return null;
     }
 
     private function getServiceType(Environment $environment, string $service): string
@@ -678,8 +687,8 @@ abstract class MetricsCommandBase extends CommandBase
             if (!isset($point['mountpoints'][$sourceField->mountpoint])) {
                 return null;
             }
-            // Storage volumes may not report every metric.
-            if (\in_array($sourceField->mountpoint, [self::STORAGE_MOUNTPOINT, self::OBJECT_STORAGE_MOUNTPOINT], true)) {
+            // Storage, instance disks and object storage may not report every metric.
+            if (\in_array($sourceField->mountpoint, [self::STORAGE, self::INSTANCE_DISK, self::OBJECT_STORAGE], true)) {
                 return $point['mountpoints'][$sourceField->mountpoint][$sourceField->source->value][$sourceField->aggregation->value] ?? null;
             }
             if (!isset($point['mountpoints'][$sourceField->mountpoint][$sourceField->source->value])) {
