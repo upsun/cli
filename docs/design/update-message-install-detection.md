@@ -26,7 +26,9 @@ got a new release when they happened to upgrade. This revision changes that:
   the method is only `apt`, `dnf`, `yum` or `apk` if the package manager's
   configuration (`/etc/apt/sources.list*`, `/etc/yum.repos.d/*.repo`,
   `/etc/apk/repositories*`) mentions the repository's host, the new
-  `wrapper.package_repository` config key. Otherwise it is `package`.
+  `wrapper.package_repository` config key. Otherwise it is `package`. Comments
+  do not count, nor does a file that disables a repository (`enabled=0`,
+  `Enabled: no`).
 - The package name is the new `wrapper.package_name` config key.
 - Commands, with `sudo` unless running as root (or `doas`, if it is installed
   and `sudo` is not, as is usual on Alpine):

@@ -1,12 +1,12 @@
 package internal
 
 import (
-	"bytes"
 	"context"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -150,28 +150,49 @@ func (p *installProbe) packageMethod() InstallMethod {
 
 // packageRepoFiles lists the files (as glob patterns) that configure each package manager's repositories.
 var packageRepoFiles = map[InstallMethod][]string{
-	InstallApt: {"/etc/apt/sources.list", "/etc/apt/sources.list.d/*"},
+	InstallApt: {"/etc/apt/sources.list", "/etc/apt/sources.list.d/*.list", "/etc/apt/sources.list.d/*.sources"},
 	InstallDnf: {"/etc/yum.repos.d/*.repo"},
 	InstallYum: {"/etc/yum.repos.d/*.repo"},
-	InstallApk: {"/etc/apk/repositories", "/etc/apk/repositories.d/*"},
+	InstallApk: {"/etc/apk/repositories", "/etc/apk/repositories.d/*.list"},
 }
 
-// packageRepositoryInUse reports whether a package manager's configuration mentions the repository.
+// packageRepositoryInUse reports whether a package manager's configuration enables the repository.
 func packageRepositoryInUse(m InstallMethod, repo string) bool {
-	return anyFileContains(packageRepoFiles[m], repo)
+	return anyFileEnablesRepo(packageRepoFiles[m], repo)
 }
 
-// anyFileContains reports whether a file matching one of the glob patterns contains s.
-func anyFileContains(patterns []string, s string) bool {
+// anyFileEnablesRepo reports whether a file matching one of the glob patterns enables the repository.
+func anyFileEnablesRepo(patterns []string, repo string) bool {
 	for _, pattern := range patterns {
 		paths, _ := filepath.Glob(pattern)
 		for _, path := range paths {
-			if b, err := os.ReadFile(path); err == nil && bytes.Contains(b, []byte(s)) {
+			if b, err := os.ReadFile(path); err == nil && enablesRepo(b, repo) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// repoDisabled matches a line that disables a repository, in a yum repo file or a deb822 sources file.
+var repoDisabled = regexp.MustCompile(`(?i)^enabled\s*[=:]\s*(0|no|false)$`)
+
+// enablesRepo reports whether a repository configuration file mentions the
+// repository outside comments. A file that disables any repository does not
+// count, as it is not parsed to find out which one.
+func enablesRepo(content []byte, repo string) bool {
+	found := false
+	for line := range strings.Lines(string(content)) {
+		line = strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(line, "#"):
+		case repoDisabled.MatchString(line):
+			return false
+		case strings.Contains(line, repo):
+			found = true
+		}
+	}
+	return found
 }
 
 // overrideMethod reads a forced install method from the environment or config.

@@ -225,19 +225,45 @@ func TestDetectInstallMethod(t *testing.T) {
 	}
 }
 
-func TestAnyFileContains(t *testing.T) {
+func TestAnyFileEnablesRepo(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.Mkdir(filepath.Join(dir, "sources.list.d"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "sources.list"),
-		[]byte("deb http://deb.example.org stable main\n"), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "sources.list.d", "example.list"),
-		[]byte("deb https://repo.example.com/debian stable main\n"), 0o600))
-	patterns := []string{filepath.Join(dir, "sources.list"), filepath.Join(dir, "sources.list.d", "*")}
+	write := func(name, content string) {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600))
+	}
+	write("other.list", "deb http://deb.example.org stable main\n")
+	write("example.list", "deb https://repo.example.com/debian stable main\n")
+	write("example.list.distUpgrade", "deb https://backup.example.com/debian stable main\n")
 
-	assert.True(t, anyFileContains(patterns, "repo.example.com"))
-	assert.False(t, anyFileContains(patterns, "other.example.com"))
-	assert.False(t, anyFileContains(patterns[:1], "repo.example.com"))
-	assert.False(t, anyFileContains(nil, "repo.example.com"))
+	patterns := []string{filepath.Join(dir, "other.list"), filepath.Join(dir, "*.list")}
+	assert.True(t, anyFileEnablesRepo(patterns, "repo.example.com"))
+	assert.False(t, anyFileEnablesRepo(patterns, "other.example.com"))
+	assert.False(t, anyFileEnablesRepo(patterns, "backup.example.com"))
+	assert.False(t, anyFileEnablesRepo(patterns[:1], "repo.example.com"))
+	assert.False(t, anyFileEnablesRepo(nil, "repo.example.com"))
+}
+
+func TestEnablesRepo(t *testing.T) {
+	cases := []struct {
+		name    string
+		content string
+		want    bool
+	}{
+		{"apt list", "deb [signed-by=/k.asc] https://repo.example.com/debian stable main\n", true},
+		{"apt list disabled by a release upgrade", "# deb https://repo.example.com/debian stable main # disabled\n", false},
+		{"deb822", "Types: deb\nURIs: https://repo.example.com/debian\nSuites: stable\n", true},
+		{"deb822 disabled", "Types: deb\nURIs: https://repo.example.com/debian\nEnabled: no\n", false},
+		{"yum", "[example]\nbaseurl=https://repo.example.com/rpm/$basearch\nenabled=1\ngpgcheck=1\n", true},
+		{"yum disabled", "[example]\nbaseurl=https://repo.example.com/rpm/$basearch\nenabled = 0\n", false},
+		{"apk", "https://dl-cdn.example.org/alpine/main\nhttps://repo.example.com/alpine\n", true},
+		{"apk commented out", "https://dl-cdn.example.org/alpine/main\n  #https://repo.example.com/alpine\n", false},
+		{"another repository", "deb http://deb.example.org stable main\n", false},
+		{"empty", "", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			assert.Equal(t, c.want, enablesRepo([]byte(c.content), "repo.example.com"))
+		})
+	}
 }
 
 func TestRPMFrontend(t *testing.T) {
