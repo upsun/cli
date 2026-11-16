@@ -256,6 +256,7 @@ func TestEnablesRepo(t *testing.T) {
 		{"yum disabled", "[example]\nbaseurl=https://repo.example.com/rpm/$basearch\nenabled = 0\n", false},
 		{"yum disabled with off", "[example]\nbaseurl=https://repo.example.com/rpm/$basearch\nenabled=off\n", false},
 		{"deb822 disabled with disable", "URIs: https://repo.example.com/debian\nEnabled: disable\n", false},
+		{"deb822 disabled with without", "URIs: https://repo.example.com/debian\nEnabled: without\n", false},
 		{"apk", "https://dl-cdn.example.org/alpine/main\nhttps://repo.example.com/alpine\n", true},
 		{"apk commented out", "https://dl-cdn.example.org/alpine/main\n  #https://repo.example.com/alpine\n", false},
 		{"another repository", "deb http://deb.example.org stable main\n", false},

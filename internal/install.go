@@ -175,7 +175,7 @@ func anyFileEnablesRepo(patterns []string, repo string) bool {
 }
 
 // repoDisabled matches a line that disables a repository, in a yum repo file or a deb822 sources file.
-var repoDisabled = regexp.MustCompile(`(?i)^enabled\s*[=:]\s*(0|no|false|off|disable)$`)
+var repoDisabled = regexp.MustCompile(`(?i)^enabled\s*[=:]\s*(0|no|false|off|disable|without)$`)
 
 // enablesRepo reports whether a repository configuration file mentions the
 // repository outside comments. A file that disables any repository does not
