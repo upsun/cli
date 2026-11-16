@@ -434,7 +434,7 @@ func mockLogsQuery(get func(q url.Values) ([]logLine, int)) http.HandlerFunc {
 		for _, s := range q["severities[]"] {
 			severities[s] = true
 		}
-		var matched []logLine
+		matched := []logLine{}
 		for i := range lines {
 			l := lines[len(lines)-1-i]
 			if !desc {

@@ -9,7 +9,7 @@ namespace Platformsh\Client\Model;
  * returns null for several properties until the activity reaches a particular
  * state (e.g. result is null until the activity finishes). The list and
  * nullability here follow the Upsun OpenAPI spec
- * (https://developer.upsun.com/openapi.json).
+ * (https://meta.upsun.com/openapi-spec).
  *
  * @property-read string      $id
  * @property-read int         $completion_percent
