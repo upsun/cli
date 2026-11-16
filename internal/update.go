@@ -65,25 +65,27 @@ func StartUpdateCheck(cnf *config.Config) *UpdateCheck {
 	return c
 }
 
-// Wait waits for the check to finish, up to the given timeout.
-func (c *UpdateCheck) Wait(timeout time.Duration) {
+// Wait waits for the check to finish, up to the given timeout, and reports whether it did.
+func (c *UpdateCheck) Wait(timeout time.Duration) bool {
 	if c == nil {
-		return
+		return false
 	}
 	select {
 	case <-c.done:
+		return true
 	case <-time.After(timeout):
+		return false
 	}
 }
 
-// notifyInterval is the minimum time between showing update messages.
+// notifyInterval is the minimum time between update messages about the same version.
 const notifyInterval = 7 * 24 * 60 * 60 // one week, in seconds
 
 // PendingNotification returns a release to tell the user about, based on the
-// version cached by a previous background check. It returns nil when there is
-// nothing to show, when the weekly throttle has not elapsed, or when the
-// environment is not eligible. The caller should print the result and then call
-// MarkNotified.
+// version cached by a background check. It returns nil when there is nothing
+// to show, when the user was told about this version (or a newer one) in the
+// past week, or when the environment is not eligible. The caller should print
+// the result and then call MarkNotified.
 func PendingNotification(cnf *config.Config, currentVersion string) *ReleaseInfo {
 	if !shouldCheckForUpdate(cnf) {
 		return nil
@@ -101,12 +103,13 @@ func notificationFromState(s state.State, repo, currentVersion string, now int64
 	if s.Updates.KnownLatestVersion == "" {
 		return nil
 	}
-	// A LastNotified in the future (clock skew) is treated as stale.
-	if s.Updates.LastNotified != 0 && s.Updates.LastNotified <= now && now-s.Updates.LastNotified < notifyInterval {
-		return nil
-	}
 	cmp, err := version.Compare(s.Updates.KnownLatestVersion, currentVersion)
 	if err != nil || cmp <= 0 {
+		return nil
+	}
+	// A LastNotified in the future (clock skew) is treated as stale.
+	recent := s.Updates.LastNotified != 0 && s.Updates.LastNotified <= now && now-s.Updates.LastNotified < notifyInterval
+	if recent && !newerThanNotified(s) {
 		return nil
 	}
 	return &ReleaseInfo{
@@ -115,12 +118,24 @@ func notificationFromState(s state.State, repo, currentVersion string, now int64
 	}
 }
 
-// MarkNotified records that an update message was just shown, so it is not
-// repeated until the next notify interval.
-func MarkNotified(cnf *config.Config) {
+// newerThanNotified reports whether the cached latest version is newer than
+// the one the user was last told about. A state without that version (saved
+// by an older CLI) counts as not newer.
+func newerThanNotified(s state.State) bool {
+	if s.Updates.NotifiedVersion == "" {
+		return false
+	}
+	cmp, err := version.Compare(s.Updates.KnownLatestVersion, s.Updates.NotifiedVersion)
+	return err == nil && cmp > 0
+}
+
+// MarkNotified records that an update message about a version was just shown,
+// so it is not repeated until the next notify interval.
+func MarkNotified(cnf *config.Config, notifiedVersion string) {
 	//nolint:errcheck // failing to save state should not affect the rest of the program
 	state.Update(cnf, func(s *state.State) {
 		s.Updates.LastNotified = time.Now().Unix()
+		s.Updates.NotifiedVersion = notifiedVersion
 	})
 }
 
@@ -131,7 +146,7 @@ func shouldCheckForUpdate(cnf *config.Config) bool {
 		cnf.Embedded().Wrapper.GitHubRepo != "" &&
 		cnf.Updates.Check &&
 		os.Getenv(cnf.Application.EnvPrefix+"UPDATES_CHECK") != "0" &&
-		!isCI() && !IsAutoUpdating(cnf) &&
+		!isCI() &&
 		terminal.IsTerminal(os.Stdout) && terminal.IsTerminal(os.Stderr)
 }
 

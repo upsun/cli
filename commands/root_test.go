@@ -17,7 +17,12 @@ func TestUpgradeCommandFor(t *testing.T) {
 	cnf.Wrapper.NpmPackage = "upsun"
 	cnf.Wrapper.WingetPackage = "Upsun.CLI"
 	cnf.Wrapper.InstallerURL = "https://x.test/i.sh"
+	cnf.Wrapper.PackageName = "upsun-cli"
 	cnf.Application.Executable = "upsun"
+
+	origGeteuid := geteuid
+	t.Cleanup(func() { geteuid = origGeteuid })
+	geteuid = func() int { return 1000 }
 
 	cases := []struct {
 		method internal.InstallMethod
@@ -28,7 +33,11 @@ func TestUpgradeCommandFor(t *testing.T) {
 		{internal.InstallNpm, "npm install -g upsun@latest"},
 		{internal.InstallWinget, "winget upgrade Upsun.CLI"},
 		{internal.InstallScript, "curl -fsSL https://x.test/i.sh | INSTALL_METHOD=raw INSTALL_DIR=/usr/local/bin sh"},
-		{internal.InstallPackage, ""}, // suppressed; no tailored command
+		{internal.InstallApt, "sudo apt update && sudo apt install --only-upgrade upsun-cli"},
+		{internal.InstallDnf, "sudo dnf upgrade --refresh upsun-cli"},
+		{internal.InstallYum, "sudo yum upgrade upsun-cli"},
+		{internal.InstallApk, "sudo apk add --upgrade --update-cache upsun-cli"},
+		{internal.InstallPackage, ""}, // an unknown package manager falls back to the generic link
 		{internal.InstallUnknown, ""}, // falls back to the generic link
 	}
 	for _, c := range cases {
@@ -45,6 +54,14 @@ func TestUpgradeCommandForMissingConfigFallsBack(t *testing.T) {
 	assert.Empty(t, upgradeCommandFor(cnf, internal.InstallNpm, "/usr/local/bin/upsun"))
 	assert.Empty(t, upgradeCommandFor(cnf, internal.InstallWinget, "/usr/local/bin/upsun"))
 	assert.Empty(t, upgradeCommandFor(cnf, internal.InstallScript, "/usr/local/bin/upsun"))
+	assert.Empty(t, upgradeCommandFor(cnf, internal.InstallApt, "/usr/bin/upsun"))
+}
+
+func TestPackageUpgradeCommandAsRoot(t *testing.T) {
+	assert.Equal(t, "apt update && apt install --only-upgrade upsun-cli",
+		packageUpgradeCommand(internal.InstallApt, "upsun-cli", true))
+	assert.Equal(t, "apk add --upgrade --update-cache upsun-cli",
+		packageUpgradeCommand(internal.InstallApk, "upsun-cli", true))
 }
 
 func TestShellQuote(t *testing.T) {

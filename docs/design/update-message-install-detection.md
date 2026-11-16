@@ -4,6 +4,35 @@ Status: draft
 Author: Claude Code (for Patrick Dawkins)
 Date: 2026-06-14
 
+## Revision (2026-11-16): system packages are notified
+
+The sections below describe the original design, which stayed silent for system
+packages (apt, yum/dnf, apk). That assumed the OS updates them, but third-party
+repositories are not covered by unattended upgrades by default, so users only
+got a new release when they happened to upgrade. This revision changes that:
+
+- Package installs check for updates and show the notice like other methods.
+  `AutoUpdating` and the `shouldCheckForUpdate` short-circuit are removed.
+- The package repositories are updated by the release workflow straight after
+  the GitHub release (within a minute), so the GitHub check is used as is. If
+  that upload fails, the suggested command finds nothing to upgrade.
+- The package manager is the one whose database owns the executable
+  (`dpkg-query -S`, `rpm -qf`, `apk info --who-owns`), asked only before
+  printing a notice. For RPM it is `dnf` if that is on `PATH`, or else `yum`.
+  The methods are `apt`, `dnf`, `yum` and `apk`; `package` remains for a
+  package with an unknown package manager, which gets the generic link.
+- The package name is the new `wrapper.package_name` config key.
+- Commands, with `sudo` unless running as root:
+  - `apt update && apt install --only-upgrade <package>`
+  - `dnf upgrade --refresh <package>`
+  - `yum upgrade <package>`
+  - `apk add --upgrade --update-cache <package>`
+- The weekly throttle is per version: `notified_version` in the state records
+  the version last announced, and a newer one is announced without waiting.
+- If the background check finishes before the command exits (it is waited for,
+  for up to 1 second), a release it found is announced at the end of that run,
+  unless a notice was already shown at the start.
+
 ## Background
 
 The CLI checks GitHub for a newer release and, if one exists, prints a message
@@ -206,7 +235,8 @@ hint.
 
 | Method | Notice shown? | Upgrade command | Auto-updatable? |
 |---|---|---|---|
-| `package` | No (suppressed) | — | — (OS handles it) |
+| `apt`, `dnf`, `yum`, `apk` | Yes | See the revision above | No (privileged) |
+| `package` | Yes | generic link, as for `unknown` | No |
 | `homebrew` | Yes | `brew update && brew upgrade <wrapper.homebrew_tap>` | Yes |
 | `scoop` | Yes | `scoop update <application.executable>` | Yes |
 | `npm` | Yes | `npm install -g <wrapper.npm_package>@latest` | Yes |
@@ -424,7 +454,7 @@ upgrade line per method, including empty-config fallbacks.
 
 ## Resolved decisions
 
-- `package` installs: total silence, no hint. The OS handles updates.
+- `package` installs: originally silent; now notified (see the revision at the top).
 - Manual `dpkg -i`/`rpm -i`: treated as `package` (suppressed). Acceptable.
 - npm upgrade command: global `npm install -g <pkg>@latest`.
 - Ambiguous / no marker: fall back to `script`/`unknown`, advise re-running the

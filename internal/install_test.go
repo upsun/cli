@@ -1,7 +1,9 @@
 package internal
 
 import (
+	"os/exec"
 	"path"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -43,16 +45,26 @@ func TestDetectInstallMethod(t *testing.T) {
 			want: InstallNpm,
 		},
 		{
-			name: "override alias apt maps to package",
+			name: "override names a package manager",
 			probe: installProbe{
 				goos: "linux", exe: "/somewhere/upsun", envPrefix: "UPSUN_CLI_", slug: "upsun",
 				getenv:     func(k string) string { return map[string]string{"UPSUN_CLI_INSTALL_METHOD": "apt"}[k] },
 				fileExists: noFile, brewPrefix: noBrew,
 			},
-			want: InstallPackage,
+			want: InstallApt,
 		},
 		{
-			name: "package marker present",
+			name: "package marker present, owned by a package",
+			probe: installProbe{
+				goos: "linux", exe: "/usr/bin/upsun", slug: "upsun",
+				getenv: func(string) string { return "" }, brewPrefix: noBrew,
+				fileExists: fileAt("/usr/share/upsun/install-source"),
+				pkgManager: func(string) InstallMethod { return InstallApk },
+			},
+			want: InstallApk,
+		},
+		{
+			name: "package marker present, unknown package manager",
 			probe: installProbe{
 				goos: "linux", exe: "/usr/bin/upsun", slug: "upsun",
 				getenv: func(string) string { return "" }, brewPrefix: noBrew,
@@ -148,9 +160,14 @@ func TestDetectInstallMethod(t *testing.T) {
 			probe: installProbe{
 				goos: "linux", exe: "/usr/bin/upsun", slug: "upsun",
 				getenv: func(string) string { return "" }, fileExists: noFile, brewPrefix: noBrew,
-				pkgOwned: func(exe string) bool { return exe == "/usr/bin/upsun" },
+				pkgManager: func(exe string) InstallMethod {
+					if exe == "/usr/bin/upsun" {
+						return InstallDnf
+					}
+					return InstallUnknown
+				},
 			},
-			want: InstallPackage,
+			want: InstallDnf,
 		},
 		{
 			name: "homebrew via brew prefix",
@@ -172,19 +189,26 @@ func TestDetectInstallMethod(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if c.probe.pkgOwned == nil {
-				c.probe.pkgOwned = func(string) bool { return false }
+			if c.probe.pkgManager == nil {
+				c.probe.pkgManager = func(string) InstallMethod { return InstallUnknown }
 			}
 			assert.Equal(t, c.want, detectInstallMethod(&c.probe))
 		})
 	}
 }
 
-func TestInstallMethodAutoUpdating(t *testing.T) {
-	assert.True(t, InstallPackage.AutoUpdating())
-	assert.False(t, InstallHomebrew.AutoUpdating())
-	assert.False(t, InstallScript.AutoUpdating())
-	assert.False(t, InstallUnknown.AutoUpdating())
+func TestRPMFrontend(t *testing.T) {
+	has := func(names ...string) func(string) (string, error) {
+		return func(name string) (string, error) {
+			if slices.Contains(names, name) {
+				return "/usr/bin/" + name, nil
+			}
+			return "", exec.ErrNotFound
+		}
+	}
+	assert.Equal(t, InstallDnf, rpmFrontend(has("dnf", "yum")))
+	assert.Equal(t, InstallYum, rpmFrontend(has("yum")))
+	assert.Equal(t, InstallPackage, rpmFrontend(has("zypper")))
 }
 
 func TestParseMethod(t *testing.T) {
@@ -195,9 +219,12 @@ func TestParseMethod(t *testing.T) {
 	}{
 		{"homebrew", InstallHomebrew, true},
 		{"brew", InstallHomebrew, true},
-		{"APT", InstallPackage, true},
-		{"dnf", InstallPackage, true},
-		{"apk", InstallPackage, true},
+		{"APT", InstallApt, true},
+		{"dnf", InstallDnf, true},
+		{"yum", InstallYum, true},
+		{"apk", InstallApk, true},
+		{"package", InstallPackage, true},
+		{"rpm", InstallPackage, true},
 		{"npm", InstallNpm, true},
 		{"  scoop  ", InstallScoop, true},
 		{"winget", InstallWinget, true},

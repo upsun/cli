@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -38,13 +39,13 @@ func Execute(cnf *config.Config) error {
 	err := cmd.ExecuteContext(ctx)
 	var ee *exitError
 	if errors.As(err, &ee) {
-		waitForUpdateCheck()
+		finishUpdateCheck()
 		os.Exit(ee.code)
 	}
 	if err != nil && !isQuiet() {
 		fmt.Fprintln(color.Error, "Error:", err)
 	}
-	waitForUpdateCheck()
+	finishUpdateCheck()
 	return err
 }
 
@@ -56,12 +57,19 @@ func isQuiet() bool {
 // updateCheckWait is the maximum time to wait for a background update check before exiting.
 const updateCheckWait = time.Second
 
-// updateCheck is the background update check started by the root command, if any.
-var updateCheck *internal.UpdateCheck
+var (
+	// updateCheck is the background update check started by the root command, if any.
+	updateCheck *internal.UpdateCheck
+	// showUpdateMessage shows a pending update message, at most once. It is set by the root command.
+	showUpdateMessage func(atExit bool)
+)
 
-// waitForUpdateCheck gives a running update check a chance to save its result.
-func waitForUpdateCheck() {
-	updateCheck.Wait(updateCheckWait)
+// finishUpdateCheck gives a running update check a chance to save its result,
+// and shows an update message if it found a new release.
+func finishUpdateCheck() {
+	if updateCheck.Wait(updateCheckWait) && showUpdateMessage != nil {
+		showUpdateMessage(true)
+	}
 }
 
 func newRootCommand(cnf *config.Config) *cobra.Command {
@@ -96,26 +104,38 @@ func newRootCommand(cnf *config.Config) *cobra.Command {
 			if viper.GetBool("yes") {
 				viper.Set("no-interaction", true)
 			}
-			// The check runs in the background and caches its result for the
-			// next invocation. It is waited for briefly before exiting.
+			// The check runs in the background and caches its result. It is
+			// waited for briefly before exiting.
 			updateCheck = internal.StartUpdateCheck(cnf)
+			shown := false
+			showUpdateMessage = func(atExit bool) {
+				// In quiet mode the message would be discarded, so it is left for a later run.
+				if shown || quiet {
+					return
+				}
+				rel := internal.PendingNotification(cnf, config.Version)
+				if rel == nil {
+					return
+				}
+				shown = true
+				var msg bytes.Buffer
+				if printUpdateMessage(&msg, rel, cnf, internal.DetectInstallMethod(cnf)) {
+					// A blank line separates the message from the command's output.
+					if atExit {
+						fmt.Fprintf(cmd.ErrOrStderr(), "\n%s", msg.String())
+					} else {
+						fmt.Fprintf(cmd.ErrOrStderr(), "%s\n", msg.String())
+					}
+				}
+				internal.MarkNotified(cnf, rel.Version)
+			}
 			if viper.GetBool("version") {
 				versionCommand.Run(cmd, []string{})
-				waitForUpdateCheck()
+				finishUpdateCheck()
 				os.Exit(0)
 			}
-			if cnf.Embedded().Wrapper.GitHubRepo != "" {
-				// Show any update found by a previous run, before the command's
-				// output. In quiet mode the notice would be discarded, so it is
-				// left for a later run.
-				if rel := internal.PendingNotification(cnf, config.Version); rel != nil && !quiet {
-					// Full detection can find package installs that lack the marker.
-					if method := internal.DetectInstallMethod(cnf); !method.AutoUpdating() {
-						printUpdateMessage(cmd.ErrOrStderr(), rel, cnf, method)
-					}
-					internal.MarkNotified(cnf)
-				}
-			}
+			// Show any update found by a previous run, before the command's output.
+			showUpdateMessage(false)
 			if alt.ShouldUpdate(cnf) {
 				go func() {
 					if err := alt.Update(cmd.Context(), cnf, debugLogf); err != nil {
@@ -255,15 +275,18 @@ func checkShellConfigLeftovers(w io.Writer, cnf *config.Config) {
 // binary and its upgrade command are the same with or without CLI_CONFIG_FILE.
 // With CLI_CONFIG_FILE, it prints nothing if there is no upgrade command: the
 // binary may be a private copy, which the generic instructions do not update.
-func printUpdateMessage(w io.Writer, rel *internal.ReleaseInfo, cnf *config.Config, method internal.InstallMethod) {
+// It reports whether it printed a message.
+func printUpdateMessage(
+	w io.Writer, rel *internal.ReleaseInfo, cnf *config.Config, method internal.InstallMethod,
+) bool {
 	if rel == nil {
-		return
+		return false
 	}
 	bin := cnf.Embedded()
 	exe, _ := os.Executable()
 	upgradeCmd := upgradeCommandFor(bin, method, exe)
 	if upgradeCmd == "" && !cnf.IsEmbedded() {
-		return
+		return false
 	}
 
 	fmt.Fprintf(w, "%s %s → %s\n",
@@ -282,7 +305,8 @@ func printUpdateMessage(w io.Writer, rel *internal.ReleaseInfo, cnf *config.Conf
 		)
 	}
 
-	fmt.Fprintf(w, "%s\n\n", color.YellowString(rel.URL))
+	fmt.Fprintln(w, color.YellowString(rel.URL))
+	return true
 }
 
 // upgradeCommandFor returns the upgrade command for the install method, or an
@@ -304,6 +328,10 @@ func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod, exe st
 		if cnf.Wrapper.WingetPackage != "" {
 			return "winget upgrade " + cnf.Wrapper.WingetPackage
 		}
+	case internal.InstallApt, internal.InstallDnf, internal.InstallYum, internal.InstallApk:
+		if pkg := cnf.Wrapper.PackageName; pkg != "" {
+			return packageUpgradeCommand(method, pkg, geteuid() == 0)
+		}
 	case internal.InstallScript:
 		// The raw method replaces the binary in INSTALL_DIR; without it, the
 		// installer may choose a package manager instead (e.g. apt on Debian).
@@ -313,6 +341,31 @@ func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod, exe st
 		}
 	}
 	return ""
+}
+
+// geteuid can be replaced in tests.
+var geteuid = os.Geteuid
+
+// packageUpgradeCommand returns the command to refresh a system package
+// manager's index and upgrade a package, with sudo unless running as root.
+func packageUpgradeCommand(method internal.InstallMethod, pkg string, root bool) string {
+	var cmds []string
+	switch method {
+	case internal.InstallApt:
+		cmds = []string{"apt update", "apt install --only-upgrade " + pkg}
+	case internal.InstallDnf:
+		cmds = []string{"dnf upgrade --refresh " + pkg}
+	case internal.InstallYum:
+		cmds = []string{"yum upgrade " + pkg}
+	case internal.InstallApk:
+		cmds = []string{"apk add --upgrade --update-cache " + pkg}
+	}
+	if !root {
+		for i := range cmds {
+			cmds[i] = "sudo " + cmds[i]
+		}
+	}
+	return strings.Join(cmds, " && ")
 }
 
 var shellSafe = regexp.MustCompile(`^[A-Za-z0-9_./-]+$`)
@@ -343,13 +396,13 @@ func exitWithError(err error) {
 			exitCode = 128 + int(ws.Signal())
 		}
 		debugLogf("%s", err)
-		waitForUpdateCheck()
+		finishUpdateCheck()
 		os.Exit(exitCode)
 	}
 	if !isQuiet() {
 		fmt.Fprintln(color.Error, color.RedString(err.Error()))
 	}
-	waitForUpdateCheck()
+	finishUpdateCheck()
 	os.Exit(1)
 }
 
