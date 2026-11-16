@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os/exec"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -129,4 +130,69 @@ func TestPrintUpdateMessageUnknownMethod(t *testing.T) {
 	printUpdateMessage(buf, &internal.ReleaseInfo{Version: "9.9.9", URL: "https://example.com/release"}, cnf,
 		internal.InstallUnknown)
 	assert.Contains(t, buf.String(), "https://github.com/"+cnf.Wrapper.GitHubRepo+"#upgrade")
+}
+
+func TestUpdateNotifier(t *testing.T) {
+	t.Setenv("CLI_CONFIG_FILE", "")
+	b, err := config.LoadYAML()
+	require.NoError(t, err)
+	embedded, err := config.FromYAML(b)
+	require.NoError(t, err)
+	// An alt CLI shows no message when there is no upgrade command.
+	altCnf := testConfig()
+
+	rel := &internal.ReleaseInfo{Version: "v9.9.9", URL: "https://example.com/release"}
+	const firstLine = "A new release of the "
+
+	cases := []struct {
+		name       string
+		cnf        *config.Config
+		quiet      bool
+		pending    []*internal.ReleaseInfo // the result for each call to show
+		atExit     bool
+		wantPrefix string
+		wantSuffix string
+		wantMarked []string
+	}{
+		{name: "at start", cnf: embedded, pending: []*internal.ReleaseInfo{rel},
+			wantPrefix: firstLine, wantSuffix: rel.URL + "\n\n", wantMarked: []string{"v9.9.9"}},
+		{name: "at exit", cnf: embedded, pending: []*internal.ReleaseInfo{rel}, atExit: true,
+			wantPrefix: "\n" + firstLine, wantSuffix: rel.URL + "\n", wantMarked: []string{"v9.9.9"}},
+		{name: "shown once", cnf: embedded, pending: []*internal.ReleaseInfo{rel, rel},
+			wantPrefix: firstLine, wantSuffix: rel.URL + "\n\n", wantMarked: []string{"v9.9.9"}},
+		{name: "found by a later call", cnf: embedded, pending: []*internal.ReleaseInfo{nil, rel}, atExit: true,
+			wantPrefix: "\n" + firstLine, wantSuffix: rel.URL + "\n", wantMarked: []string{"v9.9.9"}},
+		{name: "nothing pending", cnf: embedded, pending: []*internal.ReleaseInfo{nil}},
+		{name: "quiet", cnf: embedded, quiet: true, pending: []*internal.ReleaseInfo{rel}},
+		{name: "no message to print", cnf: altCnf, pending: []*internal.ReleaseInfo{rel},
+			wantMarked: []string{"v9.9.9"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var (
+				out    bytes.Buffer
+				marked []string
+				calls  int
+			)
+			n := newUpdateNotifier(c.cnf, &out, c.quiet)
+			n.pending = func() *internal.ReleaseInfo { calls++; return c.pending[calls-1] }
+			n.method = func() internal.InstallMethod { return internal.InstallUnknown }
+			n.mark = func(v string) { marked = append(marked, v) }
+			for range c.pending {
+				n.show(c.atExit)
+			}
+			assert.Equal(t, c.wantMarked, marked)
+			if c.wantPrefix == "" {
+				assert.Empty(t, out.String())
+				return
+			}
+			assert.True(t, strings.HasPrefix(out.String(), c.wantPrefix), out.String())
+			assert.True(t, strings.HasSuffix(out.String(), c.wantSuffix), out.String())
+			assert.Equal(t, 1, strings.Count(out.String(), firstLine))
+		})
+	}
+
+	// A nil notifier (no root command run) does nothing.
+	var none *updateNotifier
+	none.show(true)
 }
