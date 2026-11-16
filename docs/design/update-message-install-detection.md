@@ -28,7 +28,8 @@ got a new release when they happened to upgrade. This revision changes that:
   `/etc/apk/repositories*`) mentions the repository's host, the new
   `wrapper.package_repository` config key. Otherwise it is `package`. Comments
   do not count, nor does a file that disables a repository (`enabled=0`,
-  `Enabled: no`).
+  `Enabled: no`). For dnf, a repository disabled in DNF 5's override files
+  (`repos.override.d`, written by `dnf config-manager`) does not count either.
 - The package name is the new `wrapper.package_name` config key.
 - Commands, with `sudo` unless running as root (or `doas`, if it is installed
   and `sudo` is not, as is usual on Alpine):

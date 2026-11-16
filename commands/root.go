@@ -330,7 +330,7 @@ func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod, exe st
 		}
 	case internal.InstallApt, internal.InstallDnf, internal.InstallYum, internal.InstallApk:
 		if pkg := cnf.Wrapper.PackageName; pkg != "" {
-			return packageUpgradeCommand(method, pkg, privilegeCommand(geteuid() == 0, exec.LookPath))
+			return packageUpgradeCommand(method, pkg, privilegeCommand(geteuid() == 0, lookPath))
 		}
 	case internal.InstallScript:
 		// The raw method replaces the binary in INSTALL_DIR; without it, the
@@ -343,8 +343,11 @@ func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod, exe st
 	return ""
 }
 
-// geteuid can be replaced in tests.
-var geteuid = os.Geteuid
+// geteuid and lookPath can be replaced in tests.
+var (
+	geteuid  = os.Geteuid
+	lookPath = exec.LookPath
+)
 
 // privilegeCommand returns the command to run another as root: none for root,
 // doas if it is installed and sudo is not (e.g. on Alpine), or else sudo.

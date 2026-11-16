@@ -22,9 +22,10 @@ func TestUpgradeCommandFor(t *testing.T) {
 	cnf.Wrapper.PackageName = "upsun-cli"
 	cnf.Application.Executable = "upsun"
 
-	origGeteuid := geteuid
-	t.Cleanup(func() { geteuid = origGeteuid })
+	origGeteuid, origLookPath := geteuid, lookPath
+	t.Cleanup(func() { geteuid, lookPath = origGeteuid, origLookPath })
 	geteuid = func() int { return 1000 }
+	lookPath = func(string) (string, error) { return "", exec.ErrNotFound }
 
 	cases := []struct {
 		method internal.InstallMethod
