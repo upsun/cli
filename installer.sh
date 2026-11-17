@@ -701,7 +701,9 @@ gpgkey=https://repositories.upsun.com/gpg.key"
 
     output "\nInstalling the $vendor_name CLI" "heading"
 
-    if ! call_root "yum install -y $package"; then
+    # Refresh this repository's metadata only, and upgrade an installed package (dnf's install may not).
+    opts="-y --setopt=upsun.metadata_expire=0"
+    if ! call_root "yum install $opts $package" || ! call_root "yum upgrade $opts $package"; then
         output "  could not install the CLI" "error"
         exit_with_error
     fi
@@ -767,7 +769,7 @@ install_apk() {
 
     output "\nInstalling the $vendor_name CLI" "heading"
 
-    if ! call_root "apk add $package --update-cache"; then
+    if ! call_root "apk add --upgrade --update-cache $package"; then
         output "  could not install the CLI" "error"
         exit_with_error
     fi
