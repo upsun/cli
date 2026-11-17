@@ -701,8 +701,9 @@ gpgkey=https://repositories.upsun.com/gpg.key"
 
     output "\nInstalling the $vendor_name CLI" "heading"
 
-    # Refresh metadata, install, and upgrade an installed package (dnf's install may not).
-    if ! call_root "yum clean expire-cache" || ! call_root "yum install -y $package" || ! call_root "yum upgrade -y $package"; then
+    # Refresh this repository's metadata only, and upgrade an installed package (dnf's install may not).
+    opts="-y --setopt=upsun.metadata_expire=0"
+    if ! call_root "yum install $opts $package" || ! call_root "yum upgrade $opts $package"; then
         output "  could not install the CLI" "error"
         exit_with_error
     fi

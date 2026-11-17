@@ -95,6 +95,7 @@ jobs:
           curl -fsSL -o "/tmp/old.${{ matrix.ext }}" "https://github.com/upsun/cli/releases/download/v${OLD_VERSION}/upsun-cli_${OLD_VERSION}_linux_amd64.${{ matrix.ext }}"
           ${{ matrix.install }} "/tmp/old.${{ matrix.ext }}"
           upsun --version
+          test "$(upsun --version)" = "Upsun CLI ${OLD_VERSION}"
 
       - name: Check out repository
         uses: actions/checkout@v7

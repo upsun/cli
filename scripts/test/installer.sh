@@ -58,18 +58,19 @@ run_test "alpine:3.21 (default)" "alpine:3.21" \
 # Upgrade tests: install an older release's package first, then check that the installer upgrades it.
 old_version="5.16.0"
 old_url="https://github.com/upsun/cli/releases/download/v${old_version}/upsun-cli_${old_version}_linux_amd64"
+old_check="test \"\$(upsun --version)\" = 'Upsun CLI ${old_version}'"
 check="upsun --version && test \"\$(upsun --version)\" != 'Upsun CLI ${old_version}'"
 
 run_test "debian:bookworm (upgrade)" "debian:bookworm" \
-    "apt-get update -qq && apt-get install -y -qq curl ca-certificates && curl -fsSL -o /tmp/old.deb ${old_url}.deb && apt-get install -y -qq /tmp/old.deb && " \
+    "apt-get update -qq && apt-get install -y -qq curl ca-certificates && curl -fsSL -o /tmp/old.deb ${old_url}.deb && apt-get install -y -qq /tmp/old.deb && ${old_check} && " \
     --platform linux/amd64
 
 run_test "fedora:41 (upgrade)" "fedora:41" \
-    "yum install -y -q curl && curl -fsSL -o /tmp/old.rpm ${old_url}.rpm && yum install -y -q /tmp/old.rpm && " \
+    "yum install -y -q curl && curl -fsSL -o /tmp/old.rpm ${old_url}.rpm && yum install -y -q /tmp/old.rpm && ${old_check} && " \
     --platform linux/amd64
 
 run_test "alpine:3.21 (upgrade)" "alpine:3.21" \
-    "apk add -q --no-cache curl ca-certificates && curl -fsSL -o /tmp/old.apk ${old_url}.apk && apk add -q --allow-untrusted /tmp/old.apk && " \
+    "apk add -q --no-cache curl ca-certificates && curl -fsSL -o /tmp/old.apk ${old_url}.apk && apk add -q --allow-untrusted /tmp/old.apk && ${old_check} && " \
     --platform linux/amd64
 
 check=""
