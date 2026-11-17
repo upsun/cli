@@ -2011,12 +2011,6 @@ parameters:
 			path: src/Command/Resources/ResourcesSetCommand.php
 
 		-
-			message: '#^Binary operation "\." between ''Failed to load…'' and mixed results in an error\.$#'
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
 			message: '#^Cannot access offset ''cpu'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 2
@@ -2090,12 +2084,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$array of function array_keys expects array, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Command/Resources/ResourcesSetCommand.php
-
-		-
-			message: '#^Parameter \#1 \$id of method Platformsh\\Cli\\Service\\Api\:\:getOrganizationById\(\) expects string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Command/Resources/ResourcesSetCommand.php

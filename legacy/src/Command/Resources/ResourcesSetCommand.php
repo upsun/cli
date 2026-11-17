@@ -820,15 +820,25 @@ class ResourcesSetCommand extends ResourcesCommandBase
      * memory and storage (as well as others such as projects). Individual
      * limits may be absent or null, meaning the resource is not capped.
      * Returns [null, null] if the organization has no active trial, or if
-     * the trial or usage information is unavailable.
+     * the organization, trial or usage information is unavailable.
      *
      * @return array{0: ?array<string, int|float|null>, 1: ?array<string, int|float|null>}
      */
     private function trialResourceLimits(Project $project): array
     {
-        $organization = $this->api->getOrganizationById($project->getProperty('organization'));
+        $organizationId = $project->getProperty('organization', false, false);
+        if (!is_string($organizationId) || $organizationId === '') {
+            return [null, null];
+        }
+        try {
+            $organization = $this->api->getOrganizationById($organizationId);
+        } catch (GuzzleException $e) {
+            $this->io->debug('Ignoring error fetching the project organization: ' . $e->getMessage());
+            return [null, null];
+        }
         if (!$organization) {
-            throw new \RuntimeException('Failed to load project organization: ' . $project->getProperty('organization'));
+            $this->io->debug('Project organization not found: ' . $organizationId);
+            return [null, null];
         }
         $httpClient = $this->api->getHttpClient();
         try {

@@ -265,3 +265,33 @@ func TestResourcesSet_TrialFromUnsupportedGuaranteedSize(t *testing.T) {
 	require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
 	assert.NotContains(t, stderr, "trial CPU limit")
 }
+
+// TestResourcesSet_OrganizationUnavailable checks that the trial limit check
+// is skipped if the project's organization cannot be loaded.
+func TestResourcesSet_OrganizationUnavailable(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name   string
+		status int
+	}{
+		{"not found", http.StatusNotFound},
+		{"forbidden", http.StatusForbidden},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			apiHandler := mockapi.NewHandler(t)
+			orgID := "org-unavailable"
+			projectID := setUpResourcesSetOrg(apiHandler, orgID)
+			apiHandler.Get("/organizations/"+orgID, func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(c.status)
+				_, _ = w.Write([]byte(mockapi.Problem(c.status, "Organization unavailable.")))
+			})
+
+			stdout, stderr, err := runResourcesSet(t, apiHandler, projectID, "app:1")
+
+			require.NoError(t, err, "stdout: %s\nstderr: %s", stdout, stderr)
+			assert.Contains(t, stderr+stdout, "Summary of changes")
+		})
+	}
+}
