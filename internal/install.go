@@ -259,11 +259,23 @@ func fileExists(p string) bool {
 
 // owningPackageManager asks the system package databases which one owns exe,
 // and returns its install method, or InstallUnknown if none does. A time limit
-// stops a slow database from delaying the command; a timeout counts as owned
-// (InstallPackage), so that the installer script is not suggested.
+// stops a slow database from delaying the command.
 func owningPackageManager(exe string) InstallMethod {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+	return packageOwner(ctx, exe, exec.LookPath, func(ctx context.Context, name string, args ...string) error {
+		return exec.CommandContext(ctx, name, args...).Run()
+	})
+}
+
+// packageOwner runs each installed package manager's ownership query for exe,
+// until one succeeds. If ctx ends first, exe counts as owned (InstallPackage),
+// so that the installer script is not suggested.
+func packageOwner(
+	ctx context.Context, exe string,
+	lookPath func(string) (string, error),
+	run func(ctx context.Context, name string, args ...string) error,
+) InstallMethod {
 	queries := []struct {
 		method InstallMethod
 		args   []string
@@ -273,11 +285,11 @@ func owningPackageManager(exe string) InstallMethod {
 		{InstallApk, []string{"apk", "info", "--who-owns", exe}},
 	}
 	for _, q := range queries {
-		p, err := exec.LookPath(q.args[0])
+		p, err := lookPath(q.args[0])
 		if err != nil {
 			continue
 		}
-		err = exec.CommandContext(ctx, p, q.args[1:]...).Run()
+		err = run(ctx, p, q.args[1:]...)
 		if ctx.Err() != nil {
 			return InstallPackage
 		}
@@ -285,7 +297,7 @@ func owningPackageManager(exe string) InstallMethod {
 			continue
 		}
 		if q.method == InstallDnf {
-			return rpmFrontend(exec.LookPath)
+			return rpmFrontend(lookPath)
 		}
 		return q.method
 	}
