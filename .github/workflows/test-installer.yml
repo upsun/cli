@@ -59,6 +59,57 @@ jobs:
       - name: Verify installation
         run: upsun --version
 
+  # Upgrade flow: an older release's package is installed first, and the
+  # installer must upgrade it.
+  linux-upgrade:
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    defaults:
+      run:
+        shell: sh
+    env:
+      OLD_VERSION: 5.16.0
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: debian:bookworm
+            prereqs: apt-get update && apt-get install -y curl ca-certificates
+            ext: deb
+            install: apt-get install -y
+          - image: fedora:41
+            prereqs: yum install -y curl
+            ext: rpm
+            install: yum install -y
+          - image: alpine:3.21
+            prereqs: apk add --no-cache curl ca-certificates
+            ext: apk
+            install: apk add --allow-untrusted
+
+    steps:
+      - name: Install prerequisites
+        run: ${{ matrix.prereqs }}
+
+      - name: Install an older release
+        run: |
+          curl -fsSL -o "/tmp/old.${{ matrix.ext }}" "https://github.com/upsun/cli/releases/download/v${OLD_VERSION}/upsun-cli_${OLD_VERSION}_linux_amd64.${{ matrix.ext }}"
+          ${{ matrix.install }} "/tmp/old.${{ matrix.ext }}"
+          upsun --version
+          test "$(upsun --version)" = "Upsun CLI ${OLD_VERSION}"
+
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Run installer
+        env:
+          CI: ""
+        run: sh installer.sh
+
+      - name: Verify upgrade
+        run: |
+          upsun --version
+          test "$(upsun --version)" != "Upsun CLI ${OLD_VERSION}"
+
   # Raw install on Linux: setting VERSION triggers the raw method.
   # Without a VERSION input the installer queries the GitHub API for the
   # latest release.

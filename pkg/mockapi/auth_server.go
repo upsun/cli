@@ -18,6 +18,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
+
+	"github.com/upsun/cli/pkg/mockssh"
 )
 
 // ValidAPITokens are the API tokens that the server accepts. Each is exchanged for the access token at the same index
@@ -418,12 +420,13 @@ func NewAuthServer(t *testing.T) *AuthServer {
 		extensions["permit-user-rc"] = ""
 		keyID, lifetime := srv.nextSSHCertificate()
 		cert := &ssh.Certificate{
-			Key:         key,
-			Serial:      0,
-			CertType:    ssh.UserCert,
-			KeyId:       keyID,
-			ValidAfter:  uint64(time.Now().Add(-1 * time.Second).Unix()),
-			ValidBefore: uint64(time.Now().Add(lifetime).Unix()),
+			Key:             key,
+			Serial:          0,
+			CertType:        ssh.UserCert,
+			KeyId:           keyID,
+			ValidPrincipals: []string{mockssh.CertPrincipal},
+			ValidAfter:      uint64(time.Now().Add(-1 * time.Second).Unix()),
+			ValidBefore:     uint64(time.Now().Add(lifetime).Unix()),
 			Permissions: ssh.Permissions{
 				Extensions: extensions,
 			},

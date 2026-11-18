@@ -83,6 +83,8 @@ Upgrade with the tool you installed the CLI with:
 | npm | `npm install -g upsun@latest` |
 | apt, dnf/yum, apk | Your system's package manager: see [docs/install.md](docs/install.md#package-repositories) |
 
+Regular system package updates (e.g. `sudo apt update && sudo apt upgrade`) also upgrade the CLI.
+
 ### Update notifications
 
 When a newer release is available, the CLI prints the upgrade command for your

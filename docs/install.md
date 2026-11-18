@@ -71,7 +71,7 @@ sudo apk add upsun-cli
 To upgrade:
 
 ```console
-sudo apk update && sudo apk upgrade upsun-cli
+sudo apk add --upgrade --update-cache upsun-cli
 ```
 
 ### Ubuntu/Debian
@@ -90,7 +90,7 @@ sudo apt-get install -y upsun-cli
 To upgrade:
 
 ```console
-sudo apt-get update && sudo apt-get upgrade upsun-cli
+sudo apt update && sudo apt install --only-upgrade upsun-cli
 ```
 
 ### RPM (Fedora, RHEL, CentOS, AlmaLinux, Rocky)
@@ -113,7 +113,10 @@ sudo dnf install -y upsun-cli
 To upgrade:
 
 ```console
-sudo dnf upgrade -y upsun-cli
+sudo dnf upgrade --refresh upsun-cli
+
+# On older systems with yum only
+sudo yum clean expire-cache && sudo yum upgrade upsun-cli
 ```
 
 ## npm

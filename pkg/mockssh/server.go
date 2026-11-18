@@ -19,6 +19,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// CertPrincipal is the principal of the certificates the mock API issues.
+// The server accepts it for any SSH user, as the user differs per app and environment.
+const CertPrincipal = "cli-tests"
+
 type Server struct {
 	// t and hostKey are set in NewServer.
 	t       *testing.T
@@ -222,6 +226,11 @@ func (s *Server) defaultCertChecker() ssh.CertChecker {
 	}}
 }
 
+// principalConn reports CertPrincipal as the user, for certificate checks.
+type principalConn struct{ ssh.ConnMetadata }
+
+func (principalConn) User() string { return CertPrincipal }
+
 func (s *Server) serverConfig() *ssh.ServerConfig {
 	t := s.t
 	conf := &ssh.ServerConfig{}
@@ -229,7 +238,7 @@ func (s *Server) serverConfig() *ssh.ServerConfig {
 	conf.PublicKeyCallback = func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 		if cert, ok := key.(*ssh.Certificate); ok {
 			t.Logf("SSH certificate received from %s with key ID %s", conn.RemoteAddr(), cert.KeyId)
-			return s.CertChecker.Authenticate(conn, cert)
+			return s.CertChecker.Authenticate(principalConn{conn}, cert)
 		}
 		return nil, fmt.Errorf("not accepting public key type: %s", key.Type())
 	}
