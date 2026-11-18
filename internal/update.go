@@ -33,7 +33,8 @@ type UpdateCheck struct {
 
 // StartUpdateCheck starts a background check for a newer release on GitHub,
 // if one is due. The result is cached in the state, for PendingNotification
-// to read in a later invocation. It returns nil if no check was started.
+// to read once the check has finished, or in a later invocation. It returns
+// nil if no check was started.
 func StartUpdateCheck(cnf *config.Config) *UpdateCheck {
 	if !shouldCheckForUpdate(cnf) {
 		return nil
