@@ -54,8 +54,8 @@ var (
 )
 
 // DetectInstallMethod resolves the install method once per process. It may run
-// "brew" or package manager queries, so it is only called when about to print
-// an update message, not for every command.
+// "brew" or package manager queries, so it is only called when there is an
+// update message to print, not for every command.
 func DetectInstallMethod(cnf *config.Config) InstallMethod {
 	detectOnce.Do(func() {
 		detectedMethod = detectInstallMethod(newInstallProbe(cnf))

@@ -52,7 +52,9 @@ got a new release when they happened to upgrade. This revision changes that:
   the version last announced, and a newer one is announced without waiting.
 - If the background check finishes before the command exits (it is waited for,
   for up to 1 second), a release it found is announced at the end of that run,
-  unless a notice was already shown at the start.
+  unless a notice was already shown at the start. The check also detects the
+  install method, so that wait is the only delay at exit: if detection takes
+  longer, the notice is left for a later run.
 
 ## Background
 

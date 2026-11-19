@@ -62,6 +62,10 @@ func StartUpdateCheck(cnf *config.Config) *UpdateCheck {
 		state.Update(cnf, func(s *state.State) {
 			s.Updates.KnownLatestVersion = latest
 		})
+		// Detect the install method while the command runs, so that a message at exit does not wait for it.
+		if PendingNotification(cnf, config.Version) != nil {
+			DetectInstallMethod(cnf)
+		}
 	}()
 	return c
 }
