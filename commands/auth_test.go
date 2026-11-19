@@ -87,7 +87,7 @@ func TestLoginRequiredMessage(t *testing.T) {
 }
 
 func TestAuthCommands_GoAuthDisabled(t *testing.T) {
-	t.Setenv("TEST_GO_AUTH", "")
+	t.Setenv("TEST_GO_AUTH", "0")
 	assert.Empty(t, authCommands(testConfig()))
 	root := newRootCommand(testConfig())
 	c, _, err := root.Find([]string{"auth:internal"})

@@ -170,7 +170,7 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: make -s coverage-report >> "$GITHUB_STEP_SUMMARY"
 
-  # Runs the integration tests with legacy auth, the default for users.
+  # Runs the integration tests with legacy auth, which users can still enable with <PREFIX>GO_AUTH=0.
   # TODO: remove once legacy auth is no longer used.
   integration-test-legacy-auth:
     runs-on: ubuntu-latest

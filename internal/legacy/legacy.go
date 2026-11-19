@@ -140,32 +140,7 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 	cmd.Stdin = c.Stdin
 	cmd.Stdout = c.Stdout
 	cmd.Stderr = c.Stderr
-	cmd.Env = append(cmd.Env, os.Environ()...)
-	envPrefix := c.Config.Application.EnvPrefix
-	cmd.Env = append(
-		cmd.Env,
-		"CLI_CONFIG_FILE="+filepath.Join(cacheDir, configBasename),
-		envPrefix+"MIGRATE_CHECK=0",
-		envPrefix+"APPLICATION_PROMPT_SELF_INSTALL=0",
-		envPrefix+"WRAPPED=1",
-		envPrefix+"APPLICATION_VERSION="+c.Version,
-	)
-	// The legacy CLI gets tokens and auth state by running this executable's hidden auth:internal command.
-	if exe, err := os.Executable(); err == nil {
-		cmd.Env = append(cmd.Env, envPrefix+"WRAPPER_EXECUTABLE="+exe)
-	}
-	if c.DisableInteraction {
-		cmd.Env = append(cmd.Env, envPrefix+"NO_INTERACTION=1")
-	}
-	if c.ForceColor {
-		cmd.Env = append(cmd.Env, "CLICOLOR_FORCE=1")
-	}
-	cmd.Env = append(cmd.Env, fmt.Sprintf(
-		"%sUSER_AGENT={APP_NAME_DASH}/%s ({UNAME_S}; {UNAME_R}; PHP %s)",
-		envPrefix,
-		c.Version,
-		PHPVersion,
-	))
+	cmd.Env = append(cmd.Env, c.env(cacheDir)...)
 	started := func() {}
 	if c.PrepareCmd != nil {
 		s, done, err := c.PrepareCmd(cmd)
@@ -184,6 +159,43 @@ func (c *CLIWrapper) Exec(ctx context.Context, args ...string) error {
 	}
 
 	return nil
+}
+
+// env returns the environment for legacy CLI commands.
+func (c *CLIWrapper) env(cacheDir string) []string {
+	env := os.Environ()
+	envPrefix := c.Config.Application.EnvPrefix
+	// Go decides whether Go auth is enabled, as the legacy CLI's default differs.
+	goAuth := "0"
+	if c.Config.GoAuthEnabled() {
+		goAuth = "1"
+	}
+	env = append(
+		env,
+		"CLI_CONFIG_FILE="+filepath.Join(cacheDir, configBasename),
+		envPrefix+"MIGRATE_CHECK=0",
+		envPrefix+"APPLICATION_PROMPT_SELF_INSTALL=0",
+		envPrefix+"WRAPPED=1",
+		envPrefix+"APPLICATION_VERSION="+c.Version,
+		envPrefix+"GO_AUTH="+goAuth,
+	)
+	// The legacy CLI gets tokens and auth state by running this executable's hidden auth:internal command.
+	if exe, err := os.Executable(); err == nil {
+		env = append(env, envPrefix+"WRAPPER_EXECUTABLE="+exe)
+	}
+	if c.DisableInteraction {
+		env = append(env, envPrefix+"NO_INTERACTION=1")
+	}
+	if c.ForceColor {
+		env = append(env, "CLICOLOR_FORCE=1")
+	}
+	env = append(env, fmt.Sprintf(
+		"%sUSER_AGENT={APP_NAME_DASH}/%s ({UNAME_S}; {UNAME_R}; PHP %s)",
+		envPrefix,
+		c.Version,
+		PHPVersion,
+	))
+	return env
 }
 
 // makeCmd makes a legacy CLI command with the given context and arguments.
