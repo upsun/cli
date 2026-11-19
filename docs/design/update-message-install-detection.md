@@ -26,11 +26,12 @@ got a new release when they happened to upgrade. This revision changes that:
   the method is only `apt`, `dnf`, `yum` or `apk` if the package manager says
   that an enabled repository provides the package. Otherwise it is `package`.
   The queries run without network access, under a 2-second limit:
-  - apt: `apt-cache policy <package>` lists a source other than
-    `/var/lib/dpkg/status`. Without package lists (e.g. removed in a container
-    image), it does not.
-  - apk: `apk --no-network policy <package>` lists a source other than
-    `lib/apk/db/installed`. Without its index cache, it does not.
+  - apt: `apt-cache policy <package>` lists `/var/lib/dpkg/status` (the
+    package is installed) and another source. Without package lists (e.g.
+    removed in a container image), it lists no other source.
+  - apk: `apk --no-network policy <package>` lists `lib/apk/db/installed`
+    (the package is installed) and another source. Without its index cache,
+    it lists no other source.
   - dnf: `dnf -C repoquery --installed --qf '%{from_repo}'` names a repository
     that `dnf -C repolist --enabled` lists. It is `<unknown>` (dnf 5) or empty
     (dnf 4) for `rpm -i`, and `@commandline` for `dnf install ./file.rpm`.

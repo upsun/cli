@@ -53,10 +53,11 @@ func inRepository(m InstallMethod, pkg string, output func(name string, args ...
 // names a source of the version, after its priority.
 var aptSource = regexp.MustCompile(`^\s+-?\d+\s+(\S+)`)
 
-// aptPolicyHasRepository reports whether "apt-cache policy" lists a source
-// other than the dpkg status file, i.e. a repository.
+// aptPolicyHasRepository reports whether "apt-cache policy" shows the package
+// as installed (from the dpkg status file), and lists another source, i.e. a
+// repository.
 func aptPolicyHasRepository(out string) bool {
-	table := false
+	table, installed, repo := false, false, false
 	for line := range strings.Lines(out) {
 		if strings.TrimSpace(line) == "Version table:" {
 			table = true
@@ -66,28 +67,37 @@ func aptPolicyHasRepository(out string) bool {
 			continue
 		}
 		m := aptSource.FindStringSubmatch(line)
-		if len(m) == 2 && m[1] != "/var/lib/dpkg/status" && !isNumber(m[1]) {
-			return true
+		switch {
+		case len(m) != 2 || isNumber(m[1]):
+		case m[1] == "/var/lib/dpkg/status":
+			installed = true
+		default:
+			repo = true
 		}
 	}
-	return false
+	return installed && repo
 }
 
 func isNumber(s string) bool {
 	return strings.Trim(s, "0123456789") == ""
 }
 
-// apkPolicyHasRepository reports whether "apk policy" lists a source other
-// than the installed database, i.e. a repository.
+// apkPolicyHasRepository reports whether "apk policy" shows the package as
+// installed (from the installed database), and lists another source, i.e. a
+// repository.
 func apkPolicyHasRepository(out string) bool {
+	installed, repo := false, false
 	for line := range strings.Lines(out) {
 		line = strings.TrimSpace(line)
-		if line == "" || strings.HasSuffix(line, ":") || line == "lib/apk/db/installed" {
-			continue
+		switch {
+		case line == "" || strings.HasSuffix(line, ":"):
+		case line == "lib/apk/db/installed":
+			installed = true
+		default:
+			repo = true
 		}
-		return true
 	}
-	return false
+	return installed && repo
 }
 
 // yumFromRepo returns the "From repo" field of "yum info installed".

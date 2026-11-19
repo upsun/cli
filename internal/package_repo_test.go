@@ -9,7 +9,7 @@ import (
 )
 
 // Outputs captured from the package managers, for a package installed from a
-// repository, and from a downloaded file.
+// repository, installed from a downloaded file, and not installed.
 const (
 	aptPolicyRepo = `upsun-cli:
   Installed: 5.17.0
@@ -28,6 +28,13 @@ const (
  *** 5.17.0 100
         100 /var/lib/dpkg/status
 `
+	aptPolicyNotInstalled = `upsun-cli:
+  Installed: (none)
+  Candidate: 5.17.0
+  Version table:
+     5.17.0 500
+        500 https://repositories.upsun.com/debian stable/main amd64 Packages
+`
 	apkPolicyRepo = `upsun-cli policy:
   5.17.0:
     lib/apk/db/installed
@@ -36,6 +43,10 @@ const (
 	apkPolicyFile = `upsun-cli policy:
   5.17.0:
     lib/apk/db/installed
+`
+	apkPolicyNotInstalled = `upsun-cli policy:
+  5.17.0:
+    https://repositories.upsun.com/alpine
 `
 	dnfRepolist = `repo id               repo name
 fedora                Fedora 45 - x86_64
@@ -68,9 +79,13 @@ func TestInRepository(t *testing.T) {
 	}{
 		{"apt repository", InstallApt, map[string]string{"apt-cache policy upsun-cli": aptPolicyRepo}, true},
 		{"apt file", InstallApt, map[string]string{"apt-cache policy upsun-cli": aptPolicyFile}, false},
+		{"apt not installed", InstallApt, map[string]string{"apt-cache policy upsun-cli": aptPolicyNotInstalled}, false},
 		{"apt query fails", InstallApt, nil, false},
 		{"apk repository", InstallApk, map[string]string{"apk --no-network policy upsun-cli": apkPolicyRepo}, true},
 		{"apk file", InstallApk, map[string]string{"apk --no-network policy upsun-cli": apkPolicyFile}, false},
+		{"apk not installed", InstallApk, map[string]string{
+			"apk --no-network policy upsun-cli": apkPolicyNotInstalled,
+		}, false},
 		{"dnf repository", InstallDnf, map[string]string{
 			"dnf -C -q repoquery --installed --qf %{from_repo}\n upsun-cli": "upsun\n\n",
 			"dnf -C -q repolist --enabled":                                  dnfRepolist,
