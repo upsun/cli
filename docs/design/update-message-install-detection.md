@@ -23,13 +23,19 @@ got a new release when they happened to upgrade. This revision changes that:
   package with an unknown package manager, which gets the generic link.
 - A downloaded package (installed with `dpkg -i`, `rpm -i` or
   `apk add --allow-untrusted`) cannot be upgraded with the package manager. So
-  the method is only `apt`, `dnf`, `yum` or `apk` if the package manager's
-  configuration (`/etc/apt/sources.list*`, `/etc/yum.repos.d/*.repo`,
-  `/etc/apk/repositories*`) mentions the repository's host, the new
-  `wrapper.package_repository` config key. Otherwise it is `package`. Comments
-  do not count, nor does a file that disables a repository (`enabled=0`,
-  `Enabled: no`). For dnf, a repository disabled in DNF 5's override files
-  (`repos.override.d`, written by `dnf config-manager`) does not count either.
+  the method is only `apt`, `dnf`, `yum` or `apk` if the package manager says
+  that an enabled repository provides the package. Otherwise it is `package`.
+  The queries run without network access, under a 2-second limit:
+  - apt: `apt-cache policy <package>` lists a source other than
+    `/var/lib/dpkg/status`. Without package lists (e.g. removed in a container
+    image), it does not.
+  - apk: `apk --no-network policy <package>` lists a source other than
+    `lib/apk/db/installed`. Without its index cache, it does not.
+  - dnf: `dnf -C repoquery --installed --qf '%{from_repo}'` names a repository
+    that `dnf -C repolist --enabled` lists. It is `<unknown>` (dnf 5) or empty
+    (dnf 4) for `rpm -i`, and `@commandline` for `dnf install ./file.rpm`.
+  - yum: `yum -C info installed` has a `From repo` line, naming a repository
+    that `yum -C repolist enabled` lists.
 - The package name is the new `wrapper.package_name` config key.
 - Commands, with `sudo` unless running as root (or `doas`, if it is installed
   and `sudo` is not, as is usual on Alpine):

@@ -1,140 +1,126 @@
 package internal
 
 import (
-	"maps"
+	"context"
 	"os"
-	"path"
-	"path/filepath"
+	"os/exec"
 	"regexp"
-	"slices"
 	"strings"
+	"time"
 )
 
-// packageRepoFiles lists the files (as glob patterns) that configure each package manager's repositories.
-var packageRepoFiles = map[InstallMethod][]string{
-	InstallApt: {"/etc/apt/sources.list", "/etc/apt/sources.list.d/*.list", "/etc/apt/sources.list.d/*.sources"},
-	InstallDnf: {"/etc/yum.repos.d/*.repo"},
-	InstallYum: {"/etc/yum.repos.d/*.repo"},
-	InstallApk: {"/etc/apk/repositories", "/etc/apk/repositories.d/*.list"},
+// packageInRepository asks the package manager whether an enabled repository
+// provides the installed package, so that the package manager can upgrade it.
+func packageInRepository(m InstallMethod, pkg string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	return inRepository(m, pkg, func(name string, args ...string) (string, error) {
+		cmd := exec.CommandContext(ctx, name, args...)
+		cmd.Env = append(os.Environ(), "LC_ALL=C")
+		out, err := cmd.Output()
+		return string(out), err
+	})
 }
 
-// dnfOverrideFiles lists the files (as glob patterns) that override repository settings in DNF 5.
-var dnfOverrideFiles = []string{"/usr/share/dnf5/repos.override.d/*.repo", "/etc/dnf/repos.override.d/*.repo"}
-
-// packageRepositoryInUse reports whether a package manager's configuration enables the repository.
-func packageRepositoryInUse(m InstallMethod, repo string) bool {
-	var overrides []string
-	if m == InstallDnf {
-		overrides = dnfOverrideFiles
+// inRepository runs the package manager's queries with output, which returns a command's standard output.
+func inRepository(m InstallMethod, pkg string, output func(name string, args ...string) (string, error)) bool {
+	switch m {
+	case InstallApt:
+		out, err := output("apt-cache", "policy", pkg)
+		return err == nil && aptPolicyHasRepository(out)
+	case InstallApk:
+		out, err := output("apk", "--no-network", "policy", pkg)
+		return err == nil && apkPolicyHasRepository(out)
+	case InstallDnf:
+		repo, err := output("dnf", "-C", "-q", "repoquery", "--installed", "--qf", "%{from_repo}\n", pkg)
+		if err != nil {
+			return false
+		}
+		repos, err := output("dnf", "-C", "-q", "repolist", "--enabled")
+		return err == nil && repoEnabled(strings.TrimSpace(repo), repos)
+	case InstallYum:
+		info, err := output("yum", "-C", "-q", "info", "installed", pkg)
+		if err != nil {
+			return false
+		}
+		repos, err := output("yum", "-C", "-q", "repolist", "enabled")
+		return err == nil && repoEnabled(yumFromRepo(info), repos)
 	}
-	return anyFileEnablesRepo(packageRepoFiles[m], overrides, repo)
+	return false
 }
 
-// anyFileEnablesRepo reports whether a file matching one of the glob patterns
-// enables the repository, and no file matching the override patterns disables it.
-func anyFileEnablesRepo(patterns, overridePatterns []string, repo string) bool {
-	overrides := readOverrides(overridePatterns)
-	for _, pattern := range patterns {
-		paths, _ := filepath.Glob(pattern)
-		for _, path := range paths {
-			b, err := os.ReadFile(path)
-			if err != nil || !enablesRepo(b, repo) {
-				continue
-			}
-			if len(overrides) == 0 {
-				return true
-			}
-			for _, id := range repoSections(b, repo) {
-				if !disabledByOverride(id, overrides) {
-					return true
-				}
-			}
+// aptSource matches a line of the version table of "apt-cache policy" that
+// names a source of the version, after its priority.
+var aptSource = regexp.MustCompile(`^\s+-?\d+\s+(\S+)`)
+
+// aptPolicyHasRepository reports whether "apt-cache policy" lists a source
+// other than the dpkg status file, i.e. a repository.
+func aptPolicyHasRepository(out string) bool {
+	table := false
+	for line := range strings.Lines(out) {
+		if strings.TrimSpace(line) == "Version table:" {
+			table = true
+			continue
+		}
+		if !table {
+			continue
+		}
+		m := aptSource.FindStringSubmatch(line)
+		if len(m) == 2 && m[1] != "/var/lib/dpkg/status" && !isNumber(m[1]) {
+			return true
 		}
 	}
 	return false
 }
 
-// readOverrides reads the files matching the glob patterns, ordered by file name as DNF applies them.
-// A file masks those of the same name that match an earlier pattern.
-func readOverrides(patterns []string) [][]byte {
-	paths := map[string]string{}
-	for _, pattern := range patterns {
-		matches, _ := filepath.Glob(pattern)
-		for _, path := range matches {
-			paths[filepath.Base(path)] = path
-		}
-	}
-	var contents [][]byte
-	for _, name := range slices.Sorted(maps.Keys(paths)) {
-		if b, err := os.ReadFile(paths[name]); err == nil {
-			contents = append(contents, b)
-		}
-	}
-	return contents
+func isNumber(s string) bool {
+	return strings.Trim(s, "0123456789") == ""
 }
 
-// sectionName returns the name of an INI section header line, e.g. "[name]".
-func sectionName(line string) (string, bool) {
-	if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-		return strings.TrimSpace(line[1 : len(line)-1]), true
-	}
-	return "", false
-}
-
-// repoSections returns the names of the sections of a yum repo file that mention the repository.
-func repoSections(content []byte, repo string) []string {
-	var ids []string
-	section := ""
-	for line := range strings.Lines(string(content)) {
+// apkPolicyHasRepository reports whether "apk policy" lists a source other
+// than the installed database, i.e. a repository.
+func apkPolicyHasRepository(out string) bool {
+	for line := range strings.Lines(out) {
 		line = strings.TrimSpace(line)
-		if name, ok := sectionName(line); ok {
-			section = name
-		} else if section != "" && !strings.HasPrefix(line, "#") && strings.Contains(line, repo) {
-			ids = append(ids, section)
-			section = ""
+		if line == "" || strings.HasSuffix(line, ":") || line == "lib/apk/db/installed" {
+			continue
 		}
+		return true
 	}
-	return ids
+	return false
 }
 
-// enabledSetting matches a line that enables or disables a repository.
-var enabledSetting = regexp.MustCompile(`(?i)^enabled\s*[=:]`)
-
-// disabledByOverride reports whether the override files disable a repository.
-// Their section names may be glob patterns, and the last setting applies.
-func disabledByOverride(id string, overrides [][]byte) bool {
-	disabled := false
-	for _, content := range overrides {
-		applies := false
-		for line := range strings.Lines(string(content)) {
-			line = strings.TrimSpace(line)
-			if name, ok := sectionName(line); ok {
-				applies, _ = path.Match(name, id)
-			} else if applies && enabledSetting.MatchString(line) {
-				disabled = repoDisabled.MatchString(line)
-			}
+// yumFromRepo returns the "From repo" field of "yum info installed".
+func yumFromRepo(info string) string {
+	for line := range strings.Lines(info) {
+		k, v, ok := strings.Cut(line, ":")
+		if ok && strings.TrimSpace(k) == "From repo" {
+			return strings.TrimSpace(v)
 		}
 	}
-	return disabled
+	return ""
 }
 
-// repoDisabled matches a line that disables a repository, in a yum repo file or a deb822 sources file.
-var repoDisabled = regexp.MustCompile(`(?i)^enabled\s*[=:]\s*(0|no|false|off|disable|without)$`)
-
-// enablesRepo reports whether a repository configuration file mentions the
-// repository outside comments. A file that disables any repository does not
-// count, as it is not parsed to find out which one.
-func enablesRepo(content []byte, repo string) bool {
-	found := false
-	for line := range strings.Lines(string(content)) {
-		line = strings.TrimSpace(line)
-		switch {
-		case strings.HasPrefix(line, "#"):
-		case repoDisabled.MatchString(line):
-			return false
-		case strings.Contains(line, repo):
-			found = true
+// repoEnabled reports whether the repository ID is in the output of "dnf
+// repolist" or "yum repolist". yum may prefix an ID with "!" or "*" and
+// suffix it with the release and architecture, e.g. "upsun/x86_64".
+func repoEnabled(id, repolist string) bool {
+	if id == "" {
+		return false
+	}
+	for line := range strings.Lines(repolist) {
+		// The header ("repo id  repo name") has no ID.
+		if strings.HasPrefix(line, "repo id") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		name, _, _ := strings.Cut(strings.TrimLeft(fields[0], "!*"), "/")
+		if name == id {
+			return true
 		}
 	}
-	return found
+	return false
 }

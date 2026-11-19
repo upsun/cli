@@ -63,25 +63,25 @@ func TestDetectInstallMethod(t *testing.T) {
 				getenv: func(string) string { return "" }, brewPrefix: noBrew,
 				fileExists: fileAt("/usr/share/upsun/install-source"),
 				pkgManager: func(string) InstallMethod { return InstallApk },
-				pkgRepo:    "repo.example.com",
-				repoInUse:  func(m InstallMethod, repo string) bool { return m == InstallApk && repo == "repo.example.com" },
+				pkgName:    "example-cli",
+				inRepo:     func(m InstallMethod, pkg string) bool { return m == InstallApk && pkg == "example-cli" },
 			},
 			want: InstallApk,
 		},
 		{
-			name: "package marker present, repository not in use (e.g. dpkg -i)",
+			name: "package marker present, not in a repository (e.g. dpkg -i)",
 			probe: installProbe{
 				goos: "linux", exe: "/usr/bin/upsun", slug: "upsun",
 				getenv: func(string) string { return "" }, brewPrefix: noBrew,
 				fileExists: fileAt("/usr/share/upsun/install-source"),
 				pkgManager: func(string) InstallMethod { return InstallApt },
-				pkgRepo:    "repo.example.com",
-				repoInUse:  func(InstallMethod, string) bool { return false },
+				pkgName:    "example-cli",
+				inRepo:     func(InstallMethod, string) bool { return false },
 			},
 			want: InstallPackage,
 		},
 		{
-			name: "package marker present, no repository in config",
+			name: "package marker present, no package name in config",
 			probe: installProbe{
 				goos: "linux", exe: "/usr/bin/upsun", slug: "upsun",
 				getenv: func(string) string { return "" }, brewPrefix: noBrew,
@@ -193,8 +193,8 @@ func TestDetectInstallMethod(t *testing.T) {
 					}
 					return InstallUnknown
 				},
-				pkgRepo:   "repo.example.com",
-				repoInUse: func(InstallMethod, string) bool { return true },
+				pkgName: "example-cli",
+				inRepo:  func(InstallMethod, string) bool { return true },
 			},
 			want: InstallDnf,
 		},

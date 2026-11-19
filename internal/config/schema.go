@@ -25,10 +25,8 @@ type Config struct {
 		NpmPackage    string `yaml:"npm_package,omitempty"`    // e.g. "upsun"
 		WingetPackage string `yaml:"winget_package,omitempty"` // e.g. "Upsun.CLI"
 		PackageName   string `yaml:"package_name,omitempty"`   // the apt, yum/dnf and apk package, e.g. "upsun-cli"
-		// The host of the apt, yum/dnf and apk repository, e.g. "repositories.upsun.com".
-		PackageRepository string `yaml:"package_repository,omitempty"`
-		InstallerURL      string `yaml:"installer_url,omitempty"`  // e.g. "https://raw.githubusercontent.com/upsun/cli/main/installer.sh"
-		InstallMethod     string `yaml:"install_method,omitempty"` // forces the detected install method (homebrew, scoop, npm, winget, apt, dnf, yum, apk, package, script)
+		InstallerURL  string `yaml:"installer_url,omitempty"`  // e.g. "https://raw.githubusercontent.com/upsun/cli/main/installer.sh"
+		InstallMethod string `yaml:"install_method,omitempty"` // forces the detected install method (homebrew, scoop, npm, winget, apt, dnf, yum, apk, package, script)
 	} `yaml:"wrapper,omitempty"`
 
 	Application struct {

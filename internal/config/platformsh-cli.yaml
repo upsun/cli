@@ -7,7 +7,6 @@ wrapper:
   homebrew_tap: upsun/tap/platformsh-cli
   github_repo: upsun/cli
   package_name: platformsh-cli
-  package_repository: repositories.upsun.com
 
 application:
   name: "Upsun CLI (Platform.sh compatibility)"

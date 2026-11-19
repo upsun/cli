@@ -43,9 +43,9 @@ type installProbe struct {
 	getenv       func(string) string
 	fileExists   func(string) bool
 	brewPrefix   func() (string, bool)
-	pkgRepo      string // the host of the package repository, e.g. "repositories.upsun.com"
+	pkgName      string // the apt, dnf/yum and apk package, e.g. "upsun-cli"
 	pkgManager   func(exe string) InstallMethod
-	repoInUse    func(m InstallMethod, repo string) bool
+	inRepo       func(m InstallMethod, pkg string) bool
 }
 
 var (
@@ -54,8 +54,8 @@ var (
 )
 
 // DetectInstallMethod resolves the install method once per process. It may run
-// "brew" or a package manager's query, and read package repository files, so it
-// is only called when about to print an update message, not for every command.
+// "brew" or package manager queries, so it is only called when about to print
+// an update message, not for every command.
 func DetectInstallMethod(cnf *config.Config) InstallMethod {
 	detectOnce.Do(func() {
 		detectedMethod = detectInstallMethod(newInstallProbe(cnf))
@@ -77,9 +77,9 @@ func newInstallProbe(cnf *config.Config) *installProbe {
 		getenv:       getenvFunc,
 		fileExists:   fileExists,
 		brewPrefix:   brewPrefix,
-		pkgRepo:      bin.Wrapper.PackageRepository,
+		pkgName:      bin.Wrapper.PackageName,
 		pkgManager:   owningPackageManager,
-		repoInUse:    packageRepositoryInUse,
+		inRepo:       packageInRepository,
 	}
 }
 
@@ -134,14 +134,14 @@ func detectInstallMethod(p *installProbe) InstallMethod {
 
 // packageMethod returns the install method of the package manager that owns
 // the executable, or InstallUnknown if none does. It is InstallPackage unless
-// the package manager uses the package repository: a downloaded package (e.g.
+// an enabled repository provides the package: a downloaded package (e.g.
 // installed with "dpkg -i") cannot be upgraded with the package manager.
 func (p *installProbe) packageMethod() InstallMethod {
 	m := p.pkgManager(p.exe)
 	if m == InstallUnknown || m == InstallPackage {
 		return m
 	}
-	if p.pkgRepo == "" || !p.repoInUse(m, p.pkgRepo) {
+	if p.pkgName == "" || !p.inRepo(m, p.pkgName) {
 		return InstallPackage
 	}
 	return m
