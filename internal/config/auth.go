@@ -82,9 +82,9 @@ var authKeys = []authKey{
 
 // GoAuthEnabled reports whether authentication is handled in Go, instead of by the legacy CLI.
 //
-// It is set by the <PREFIX>GO_AUTH environment variable, which the legacy CLI also reads.
+// It is enabled unless the <PREFIX>GO_AUTH environment variable is set to 0.
 func (c *Config) GoAuthEnabled() bool {
-	return phpBool(os.Getenv(c.Application.EnvPrefix + "GO_AUTH"))
+	return os.Getenv(c.Application.EnvPrefix+"GO_AUTH") != "0"
 }
 
 var sessionIDPattern = regexp.MustCompile(`(?i)^[a-z0-9_-]+$`)

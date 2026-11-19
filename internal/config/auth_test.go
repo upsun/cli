@@ -232,3 +232,29 @@ func TestAuth(t *testing.T) {
 		})
 	}
 }
+
+func TestGoAuthEnabled(t *testing.T) {
+	cases := []struct {
+		name  string
+		value *string // nil if unset
+		want  bool
+	}{
+		{name: "unset", want: true},
+		{name: "empty", value: new(""), want: true},
+		{name: "1", value: new("1"), want: true},
+		{name: "0", value: new("0"), want: false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cnf := &config.Config{}
+			cnf.Application.EnvPrefix = "TEST_GO_AUTH_ENABLED_"
+			t.Setenv("TEST_GO_AUTH_ENABLED_GO_AUTH", "")
+			if c.value == nil {
+				require.NoError(t, os.Unsetenv("TEST_GO_AUTH_ENABLED_GO_AUTH"))
+			} else {
+				t.Setenv("TEST_GO_AUTH_ENABLED_GO_AUTH", *c.value)
+			}
+			assert.Equal(t, c.want, cnf.GoAuthEnabled())
+		})
+	}
+}
