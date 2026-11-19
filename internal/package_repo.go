@@ -9,8 +9,10 @@ import (
 	"time"
 )
 
-// packageInRepository asks the package manager whether an enabled repository
-// provides the installed package, so that the package manager can upgrade it.
+// packageInRepository asks the package manager whether the installed package
+// comes from an enabled repository, so that the package manager can upgrade
+// it: for apt and apk, a repository provides it; for dnf and yum, it was
+// installed from a repository that is still enabled.
 func packageInRepository(m InstallMethod, pkg string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()

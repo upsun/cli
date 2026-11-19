@@ -134,7 +134,7 @@ func detectInstallMethod(p *installProbe) InstallMethod {
 
 // packageMethod returns the install method of the package manager that owns
 // the executable, or InstallUnknown if none does. It is InstallPackage unless
-// an enabled repository provides the package: a downloaded package (e.g.
+// the package comes from an enabled repository: a downloaded package (e.g.
 // installed with "dpkg -i") cannot be upgraded with the package manager.
 func (p *installProbe) packageMethod() InstallMethod {
 	m := p.pkgManager(p.exe)

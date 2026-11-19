@@ -23,9 +23,13 @@ got a new release when they happened to upgrade. This revision changes that:
   package with an unknown package manager, which gets the generic link.
 - A downloaded package (installed with `dpkg -i`, `rpm -i` or
   `apk add --allow-untrusted`) cannot be upgraded with the package manager. So
-  the method is only `apt`, `dnf`, `yum` or `apk` if the package manager says
-  that an enabled repository provides the package. Otherwise it is `package`.
-  The queries run without network access, under a 2-second limit:
+  the method is only `apt`, `dnf`, `yum` or `apk` if the package manager
+  reports that the package is installed and comes from an enabled repository:
+  for apt and apk, a repository provides it; for dnf and yum, it was installed
+  from a repository that is still enabled. Otherwise it is `package`. So a
+  package installed with `rpm -i`, from a repository added later, gets the
+  generic link. The queries run without network access, under a 2-second
+  limit:
   - apt: `apt-cache policy <package>` lists `/var/lib/dpkg/status` (the
     package is installed) and another source. Without package lists (e.g.
     removed in a container image), it lists no other source.
