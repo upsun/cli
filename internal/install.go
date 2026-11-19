@@ -15,7 +15,7 @@ import (
 )
 
 // InstallMethod identifies how the CLI binary was installed, so update messages
-// can be tailored or suppressed.
+// can be tailored.
 type InstallMethod string
 
 const (
@@ -24,15 +24,13 @@ const (
 	InstallScoop    InstallMethod = "scoop"
 	InstallNpm      InstallMethod = "npm"
 	InstallWinget   InstallMethod = "winget"
-	InstallPackage  InstallMethod = "package" // a system package manager: apt, yum/dnf, apk
+	InstallApt      InstallMethod = "apt"
+	InstallDnf      InstallMethod = "dnf"
+	InstallYum      InstallMethod = "yum"
+	InstallApk      InstallMethod = "apk"
+	InstallPackage  InstallMethod = "package" // a system package, with an unknown package manager
 	InstallScript   InstallMethod = "script"  // the bash installer's raw method
 )
-
-// AutoUpdating reports whether the host system updates the CLI on its own, in
-// which case the CLI should stay quiet about new releases.
-func (m InstallMethod) AutoUpdating() bool {
-	return m == InstallPackage
-}
 
 // installProbe holds the (injectable) inputs to install-method detection.
 type installProbe struct {
@@ -45,7 +43,9 @@ type installProbe struct {
 	getenv       func(string) string
 	fileExists   func(string) bool
 	brewPrefix   func() (string, bool)
-	pkgOwned     func(exe string) bool
+	pkgName      string // the apt, dnf/yum and apk package, e.g. "upsun-cli"
+	pkgManager   func(exe string) InstallMethod
+	inRepo       func(m InstallMethod, pkg string) bool
 }
 
 var (
@@ -53,9 +53,9 @@ var (
 	detectedMethod InstallMethod
 )
 
-// DetectInstallMethod resolves the install method once per process. It may shell
-// out to "brew", so it is only called when about to print an update message,
-// never on the hot path of every command.
+// DetectInstallMethod resolves the install method once per process. It may run
+// "brew" or package manager queries, so it is only called when there is an
+// update message to print, not for every command.
 func DetectInstallMethod(cnf *config.Config) InstallMethod {
 	detectOnce.Do(func() {
 		detectedMethod = detectInstallMethod(newInstallProbe(cnf))
@@ -77,18 +77,10 @@ func newInstallProbe(cnf *config.Config) *installProbe {
 		getenv:       getenvFunc,
 		fileExists:   fileExists,
 		brewPrefix:   brewPrefix,
-		pkgOwned:     ownedBySystemPackage,
+		pkgName:      bin.Wrapper.PackageName,
+		pkgManager:   owningPackageManager,
+		inRepo:       packageInRepository,
 	}
-}
-
-// IsAutoUpdating is a cheap check (no subprocess) suitable for the hot path. It
-// only considers an explicit override and the package marker file.
-func IsAutoUpdating(cnf *config.Config) bool {
-	bin := cnf.Embedded()
-	if m, ok := overrideMethod(cnf.Application.EnvPrefix, bin.Wrapper.InstallMethod, getenvFunc); ok {
-		return m.AutoUpdating()
-	}
-	return packageMarkerExists(resolvedExecutable(), bin.Application.Slug, fileExists)
 }
 
 // IsWinget is a cheap check (no subprocess) for a winget install.
@@ -110,6 +102,9 @@ func detectInstallMethod(p *installProbe) InstallMethod {
 		return m
 	}
 	if packageMarkerExists(p.exe, p.slug, p.fileExists) {
+		if m := p.packageMethod(); m != InstallUnknown {
+			return m
+		}
 		return InstallPackage
 	}
 	n := normPath(p.exe)
@@ -127,12 +122,29 @@ func detectInstallMethod(p *installProbe) InstallMethod {
 	}
 	if inStandardBinDir(p.exe) {
 		// Packages installed before the marker file existed lack it.
-		if p.goos == "linux" && p.pkgOwned(p.exe) {
-			return InstallPackage
+		if p.goos == "linux" {
+			if m := p.packageMethod(); m != InstallUnknown {
+				return m
+			}
 		}
 		return InstallScript
 	}
 	return InstallUnknown
+}
+
+// packageMethod returns the install method of the package manager that owns
+// the executable, or InstallUnknown if none does. It is InstallPackage unless
+// the package comes from an enabled repository: a downloaded package (e.g.
+// installed with "dpkg -i") cannot be upgraded with the package manager.
+func (p *installProbe) packageMethod() InstallMethod {
+	m := p.pkgManager(p.exe)
+	if m == InstallUnknown || m == InstallPackage {
+		return m
+	}
+	if p.pkgName == "" || !p.inRepo(m, p.pkgName) {
+		return InstallPackage
+	}
+	return m
 }
 
 // overrideMethod reads a forced install method from the environment or config.
@@ -158,7 +170,15 @@ func parseMethod(v string) (InstallMethod, bool) {
 		return InstallWinget, true
 	case string(InstallScript):
 		return InstallScript, true
-	case string(InstallPackage), "apt", "yum", "dnf", "apk", "deb", "rpm":
+	case string(InstallApt):
+		return InstallApt, true
+	case string(InstallDnf):
+		return InstallDnf, true
+	case string(InstallYum):
+		return InstallYum, true
+	case string(InstallApk):
+		return InstallApk, true
+	case string(InstallPackage), "deb", "rpm":
 		return InstallPackage, true
 	}
 	return InstallUnknown, false
@@ -237,27 +257,61 @@ func fileExists(p string) bool {
 	return err == nil
 }
 
-// ownedBySystemPackage asks the system package database whether it owns exe.
-// A time limit stops a slow database from delaying the command; a timeout
-// counts as owned, to err on the side of silence.
-func ownedBySystemPackage(exe string) bool {
+// owningPackageManager asks the system package databases which one owns exe,
+// and returns its install method, or InstallUnknown if none does. A time limit
+// stops a slow database from delaying the command.
+func owningPackageManager(exe string) InstallMethod {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	queries := [][]string{
-		{"dpkg-query", "-S", exe},
-		{"rpm", "-qf", exe},
-		{"apk", "info", "--who-owns", exe},
+	return packageOwner(ctx, exe, exec.LookPath, func(ctx context.Context, name string, args ...string) error {
+		return exec.CommandContext(ctx, name, args...).Run()
+	})
+}
+
+// packageOwner runs each installed package manager's ownership query for exe,
+// until one succeeds. If ctx ends first, exe counts as owned (InstallPackage),
+// so that the installer script is not suggested.
+func packageOwner(
+	ctx context.Context, exe string,
+	lookPath func(string) (string, error),
+	run func(ctx context.Context, name string, args ...string) error,
+) InstallMethod {
+	queries := []struct {
+		method InstallMethod
+		args   []string
+	}{
+		{InstallApt, []string{"dpkg-query", "-S", exe}},
+		{InstallDnf, []string{"rpm", "-qf", exe}},
+		{InstallApk, []string{"apk", "info", "--who-owns", exe}},
 	}
 	for _, q := range queries {
-		p, err := exec.LookPath(q[0])
+		p, err := lookPath(q.args[0])
 		if err != nil {
 			continue
 		}
-		if err := exec.CommandContext(ctx, p, q[1:]...).Run(); err == nil || ctx.Err() != nil {
-			return true
+		err = run(ctx, p, q.args[1:]...)
+		if ctx.Err() != nil {
+			return InstallPackage
+		}
+		if err != nil {
+			continue
+		}
+		if q.method == InstallDnf {
+			return rpmFrontend(lookPath)
+		}
+		return q.method
+	}
+	return InstallUnknown
+}
+
+// rpmFrontend returns the install method for an RPM package: dnf, or else yum.
+func rpmFrontend(lookPath func(string) (string, error)) InstallMethod {
+	for _, m := range []InstallMethod{InstallDnf, InstallYum} {
+		if _, err := lookPath(string(m)); err == nil {
+			return m
 		}
 	}
-	return false
+	return InstallPackage
 }
 
 func brewPrefix() (string, bool) {

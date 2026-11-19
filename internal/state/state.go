@@ -13,6 +13,7 @@ type State struct {
 	Updates struct {
 		LastChecked        int64  `json:"last_checked"`
 		LastNotified       int64  `json:"last_notified,omitempty"`
+		NotifiedVersion    string `json:"notified_version,omitempty"`
 		KnownLatestVersion string `json:"known_latest_version,omitempty"`
 	} `json:"updates,omitempty"`
 

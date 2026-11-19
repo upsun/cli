@@ -4,6 +4,58 @@ Status: draft
 Author: Claude Code (for Patrick Dawkins)
 Date: 2026-06-14
 
+## Revision (2026-11-16): system packages are notified
+
+The sections below describe the original design, which stayed silent for system
+packages (apt, yum/dnf, apk). That assumed the OS updates them, but third-party
+repositories are not covered by unattended upgrades by default, so users only
+got a new release when they happened to upgrade. This revision changes that:
+
+- Package installs check for updates and show the notice like other methods.
+  `AutoUpdating` and the `shouldCheckForUpdate` short-circuit are removed.
+- The package repositories are updated by the release workflow straight after
+  the GitHub release (within a minute), so the GitHub check is used as is. If
+  that upload fails, the suggested command finds nothing to upgrade.
+- The package manager is the one whose database owns the executable
+  (`dpkg-query -S`, `rpm -qf`, `apk info --who-owns`), asked only before
+  printing a notice. For RPM it is `dnf` if that is on `PATH`, or else `yum`.
+  The methods are `apt`, `dnf`, `yum` and `apk`; `package` remains for a
+  package with an unknown package manager, which gets the generic link.
+- A downloaded package (installed with `dpkg -i`, `rpm -i` or
+  `apk add --allow-untrusted`) cannot be upgraded with the package manager. So
+  the method is only `apt`, `dnf`, `yum` or `apk` if the package manager
+  reports that the package is installed and comes from an enabled repository:
+  for apt and apk, a repository provides it; for dnf and yum, it was installed
+  from a repository that is still enabled. Otherwise it is `package`. So a
+  package installed with `rpm -i`, from a repository added later, gets the
+  generic link. The queries run without network access, under a 2-second
+  limit:
+  - apt: `apt-cache policy <package>` lists `/var/lib/dpkg/status` (the
+    package is installed) and another source. Without package lists (e.g.
+    removed in a container image), it lists no other source.
+  - apk: `apk --no-network policy <package>` lists `lib/apk/db/installed`
+    (the package is installed) and another source. Without its index cache,
+    it lists no other source.
+  - dnf: `dnf -C repoquery --installed --qf '%{from_repo}'` names a repository
+    that `dnf -C repolist --enabled` lists. It is `<unknown>` (dnf 5) or empty
+    (dnf 4) for `rpm -i`, and `@commandline` for `dnf install ./file.rpm`.
+  - yum: `yum -C info installed` has a `From repo` line, naming a repository
+    that `yum -C repolist enabled` lists.
+- The package name is the new `wrapper.package_name` config key.
+- Commands, with `sudo` unless running as root (or `doas`, if it is installed
+  and `sudo` is not, as is usual on Alpine):
+  - `apt update && apt install --only-upgrade <package>`
+  - `dnf upgrade --refresh <package>`
+  - `yum clean expire-cache && yum upgrade <package>`
+  - `apk add --upgrade --update-cache <package>`
+- The weekly throttle is per version: `notified_version` in the state records
+  the version last announced, and a newer one is announced without waiting.
+- If the background check finishes before the command exits (it is waited for,
+  for up to 1 second), a release it found is announced at the end of that run,
+  unless a notice was already shown at the start. The check also detects the
+  install method, so that wait is the only delay at exit: if detection takes
+  longer, the notice is left for a later run.
+
 ## Background
 
 The CLI checks GitHub for a newer release and, if one exists, prints a message
@@ -61,7 +113,8 @@ is shown even when the user cannot act on it usefully:
   those channels we print the command rather than executing it (see Phase 2).
 - Changing the network-check throttle, the CI gate, or the TTY gate.
 - Detecting manual `dpkg -i` / `rpm -i` installs that bypass a repo. These are
-  treated as "package" (auto-updating); see Edge cases.
+  treated as "package"; see Edge cases (and the revision above, which does
+  detect them).
 
 ## Phasing
 
@@ -206,7 +259,8 @@ hint.
 
 | Method | Notice shown? | Upgrade command | Auto-updatable? |
 |---|---|---|---|
-| `package` | No (suppressed) | — | — (OS handles it) |
+| `apt`, `dnf`, `yum`, `apk` | Yes | See the revision above | No (privileged) |
+| `package` | Yes | generic link, as for `unknown` | No |
 | `homebrew` | Yes | `brew update && brew upgrade <wrapper.homebrew_tap>` | Yes |
 | `scoop` | Yes | `scoop update <application.executable>` | Yes |
 | `npm` | Yes | `npm install -g <wrapper.npm_package>@latest` | Yes |
@@ -370,9 +424,8 @@ Phase 2:
 ## Edge cases
 
 - **Manual `dpkg -i` / `rpm -i` of a downloaded package** still carries the
-  marker, so it is treated as `package` and suppressed even though it will not
-  auto-update from a repo. Acceptable: the user chose a package format and can
-  re-run the same install, and the GitHub releases page is still discoverable.
+  marker, so it is treated as `package`. Originally that was silent; since the
+  revision at the top, it gets the notice with the generic link.
 - **`brew --prefix` unavailable / slow.** The `/Cellar/` pre-check avoids the
   subprocess in the common non-Homebrew case; if `brew` is missing we fall
   through to `script`/`unknown`, matching today's behavior.
@@ -424,8 +477,8 @@ upgrade line per method, including empty-config fallbacks.
 
 ## Resolved decisions
 
-- `package` installs: total silence, no hint. The OS handles updates.
-- Manual `dpkg -i`/`rpm -i`: treated as `package` (suppressed). Acceptable.
+- `package` installs: originally silent; now notified (see the revision at the top).
+- Manual `dpkg -i`/`rpm -i`: treated as `package`, originally silent; now notified with the generic link.
 - npm upgrade command: global `npm install -g <pkg>@latest`.
 - Ambiguous / no marker: fall back to `script`/`unknown`, advise re-running the
   installer (or the GitHub link).

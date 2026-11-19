@@ -88,12 +88,13 @@ Regular system package updates (e.g. `sudo apt update && sudo apt upgrade`) also
 ### Update notifications
 
 When a newer release is available, the CLI prints the upgrade command for your
-install method, at most once a week, in an interactive terminal. It prints
-nothing for system packages, as the OS updates them.
+install method, in an interactive terminal. A release is announced once, then
+at most once a week.
 
 - `UPSUN_CLI_UPDATES_CHECK=0` disables update checks.
 - `UPSUN_CLI_INSTALL_METHOD=<method>` overrides the detected install method:
-  `homebrew`, `scoop`, `npm`, `winget`, `package`, or `script`.
+  `homebrew`, `scoop`, `npm`, `winget`, `apt`, `dnf`, `yum`, `apk`, `package`
+  (a system package, with an unknown package manager), or `script`.
 
 ## Configuration
 

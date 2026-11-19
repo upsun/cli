@@ -12,7 +12,6 @@ import (
 	"slices"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -38,30 +37,19 @@ func Execute(cnf *config.Config) error {
 	err := cmd.ExecuteContext(ctx)
 	var ee *exitError
 	if errors.As(err, &ee) {
-		waitForUpdateCheck()
+		finishUpdateCheck()
 		os.Exit(ee.code)
 	}
 	if err != nil && !isQuiet() {
 		fmt.Fprintln(color.Error, "Error:", err)
 	}
-	waitForUpdateCheck()
+	finishUpdateCheck()
 	return err
 }
 
 // isQuiet reports whether quiet mode is on, which --debug and --verbose override.
 func isQuiet() bool {
 	return viper.GetBool("quiet") && !viper.GetBool("debug") && !viper.GetBool("verbose")
-}
-
-// updateCheckWait is the maximum time to wait for a background update check before exiting.
-const updateCheckWait = time.Second
-
-// updateCheck is the background update check started by the root command, if any.
-var updateCheck *internal.UpdateCheck
-
-// waitForUpdateCheck gives a running update check a chance to save its result.
-func waitForUpdateCheck() {
-	updateCheck.Wait(updateCheckWait)
 }
 
 func newRootCommand(cnf *config.Config) *cobra.Command {
@@ -96,26 +84,17 @@ func newRootCommand(cnf *config.Config) *cobra.Command {
 			if viper.GetBool("yes") {
 				viper.Set("no-interaction", true)
 			}
-			// The check runs in the background and caches its result for the
-			// next invocation. It is waited for briefly before exiting.
+			// The check runs in the background and caches its result. It is
+			// waited for briefly before exiting.
 			updateCheck = internal.StartUpdateCheck(cnf)
+			updateMessage = newUpdateNotifier(cnf, cmd.ErrOrStderr(), quiet)
 			if viper.GetBool("version") {
 				versionCommand.Run(cmd, []string{})
-				waitForUpdateCheck()
+				finishUpdateCheck()
 				os.Exit(0)
 			}
-			if cnf.Embedded().Wrapper.GitHubRepo != "" {
-				// Show any update found by a previous run, before the command's
-				// output. In quiet mode the notice would be discarded, so it is
-				// left for a later run.
-				if rel := internal.PendingNotification(cnf, config.Version); rel != nil && !quiet {
-					// Full detection can find package installs that lack the marker.
-					if method := internal.DetectInstallMethod(cnf); !method.AutoUpdating() {
-						printUpdateMessage(cmd.ErrOrStderr(), rel, cnf, method)
-					}
-					internal.MarkNotified(cnf)
-				}
-			}
+			// Show any update found by a previous run, before the command's output.
+			updateMessage.show(false)
 			if alt.ShouldUpdate(cnf) {
 				go func() {
 					if err := alt.Update(cmd.Context(), cnf, debugLogf); err != nil {
@@ -251,80 +230,6 @@ func checkShellConfigLeftovers(w io.Writer, cnf *config.Config) {
 	}
 }
 
-// printUpdateMessage describes the binary from its embedded config, as the
-// binary and its upgrade command are the same with or without CLI_CONFIG_FILE.
-// With CLI_CONFIG_FILE, it prints nothing if there is no upgrade command: the
-// binary may be a private copy, which the generic instructions do not update.
-func printUpdateMessage(w io.Writer, rel *internal.ReleaseInfo, cnf *config.Config, method internal.InstallMethod) {
-	if rel == nil {
-		return
-	}
-	bin := cnf.Embedded()
-	exe, _ := os.Executable()
-	upgradeCmd := upgradeCommandFor(bin, method, exe)
-	if upgradeCmd == "" && !cnf.IsEmbedded() {
-		return
-	}
-
-	fmt.Fprintf(w, "%s %s → %s\n",
-		color.YellowString(fmt.Sprintf("A new release of the %s is available:", bin.Application.Name)),
-		color.CyanString(config.Version),
-		color.CyanString(rel.Version),
-	)
-
-	if upgradeCmd != "" {
-		fmt.Fprintf(w, "To upgrade, run: %s\n", color.YellowString(upgradeCmd))
-	} else if bin.Wrapper.GitHubRepo != "" {
-		fmt.Fprintf(
-			w,
-			"To upgrade, follow the instructions at: https://github.com/%s#upgrade\n",
-			bin.Wrapper.GitHubRepo,
-		)
-	}
-
-	fmt.Fprintf(w, "%s\n\n", color.YellowString(rel.URL))
-}
-
-// upgradeCommandFor returns the upgrade command for the install method, or an
-// empty string when there is no tailored command (the caller then falls back to
-// a generic link).
-func upgradeCommandFor(cnf *config.Config, method internal.InstallMethod, exe string) string {
-	switch method {
-	case internal.InstallHomebrew:
-		if cnf.Wrapper.HomebrewTap != "" {
-			return "brew update && brew upgrade " + cnf.Wrapper.HomebrewTap
-		}
-	case internal.InstallScoop:
-		return "scoop update " + cnf.Application.Executable
-	case internal.InstallNpm:
-		if cnf.Wrapper.NpmPackage != "" {
-			return "npm install -g " + cnf.Wrapper.NpmPackage + "@latest"
-		}
-	case internal.InstallWinget:
-		if cnf.Wrapper.WingetPackage != "" {
-			return "winget upgrade " + cnf.Wrapper.WingetPackage
-		}
-	case internal.InstallScript:
-		// The raw method replaces the binary in INSTALL_DIR; without it, the
-		// installer may choose a package manager instead (e.g. apt on Debian).
-		if cnf.Wrapper.InstallerURL != "" && exe != "" {
-			return "curl -fsSL " + cnf.Wrapper.InstallerURL +
-				" | INSTALL_METHOD=raw INSTALL_DIR=" + shellQuote(filepath.Dir(exe)) + " sh"
-		}
-	}
-	return ""
-}
-
-var shellSafe = regexp.MustCompile(`^[A-Za-z0-9_./-]+$`)
-
-// shellQuote quotes s for a POSIX shell, if needed.
-func shellQuote(s string) string {
-	if shellSafe.MatchString(s) {
-		return s
-	}
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
-}
-
 func debugLogf(format string, v ...any) {
 	if !viper.GetBool("debug") {
 		return
@@ -343,13 +248,13 @@ func exitWithError(err error) {
 			exitCode = 128 + int(ws.Signal())
 		}
 		debugLogf("%s", err)
-		waitForUpdateCheck()
+		finishUpdateCheck()
 		os.Exit(exitCode)
 	}
 	if !isQuiet() {
 		fmt.Fprintln(color.Error, color.RedString(err.Error()))
 	}
-	waitForUpdateCheck()
+	finishUpdateCheck()
 	os.Exit(1)
 }
 
