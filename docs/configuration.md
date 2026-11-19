@@ -24,6 +24,8 @@ You can override configuration in the user config file,
   certificate when running login or SSH commands.
 - `UPSUN_CLI_SHELL_CONFIG_FILE`: the shell config file that `self:install`
   writes to (an absolute path). Set it to an empty string to skip writing one.
+- `UPSUN_CLI_GO_AUTH=0`: use the legacy (PHP) implementation of authentication.
+  Switching may require logging in again.
 - `UPSUN_CLI_REPORT_DEPRECATIONS=1`: show PHP deprecation notices in debug mode
   (`-vvv`).
 - `NO_COLOR=1` or `CLICOLOR_FORCE=0`/`1`: turn colors off or force them on.

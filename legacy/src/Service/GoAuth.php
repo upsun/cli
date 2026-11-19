@@ -59,7 +59,7 @@ class GoAuth
     }
 
     /**
-     * Checks whether authentication is handled by the Go wrapper, which is set by the {prefix}GO_AUTH environment
+     * Checks whether authentication is handled by the Go wrapper, which sets the {prefix}GO_AUTH environment
      * variable. Otherwise the legacy implementation is used.
      */
     public function isEnabled(): bool

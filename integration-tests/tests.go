@@ -108,8 +108,7 @@ func (f *cmdFactory) forSubtest(t *testing.T) *cmdFactory {
 
 // goAuthMode reports whether the tests run with Go auth.
 func goAuthMode() bool {
-	v := goAuthEnv()
-	return v != "" && v != "0"
+	return goAuthEnv() != "0"
 }
 
 // Run runs a command, asserts that it did not error, and returns its normal (stdout) output.

@@ -127,3 +127,36 @@ func TestLegacyCLI(t *testing.T) {
 	assert.NotContains(t, combined, "Unable to load dynamic library")
 	assert.NotContains(t, combined, "Failed loading")
 }
+
+func TestEnvGoAuth(t *testing.T) {
+	cases := []struct {
+		name  string
+		value *string // nil if unset
+		want  string
+	}{
+		{name: "unset", want: "1"},
+		{name: "empty", value: new(""), want: "1"},
+		{name: "1", value: new("1"), want: "1"},
+		{name: "0", value: new("0"), want: "0"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			w := &CLIWrapper{Config: &config.Config{}}
+			w.Config.Application.EnvPrefix = "TEST_ENV_"
+			t.Setenv("TEST_ENV_GO_AUTH", "")
+			if c.value == nil {
+				require.NoError(t, os.Unsetenv("TEST_ENV_GO_AUTH"))
+			} else {
+				t.Setenv("TEST_ENV_GO_AUTH", *c.value)
+			}
+			// The last value is the one used.
+			var got string
+			for _, e := range w.env(t.TempDir()) {
+				if v, ok := strings.CutPrefix(e, "TEST_ENV_GO_AUTH="); ok {
+					got = v
+				}
+			}
+			assert.Equal(t, c.want, got)
+		})
+	}
+}
