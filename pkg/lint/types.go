@@ -3,6 +3,7 @@ package lint
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/upsun/cli/pkg/registry"
@@ -12,7 +13,7 @@ import (
 func checkTypes(cfg *config, reg registry.Registry) *Result {
 	result := &Result{}
 
-	// check reports an error, or a warning for a retired version, at path.
+	// check reports an error, or a warning for a retired or newer version, at path.
 	check := func(path, t string, runtime bool) {
 		warning, err := checkType(t, reg, runtime)
 		if err != nil {
@@ -76,7 +77,8 @@ func checkTypes(cfg *config, reg registry.Registry) *Result {
 }
 
 // checkType validates an image type and version. It returns a warning for a
-// retired version, or an error if the type or version is not allowed.
+// retired version or one newer than the known versions, or an error if the
+// type or version is not allowed.
 func checkType(t string, reg registry.Registry, runtime bool) (string, error) {
 	if t == "" {
 		return "", fmt.Errorf("type cannot be empty")
@@ -114,6 +116,13 @@ func checkType(t string, reg registry.Registry, runtime bool) (string, error) {
 				return "", fmt.Errorf("version '%s' is not precise enough for type '%s'%s",
 					version, imageType, mustBeOneOf)
 			}
+			// A version newer than all known ones may have been released since the registry was generated.
+			if len(img.Versions.Supported) > 0 {
+				if newest := slices.MaxFunc(allVersions, registry.CompareVersions); isNextVersion(version, newest) {
+					return fmt.Sprintf("version '%s' of type '%s' is newer than the known versions, "+
+						"so it could not be checked; the newest known version is %s", version, imageType, newest), nil
+				}
+			}
 			return "", fmt.Errorf("version '%s' is not supported for type '%s'%s",
 				version, imageType, mustBeOneOf)
 		}
@@ -132,4 +141,25 @@ func hasMajorVersion(l []string, v string) bool {
 		}
 	}
 	return false
+}
+
+// isNextVersion reports whether v could be a version released after newest:
+// newer, with the same number of parts, and at most one major version higher.
+// This leaves typos such as "84" for "8.4" as errors.
+func isNextVersion(v, newest string) bool {
+	vParts, newestParts := strings.Split(v, "."), strings.Split(newest, ".")
+	if len(vParts) != len(newestParts) {
+		return false
+	}
+	for _, p := range vParts {
+		if p == "" || strings.Trim(p, "0123456789") != "" {
+			return false
+		}
+	}
+	vMajor, err := strconv.Atoi(vParts[0])
+	if err != nil {
+		return false
+	}
+	newestMajor, err := strconv.Atoi(newestParts[0])
+	return err == nil && vMajor <= newestMajor+1 && registry.CompareVersions(v, newest) > 0
 }

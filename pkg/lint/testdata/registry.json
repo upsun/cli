@@ -43,6 +43,19 @@
       ]
     }
   },
+  "composable": {
+    "name": "Composable image",
+    "type": "composable",
+    "runtime": true,
+    "versions": {
+      "supported": [
+        "26.05"
+      ],
+      "retired": [
+        "25.11"
+      ]
+    }
+  },
   "dotnet": {
     "description": "ASP.NET 5 application container.",
     "repo_name": "dotnet",
@@ -490,62 +503,6 @@
       ]
     }
   },
-  "mysql": {
-    "description": "A manufacture-based container for MariaDB",
-    "repo_name": "mariadb",
-    "disk": true,
-    "docs": {
-      "relationship_name": "mysql",
-      "service_name": "mysql",
-      "url": "/add-services/mysql.html"
-    },
-    "endpoint": "mysql",
-    "min_disk_size": 256,
-    "name": "MariaDB/MySQL",
-    "runtime": false,
-    "type": "mysql",
-    "versions": {
-      "deprecated": [
-        "10.2",
-        "10.1",
-        "10.0",
-        "5.5"
-      ],
-      "supported": [
-        "11.0",
-        "10.11",
-        "10.6",
-        "10.5",
-        "10.4",
-        "10.3"
-      ]
-    },
-    "versions-dedicated-gen-2": {
-      "supported": [
-        "10.5 Galera",
-        "10.4 Galera",
-        "10.3 Galera"
-      ],
-      "deprecated": [
-        "10.2 Galera",
-        "10.1 Galera",
-        "10.0 Galera"
-      ]
-    },
-    "versions-dedicated-gen-3": {
-      "supported": [
-        "10.11 Galera",
-        "10.6 Galera",
-        "10.5 Galera",
-        "10.4 Galera",
-        "10.3 Galera"
-      ],
-      "deprecated": [
-        "10.2 Galera",
-        "10.1 Galera"
-      ]
-    }
-  },
   "memcached": {
     "description": "Memcached service.",
     "repo_name": "memcached",
@@ -635,6 +592,62 @@
       "deprecated": [
         "4.2",
         "4.0"
+      ]
+    }
+  },
+  "mysql": {
+    "description": "A manufacture-based container for MariaDB",
+    "repo_name": "mariadb",
+    "disk": true,
+    "docs": {
+      "relationship_name": "mysql",
+      "service_name": "mysql",
+      "url": "/add-services/mysql.html"
+    },
+    "endpoint": "mysql",
+    "min_disk_size": 256,
+    "name": "MariaDB/MySQL",
+    "runtime": false,
+    "type": "mysql",
+    "versions": {
+      "deprecated": [
+        "10.2",
+        "10.1",
+        "10.0",
+        "5.5"
+      ],
+      "supported": [
+        "11.0",
+        "10.11",
+        "10.6",
+        "10.5",
+        "10.4",
+        "10.3"
+      ]
+    },
+    "versions-dedicated-gen-2": {
+      "supported": [
+        "10.5 Galera",
+        "10.4 Galera",
+        "10.3 Galera"
+      ],
+      "deprecated": [
+        "10.2 Galera",
+        "10.1 Galera",
+        "10.0 Galera"
+      ]
+    },
+    "versions-dedicated-gen-3": {
+      "supported": [
+        "10.11 Galera",
+        "10.6 Galera",
+        "10.5 Galera",
+        "10.4 Galera",
+        "10.3 Galera"
+      ],
+      "deprecated": [
+        "10.2 Galera",
+        "10.1 Galera"
       ]
     }
   },

@@ -2,7 +2,6 @@ package lint_test
 
 import (
 	_ "embed"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -80,10 +79,10 @@ services:
 		},
 		{
 			name: "composable_without_stack",
-			content: fmt.Sprintf(`
+			content: `
 applications:
   foo:
-    type: composable:%s`, registry.ChannelStable),
+    type: composable:26.05`,
 			expectErrorMessage: `Linter warnings:
   - applications.foo: 'stack' should be specified when using a composable image`,
 		},
@@ -188,4 +187,73 @@ services:
 	assert.Contains(t, result.Errors, lint.Issue{
 		Path: "services.unknown.type", Message: "version '9.0' is not supported for type 'elasticsearch'",
 	})
+}
+
+func TestCheckTypes_NewerVersion(t *testing.T) {
+	reg := registry.Registry{
+		"composable": {Type: "composable", IsRuntime: true, Versions: registry.VersionInfo{
+			Supported: []string{"26.05"},
+			Retired:   []string{"25.11"},
+		}},
+		"php": {Type: "php", IsRuntime: true, Versions: registry.VersionInfo{
+			Supported: []string{"8.5", "8.4"},
+			Legacy:    []string{"5.4"},
+		}},
+		"elasticsearch": {Type: "elasticsearch", Versions: registry.VersionInfo{Retired: []string{"7.2"}}},
+	}
+
+	cases := []struct {
+		name    string
+		t       string
+		service bool
+		warning string
+		err     string
+	}{
+		{name: "newer_channel", t: "composable:26.11",
+			warning: "version '26.11' of type 'composable' is newer than the known versions, so it could not be checked; " +
+				"the newest known version is 26.05"},
+		{name: "newer_minor", t: "php:8.10",
+			warning: "version '8.10' of type 'php' is newer than the known versions, so it could not be checked; " +
+				"the newest known version is 8.5"},
+		{name: "newer_major", t: "php:9.0",
+			warning: "version '9.0' of type 'php' is newer than the known versions, so it could not be checked; " +
+				"the newest known version is 8.5"},
+		{name: "typo", t: "php:84",
+			err: "version '84' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "two_majors_ahead", t: "php:10.0",
+			err: "version '10.0' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "more_parts", t: "php:8.6.1",
+			err: "version '8.6.1' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "signed", t: "php:+9.0",
+			err: "version '+9.0' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "overflow", t: "php:99999999999999999999.0",
+			err: "version '99999999999999999999.0' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "older_unknown", t: "composable:25.08",
+			err: "version '25.08' is not supported for type 'composable'; it must be exactly one of: 26.05"},
+		{name: "imprecise", t: "php:8",
+			err: "version '8' is not precise enough for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "not_numeric", t: "php:latest",
+			err: "version 'latest' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "empty", t: "php",
+			err: "version '' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "no_supported_versions", t: "elasticsearch:9.0", service: true,
+			err: "version '9.0' is not supported for type 'elasticsearch'"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			yaml, path := "applications:\n  app:\n    type: "+c.t+"\n    stack: []", "applications.app.type"
+			if c.service {
+				yaml, path = "services:\n  db:\n    type: "+c.t, "services.db.type"
+			}
+			cfg, err := lint.DecodeConfig(yaml)
+			require.NoError(t, err)
+			result := lint.CheckTypes(cfg, reg)
+			if c.warning != "" {
+				assert.Empty(t, result.Errors)
+				assert.Equal(t, []lint.Issue{{Path: path, Message: c.warning}}, result.Warnings)
+			} else {
+				assert.Equal(t, []lint.Issue{{Path: path, Message: c.err}}, result.Errors)
+			}
+		})
+	}
 }
