@@ -206,9 +206,8 @@ func TestCheckTypes_NewerVersion(t *testing.T) {
 		"frankenphp":    {Type: "frankenphp", IsRuntime: true, Versions: registry.VersionInfo{Supported: []string{"1.8.5"}}},
 		"elasticsearch": {Type: "elasticsearch", Versions: registry.VersionInfo{Retired: []string{"7.2"}}},
 	}
-	newer := func(v, t, newest string) string {
-		return fmt.Sprintf("version '%s' of type '%s' is newer than the known versions, "+
-			"so it could not be checked; the newest known version is %s", v, t, newest)
+	unknown := func(v, t, newest string) string {
+		return fmt.Sprintf("unknown version '%s' of type '%s' (the newest known is %s)", v, t, newest)
 	}
 
 	cases := []struct {
@@ -219,19 +218,16 @@ func TestCheckTypes_NewerVersion(t *testing.T) {
 		err     string
 	}{
 		{name: "newer_channel", t: "composable:26.11",
-			warning: "version '26.11' of type 'composable' is newer than the known versions, so it could not be checked; " +
-				"the newest known version is 26.05"},
+			warning: unknown("26.11", "composable", "26.05")},
 		{name: "newer_minor", t: "php:8.6",
-			warning: "version '8.6' of type 'php' is newer than the known versions, so it could not be checked; " +
-				"the newest known version is 8.5"},
+			warning: unknown("8.6", "php", "8.5")},
 		{name: "newer_major", t: "php:9.0",
-			warning: "version '9.0' of type 'php' is newer than the known versions, so it could not be checked; " +
-				"the newest known version is 8.5"},
-		{name: "newer_composable_major", t: "composable:27.05", warning: newer("27.05", "composable", "26.05")},
-		{name: "two_digit_minor", t: "php:8.10", warning: newer("8.10", "php", "8.5")},
-		{name: "major_after_two_digit_minor", t: "python:4.0", warning: newer("4.0", "python", "3.14")},
-		{name: "month_numbered", t: "clickhouse:26.10", service: true, warning: newer("26.10", "clickhouse", "26.8")},
-		{name: "two_digit_patch", t: "frankenphp:1.8.10", warning: newer("1.8.10", "frankenphp", "1.8.5")},
+			warning: unknown("9.0", "php", "8.5")},
+		{name: "newer_composable_major", t: "composable:27.05", warning: unknown("27.05", "composable", "26.05")},
+		{name: "two_digit_minor", t: "php:8.10", warning: unknown("8.10", "php", "8.5")},
+		{name: "major_after_two_digit_minor", t: "python:4.0", warning: unknown("4.0", "python", "3.14")},
+		{name: "month_numbered", t: "clickhouse:26.10", service: true, warning: unknown("26.10", "clickhouse", "26.8")},
+		{name: "two_digit_patch", t: "frankenphp:1.8.10", warning: unknown("1.8.10", "frankenphp", "1.8.5")},
 		{name: "minor_too_far_ahead", t: "php:8.18",
 			err: "version '8.18' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
 		{name: "typo", t: "php:84",
@@ -269,8 +265,8 @@ func TestCheckTypes_NewerVersion(t *testing.T) {
 		{name: "composable_26_011", t: "composable:26.011",
 			err: "version '26.011' is not supported for type 'composable'; it must be exactly one of: 26.05"},
 		{name: "zero_padded_after_rollover", t: "nixos:27.05",
-			warning: newer("27.05", "nixos", "26.11")},
-		{name: "zero_padded", t: "composable:26.08", warning: newer("26.08", "composable", "26.05")},
+			warning: unknown("27.05", "nixos", "26.11")},
+		{name: "zero_padded", t: "composable:26.08", warning: unknown("26.08", "composable", "26.05")},
 		{name: "older_unknown", t: "composable:25.08",
 			err: "version '25.08' is not supported for type 'composable'; it must be exactly one of: 26.05"},
 		{name: "imprecise", t: "php:8",

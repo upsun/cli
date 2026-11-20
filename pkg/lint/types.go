@@ -77,7 +77,7 @@ func checkTypes(cfg *config, reg registry.Registry) *Result {
 }
 
 // checkType validates an image type and version. It returns a warning for a
-// retired version or one newer than the known versions, or an error if the
+// retired version or an unknown one that could be newer, or an error if the
 // type or version is not allowed.
 func checkType(t string, reg registry.Registry, runtime bool) (string, error) {
 	if t == "" {
@@ -119,8 +119,8 @@ func checkType(t string, reg registry.Registry, runtime bool) (string, error) {
 			// A version newer than all known ones may have been released since the registry was generated.
 			if len(img.Versions.Supported) > 0 {
 				if newest := slices.MaxFunc(allVersions, registry.CompareVersions); isNextVersion(version, newest) {
-					return fmt.Sprintf("version '%s' of type '%s' is newer than the known versions, "+
-						"so it could not be checked; the newest known version is %s", version, imageType, newest), nil
+					return fmt.Sprintf("unknown version '%s' of type '%s' (the newest known is %s)",
+						version, imageType, newest), nil
 				}
 			}
 			return "", fmt.Errorf("version '%s' is not supported for type '%s'%s",
