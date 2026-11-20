@@ -143,10 +143,11 @@ func hasMajorVersion(l []string, v string) bool {
 	return false
 }
 
-// isNextVersion reports whether v could be a version released after newest:
-// newer, at most one major version higher, and with as many parts as newest,
-// each after the first with as many digits. This leaves typos such as "84" or
-// "8.44" for "8.4" as errors.
+// isNextVersion reports whether v could be a version released after newest. It
+// must have as many parts, and leading zeros only where newest has them. At the
+// first part that differs, it must be at most one higher for the major part, and
+// at most 12 higher for others (e.g. month-numbered versions, from 26.05 to 26.11).
+// This leaves typos such as "84", "8.44" or "8.06" for "8.4" as errors.
 func isNextVersion(v, newest string) bool {
 	vParts, newestParts := strings.Split(v, "."), strings.Split(newest, ".")
 	if len(vParts) != len(newestParts) {
@@ -156,14 +157,25 @@ func isNextVersion(v, newest string) bool {
 		if p == "" || strings.Trim(p, "0123456789") != "" {
 			return false
 		}
-		if i == 0 && len(p) > 1 && p[0] == '0' || i > 0 && len(p) != len(newestParts[i]) {
+		if len(p) > 1 && p[0] == '0' && !strings.HasPrefix(newestParts[i], "0") {
 			return false
 		}
+		if p == newestParts[i] {
+			continue
+		}
+		vn, err := strconv.Atoi(p)
+		if err != nil {
+			return false
+		}
+		newestN, err := strconv.Atoi(newestParts[i])
+		if err != nil {
+			return false
+		}
+		maxStep := 12
+		if i == 0 {
+			maxStep = 1
+		}
+		return vn > newestN && vn-newestN <= maxStep
 	}
-	vMajor, err := strconv.Atoi(vParts[0])
-	if err != nil {
-		return false
-	}
-	newestMajor, err := strconv.Atoi(newestParts[0])
-	return err == nil && vMajor <= newestMajor+1 && registry.CompareVersions(v, newest) > 0
+	return false
 }

@@ -2,6 +2,7 @@ package lint_test
 
 import (
 	_ "embed"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -199,7 +200,14 @@ func TestCheckTypes_NewerVersion(t *testing.T) {
 			Supported: []string{"8.5", "8.4"},
 			Legacy:    []string{"5.4"},
 		}},
+		"python":        {Type: "python", IsRuntime: true, Versions: registry.VersionInfo{Supported: []string{"3.14"}}},
+		"clickhouse":    {Type: "clickhouse", Versions: registry.VersionInfo{Supported: []string{"26.8"}}},
+		"frankenphp":    {Type: "frankenphp", IsRuntime: true, Versions: registry.VersionInfo{Supported: []string{"1.8.5"}}},
 		"elasticsearch": {Type: "elasticsearch", Versions: registry.VersionInfo{Retired: []string{"7.2"}}},
+	}
+	newer := func(v, t, newest string) string {
+		return fmt.Sprintf("version '%s' of type '%s' is newer than the known versions, "+
+			"so it could not be checked; the newest known version is %s", v, t, newest)
 	}
 
 	cases := []struct {
@@ -218,6 +226,13 @@ func TestCheckTypes_NewerVersion(t *testing.T) {
 		{name: "newer_major", t: "php:9.0",
 			warning: "version '9.0' of type 'php' is newer than the known versions, so it could not be checked; " +
 				"the newest known version is 8.5"},
+		{name: "newer_composable_major", t: "composable:27.05", warning: newer("27.05", "composable", "26.05")},
+		{name: "two_digit_minor", t: "php:8.10", warning: newer("8.10", "php", "8.5")},
+		{name: "major_after_two_digit_minor", t: "python:4.0", warning: newer("4.0", "python", "3.14")},
+		{name: "month_numbered", t: "clickhouse:26.10", service: true, warning: newer("26.10", "clickhouse", "26.8")},
+		{name: "two_digit_patch", t: "frankenphp:1.8.10", warning: newer("1.8.10", "frankenphp", "1.8.5")},
+		{name: "minor_too_far_ahead", t: "php:8.18",
+			err: "version '8.18' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
 		{name: "typo", t: "php:84",
 			err: "version '84' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
 		{name: "two_majors_ahead", t: "php:10.0",
