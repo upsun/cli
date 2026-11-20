@@ -144,7 +144,8 @@ func hasMajorVersion(l []string, v string) bool {
 }
 
 // isNextVersion reports whether v could be a version released after newest. It
-// must have as many numeric parts, zero-padded where newest is (e.g. 26.05).
+// must have as many numeric parts, and zero-padded parts as wide as newest's
+// (e.g. 26.05).
 // At the first part that differs, it must be at most one higher for the major
 // part, and at most 12 higher for others (e.g. month-numbered versions, from
 // 26.05 to 26.11). This leaves typos such as "84", "8.44" or "8.06" for "8.4"
@@ -158,11 +159,7 @@ func isNextVersion(v, newest string) bool {
 		if p == "" || strings.Trim(p, "0123456789") != "" {
 			return false
 		}
-		if n := newestParts[i]; len(n) > 1 && n[0] == '0' {
-			if len(p) != len(n) {
-				return false
-			}
-		} else if len(p) > 1 && p[0] == '0' {
+		if n := newestParts[i]; (isZeroPadded(p) || isZeroPadded(n)) && len(p) != len(n) {
 			return false
 		}
 	}
@@ -185,4 +182,8 @@ func isNextVersion(v, newest string) bool {
 		return vn > newestN && vn-newestN <= maxStep
 	}
 	return false
+}
+
+func isZeroPadded(p string) bool {
+	return len(p) > 1 && p[0] == '0'
 }
