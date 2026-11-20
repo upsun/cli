@@ -212,8 +212,8 @@ func TestCheckTypes_NewerVersion(t *testing.T) {
 		{name: "newer_channel", t: "composable:26.11",
 			warning: "version '26.11' of type 'composable' is newer than the known versions, so it could not be checked; " +
 				"the newest known version is 26.05"},
-		{name: "newer_minor", t: "php:8.10",
-			warning: "version '8.10' of type 'php' is newer than the known versions, so it could not be checked; " +
+		{name: "newer_minor", t: "php:8.6",
+			warning: "version '8.6' of type 'php' is newer than the known versions, so it could not be checked; " +
 				"the newest known version is 8.5"},
 		{name: "newer_major", t: "php:9.0",
 			warning: "version '9.0' of type 'php' is newer than the known versions, so it could not be checked; " +
@@ -228,6 +228,16 @@ func TestCheckTypes_NewerVersion(t *testing.T) {
 			err: "version '+9.0' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
 		{name: "overflow", t: "php:99999999999999999999.0",
 			err: "version '99999999999999999999.0' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "digits_8_44", t: "php:8.44",
+			err: "version '8.44' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "digits_8_06", t: "php:8.06",
+			err: "version '8.06' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "digits_08_6", t: "php:08.6",
+			err: "version '08.6' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "digits_26_055", t: "composable:26.055",
+			err: "version '26.055' is not supported for type 'composable'; it must be exactly one of: 26.05"},
+		{name: "digits_26_5", t: "composable:26.5",
+			err: "version '26.5' is not supported for type 'composable'; it must be exactly one of: 26.05"},
 		{name: "older_unknown", t: "composable:25.08",
 			err: "version '25.08' is not supported for type 'composable'; it must be exactly one of: 26.05"},
 		{name: "imprecise", t: "php:8",

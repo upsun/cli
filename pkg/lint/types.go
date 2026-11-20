@@ -144,15 +144,19 @@ func hasMajorVersion(l []string, v string) bool {
 }
 
 // isNextVersion reports whether v could be a version released after newest:
-// newer, with the same number of parts, and at most one major version higher.
-// This leaves typos such as "84" for "8.4" as errors.
+// newer, at most one major version higher, and with as many parts as newest,
+// each after the first with as many digits. This leaves typos such as "84" or
+// "8.44" for "8.4" as errors.
 func isNextVersion(v, newest string) bool {
 	vParts, newestParts := strings.Split(v, "."), strings.Split(newest, ".")
 	if len(vParts) != len(newestParts) {
 		return false
 	}
-	for _, p := range vParts {
+	for i, p := range vParts {
 		if p == "" || strings.Trim(p, "0123456789") != "" {
+			return false
+		}
+		if i == 0 && len(p) > 1 && p[0] == '0' || i > 0 && len(p) != len(newestParts[i]) {
 			return false
 		}
 	}
