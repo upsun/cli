@@ -119,6 +119,38 @@ ssh: {domain_wildcards: ["*.example.site"]}
 	assert.Empty(t, buf.String())
 }
 
+func TestPrintUpdateMessageFormat(t *testing.T) {
+	origVersion := config.Version
+	t.Cleanup(func() { config.Version = origVersion })
+	config.Version = "5.17.0"
+
+	t.Setenv("CLI_CONFIG_FILE", "")
+	b, err := config.LoadYAML()
+	require.NoError(t, err)
+	cnf, err := config.FromYAML(b)
+	require.NoError(t, err)
+	rel := &internal.ReleaseInfo{Version: "v5.18.0", URL: "https://example.com/release"}
+	firstLines := "A new release of the " + cnf.Application.Name + " is available: v5.17.0 → v5.18.0\n" +
+		"https://example.com/release\n\n"
+
+	cases := []struct {
+		name   string
+		method internal.InstallMethod
+		want   string
+	}{
+		{"scoop", internal.InstallScoop, firstLines + "To upgrade, run: scoop update " + cnf.Application.Executable + "\n"},
+		{"unknown", internal.InstallUnknown, firstLines +
+			"To upgrade, follow the instructions at: https://github.com/" + cnf.Wrapper.GitHubRepo + "#upgrade\n"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			buf := &bytes.Buffer{}
+			require.True(t, printUpdateMessage(buf, rel, cnf, c.method))
+			assert.Equal(t, c.want, buf.String())
+		})
+	}
+}
+
 func TestPrintUpdateMessageUnknownMethod(t *testing.T) {
 	t.Setenv("CLI_CONFIG_FILE", "")
 	b, err := config.LoadYAML()
@@ -155,13 +187,13 @@ func TestUpdateNotifier(t *testing.T) {
 		wantMarked []string
 	}{
 		{name: "at start", cnf: embedded, pending: []*internal.ReleaseInfo{rel},
-			wantPrefix: firstLine, wantSuffix: rel.URL + "\n\n", wantMarked: []string{"v9.9.9"}},
+			wantPrefix: firstLine, wantSuffix: "#upgrade\n\n", wantMarked: []string{"v9.9.9"}},
 		{name: "at exit", cnf: embedded, pending: []*internal.ReleaseInfo{rel}, atExit: true,
-			wantPrefix: "\n" + firstLine, wantSuffix: rel.URL + "\n", wantMarked: []string{"v9.9.9"}},
+			wantPrefix: "\n" + firstLine, wantSuffix: "#upgrade\n", wantMarked: []string{"v9.9.9"}},
 		{name: "shown once", cnf: embedded, pending: []*internal.ReleaseInfo{rel, rel},
-			wantPrefix: firstLine, wantSuffix: rel.URL + "\n\n", wantMarked: []string{"v9.9.9"}},
+			wantPrefix: firstLine, wantSuffix: "#upgrade\n\n", wantMarked: []string{"v9.9.9"}},
 		{name: "found by a later call", cnf: embedded, pending: []*internal.ReleaseInfo{nil, rel}, atExit: true,
-			wantPrefix: "\n" + firstLine, wantSuffix: rel.URL + "\n", wantMarked: []string{"v9.9.9"}},
+			wantPrefix: "\n" + firstLine, wantSuffix: "#upgrade\n", wantMarked: []string{"v9.9.9"}},
 		{name: "nothing pending", cnf: embedded, pending: []*internal.ReleaseInfo{nil}},
 		{name: "quiet", cnf: embedded, quiet: true, pending: []*internal.ReleaseInfo{rel}},
 		{name: "no message to print", cnf: altCnf, pending: []*internal.ReleaseInfo{rel},
