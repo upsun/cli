@@ -103,22 +103,27 @@ func printUpdateMessage(
 
 	fmt.Fprintf(w, "%s %s → %s\n",
 		color.YellowString(fmt.Sprintf("A new release of the %s is available:", bin.Application.Name)),
-		color.CyanString(config.Version),
-		color.CyanString(rel.Version),
+		color.CyanString(withV(config.Version)),
+		color.CyanString(withV(rel.Version)),
 	)
+	fmt.Fprintln(w, color.YellowString(rel.URL))
 
+	// The upgrade command is last, after a blank line, so that it is easy to copy.
 	if upgradeCmd != "" {
-		fmt.Fprintf(w, "To upgrade, run: %s\n", color.YellowString(upgradeCmd))
+		fmt.Fprintf(w, "\nTo upgrade, run: %s\n", color.YellowString(upgradeCmd))
 	} else if bin.Wrapper.GitHubRepo != "" {
 		fmt.Fprintf(
 			w,
-			"To upgrade, follow the instructions at: https://github.com/%s#upgrade\n",
+			"\nTo upgrade, follow the instructions at: https://github.com/%s#upgrade\n",
 			bin.Wrapper.GitHubRepo,
 		)
 	}
-
-	fmt.Fprintln(w, color.YellowString(rel.URL))
 	return true
+}
+
+// withV adds a "v" prefix to a version, if it does not have one.
+func withV(version string) string {
+	return "v" + strings.TrimPrefix(version, "v")
 }
 
 // upgradeCommandFor returns the upgrade command for the install method, or an
