@@ -95,6 +95,7 @@ func newRootCommand(cnf *config.Config) *cobra.Command {
 			}
 			// Show any update found by a previous run, before the command's output.
 			updateMessage.show(false)
+			warnLegacyAuth(cmd.ErrOrStderr(), cnf)
 			if alt.ShouldUpdate(cnf) {
 				go func() {
 					if err := alt.Update(cmd.Context(), cnf, debugLogf); err != nil {

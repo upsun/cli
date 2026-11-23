@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"slices"
 	"strings"
@@ -137,7 +138,7 @@ func (f *cmdFactory) RunCombinedOutput(args ...string) (stdOut, stdErr string, e
 	if !f.quiet {
 		f.logStderr(stdErrBuffer.String())
 	}
-	return normalizeNewlines(stdOutBuffer.String()), normalizeNewlines(stdErrBuffer.String()), err
+	return normalizeNewlines(stdOutBuffer.String()), f.normalizeStderr(stdErrBuffer.String()), err
 }
 
 // RunInteractive runs a command with stdin piped from stdinInput. It keeps
@@ -162,7 +163,7 @@ func (f *cmdFactory) RunInteractive(stdinInput string, args ...string) (stdOut, 
 	f.t.Log("Running (interactive):", cmd)
 	err = cmd.Run()
 	f.logStderr(stdErrBuffer.String())
-	return normalizeNewlines(stdOutBuffer.String()), normalizeNewlines(stdErrBuffer.String()), err
+	return normalizeNewlines(stdOutBuffer.String()), f.normalizeStderr(stdErrBuffer.String()), err
 }
 
 // normalizeNewlines converts CRLF line endings to LF: the legacy CLI writes CRLF on Windows (PHP_EOL).
@@ -171,6 +172,22 @@ func normalizeNewlines(s string) string {
 		return s
 	}
 	return strings.ReplaceAll(s, "\r\n", "\n")
+}
+
+// legacyAuthWarning matches the warning shown when legacy auth is enabled.
+var legacyAuthWarning = regexp.MustCompile(`(?m)^Warning: ` + EnvPrefix + `GO_AUTH=0 is deprecated.*\n\n`)
+
+// normalizeStderr normalizes newlines in stderr. When the tests run with legacy auth, it also removes the deprecation
+// warning, unless the test enabled legacy auth itself.
+// TODO: remove with legacy auth runs.
+func (f *cmdFactory) normalizeStderr(s string) string {
+	s = normalizeNewlines(s)
+	if goAuthEnv() != "0" || slices.ContainsFunc(f.extraEnv, func(e string) bool {
+		return strings.HasPrefix(e, EnvPrefix+"GO_AUTH=")
+	}) {
+		return s
+	}
+	return legacyAuthWarning.ReplaceAllString(s, "")
 }
 
 func (f *cmdFactory) buildCommand(args ...string) *exec.Cmd {

@@ -43,6 +43,16 @@ func authCommands(cnf *config.Config) []*cobra.Command {
 	})
 }
 
+// warnLegacyAuth warns that legacy auth, enabled with <PREFIX>GO_AUTH=0, is deprecated.
+func warnLegacyAuth(w io.Writer, cnf *config.Config) {
+	if cnf.GoAuthEnabled() {
+		return
+	}
+	fmt.Fprintf(w, "%s %sGO_AUTH=0 is deprecated: legacy authentication will be removed in a future release.\n",
+		color.YellowString("Warning:"), cnf.Application.EnvPrefix)
+	fmt.Fprintln(w)
+}
+
 // addLegacyGlobalFlags accepts the legacy CLI's global options that the root command does not define.
 func addLegacyGlobalFlags(c *cobra.Command) {
 	c.Flags().BoolP("no", "n", false, "Answer \"no\" to confirmation questions; disable interaction")
