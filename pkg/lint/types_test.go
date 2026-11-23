@@ -80,10 +80,10 @@ services:
 		},
 		{
 			name: "composable_without_stack",
-			content: fmt.Sprintf(`
+			content: `
 applications:
   foo:
-    type: composable:%s`, registry.ChannelStable),
+    type: composable:26.05`,
 			expectErrorMessage: `Linter warnings:
   - applications.foo: 'stack' should be specified when using a composable image`,
 		},
@@ -188,4 +188,111 @@ services:
 	assert.Contains(t, result.Errors, lint.Issue{
 		Path: "services.unknown.type", Message: "version '9.0' is not supported for type 'elasticsearch'",
 	})
+}
+
+func TestCheckTypes_NewerVersion(t *testing.T) {
+	reg := registry.Registry{
+		"composable": {Type: "composable", IsRuntime: true, Versions: registry.VersionInfo{
+			Supported: []string{"26.05"},
+			Retired:   []string{"25.11"},
+		}},
+		"php": {Type: "php", IsRuntime: true, Versions: registry.VersionInfo{
+			Supported: []string{"8.5", "8.4"},
+			Legacy:    []string{"5.4"},
+		}},
+		"nixos":         {Type: "nixos", IsRuntime: true, Versions: registry.VersionInfo{Supported: []string{"26.11"}}},
+		"python":        {Type: "python", IsRuntime: true, Versions: registry.VersionInfo{Supported: []string{"3.14"}}},
+		"clickhouse":    {Type: "clickhouse", Versions: registry.VersionInfo{Supported: []string{"26.8"}}},
+		"frankenphp":    {Type: "frankenphp", IsRuntime: true, Versions: registry.VersionInfo{Supported: []string{"1.8.5"}}},
+		"elasticsearch": {Type: "elasticsearch", Versions: registry.VersionInfo{Retired: []string{"7.2"}}},
+	}
+	unknown := func(v, t, newest string) string {
+		return fmt.Sprintf("unknown version '%s' of type '%s' (the newest known is %s)", v, t, newest)
+	}
+
+	cases := []struct {
+		name    string
+		t       string
+		service bool
+		warning string
+		err     string
+	}{
+		{name: "newer_channel", t: "composable:26.11",
+			warning: unknown("26.11", "composable", "26.05")},
+		{name: "newer_minor", t: "php:8.6",
+			warning: unknown("8.6", "php", "8.5")},
+		{name: "newer_major", t: "php:9.0",
+			warning: unknown("9.0", "php", "8.5")},
+		{name: "newer_composable_major", t: "composable:27.05", warning: unknown("27.05", "composable", "26.05")},
+		{name: "two_digit_minor", t: "php:8.10", warning: unknown("8.10", "php", "8.5")},
+		{name: "major_after_two_digit_minor", t: "python:4.0", warning: unknown("4.0", "python", "3.14")},
+		{name: "month_numbered", t: "clickhouse:26.10", service: true, warning: unknown("26.10", "clickhouse", "26.8")},
+		{name: "two_digit_patch", t: "frankenphp:1.8.10", warning: unknown("1.8.10", "frankenphp", "1.8.5")},
+		{name: "minor_too_far_ahead", t: "php:8.18",
+			err: "version '8.18' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "typo", t: "php:84",
+			err: "version '84' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "two_majors_ahead", t: "php:10.0",
+			err: "version '10.0' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "more_parts", t: "php:8.6.1",
+			err: "version '8.6.1' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "signed", t: "php:+9.0",
+			err: "version '+9.0' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "overflow", t: "php:99999999999999999999.0",
+			err: "version '99999999999999999999.0' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "digits_8_44", t: "php:8.44",
+			err: "version '8.44' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "digits_8_06", t: "php:8.06",
+			err: "version '8.06' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "digits_08_6", t: "php:08.6",
+			err: "version '08.6' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "digits_26_055", t: "composable:26.055",
+			err: "version '26.055' is not supported for type 'composable'; it must be exactly one of: 26.05"},
+		{name: "digits_26_5", t: "composable:26.5",
+			err: "version '26.5' is not supported for type 'composable'; it must be exactly one of: 26.05"},
+		{name: "malformed_9_x", t: "php:9.x",
+			err: "version '9.x' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "malformed_9_", t: "php:9.",
+			err: "version '9.' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "malformed_9_latest", t: "php:9.latest",
+			err: "version '9.latest' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "malformed_9_0000", t: "php:9.0000",
+			err: "version '9.0000' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "composable_27_abc", t: "composable:27.abc",
+			err: "version '27.abc' is not supported for type 'composable'; it must be exactly one of: 26.05"},
+		{name: "composable_26_6", t: "composable:26.6",
+			err: "version '26.6' is not supported for type 'composable'; it must be exactly one of: 26.05"},
+		{name: "composable_26_011", t: "composable:26.011",
+			err: "version '26.011' is not supported for type 'composable'; it must be exactly one of: 26.05"},
+		{name: "zero_padded_after_rollover", t: "nixos:27.05",
+			warning: unknown("27.05", "nixos", "26.11")},
+		{name: "zero_padded", t: "composable:26.08", warning: unknown("26.08", "composable", "26.05")},
+		{name: "older_unknown", t: "composable:25.08",
+			err: "version '25.08' is not supported for type 'composable'; it must be exactly one of: 26.05"},
+		{name: "imprecise", t: "php:8",
+			err: "version '8' is not precise enough for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "not_numeric", t: "php:latest",
+			err: "version 'latest' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "empty", t: "php",
+			err: "version '' is not supported for type 'php'; it must be exactly one of: 8.5, 8.4"},
+		{name: "no_supported_versions", t: "elasticsearch:9.0", service: true,
+			err: "version '9.0' is not supported for type 'elasticsearch'"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			yaml, path := "applications:\n  app:\n    type: "+c.t+"\n    stack: []", "applications.app.type"
+			if c.service {
+				yaml, path = "services:\n  db:\n    type: "+c.t, "services.db.type"
+			}
+			cfg, err := lint.DecodeConfig(yaml)
+			require.NoError(t, err)
+			result := lint.CheckTypes(cfg, reg)
+			if c.warning != "" {
+				assert.Empty(t, result.Errors)
+				assert.Equal(t, []lint.Issue{{Path: path, Message: c.warning}}, result.Warnings)
+			} else {
+				assert.Equal(t, []lint.Issue{{Path: path, Message: c.err}}, result.Errors)
+			}
+		})
+	}
 }
