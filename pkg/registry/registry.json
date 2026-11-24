@@ -37,16 +37,32 @@
       ]
     }
   },
+  "composable": {
+    "name": "Composable image",
+    "type": "composable",
+    "runtime": true,
+    "versions": {
+      "supported": [
+        "26.05"
+      ],
+      "retired": [
+        "25.11",
+        "25.05",
+        "24.11",
+        "24.05"
+      ]
+    }
+  },
   "dotnet": {
     "name": "C#/.Net Core",
     "type": "dotnet",
     "runtime": true,
     "versions": {
       "supported": [
-        "10.0",
-        "8.0"
+        "10.0"
       ],
       "retired": [
+        "8.0",
         "7.0",
         "6.0",
         "5.0",
@@ -119,6 +135,7 @@
     "runtime": true,
     "versions": {
       "supported": [
+        "1.8.6",
         "1.8.5",
         "1.8.4",
         "1.8.3",
@@ -151,7 +168,9 @@
         "1.13",
         "1.12",
         "1.11",
-        "1.10"
+        "1.10",
+        "1.9",
+        "1.8"
       ]
     }
   },
@@ -457,10 +476,10 @@
         "18",
         "17",
         "16",
-        "15",
-        "14"
+        "15"
       ],
       "retired": [
+        "14",
         "13",
         "12",
         "11",

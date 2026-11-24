@@ -2,7 +2,6 @@ package registry_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,9 +26,9 @@ func TestVersionInfo_UnmarshalJSON(t *testing.T) {
 		},
 		{
 			name: "string_version",
-			json: fmt.Sprintf(`%q`, registry.ChannelStable),
+			json: `"26.05"`,
 			expected: registry.VersionInfo{
-				Supported: []string{registry.ChannelStable},
+				Supported: []string{"26.05"},
 			},
 		},
 		{

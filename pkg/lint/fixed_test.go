@@ -102,7 +102,7 @@ web:
 			name: "container features",
 			files: map[string]string{
 				".platform.app.yaml": `name: myapp
-type: "composable:25.11"
+type: "composable:26.05"
 container_profile: HIGH_CPU
 stack:
   runtimes: ["php@8.4"]
@@ -194,7 +194,7 @@ authorizations:
 			name: "composable image with type and stack",
 			files: map[string]string{
 				".platform.app.yaml": `name: myapp
-type: "composable:25.11"
+type: "composable:26.05"
 stack: {runtimes: ["php@8.3"]}`,
 			},
 			wantNoErr: true,
@@ -203,7 +203,7 @@ stack: {runtimes: ["php@8.3"]}`,
 			name: "composable image with an empty stack",
 			files: map[string]string{
 				".platform.app.yaml": `name: myapp
-type: "composable:25.11"
+type: "composable:26.05"
 stack: []`,
 			},
 			wantNoErr: true,
@@ -212,7 +212,7 @@ stack: []`,
 			name: "composable image with a stack list",
 			files: map[string]string{
 				".platform.app.yaml": `name: myapp
-type: "composable:25.11"
+type: "composable:26.05"
 stack: ["php@8.3"]`,
 			},
 			wantErrors: []string{"applications.myapp.stack: Array must have at most 0 items"},

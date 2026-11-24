@@ -54,3 +54,12 @@ func TestRegistry_ReplicaVersions(t *testing.T) {
 		})
 	}
 }
+
+// Composable image channels come from meta.upsun.com/composable.
+func TestRegistry_Composable(t *testing.T) {
+	reg, err := registry.Load()
+	assert.NoError(t, err)
+	assert.Contains(t, reg, "composable")
+	assert.True(t, reg["composable"].IsRuntime)
+	assert.NotEmpty(t, reg["composable"].Versions.Supported)
+}

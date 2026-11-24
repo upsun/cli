@@ -3,6 +3,7 @@ package lint
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/upsun/cli/pkg/registry"
@@ -12,7 +13,7 @@ import (
 func checkTypes(cfg *config, reg registry.Registry) *Result {
 	result := &Result{}
 
-	// check reports an error, or a warning for a retired version, at path.
+	// check reports an error, or a warning for a retired or newer version, at path.
 	check := func(path, t string, runtime bool) {
 		warning, err := checkType(t, reg, runtime)
 		if err != nil {
@@ -76,7 +77,8 @@ func checkTypes(cfg *config, reg registry.Registry) *Result {
 }
 
 // checkType validates an image type and version. It returns a warning for a
-// retired version, or an error if the type or version is not allowed.
+// retired version or an unknown one that could be newer, or an error if the
+// type or version is not allowed.
 func checkType(t string, reg registry.Registry, runtime bool) (string, error) {
 	if t == "" {
 		return "", fmt.Errorf("type cannot be empty")
@@ -114,6 +116,13 @@ func checkType(t string, reg registry.Registry, runtime bool) (string, error) {
 				return "", fmt.Errorf("version '%s' is not precise enough for type '%s'%s",
 					version, imageType, mustBeOneOf)
 			}
+			// A version newer than all known ones may have been released since the registry was generated.
+			if len(img.Versions.Supported) > 0 {
+				if newest := slices.MaxFunc(allVersions, registry.CompareVersions); isNextVersion(version, newest) {
+					return fmt.Sprintf("unknown version '%s' of type '%s' (the newest known is %s)",
+						version, imageType, newest), nil
+				}
+			}
 			return "", fmt.Errorf("version '%s' is not supported for type '%s'%s",
 				version, imageType, mustBeOneOf)
 		}
@@ -132,4 +141,49 @@ func hasMajorVersion(l []string, v string) bool {
 		}
 	}
 	return false
+}
+
+// isNextVersion reports whether v could be a version released after newest. It
+// must have as many numeric parts, and zero-padded parts as wide as newest's
+// (e.g. 26.05).
+// At the first part that differs, it must be at most one higher for the major
+// part, and at most 12 higher for others (e.g. month-numbered versions, from
+// 26.05 to 26.11). This leaves typos such as "84", "8.44" or "8.06" for "8.4"
+// as errors.
+func isNextVersion(v, newest string) bool {
+	vParts, newestParts := strings.Split(v, "."), strings.Split(newest, ".")
+	if len(vParts) != len(newestParts) {
+		return false
+	}
+	for i, p := range vParts {
+		if p == "" || strings.Trim(p, "0123456789") != "" {
+			return false
+		}
+		if n := newestParts[i]; (isZeroPadded(p) || isZeroPadded(n)) && len(p) != len(n) {
+			return false
+		}
+	}
+	for i, p := range vParts {
+		if p == newestParts[i] {
+			continue
+		}
+		vn, err := strconv.Atoi(p)
+		if err != nil {
+			return false
+		}
+		newestN, err := strconv.Atoi(newestParts[i])
+		if err != nil {
+			return false
+		}
+		maxStep := 12
+		if i == 0 {
+			maxStep = 1
+		}
+		return vn > newestN && vn-newestN <= maxStep
+	}
+	return false
+}
+
+func isZeroPadded(p string) bool {
+	return len(p) > 1 && p[0] == '0'
 }

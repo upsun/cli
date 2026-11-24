@@ -173,7 +173,7 @@ tasks:
       - type: env
         action: view
   composed:
-    type: composable:25.11
+    type: composable:26.05
     stack: {runtimes: ["python@3.14"]}
     run:
       command: python run.py
@@ -313,12 +313,12 @@ tasks:
 			content: `
 applications:
   listed:
-    type: composable:25.11
+    type: composable:26.05
     stack:
       runtimes: ["php@8.4", {"nodejs@24": {}}]
       packages: [yarn, {package: jq, channel: unstable}]
   scalar:
-    type: composable:25.11
+    type: composable:26.05
     stack:
       runtimes: php@8.4
       packages: yarn
@@ -333,13 +333,13 @@ routes:
 			content: `
 applications:
   empty_list:
-    type: composable:25.11
+    type: composable:26.05
     stack: []
   empty_map:
-    type: composable:25.11
+    type: composable:26.05
     stack: {}
   empty_runtimes:
-    type: composable:25.11
+    type: composable:26.05
     stack: {runtimes: [], packages: []}
   classic:
     type: php:8.4
@@ -380,7 +380,7 @@ routes:
 			content: `
 applications:
   app:
-    type: composable:25.11
+    type: composable:26.05
     stack: {runtimes: ["php@8.4"]}
     egress:
       runtime:
@@ -402,7 +402,7 @@ applications:
 			content: `
 applications:
   app:
-    type: composable:25.11
+    type: composable:26.05
     stack: ["php@8.4"]
 `,
 			wantErrors: `Linter errors:

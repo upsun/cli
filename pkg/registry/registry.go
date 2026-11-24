@@ -6,10 +6,8 @@ import (
 	"sync"
 )
 
-// ChannelStable is the current stable NixOS channel, used for composable images.
-const ChannelStable = "25.11"
-
-// registry.json is generated from https://meta.upsun.com/images by gen.go.
+// registry.json is generated from https://meta.upsun.com/images and
+// https://meta.upsun.com/composable by gen.go.
 //
 //go:generate go run gen.go
 //go:embed registry.json
@@ -65,14 +63,6 @@ func clean(reg Registry) {
 			Name:     "Gotenberg",
 			Type:     "gotenberg",
 			Versions: VersionInfo{Supported: []string{"8"}},
-		}
-	}
-	if _, ok := reg["composable"]; !ok {
-		reg["composable"] = Image{
-			Name:      "Composable image",
-			Type:      "composable",
-			Versions:  VersionInfo{Supported: []string{ChannelStable}},
-			IsRuntime: true,
 		}
 	}
 	if _, ok := reg["redis-persistent"]; !ok {

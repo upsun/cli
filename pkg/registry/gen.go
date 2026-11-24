@@ -1,7 +1,8 @@
 //go:build ignore
 
-// Command gen fetches the container image registry from meta.upsun.com and
-// writes registry.json in the format consumed by the registry package.
+// Command gen fetches the container image registry and the composable image
+// channels from meta.upsun.com, and writes registry.json in the format consumed
+// by the registry package.
 //
 // Run it with: go run gen.go (or `go generate ./pkg/registry`).
 package main
@@ -11,17 +12,19 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"sort"
-	"strconv"
-	"strings"
+	"slices"
 	"time"
 
 	"github.com/upsun/cli/pkg/registry"
 )
 
-const imagesURL = "https://meta.upsun.com/images"
+const (
+	imagesURL     = "https://meta.upsun.com/images"
+	composableURL = "https://meta.upsun.com/composable"
+)
 
-// metaImage is the shape of an image entry served by meta.upsun.com/images.
+// metaImage is the shape of an image entry served by meta.upsun.com/images, and
+// of the composable image served by meta.upsun.com/composable.
 type metaImage struct {
 	Name     string `json:"name"`
 	Service  bool   `json:"service"`
@@ -41,19 +44,19 @@ func main() {
 
 func run() error {
 	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Get(imagesURL)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status %s from %s", resp.Status, imagesURL)
-	}
-
 	var images map[string]metaImage
-	if err := json.NewDecoder(resp.Body).Decode(&images); err != nil {
+	if err := fetch(client, imagesURL, &images); err != nil {
 		return err
 	}
+	var composable metaImage
+	if err := fetch(client, composableURL, &composable); err != nil {
+		return err
+	}
+	if len(composable.Versions) == 0 {
+		return fmt.Errorf("no versions found at %s", composableURL)
+	}
+	composable.Name = "Composable image"
+	images["composable"] = composable
 
 	reg := make(registry.Registry, len(images))
 	for typeName, img := range images {
@@ -89,29 +92,21 @@ func run() error {
 	return os.WriteFile("registry.json", append(out, '\n'), 0o644)
 }
 
-// sortVersionsDescending sorts version strings newest-first (e.g. 8.3 before 8.1).
-func sortVersionsDescending(versions []string) {
-	sort.Slice(versions, func(i, j int) bool {
-		return compareVersions(versions[i], versions[j]) > 0
-	})
+func fetch(client *http.Client, url string, v any) error {
+	resp, err := client.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status %s from %s", resp.Status, url)
+	}
+	return json.NewDecoder(resp.Body).Decode(v)
 }
 
-// compareVersions compares dotted numeric version strings, falling back to
-// string comparison for non-numeric parts.
-func compareVersions(a, b string) int {
-	pa, pb := strings.Split(a, "."), strings.Split(b, ".")
-	for i := 0; i < len(pa) && i < len(pb); i++ {
-		na, ea := strconv.Atoi(pa[i])
-		nb, eb := strconv.Atoi(pb[i])
-		if ea == nil && eb == nil {
-			if na != nb {
-				return na - nb
-			}
-			continue
-		}
-		if c := strings.Compare(pa[i], pb[i]); c != 0 {
-			return c
-		}
-	}
-	return len(pa) - len(pb)
+// sortVersionsDescending sorts version strings newest-first (e.g. 8.3 before 8.1).
+func sortVersionsDescending(versions []string) {
+	slices.SortFunc(versions, func(a, b string) int {
+		return registry.CompareVersions(b, a)
+	})
 }
