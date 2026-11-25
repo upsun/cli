@@ -104,7 +104,7 @@ The CLI operates as a wrapper around a legacy PHP CLI:
 - Handles authentication, organizations, and resource management
 
 **Authentication**: `internal/auth/`
-- Authentication has moved from PHP to Go. Legacy auth can still be enabled with `<PREFIX>GO_AUTH=0`: the legacy PHP CLI then handles auth as before, and Go gets tokens from it (`LegacyCLIClient`). The wrapper passes `<PREFIX>GO_AUTH=1` or `0` to PHP, which defaults to legacy auth when run without it
+- Authentication has moved from PHP to Go. Legacy auth can still be enabled with `<PREFIX>GO_AUTH=0` (deprecated, with a warning): the legacy PHP CLI then handles auth as before, and Go gets tokens from it (`LegacyCLIClient`). The wrapper passes `<PREFIX>GO_AUTH=1` or `0` to PHP, which defaults to legacy auth when run without it
 - With Go auth, Go is the only component that stores or refreshes credentials. `auth.Manager` resolves tokens (in order: an API token set via config, `api.access_token`, an API token stored by `auth:api-token-login`, stored sessions) and refreshes them under a per-session flock (`<writable dir>/auth/<id>.lock`), re-reading the store under the lock because refresh tokens rotate
 - `internal/auth/store`: one entry per session ID, in the system keychain (go-keyring) or in `<writable dir>/auth/<id>.json`. On Linux the keychain is only used if the Secret Service is GNOME Keyring or KWallet, and unlocked: other providers (e.g. KeePassXC) may ask the user to confirm each process that reads a secret
 - Auth settings are read by `config.Auth()` with the legacy CLI's precedence: embedded config, the user's `config.yaml`, env vars
