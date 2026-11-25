@@ -539,7 +539,7 @@ abstract class MetricsCommandBase extends CommandBase
         foreach ($values['data'] as $point) {
             $timestamp = $point['timestamp'];
 
-            if (!isset($point['services'])) {
+            if (!isset($point['services']) || !is_array($point['services'])) {
                 continue;
             }
 
