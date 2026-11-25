@@ -9,8 +9,8 @@ require (
 	github.com/Microsoft/go-winio v0.6.4
 	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/briandowns/spinner v1.23.2
-	github.com/charmbracelet/x/ansi v0.11.9
-	github.com/dlclark/regexp2/v2 v2.13.0
+	github.com/charmbracelet/x/ansi v0.11.10
+	github.com/dlclark/regexp2/v2 v2.13.2
 	github.com/fatih/color v1.19.0
 	github.com/getkin/kin-openapi v0.153.0
 	github.com/go-chi/chi/v5 v5.5.0
